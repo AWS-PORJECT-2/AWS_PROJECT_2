@@ -1,0 +1,30 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: 국민대학교 공동구매·중고거래 플랫폼 백엔드
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: nodejs20.x
+    MemorySize: 128
+    Environment:
+      Variables:
+        DYNAMODB_TABLE_PREFIX: !Ref TablePrefix
+        S3_BUCKET: !Ref ImageBucket
+
+Parameters:
+  TablePrefix:
+    Type: String
+    Default: kookmin-market
+
+Resources:
+  # TODO: API Gateway, Lambda, DynamoDB, S3 리소스 추가
+  ImageBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub '${TablePrefix}-images'
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
