@@ -35,6 +35,15 @@ const fundingData = [
     logo: "KMU",
     progress: 30,
   },
+  {
+    title: "소프트웨어학부 맨투맨",
+    price: "28,000원",
+    image: "https://picsum.photos/seed/sweat1/300/300",
+    badge: "모집중",
+    badgeType: "open",
+    logo: "SW",
+    progress: 15,
+  },
 ];
 
 function renderFundingCards() {
