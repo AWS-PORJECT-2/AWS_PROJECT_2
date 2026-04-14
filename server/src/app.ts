@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import cookieParser from 'cookie-parser';
 import type { AllowedDomain } from './types/allowed-domain';
 import { EmailValidatorImpl } from './services/email-validator';
 import { GoogleOAuthClientImpl } from './services/google-oauth-client';
@@ -27,11 +28,12 @@ export function createApp(
 ) {
   const app = express();
   app.use(express.json());
+  app.use(cookieParser());
   const emailValidator = new EmailValidatorImpl(allowedDomains);
   const oauthClient = new GoogleOAuthClientImpl(googleClientId, googleClientSecret, redirectUri);
   const tokenService = new TokenServiceImpl();
   const authService = new AuthServiceImpl(emailValidator, oauthClient, tokenService);
-  app.use('/api/auth', createAuthRouter(authService));
+  app.use('/api/auth', createAuthRouter(authService, tokenService));
   app.use(errorHandler);
   return app;
 }

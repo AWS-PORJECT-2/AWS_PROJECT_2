@@ -8,9 +8,7 @@ export default function App() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const accessToken = params.get('accessToken');
-    const email = params.get('email');
-    const name = params.get('name');
+    const loginSuccess = params.get('login');
     const errorParam = params.get('error');
 
     if (errorParam) {
@@ -22,11 +20,23 @@ export default function App() {
       };
       setError(messages[errorParam] || '로그인에 실패했습니다');
       window.history.replaceState({}, '', window.location.pathname);
-    } else if (accessToken && email && name) {
-      setUser({ email, name });
+    } else if (loginSuccess === 'success') {
       window.history.replaceState({}, '', window.location.pathname);
+      fetchUser();
+    } else {
+      fetchUser();
     }
   }, []);
+
+  const fetchUser = async () => {
+    try {
+      const res = await fetch('/api/auth/me', { credentials: 'include' });
+      if (res.ok) {
+        const data = await res.json();
+        setUser({ email: data.email, name: data.email.split('@')[0] });
+      }
+    } catch { /* 미로그인 상태 */ }
+  };
 
   const handleLogin = async () => {
     setLoading(true); setError('');
