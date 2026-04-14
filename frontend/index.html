@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>국민대학교 공동구매·중고거래</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 사이드바 (데스크톱) -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🎓</span>
+      <span class="logo-text">국민대학교</span>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="#" class="sidebar-item active" data-page="home">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h1v7c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-7h1a1 1 0 00.7-1.7l-9-9a1 1 0 00-1.4 0l-9 9A1 1 0 003 13z"/></svg>
+        <span>홈</span>
+      </a>
+      <a href="#" class="sidebar-item" data-page="group-buy">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>공동구매</span>
+      </a>
+      <a href="#" class="sidebar-item" data-page="trade">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+        <span>중고거래</span>
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="#" class="sidebar-item" data-page="mypage">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>마이페이지</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- 메인 콘텐츠 -->
+  <main class="main-content">
+    <!-- 데스크톱 상단바 -->
+    <header class="desktop-topbar desktop-only">
+      <div class="topbar-search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" placeholder="검색..." class="search-input" id="searchInput">
+      </div>
+      <div class="topbar-right">
+        <span id="userInfo" class="user-info"></span>
+        <button class="btn-sm" id="authBtn" onclick="showAuthModal()">로그인</button>
+      </div>
+    </header>
+
+    <!-- 모바일 헤더 -->
+    <header class="header mobile-only">
+      <div class="header-left">
+        <span class="school-name">국민대학교</span>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" aria-label="검색" onclick="document.getElementById('searchInput').focus()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        </button>
+        <button class="icon-btn" id="authBtnMobile" aria-label="로그인" onclick="showAuthModal()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- 페이지 컨테이너 -->
+    <div id="pageContainer"></div>
+  </main>
+
+  <!-- 모바일 하단 네비게이션 -->
+  <nav class="bottom-nav mobile-only">
+    <a href="#" class="nav-item active" data-page="home">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h1v7c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-7h1a1 1 0 00.7-1.7l-9-9a1 1 0 00-1.4 0l-9 9A1 1 0 003 13z"/></svg>
+      <span>홈</span>
+    </a>
+    <a href="#" class="nav-item" data-page="group-buy">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+      <span>공동구매</span>
+    </a>
+    <a href="#" class="nav-item" data-page="trade">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+      <span>중고거래</span>
+    </a>
+    <a href="#" class="nav-item" data-page="mypage">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span>마이</span>
+    </a>
+  </nav>
+
+  <!-- 인증 모달 -->
+  <div class="modal-overlay" id="authModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="authModalTitle">로그인</h3>
+        <button class="modal-close" onclick="closeModal('authModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="loginForm">
+          <input type="email" id="loginEmail" placeholder="학교 메일 (@kookmin.ac.kr)" class="input">
+          <input type="password" id="loginPassword" placeholder="비밀번호" class="input">
+          <button class="btn-primary" onclick="doLogin()">로그인</button>
+          <p class="form-link">계정이 없으신가요? <a href="#" onclick="toggleAuthForm()">회원가입</a></p>
+        </div>
+        <div id="registerForm" style="display:none">
+          <input type="email" id="regEmail" placeholder="학교 메일 (@kookmin.ac.kr)" class="input">
+          <input type="text" id="regName" placeholder="이름" class="input">
+          <input type="text" id="regStudentId" placeholder="학번" class="input">
+          <input type="password" id="regPassword" placeholder="비밀번호" class="input">
+          <button class="btn-primary" onclick="doRegister()">회원가입</button>
+          <p class="form-link">이미 계정이 있으신가요? <a href="#" onclick="toggleAuthForm()">로그인</a></p>
+        </div>
+        <p id="authError" class="error-text"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 공동구매 작성 모달 -->
+  <div class="modal-overlay" id="createGBModal" style="display:none">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3>공동구매 개설</h3>
+        <button class="modal-close" onclick="closeModal('createGBModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="ai-section">
+          <p class="ai-label">🤖 AI 자동 생성</p>
+          <div class="ai-row">
+            <input type="text" id="aiProduct" placeholder="상품명 (예: 과잠)" class="input">
+            <input type="text" id="aiKeywords" placeholder="키워드 (선택)" class="input">
+            <button class="btn-ai" onclick="generateAI()">AI 생성</button>
+          </div>
+        </div>
+        <input type="text" id="gbTitle" placeholder="제목 *" class="input">
+        <textarea id="gbDesc" placeholder="설명 *" class="input textarea" rows="4"></textarea>
+        <div class="form-row">
+          <input type="number" id="gbPrice" placeholder="가격 (원) *" class="input">
+          <input type="number" id="gbMinPeople" placeholder="최소 인원 *" class="input">
+        </div>
+        <input type="date" id="gbDeadline" class="input">
+        <button class="btn-primary" onclick="createGroupBuy()">등록하기</button>
+        <p id="gbError" class="error-text"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 중고거래 작성 모달 -->
+  <div class="modal-overlay" id="createTradeModal" style="display:none">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>중고거래 등록</h3>
+        <button class="modal-close" onclick="closeModal('createTradeModal')">&times;</button>
+      </div>
+      <div class="modal-body">
+        <input type="text" id="trTitle" placeholder="제목 *" class="input">
+        <textarea id="trDesc" placeholder="설명 *" class="input textarea" rows="3"></textarea>
+        <input type="number" id="trPrice" placeholder="가격 (원) *" class="input">
+        <select id="trCategory" class="input">
+          <option value="">카테고리 선택 *</option>
+          <option value="교재">교재</option>
+          <option value="전자기기">전자기기</option>
+          <option value="의류">의류</option>
+          <option value="생활용품">생활용품</option>
+          <option value="기타">기타</option>
+        </select>
+        <input type="text" id="trLocation" placeholder="거래 희망 장소" class="input">
+        <button class="btn-primary" onclick="createTrade()">등록하기</button>
+        <p id="trError" class="error-text"></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 상세보기 모달 -->
+  <div class="modal-overlay" id="detailModal" style="display:none">
+    <div class="modal modal-lg">
+      <div class="modal-header">
+        <h3 id="detailTitle"></h3>
+        <button class="modal-close" onclick="closeModal('detailModal')">&times;</button>
+      </div>
+      <div class="modal-body" id="detailBody"></div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
