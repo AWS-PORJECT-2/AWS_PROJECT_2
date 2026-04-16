@@ -1,10 +1,10 @@
 import { Router } from 'express';
-import type { AuthService } from '../interfaces/auth-service';
-import type { TokenService } from '../interfaces/token-service';
-import { createLoginHandler } from './login';
-import { createCallbackHandler } from './callback';
-import { createRefreshHandler } from './refresh';
-import { createMeHandler } from './me';
+import type { AuthService } from '../interfaces/auth-service.js';
+import type { TokenService } from '../interfaces/token-service.js';
+import { createLoginHandler } from './login.js';
+import { createCallbackHandler } from './callback.js';
+import { createRefreshHandler } from './refresh.js';
+import { createMeHandler } from './me.js';
 
 export function createAuthRouter(authService: AuthService, tokenService: TokenService): Router {
   const router = Router();

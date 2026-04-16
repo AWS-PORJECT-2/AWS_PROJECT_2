@@ -1,4 +1,4 @@
-import type { User, TokenPayload } from '../types';
+import type { User, TokenPayload } from '../types/index.js';
 export interface TokenService {
   generateAccessToken(user: User): string;
   generateRefreshToken(user: User, rememberMe: boolean): string;

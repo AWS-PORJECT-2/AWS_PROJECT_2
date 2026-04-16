@@ -1,4 +1,4 @@
-import type { RefreshToken } from '../types';
+import type { RefreshToken } from '../types/index.js';
 export interface RefreshTokenRepository { save(token: RefreshToken): Promise<void>; findByTokenHash(hash: string): Promise<RefreshToken | null>; deleteByUserId(userId: string): Promise<void>; }
 export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
   private readonly tokens = new Map<string, RefreshToken>();

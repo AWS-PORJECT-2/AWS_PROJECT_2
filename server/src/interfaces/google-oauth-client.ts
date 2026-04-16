@@ -1,4 +1,4 @@
-import type { OAuthTokenResponse, UserInfo } from '../types';
+import type { OAuthTokenResponse, UserInfo } from '../types/index.js';
 export interface GoogleOAuthClient {
   buildAuthorizationUrl(state: string): string;
   exchangeCodeForToken(code: string): Promise<OAuthTokenResponse>;

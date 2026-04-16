@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
-import type { TokenService } from '../interfaces/token-service';
-import type { User, TokenPayload } from '../types';
+import type { TokenService } from '../interfaces/token-service.js';
+import type { User, TokenPayload } from '../types/index.js';
 
 export class TokenServiceImpl implements TokenService {
   private readonly accessTokenSecret: string;

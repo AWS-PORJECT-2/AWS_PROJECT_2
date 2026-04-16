@@ -1,8 +1,8 @@
-export type { User } from './user';
-export type { OAuthState } from './oauth-state';
-export type { RefreshToken } from './refresh-token';
-export type { AllowedDomain } from './allowed-domain';
-export type { TokenPayload } from './token-payload';
-export type { AuthResult } from './auth-result';
-export type { OAuthTokenResponse } from './oauth-token-response';
-export type { UserInfo } from './user-info';
+export type { User } from './user.js';
+export type { OAuthState } from './oauth-state.js';
+export type { RefreshToken } from './refresh-token.js';
+export type { AllowedDomain } from './allowed-domain.js';
+export type { TokenPayload } from './token-payload.js';
+export type { AuthResult } from './auth-result.js';
+export type { OAuthTokenResponse } from './oauth-token-response.js';
+export type { UserInfo } from './user-info.js';
