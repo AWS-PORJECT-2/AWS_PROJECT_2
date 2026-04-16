@@ -15,9 +15,10 @@ export class EmailValidatorImpl implements EmailValidator {
     if (!email || typeof email !== 'string') throw new AppError('INVALID_EMAIL_FORMAT');
     const trimmed = email.trim();
     if (!trimmed) throw new AppError('INVALID_EMAIL_FORMAT');
-    const atIndex = trimmed.lastIndexOf('@');
-    if (atIndex === -1 || atIndex === 0 || atIndex === trimmed.length - 1) throw new AppError('INVALID_EMAIL_FORMAT');
-    const domain = trimmed.slice(atIndex + 1);
+    const parts = trimmed.split('@');
+    if (parts.length !== 2) throw new AppError('INVALID_EMAIL_FORMAT');
+    const [local, domain] = parts;
+    if (!local || local.includes(' ')) throw new AppError('INVALID_EMAIL_FORMAT');
     if (!domain || domain.includes(' ')) throw new AppError('INVALID_EMAIL_FORMAT');
     return domain.toLowerCase();
   }
