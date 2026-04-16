@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { createHash } from 'crypto';
 import type { TokenService } from '../interfaces/token-service.js';
-import type { User, TokenPayload } from '../types/index.js';
+import type { User, TokenPayload, TokenVerifyResult } from '../types/index.js';
 
 export class TokenServiceImpl implements TokenService {
   private readonly accessTokenSecret: string;
@@ -18,6 +18,11 @@ export class TokenServiceImpl implements TokenService {
   generateRefreshToken(user: User, rememberMe: boolean): string { return jwt.sign({ userId: user.id, email: user.email }, this.refreshTokenSecret, { expiresIn: rememberMe ? '30d' : '24h' }); }
   verifyAccessToken(token: string): TokenPayload | null { return this.verifyToken(token, this.accessTokenSecret); }
   verifyRefreshToken(token: string): TokenPayload | null { return this.verifyToken(token, this.refreshTokenSecret); }
+
+  verifyAccessTokenDetailed(token: string): TokenVerifyResult {
+    return this.verifyTokenDetailed(token, this.accessTokenSecret);
+  }
+
   static hashToken(token: string): string { return createHash('sha256').update(token).digest('hex'); }
 
   private verifyToken(token: string, secret: string): TokenPayload | null {
@@ -30,5 +35,20 @@ export class TokenServiceImpl implements TokenService {
       }
       return { userId, email, iat, exp };
     } catch { return null; }
+  }
+
+  private verifyTokenDetailed(token: string, secret: string): TokenVerifyResult {
+    try {
+      const decoded = jwt.verify(token, secret);
+      if (typeof decoded === 'string') return { valid: false, reason: 'invalid' };
+      const { userId, email, iat, exp } = decoded;
+      if (typeof userId !== 'string' || typeof email !== 'string' || typeof iat !== 'number' || typeof exp !== 'number') {
+        return { valid: false, reason: 'invalid' };
+      }
+      return { valid: true, payload: { userId, email, iat, exp } };
+    } catch (err) {
+      if (err instanceof jwt.TokenExpiredError) return { valid: false, reason: 'expired' };
+      return { valid: false, reason: 'invalid' };
+    }
   }
 }
