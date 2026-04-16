@@ -36,8 +36,17 @@ export class AuthServiceImpl implements AuthService {
     if (new Date() > oauthState.expiresAt) throw new AppError('INVALID_STATE');
 
     const tokenResponse = await this.oauthClient.exchangeCodeForToken(code);
-    const userInfo = await this.oauthClient.getUserInfo(tokenResponse.access_token);
+
+    let userInfo = tokenResponse.id_token
+      ? this.oauthClient.extractUserInfoFromIdToken(tokenResponse.id_token)
+      : null;
+    if (!userInfo) {
+      userInfo = await this.oauthClient.getUserInfo(tokenResponse.access_token);
+    }
+
+    if (userInfo.email_verified === false) throw new AppError('AUTH_FAILED');
     if (!this.emailValidator.isAllowedDomain(userInfo.email)) throw new AppError('INVALID_EMAIL_DOMAIN');
+    if (userInfo.hd && !this.emailValidator.isAllowedDomain(`user@${userInfo.hd}`)) throw new AppError('INVALID_EMAIL_DOMAIN');
 
     const user = this.findOrCreateUser(userInfo.email, userInfo.name, userInfo.picture);
     const accessToken = this.tokenService.generateAccessToken(user);

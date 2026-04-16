@@ -45,4 +45,20 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
     if (!response.ok) throw this.classifyHttpError(response.status);
     return (await response.json()) as UserInfo;
   }
+
+  extractUserInfoFromIdToken(idToken: string): UserInfo | null {
+    try {
+      const parts = idToken.split('.');
+      if (parts.length !== 3) return null;
+      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
+      if (typeof payload.email !== 'string' || typeof payload.name !== 'string') return null;
+      return {
+        email: payload.email,
+        name: payload.name,
+        picture: payload.picture,
+        hd: payload.hd,
+        email_verified: payload.email_verified,
+      };
+    } catch { return null; }
+  }
 }
