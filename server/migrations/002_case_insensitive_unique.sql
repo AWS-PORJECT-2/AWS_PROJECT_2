@@ -5,6 +5,21 @@
 -- Solution: Replace plain UNIQUE constraints with functional unique indexes
 -- using LOWER(), and normalize existing data to lowercase.
 
+-- Step 0: Pre-check for case-variant duplicates that would break normalization
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT LOWER(email), COUNT(*) FROM "user" GROUP BY LOWER(email) HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate case-variant emails found in user table. Resolve manually before running this migration.';
+  END IF;
+  IF EXISTS (
+    SELECT LOWER(domain), COUNT(*) FROM allowed_domain GROUP BY LOWER(domain) HAVING COUNT(*) > 1
+  ) THEN
+    RAISE EXCEPTION 'Duplicate case-variant domains found in allowed_domain table. Resolve manually before running this migration.';
+  END IF;
+END $$;
+
 -- Step 1: Normalize existing data to lowercase
 UPDATE "user" SET email = LOWER(email), school_domain = LOWER(school_domain);
 UPDATE allowed_domain SET domain = LOWER(domain);
