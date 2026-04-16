@@ -21,6 +21,11 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
     return url.toString();
   }
 
+  private classifyHttpError(status: number): AppError {
+    if (status === 429 || status >= 500) return new AppError('GOOGLE_UNAVAILABLE');
+    return new AppError('AUTH_FAILED');
+  }
+
   async exchangeCodeForToken(code: string): Promise<OAuthTokenResponse> {
     let response: Response;
     try {
@@ -29,7 +34,7 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
         body: new URLSearchParams({ code, client_id: this.clientId, client_secret: this.clientSecret, redirect_uri: this.redirectUri, grant_type: 'authorization_code' }).toString(),
       });
     } catch { throw new AppError('GOOGLE_UNAVAILABLE'); }
-    if (!response.ok) throw new AppError('AUTH_FAILED');
+    if (!response.ok) throw this.classifyHttpError(response.status);
     return (await response.json()) as OAuthTokenResponse;
   }
 
@@ -37,7 +42,7 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
     let response: Response;
     try { response = await fetch(GOOGLE_USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } }); }
     catch { throw new AppError('GOOGLE_UNAVAILABLE'); }
-    if (!response.ok) throw new AppError('AUTH_FAILED');
+    if (!response.ok) throw this.classifyHttpError(response.status);
     return (await response.json()) as UserInfo;
   }
 }
