@@ -1,6 +1,6 @@
 import type { Request, Response } from 'express';
-import type { AuthService } from '../interfaces/auth-service';
-import { AppError } from '../errors/app-error';
+import type { AuthService } from '../interfaces/auth-service.js';
+import { AppError } from '../errors/app-error.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';

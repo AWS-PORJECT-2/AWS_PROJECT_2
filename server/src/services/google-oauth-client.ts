@@ -1,6 +1,6 @@
-import type { GoogleOAuthClient } from '../interfaces/google-oauth-client';
-import type { OAuthTokenResponse, UserInfo } from '../types';
-import { AppError } from '../errors/app-error';
+import type { GoogleOAuthClient } from '../interfaces/google-oauth-client.js';
+import type { OAuthTokenResponse, UserInfo } from '../types/index.js';
+import { AppError } from '../errors/app-error.js';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';

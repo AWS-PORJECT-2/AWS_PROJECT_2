@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { TokenService } from '../interfaces/token-service';
+import type { TokenService } from '../interfaces/token-service.js';
 
 export function createMeHandler(tokenService: TokenService) {
   return (req: Request, res: Response): void => {

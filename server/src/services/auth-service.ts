@@ -1,11 +1,11 @@
 import { randomUUID } from 'crypto';
-import type { AuthService } from '../interfaces/auth-service';
-import type { EmailValidator } from '../interfaces/email-validator';
-import type { GoogleOAuthClient } from '../interfaces/google-oauth-client';
-import type { TokenService } from '../interfaces/token-service';
-import type { AuthResult, OAuthState, User, RefreshToken } from '../types';
-import { AppError } from '../errors/app-error';
-import { TokenServiceImpl } from './token-service';
+import type { AuthService } from '../interfaces/auth-service.js';
+import type { EmailValidator } from '../interfaces/email-validator.js';
+import type { GoogleOAuthClient } from '../interfaces/google-oauth-client.js';
+import type { TokenService } from '../interfaces/token-service.js';
+import type { AuthResult, OAuthState, User, RefreshToken } from '../types/index.js';
+import { AppError } from '../errors/app-error.js';
+import { TokenServiceImpl } from './token-service.js';
 
 const OAUTH_STATE_TTL_MS = 5 * 60 * 1000;
 

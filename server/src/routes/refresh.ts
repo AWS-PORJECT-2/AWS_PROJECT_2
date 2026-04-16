@@ -1,6 +1,6 @@
-import type { AuthService } from '../interfaces/auth-service';
-import { AppError } from '../errors/app-error';
-import { createErrorResponse } from '../errors/error-response';
+import type { AuthService } from '../interfaces/auth-service.js';
+import { AppError } from '../errors/app-error.js';
+import { createErrorResponse } from '../errors/error-response.js';
 
 export function createRefreshHandler(authService: AuthService) {
   return async (req: { body: Record<string, unknown> }, res: { status: (code: number) => { json: (body: unknown) => void }; json: (body: unknown) => void }): Promise<void> => {

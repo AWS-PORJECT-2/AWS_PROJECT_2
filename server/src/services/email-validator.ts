@@ -1,6 +1,6 @@
-import type { EmailValidator } from '../interfaces/email-validator';
-import type { AllowedDomain } from '../types/allowed-domain';
-import { AppError } from '../errors/app-error';
+import type { EmailValidator } from '../interfaces/email-validator.js';
+import type { AllowedDomain } from '../types/allowed-domain.js';
+import { AppError } from '../errors/app-error.js';
 
 export class EmailValidatorImpl implements EmailValidator {
   private readonly allowedDomains: ReadonlyArray<AllowedDomain>;

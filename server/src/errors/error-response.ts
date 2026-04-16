@@ -1,5 +1,5 @@
-import { AppError } from './app-error';
-import { ErrorCodes, type ErrorCode } from './error-codes';
+import { AppError } from './app-error.js';
+import { ErrorCodes, type ErrorCode } from './error-codes.js';
 export interface ErrorResponse { error: string; message: string; }
 export function createErrorResponse(error: AppError): ErrorResponse {
   return { error: error.code, message: error.message };

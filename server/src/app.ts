@@ -1,13 +1,13 @@
 import 'dotenv/config';
 import express from 'express';
 import cookieParser from 'cookie-parser';
-import type { AllowedDomain } from './types/allowed-domain';
-import { EmailValidatorImpl } from './services/email-validator';
-import { GoogleOAuthClientImpl } from './services/google-oauth-client';
-import { TokenServiceImpl } from './services/token-service';
-import { AuthServiceImpl } from './services/auth-service';
-import { createAuthRouter } from './routes/index';
-import { errorHandler } from './middleware/error-handler';
+import type { AllowedDomain } from './types/allowed-domain.js';
+import { EmailValidatorImpl } from './services/email-validator.js';
+import { GoogleOAuthClientImpl } from './services/google-oauth-client.js';
+import { TokenServiceImpl } from './services/token-service.js';
+import { AuthServiceImpl } from './services/auth-service.js';
+import { createAuthRouter } from './routes/index.js';
+import { errorHandler } from './middleware/error-handler.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
