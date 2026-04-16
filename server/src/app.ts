@@ -9,8 +9,7 @@ import { AuthServiceImpl } from './services/auth-service';
 import { createAuthRouter } from './routes/index';
 import { errorHandler } from './middleware/error-handler';
 
-const sampleAllowedDomains: AllowedDomain[] = [
-  { id: '550e8400-e29b-41d4-a716-446655440000', domain: 'school.ac.kr', schoolName: '샘플대학교', isActive: true },
+const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
 ];
 
@@ -21,7 +20,7 @@ function requireEnv(name: string): string {
 }
 
 export function createApp(
-  allowedDomains: AllowedDomain[] = sampleAllowedDomains,
+  allowedDomains: AllowedDomain[] = defaultAllowedDomains,
   googleClientId: string = requireEnv('GOOGLE_CLIENT_ID'),
   googleClientSecret: string = requireEnv('GOOGLE_CLIENT_SECRET'),
   redirectUri: string = process.env.OAUTH_REDIRECT_URI ?? 'http://localhost:3000/api/auth/callback',
