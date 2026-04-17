@@ -1,0 +1,10 @@
+language: "ko-KR"
+reviews:
+  profile: "chill"
+  high_level_summary: true
+  poem: false
+  review_status: true
+  auto_review:
+    enabled: true
+chat:
+  auto_reply: true
