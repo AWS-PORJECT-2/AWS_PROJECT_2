@@ -38,7 +38,7 @@ export class AuthServiceImpl implements AuthService {
     const tokenResponse = await this.oauthClient.exchangeCodeForToken(code);
 
     let userInfo = tokenResponse.id_token
-      ? this.oauthClient.extractUserInfoFromIdToken(tokenResponse.id_token)
+      ? await this.oauthClient.extractUserInfoFromIdToken(tokenResponse.id_token)
       : null;
     if (!userInfo) {
       userInfo = await this.oauthClient.getUserInfo(tokenResponse.access_token);
@@ -54,14 +54,19 @@ export class AuthServiceImpl implements AuthService {
     const tokenHash = TokenServiceImpl.hashToken(refreshToken);
     const now = new Date();
     this.refreshTokens.set(tokenHash, { id: randomUUID(), userId: user.id, token: tokenHash, rememberMe, expiresAt: new Date(now.getTime() + (rememberMe ? 30*24*60*60*1000 : 24*60*60*1000)), createdAt: now });
-    return { accessToken, refreshToken, user: { id: user.id, email: user.email, name: user.name } };
+    return { accessToken, refreshToken, rememberMe, user: { id: user.id, email: user.email, name: user.name } };
   }
 
   async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
     const payload = this.tokenService.verifyRefreshToken(refreshToken);
     if (!payload) throw new AppError('INVALID_REFRESH_TOKEN');
     const tokenHash = TokenServiceImpl.hashToken(refreshToken);
-    if (!this.refreshTokens.get(tokenHash)) throw new AppError('INVALID_REFRESH_TOKEN');
+    const storedToken = this.refreshTokens.get(tokenHash);
+    if (!storedToken) throw new AppError('INVALID_REFRESH_TOKEN');
+    if (new Date() > storedToken.expiresAt) {
+      this.refreshTokens.delete(tokenHash);
+      throw new AppError('INVALID_REFRESH_TOKEN');
+    }
     const user = this.findUserById(payload.userId);
     if (!user) throw new AppError('INVALID_REFRESH_TOKEN');
     return { accessToken: this.tokenService.generateAccessToken(user) };
