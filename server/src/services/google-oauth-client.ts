@@ -5,7 +5,7 @@ import { AppError } from '../errors/app-error.js';
 
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
+const GOOGLE_USERINFO_URL = 'https://openidconnect.googleapis.com/v1/userinfo';
 
 export class GoogleOAuthClientImpl implements GoogleOAuthClient {
   private readonly oauth2Client: OAuth2Client;
@@ -48,7 +48,14 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
     try { response = await fetch(GOOGLE_USERINFO_URL, { headers: { Authorization: `Bearer ${accessToken}` } }); }
     catch { throw new AppError('GOOGLE_UNAVAILABLE'); }
     if (!response.ok) throw this.classifyHttpError(response.status);
-    return (await response.json()) as UserInfo;
+    const data = await response.json() as Record<string, unknown>;
+    return {
+      email: data.email as string,
+      name: data.name as string,
+      picture: data.picture as string | undefined,
+      hd: data.hd as string | undefined,
+      email_verified: data.email_verified as boolean | undefined,
+    };
   }
 
   async extractUserInfoFromIdToken(idToken: string): Promise<UserInfo | null> {
