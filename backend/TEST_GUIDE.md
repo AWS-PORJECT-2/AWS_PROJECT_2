@@ -14,7 +14,7 @@ python backend/test_api.py -v
 
 ## 테스트 구성
 
-### 공구 피드 목록 조회 API 테스트 (13개)
+### 공구 피드 목록 조회 API 테스트 (18개)
 
 #### 기본 기능
 - `test_get_group_buys_default`: 기본 요청 검증
@@ -46,7 +46,7 @@ python backend/test_api.py -v
 - `test_get_group_buys_empty_result`: 빈 결과 반환 검증
 - `test_get_group_buys_pagination_info`: 페이지네이션 정보 검증
 
-### 굿즈 상세 조회 API 테스트 (10개)
+### 굿즈 상세 조회 API 테스트 (7개)
 
 #### 기본 기능
 - `test_get_group_buy_detail_success`: 상세 조회 성공 검증
@@ -69,7 +69,7 @@ python backend/test_api.py -v
 
 ### 성공 (OK)
 ```
-Ran 23 tests in 0.004s
+Ran 38 tests in 0.006s
 
 OK
 ```
@@ -198,7 +198,7 @@ jobs:
 - 정렬 로직이 올바르게 구현되었는지 확인
 
 
-### 공구 참여 예약 API 테스트 (11개)
+### 공구 참여 예약 API 테스트 (13개)
 
 #### 기본 기능
 - `test_create_reservation_success`: 예약 생성 성공 검증
@@ -227,10 +227,10 @@ jobs:
 
 | 항목 | 수치 |
 |------|------|
-| 총 테스트 | 34개 |
-| 피드 API | 13개 |
-| 상세 API | 10개 |
-| 예약 API | 11개 |
+| 총 테스트 | 38개 |
+| 피드 API | 18개 |
+| 상세 API | 7개 |
+| 예약 API | 13개 |
 | 통과율 | 100% |
 
 ## 예약 API 테스트 상세
@@ -307,15 +307,15 @@ def test_create_reservation_with_options(self):
 ## 테스트 실행 결과 예시
 
 ```
-Ran 34 tests in 0.005s
+Ran 38 tests in 0.006s
 
 OK
 ```
 
 ### 테스트 분류별 결과
-- ✅ 공구 피드 목록 조회: 13개 통과
-- ✅ 굿즈 상세 조회: 10개 통과
-- ✅ 공구 참여 예약: 11개 통과
+- ✅ 공구 피드 목록 조회: 18개 통과
+- ✅ 굿즈 상세 조회: 7개 통과
+- ✅ 공구 참여 예약: 13개 통과
 
 ## 주요 테스트 시나리오
 

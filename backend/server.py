@@ -8,6 +8,7 @@ import urllib.parse
 import uuid
 import time
 import os
+import hashlib
 
 # ===== 인메모리 데이터 저장소 =====
 DATA = {
@@ -26,7 +27,7 @@ def init_sample_data():
         "email": "sample@kookmin.ac.kr",
         "name": "홍길동",
         "studentId": "20210001",
-        "password": "1234",
+        "password": hashlib.sha256("1234".encode()).hexdigest(),
         "verified": True,
     }
     DATA["users"]["sample@kookmin.ac.kr"] = sample_user
@@ -230,9 +231,6 @@ def handle_api(method, path, body, query):
         gid = path.split("/")[3]
         token = query.get("token", [""])[0]
         return create_reservation(gid, token, body)
-    if path.startswith("/api/group-buys/") and path.endswith("/join") and method == "POST":
-        gid = path.split("/")[3]
-        return join_group_buy(gid, body)
     if path.startswith("/api/group-buys/") and method == "GET":
         gid = path.split("/")[3]
         return get_group_buy_detail(gid)
@@ -262,11 +260,13 @@ def register(body):
         return 400, {"error": "국민대학교 메일(@kookmin.ac.kr)만 사용 가능합니다"}
     if email in DATA["users"]:
         return 400, {"error": "이미 가입된 이메일입니다"}
+    password = body.get("password", "")
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
     DATA["users"][email] = {
         "email": email,
         "name": body.get("name", ""),
         "studentId": body.get("studentId", ""),
-        "password": body.get("password", ""),
+        "password": hashed_password,
         "verified": True,
     }
     return 200, {"message": "회원가입 완료", "email": email}
@@ -275,8 +275,9 @@ def register(body):
 def login(body):
     email = body.get("email", "")
     password = body.get("password", "")
+    hashed_password = hashlib.sha256(password.encode()).hexdigest()
     user = DATA["users"].get(email)
-    if not user or user["password"] != password:
+    if not user or user["password"] != hashed_password:
         return 401, {"error": "이메일 또는 비밀번호가 올바르지 않습니다"}
     token = str(uuid.uuid4())
     DATA["sessions"][token] = email
@@ -297,9 +298,15 @@ def get_group_buys(query):
     - sort: 정렬 기준 (기본값: latest, 옵션: latest, popular)
     - keyword: 검색 키워드
     """
-    # 쿼리 파라미터 파싱
-    page = int(query.get("page", ["1"])[0])
-    size = int(query.get("size", ["10"])[0])
+    # 쿼리 파라미터 파싱 (안전한 변환)
+    try:
+        page = int(query.get("page", ["1"])[0])
+    except (ValueError, TypeError):
+        return 400, {"error": "page 파라미터는 숫자여야 합니다"}
+    try:
+        size = int(query.get("size", ["10"])[0])
+    except (ValueError, TypeError):
+        return 400, {"error": "size 파라미터는 숫자여야 합니다"}
     sort = query.get("sort", ["latest"])[0]
     keyword = query.get("keyword", [""])[0]
     
@@ -466,20 +473,6 @@ def create_group_buy(body):
     return 201, item
 
 
-def join_group_buy(gid, body):
-    for item in DATA["group_buys"]:
-        if item["id"] == gid:
-            participant = {
-                "name": body.get("name", "참여자"),
-                "studentId": body.get("studentId", ""),
-                "options": body.get("options", {}),
-                "quantity": body.get("quantity", 1),
-            }
-            item["participants"].append(participant)
-            item["currentPeople"] = len(item["participants"])
-            return 200, {"message": "참여 완료", "currentPeople": item["currentPeople"]}
-    return 404, {"error": "게시글을 찾을 수 없습니다"}
-
 
 def create_reservation(gid, token, body):
     """
@@ -522,21 +515,30 @@ def create_reservation(gid, token, body):
         if reservation["projectId"] == gid and reservation["userEmail"] == user_email:
             return 400, {"error": "이미 이 상품에 참여했습니다"}
     
-    # 4. 달성률 계산 (현재 상태)
+    # 4. 수량 유효성 검사
+    quantity = body.get("quantity", 1)
+    try:
+        quantity = int(quantity)
+    except (ValueError, TypeError):
+        return 400, {"error": "수량은 숫자여야 합니다"}
+    if quantity < 1:
+        return 400, {"error": "수량은 1 이상이어야 합니다"}
+    
+    # 5. 달성률 계산 (현재 상태)
     current_achievement_rate = 0
     if project["minPeople"] > 0:
         current_achievement_rate = int((project["currentPeople"] / project["minPeople"]) * 100)
     
-    # 5. 예약 상태 결정 (달성률 100% 기준)
+    # 6. 예약 상태 결정 (달성률 100% 기준)
     reservation_status = "CANCELLABLE" if current_achievement_rate < 100 else "NON_CANCELLABLE"
     
-    # 6. 예약 생성
+    # 7. 예약 생성
     reservation = {
         "id": str(uuid.uuid4()),
         "projectId": gid,
         "userEmail": user_email,
         "options": body.get("options", {}),
-        "quantity": body.get("quantity", 1),
+        "quantity": quantity,
         "status": reservation_status,
         "achievementRateAtReservation": current_achievement_rate,
         "createdAt": int(time.time() * 1000),
@@ -544,10 +546,10 @@ def create_reservation(gid, token, body):
     
     DATA["reservations"].append(reservation)
     
-    # 7. 프로젝트의 currentPeople 증가
+    # 8. 프로젝트의 currentPeople 증가
     project["currentPeople"] += 1
     
-    # 8. 새로운 달성률 계산
+    # 9. 새로운 달성률 계산
     new_achievement_rate = 0
     if project["minPeople"] > 0:
         new_achievement_rate = int((project["currentPeople"] / project["minPeople"]) * 100)

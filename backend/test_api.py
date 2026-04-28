@@ -205,6 +205,24 @@ class TestGroupBuysFeedAPI(unittest.TestCase):
         expected_total_pages = (pagination["total"] + pagination["size"] - 1) // pagination["size"]
         self.assertEqual(pagination["totalPages"], expected_total_pages)
 
+    def test_get_group_buys_invalid_page_string(self):
+        """page에 문자열이 들어올 경우 400 에러"""
+        status, response = handle_api("GET", "/api/group-buys", {}, {
+            "page": ["abc"]
+        })
+        
+        self.assertEqual(status, 400)
+        self.assertIn("error", response)
+
+    def test_get_group_buys_invalid_size_string(self):
+        """size에 문자열이 들어올 경우 400 에러"""
+        status, response = handle_api("GET", "/api/group-buys", {}, {
+            "size": ["xyz"]
+        })
+        
+        self.assertEqual(status, 400)
+        self.assertIn("error", response)
+
 
 class TestGroupBuyDetailAPI(unittest.TestCase):
     """굿즈 상세 조회 API 테스트"""
@@ -529,6 +547,32 @@ class TestReservationAPI(unittest.TestCase):
         self.assertEqual(reservation["options"]["사이즈"], "L")
         self.assertIn("createdAt", reservation)
         self.assertIn("id", reservation)
+
+    def test_create_reservation_quantity_zero(self):
+        """수량 0으로 예약 시도 - 400 에러"""
+        project_id = DATA["group_buys"][0]["id"]
+        
+        status, response = handle_api("POST", f"/api/group-buys/{project_id}/reservations", {
+            "quantity": 0
+        }, {
+            "token": [self.test_token]
+        })
+        
+        self.assertEqual(status, 400)
+        self.assertIn("수량", response["error"])
+
+    def test_create_reservation_quantity_negative(self):
+        """수량 음수로 예약 시도 - 400 에러"""
+        project_id = DATA["group_buys"][0]["id"]
+        
+        status, response = handle_api("POST", f"/api/group-buys/{project_id}/reservations", {
+            "quantity": -1
+        }, {
+            "token": [self.test_token]
+        })
+        
+        self.assertEqual(status, 400)
+        self.assertIn("수량", response["error"])
 
 
 if __name__ == "__main__":
