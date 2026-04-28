@@ -7,8 +7,8 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export function createCallbackHandler(authService: AuthService) {
   return async (req: Request, res: Response): Promise<void> => {
-    const code = req.query.code as string | undefined;
-    const state = req.query.state as string | undefined;
+    const code = typeof req.query.code === 'string' ? req.query.code : undefined;
+    const state = typeof req.query.state === 'string' ? req.query.state : undefined;
     if (!code || !state) { res.redirect(`${FRONTEND_URL}?error=missing_params`); return; }
     try {
       const result = await authService.handleCallback(code, state);
