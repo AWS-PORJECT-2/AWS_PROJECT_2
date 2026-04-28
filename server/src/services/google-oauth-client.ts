@@ -1,3 +1,4 @@
+import { OAuth2Client } from 'google-auth-library';
 import type { GoogleOAuthClient } from '../interfaces/google-oauth-client.js';
 import type { OAuthTokenResponse, UserInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
@@ -7,7 +8,11 @@ const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const GOOGLE_USERINFO_URL = 'https://www.googleapis.com/oauth2/v2/userinfo';
 
 export class GoogleOAuthClientImpl implements GoogleOAuthClient {
-  constructor(private readonly clientId: string, private readonly clientSecret: string, private readonly redirectUri: string) {}
+  private readonly oauth2Client: OAuth2Client;
+
+  constructor(private readonly clientId: string, private readonly clientSecret: string, private readonly redirectUri: string) {
+    this.oauth2Client = new OAuth2Client(clientId);
+  }
 
   buildAuthorizationUrl(state: string): string {
     const url = new URL(GOOGLE_AUTH_URL);
@@ -46,12 +51,14 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
     return (await response.json()) as UserInfo;
   }
 
-  extractUserInfoFromIdToken(idToken: string): UserInfo | null {
+  async extractUserInfoFromIdToken(idToken: string): Promise<UserInfo | null> {
     try {
-      const parts = idToken.split('.');
-      if (parts.length !== 3) return null;
-      const payload = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf-8'));
-      if (typeof payload.email !== 'string' || typeof payload.name !== 'string') return null;
+      const ticket = await this.oauth2Client.verifyIdToken({
+        idToken,
+        audience: this.clientId,
+      });
+      const payload = ticket.getPayload();
+      if (!payload || typeof payload.email !== 'string' || typeof payload.name !== 'string') return null;
       return {
         email: payload.email,
         name: payload.name,

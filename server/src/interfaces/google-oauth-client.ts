@@ -3,5 +3,5 @@ export interface GoogleOAuthClient {
   buildAuthorizationUrl(state: string): string;
   exchangeCodeForToken(code: string): Promise<OAuthTokenResponse>;
   getUserInfo(accessToken: string): Promise<UserInfo>;
-  extractUserInfoFromIdToken(idToken: string): UserInfo | null;
+  extractUserInfoFromIdToken(idToken: string): Promise<UserInfo | null>;
 }
