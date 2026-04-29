@@ -1,0 +1,265 @@
+/**
+ * 결제 페이지
+ * - 간편결제 (토스/카카오/네이버)
+ * - 카드 결제 (등록 카드 + 신규 입력)
+ * - 무통장 입금 (등록 계좌 + 실시간 입력)
+ */
+
+let selectedMethod = 'tosspay';
+const BACKEND_URL = 'http://localhost:3000/f';
+
+/* ===== URL 파라미터 ===== */
+function getPaymentParams() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    id: Number(params.get('id')) || 0,
+    title: params.get('title') || '',
+    price: Number(params.get('price')) || 0,
+  };
+}
+
+function formatPrice(num) {
+  return num.toLocaleString() + '원';
+}
+
+/* ===== 결제 수단 선택 ===== */
+function selectMethod(method) {
+  selectedMethod = method;
+
+  // 버튼 스타일 업데이트
+  document.querySelectorAll('.pay-option').forEach((btn) => {
+    if (btn.dataset.method === method) {
+      btn.style.borderColor = '#2563eb';
+      btn.style.background = '#eff6ff';
+    } else {
+      btn.style.borderColor = '#e5e7eb';
+      btn.style.background = '#fff';
+    }
+  });
+
+  // 폼 토글
+  const cardForm = document.getElementById('cardForm');
+  const bankForm = document.getElementById('bankForm');
+  cardForm.style.display = (method === 'card') ? 'block' : 'none';
+  bankForm.style.display = (method === 'bank') ? 'block' : 'none';
+
+  // 버튼 텍스트 업데이트
+  updatePayButton();
+}
+
+function updatePayButton() {
+  const info = getPaymentParams();
+  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  const product = products.find((p) => p.id === info.id);
+  const price = product ? product.price : info.price;
+  const btnText = document.getElementById('btnPayText');
+
+  const methodNames = {
+    tosspay: '토스페이로',
+    kakaopay: '카카오페이로',
+    naverpay: '네이버페이로',
+    card: '카드로',
+    bank: '무통장 입금',
+  };
+
+  const label = methodNames[selectedMethod] || '';
+
+  if (selectedMethod === 'bank') {
+    if (btnText) btnText.textContent = formatPrice(price) + ' 입금 요청하기';
+  } else {
+    if (btnText) btnText.textContent = formatPrice(price) + ' ' + label + ' 결제하기';
+  }
+}
+
+/* ===== 등록된 카드/계좌 렌더링 ===== */
+function renderSavedCards() {
+  const container = document.getElementById('savedCards');
+  const saved = JSON.parse(localStorage.getItem('saved_cards') || '[]');
+
+  if (saved.length === 0) {
+    container.innerHTML = '<p style="font-size:13px;color:#9ca3af;margin-bottom:8px;">등록된 카드가 없습니다. 아래에서 새 카드를 입력하세요.</p>';
+    return;
+  }
+
+  container.innerHTML = saved.map((card, i) => `
+    <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;">
+      <input type="radio" name="savedCard" value="${i}" style="accent-color:#2563eb;width:16px;height:16px;">
+      <span style="font-size:14px;color:#1a1a1a;">**** **** **** ${card.last4}</span>
+      <span style="font-size:11px;color:#9ca3af;margin-left:auto;">${card.expiry}</span>
+    </label>
+  `).join('');
+}
+
+function renderSavedAccounts() {
+  const container = document.getElementById('savedAccounts');
+  const saved = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+
+  if (saved.length === 0) {
+    container.innerHTML = '<p style="font-size:13px;color:#9ca3af;margin-bottom:8px;">등록된 계좌가 없습니다. 아래에서 입금 정보를 입력하세요.</p>';
+    return;
+  }
+
+  container.innerHTML = saved.map((acc, i) => `
+    <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;">
+      <input type="radio" name="savedAccount" value="${i}" style="accent-color:#2563eb;width:16px;height:16px;">
+      <span style="font-size:14px;color:#1a1a1a;">${acc.bankName} · ${acc.depositor}</span>
+    </label>
+  `).join('');
+}
+
+/* ===== 주문 정보 렌더링 ===== */
+function renderPaymentPage() {
+  const info = getPaymentParams();
+  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  const product = products.find((p) => p.id === info.id);
+
+  const summary = document.getElementById('orderSummary');
+  if (summary && product) {
+    summary.innerHTML = `
+      <div style="display:flex;gap:14px;align-items:center;">
+        <div style="width:80px;height:80px;border-radius:12px;overflow:hidden;flex-shrink:0;">
+          <img src="${product.imageUrl}" alt="${product.title}" style="width:100%;height:100%;object-fit:cover;">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:15px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${product.title}</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:4px;">${product.department} · ${product.author}</div>
+          <div style="font-size:17px;font-weight:700;color:#1a1a1a;margin-top:6px;">${product.priceText}</div>
+        </div>
+      </div>
+    `;
+  } else if (summary) {
+    summary.innerHTML = `
+      <div style="font-size:15px;font-weight:600;color:#1a1a1a;">${info.title}</div>
+      <div style="font-size:17px;font-weight:700;color:#1a1a1a;margin-top:6px;">${formatPrice(info.price)}</div>
+    `;
+  }
+
+  const price = product ? product.price : info.price;
+  const itemPriceEl = document.getElementById('itemPrice');
+  const totalPriceEl = document.getElementById('totalPrice');
+  if (itemPriceEl) itemPriceEl.textContent = formatPrice(price);
+  if (totalPriceEl) totalPriceEl.textContent = formatPrice(price);
+
+  document.title = (product ? product.title : info.title) + ' 결제 - 국민대학교';
+
+  renderSavedCards();
+  renderSavedAccounts();
+  selectMethod('tosspay');
+}
+
+/* ===== 카드번호 자동 포맷 ===== */
+function setupCardFormatting() {
+  const cardInput = document.getElementById('cardNumber');
+  if (cardInput) {
+    cardInput.addEventListener('input', () => {
+      let v = cardInput.value.replace(/\D/g, '').substring(0, 16);
+      cardInput.value = v.replace(/(.{4})/g, '$1-').replace(/-$/, '');
+    });
+  }
+  const expiryInput = document.getElementById('cardExpiry');
+  if (expiryInput) {
+    expiryInput.addEventListener('input', () => {
+      let v = expiryInput.value.replace(/\D/g, '').substring(0, 4);
+      if (v.length >= 3) v = v.substring(0, 2) + '/' + v.substring(2);
+      expiryInput.value = v;
+    });
+  }
+}
+
+/* ===== 결제 확인 ===== */
+function confirmPayment() {
+  const info = getPaymentParams();
+
+  // 카드 결제 유효성 검사
+  if (selectedMethod === 'card') {
+    const savedCard = document.querySelector('input[name="savedCard"]:checked');
+    if (!savedCard) {
+      const num = document.getElementById('cardNumber').value.replace(/\D/g, '');
+      const expiry = document.getElementById('cardExpiry').value;
+      const cvc = document.getElementById('cardCvc').value;
+      if (num.length < 16 || !expiry || cvc.length < 3) {
+        alert('카드 정보를 정확히 입력해 주세요.');
+        return;
+      }
+      // 테스트용 카드 저장 (마지막 4자리만)
+      const saved = JSON.parse(localStorage.getItem('saved_cards') || '[]');
+      saved.push({ last4: num.slice(-4), expiry: expiry });
+      localStorage.setItem('saved_cards', JSON.stringify(saved));
+    }
+  }
+
+  // 무통장 입금 유효성 검사
+  if (selectedMethod === 'bank') {
+    const savedAcc = document.querySelector('input[name="savedAccount"]:checked');
+    if (!savedAcc) {
+      const bank = document.getElementById('bankSelect').value;
+      const depositor = document.getElementById('depositorName').value.trim();
+      if (!bank || !depositor) {
+        alert('은행과 입금자명을 입력해 주세요.');
+        return;
+      }
+      // 계좌 저장
+      const bankNames = { kb: '국민은행', shinhan: '신한은행', woori: '우리은행', hana: '하나은행', nh: '농협은행', kakao: '카카오뱅크', toss: '토스뱅크' };
+      const saved = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+      saved.push({ bankName: bankNames[bank] || bank, depositor: depositor });
+      localStorage.setItem('saved_accounts', JSON.stringify(saved));
+    }
+  }
+
+  // 결제 데이터 구성
+  const paymentData = {
+    productId: info.id,
+    method: selectedMethod,
+    amount: info.price,
+    paidAt: new Date().toISOString(),
+    status: selectedMethod === 'bank' ? 'pending' : 'paid',
+  };
+
+  // 백엔드 전송 시도
+  sendPaymentToServer(paymentData)
+    .then(() => completePayment(info, paymentData))
+    .catch(() => completePayment(info, paymentData));
+}
+
+/* ===== 백엔드 전송 ===== */
+async function sendPaymentToServer(data) {
+  const response = await fetch(BACKEND_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) throw new Error('Server error');
+  return response.json();
+}
+
+/* ===== 결제 완료 처리 ===== */
+function completePayment(info, paymentData) {
+  if (paymentData.status === 'paid') {
+    // 즉시 결제 완료
+    localStorage.setItem('paid_' + info.id, '1');
+    const product = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+      ? MOCK_PRODUCTS.find((p) => p.id === info.id) : null;
+    if (product) product.isPaid = true;
+
+    alert('🎉 결제가 완료되었습니다!');
+  } else {
+    // 무통장 입금 — 결제 대기
+    localStorage.setItem('paid_' + info.id, 'pending');
+    alert('입금 요청이 완료되었습니다.\n입금 확인 후 결제가 완료됩니다.');
+  }
+
+  // 결제 내역 저장
+  const history = JSON.parse(localStorage.getItem('payment_history') || '[]');
+  history.push(paymentData);
+  localStorage.setItem('payment_history', JSON.stringify(history));
+
+  window.location.href = 'detail.html?id=' + info.id;
+}
+
+/* ===== 초기화 ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  renderPaymentPage();
+  setupCardFormatting();
+});

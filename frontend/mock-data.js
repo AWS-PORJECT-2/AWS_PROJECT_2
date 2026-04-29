@@ -28,6 +28,7 @@ const MOCK_PRODUCTS = [
     deadline: '2026-05-15',
     isLiked: true,
     isReserved: true,
+    isPaid: false,
   },
   {
     id: 2,
@@ -47,6 +48,7 @@ const MOCK_PRODUCTS = [
     deadline: '2026-05-20',
     isLiked: true,
     isReserved: false,
+    isPaid: false,
   },
   {
     id: 3,
@@ -66,6 +68,7 @@ const MOCK_PRODUCTS = [
     deadline: '2026-05-10',
     isLiked: false,
     isReserved: true,
+    isPaid: false,
   },
   {
     id: 4,
@@ -85,6 +88,7 @@ const MOCK_PRODUCTS = [
     deadline: '2026-05-25',
     isLiked: false,
     isReserved: false,
+    isPaid: false,
   },
 ];
 
@@ -183,6 +187,12 @@ function syncUserState() {
     }
     if (reserved !== null) {
       p.isReserved = reserved === '1';
+    }
+
+    // isPaid 복원
+    const paid = localStorage.getItem('paid_' + p.id);
+    if (paid !== null) {
+      p.isPaid = paid === '1';
     }
 
     // 수치 delta 복원

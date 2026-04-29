@@ -9,6 +9,24 @@ function getBadgeInfo(rate) {
   return { text: '모집중', type: 'open' };
 }
 
+/**
+ * 히어로 배너 — 좋아요 1위 상품 ID를 링크에 동적 바인딩
+ */
+function renderHeroBanner() {
+  const link = document.getElementById('heroBannerLink');
+  if (!link) return;
+
+  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS
+    : [];
+  const sorted = (typeof sortByLikes === 'function') ? sortByLikes(products) : products;
+  const topProduct = sorted[0];
+
+  if (topProduct) {
+    link.href = 'detail.html?id=' + topProduct.id;
+  }
+}
+
 function renderFundingCards() {
   const container = document.getElementById('fundingCards');
   const sorted = sortByLikes(MOCK_PRODUCTS);
@@ -37,4 +55,5 @@ function renderFundingCards() {
     .join('');
 }
 
+renderHeroBanner();
 renderFundingCards();
