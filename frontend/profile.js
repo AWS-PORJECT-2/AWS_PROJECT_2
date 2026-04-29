@@ -90,7 +90,7 @@ function renderProfileTabContent() {
       </div>
       <div style="flex:1;min-width:0;">
         <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${item.priceText} · ${rate}% 달성</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${item.priceText} · ${rate}% 달성 · 사이즈: ${localStorage.getItem('selectedSize_' + item.id) || '미선택'}</div>
       </div>
     </a>
   `;

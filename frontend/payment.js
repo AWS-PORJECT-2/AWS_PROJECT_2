@@ -15,6 +15,7 @@ function getPaymentParams() {
     id: Number(params.get('id')) || 0,
     title: params.get('title') || '',
     price: Number(params.get('price')) || 0,
+    size: params.get('size') || 'Free',
   };
 }
 
@@ -147,6 +148,24 @@ function renderPaymentPage() {
   renderSavedCards();
   renderSavedAccounts();
   selectMethod('tosspay');
+
+  // 사이즈 표시
+  const sizeEl = document.getElementById('confirmedSize');
+  if (sizeEl) {
+    const sizeLabel = info.size === 'Free' ? '프리사이즈(Free)' : info.size;
+    sizeEl.textContent = sizeLabel;
+  }
+
+  // 사이즈 변경 버튼 — 프리사이즈면 숨김
+  const changeSizeBtn = document.getElementById('changeSizeBtn');
+  const product = products.find((p) => p.id === info.id);
+  const sizeType = (product && product.sizeType) || 'free';
+  if (changeSizeBtn && sizeType === 'free') {
+    changeSizeBtn.style.display = 'none';
+  }
+
+  // 사이즈 변경 패널 초기 하이라이트
+  highlightPaySize(info.size);
 }
 
 /* ===== 카드번호 자동 포맷 ===== */
@@ -209,10 +228,12 @@ function confirmPayment() {
   }
 
   // 결제 데이터 구성
+  const finalSize = _paySelectedSize || info.size || 'Free';
   const paymentData = {
     productId: info.id,
     method: selectedMethod,
     amount: info.price,
+    selectedSize: finalSize,
     paidAt: new Date().toISOString(),
     status: selectedMethod === 'bank' ? 'pending' : 'paid',
   };
@@ -256,6 +277,46 @@ function completePayment(info, paymentData) {
   localStorage.setItem('payment_history', JSON.stringify(history));
 
   window.location.href = 'detail.html?id=' + info.id;
+}
+
+/* ===== 사이즈 변경 ===== */
+let _paySelectedSize = null;
+
+function toggleSizeChange() {
+  const panel = document.getElementById('sizeChangePanel');
+  if (panel) {
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+  }
+}
+
+function changePaySize(size) {
+  _paySelectedSize = size;
+  const sizeEl = document.getElementById('confirmedSize');
+  if (sizeEl) sizeEl.textContent = size;
+
+  // localStorage 업데이트
+  const info = getPaymentParams();
+  localStorage.setItem('selectedSize_' + info.id, size);
+
+  highlightPaySize(size);
+
+  // 패널 닫기
+  const panel = document.getElementById('sizeChangePanel');
+  if (panel) panel.style.display = 'none';
+}
+
+function highlightPaySize(size) {
+  document.querySelectorAll('.pay-size-btn').forEach((btn) => {
+    if (btn.dataset.size === size) {
+      btn.style.borderColor = '#2563eb';
+      btn.style.background = '#eff6ff';
+      btn.style.color = '#2563eb';
+    } else {
+      btn.style.borderColor = '#e5e7eb';
+      btn.style.background = '#fff';
+      btn.style.color = '#4b5563';
+    }
+  });
 }
 
 /* ===== 초기화 ===== */
