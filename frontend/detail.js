@@ -238,18 +238,63 @@ function renderDetail() {
     </div>
   `;
 
-  // 하단 액션바
+  // 하단 액션바 — 조건부 렌더링
   const bottomBar = document.getElementById('detailBottomBar');
-  bottomBar.innerHTML = `
-    <button class="btn-wish" id="btnWish" onclick="handleLike()">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-      <span>${currentProduct.likeCount}</span>
-    </button>
-    <button class="btn-join" onclick="handleJoinClick()">공구 참여하기</button>
-  `;
+  const isAchieved = rate >= 100;
+
+  if (currentProduct.isPaid) {
+    // 결제 완료 상태
+    bottomBar.innerHTML = `
+      <button class="btn-wish" id="btnWish" onclick="handleLike()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        <span>${currentProduct.likeCount}</span>
+      </button>
+      <button class="btn-join" style="background:#16a34a;cursor:default;" disabled>결제 완료</button>
+    `;
+  } else if (currentProduct.isReserved && isAchieved) {
+    // 참여 완료 + 달성률 100% → 결제 버튼
+    bottomBar.innerHTML = `
+      <button class="btn-wish" id="btnWish" onclick="handleLike()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        <span>${currentProduct.likeCount}</span>
+      </button>
+      <button class="btn-join" style="background:#f97316;" onclick="goToPayment()">결제하기</button>
+    `;
+  } else {
+    // 기본: 공구 참여하기
+    bottomBar.innerHTML = `
+      <button class="btn-wish" id="btnWish" onclick="handleLike()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+        <span>${currentProduct.likeCount}</span>
+      </button>
+      <button class="btn-join" onclick="handleJoinClick()">공구 참여하기</button>
+    `;
+  }
+
+  // 달성률 100% 알림 (참여자에게 최초 1회)
+  if (currentProduct.isReserved && isAchieved && !currentProduct.isPaid) {
+    const notifiedKey = 'notified_100_' + currentProduct.id;
+    if (!localStorage.getItem(notifiedKey)) {
+      localStorage.setItem(notifiedKey, '1');
+      setTimeout(() => {
+        alert('🎉 축하합니다! 펀딩이 달성되었습니다. 결제를 진행해 주세요!');
+      }, 500);
+    }
+  }
 
   updateLikeButton();
   document.title = currentProduct.title + ' - 국민대학교 공구';
+}
+
+/* ===== 결제 페이지 이동 ===== */
+function goToPayment() {
+  if (!currentProduct) return;
+  const params = new URLSearchParams({
+    id: currentProduct.id,
+    title: currentProduct.title,
+    price: currentProduct.price,
+  });
+  window.location.href = 'payment.html?' + params.toString();
 }
 
 renderDetail();

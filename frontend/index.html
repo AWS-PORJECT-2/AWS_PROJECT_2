@@ -46,7 +46,7 @@
         <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>
       </div>
       <div class="header-right">
-        <button class="icon-btn" aria-label="검색">
+        <button class="icon-btn" aria-label="검색" onclick="openSearch()">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         </button>
         <button class="icon-btn" aria-label="프로필" onclick="location.href='profile.html'" style="position:relative;">
@@ -60,7 +60,7 @@
     <header class="desktop-topbar desktop-only">
       <div class="topbar-search">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-        <input type="text" placeholder="공동구매 검색..." class="search-input">
+        <input type="text" placeholder="공동구매 검색..." class="search-input" id="desktopSearchInput">
       </div>
       <div class="topbar-right">
         <button class="icon-btn" aria-label="알림">
@@ -73,15 +73,17 @@
     </header>
 
     <!-- 히어로 배너 -->
-    <section class="hero">
-      <div class="hero-profile mobile-only">
-        <img src="https://picsum.photos/seed/profile1/48/48" alt="프로필" class="profile-img">
-      </div>
-      <img src="https://picsum.photos/seed/hoodie/800/500" alt="과잠 배너" class="hero-image">
-      <div class="hero-badge">
-        <span class="badge-dot"></span>
-        국민대학교 실시간 1위 과잠
-      </div>
+    <section class="hero" id="heroBanner">
+      <a id="heroBannerLink" href="detail.html?id=1" style="text-decoration:none;color:inherit;display:block;">
+        <div class="hero-profile mobile-only">
+          <img src="https://picsum.photos/seed/profile1/48/48" alt="프로필" class="profile-img">
+        </div>
+        <img src="https://picsum.photos/seed/hoodie/800/500" alt="과잠 배너" class="hero-image">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          국민대학교 실시간 1위 과잠
+        </div>
+      </a>
     </section>
 
     <!-- 메인 카피 + 액션 -->
@@ -135,5 +137,6 @@
 
   <script src="mock-data.js"></script>
   <script src="app.js"></script>
+  <script src="search.js"></script>
 </body>
 </html>
