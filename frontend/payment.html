@@ -21,7 +21,28 @@
     </header>
 
     <!-- 주문 상품 정보 -->
-    <section id="orderSummary" style="padding:20px;border-bottom:8px solid #f5f5f5;"></section>
+    <section id="orderSummary" style="padding:20px;border-bottom:1px solid #f0f0f0;"></section>
+
+    <!-- 사이즈 확인/수정 -->
+    <section id="sizeConfirm" style="padding:16px 20px;border-bottom:8px solid #f5f5f5;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <span style="font-size:14px;color:#6b7280;">예약 사이즈</span>
+          <span id="confirmedSize" style="font-size:16px;font-weight:700;color:#2563eb;margin-left:8px;">-</span>
+        </div>
+        <button id="changeSizeBtn" onclick="toggleSizeChange()" style="font-size:13px;color:#2563eb;font-weight:600;background:none;border:none;cursor:pointer;text-decoration:underline;">변경</button>
+      </div>
+      <div id="sizeChangePanel" style="display:none;margin-top:12px;">
+        <div style="display:flex;flex-wrap:wrap;gap:8px;">
+          <button type="button" class="pay-size-btn" data-size="XS" onclick="changePaySize('XS')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">XS</button>
+          <button type="button" class="pay-size-btn" data-size="S" onclick="changePaySize('S')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">S</button>
+          <button type="button" class="pay-size-btn" data-size="M" onclick="changePaySize('M')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">M</button>
+          <button type="button" class="pay-size-btn" data-size="L" onclick="changePaySize('L')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">L</button>
+          <button type="button" class="pay-size-btn" data-size="XL" onclick="changePaySize('XL')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">XL</button>
+          <button type="button" class="pay-size-btn" data-size="XXL" onclick="changePaySize('XXL')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">XXL</button>
+        </div>
+      </div>
+    </section>
 
     <!-- 간편결제 -->
     <section style="padding:20px;border-bottom:8px solid #f5f5f5;">

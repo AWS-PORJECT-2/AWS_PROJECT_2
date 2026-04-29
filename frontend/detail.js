@@ -143,23 +143,86 @@ function hideModal(id) {
 }
 
 /* ===== 공구 참여 흐름 ===== */
+let _selectedSize = null;
+
+// 사이즈 선택 영역 렌더링 (sizeType에 따라 분기)
+function renderSizeSelection() {
+  const area = document.getElementById('sizeSelectionArea');
+  if (!area || !currentProduct) return;
+
+  const sizeType = currentProduct.sizeType || 'free';
+
+  if (sizeType === 'multiple') {
+    const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+    area.innerHTML = `
+      <p style="font-size:14px;font-weight:600;color:#1a1a1a;margin-bottom:10px;">사이즈 선택 <span style="color:#ef4444;">*</span></p>
+      <div id="sizeSelector" style="display:flex;flex-wrap:wrap;gap:8px;">
+        ${sizes.map((s) => `<button type="button" class="size-btn" data-size="${s}" onclick="selectSize('${s}')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;transition:all 0.15s;">${s}</button>`).join('')}
+      </div>
+      <p id="sizeError" style="display:none;font-size:12px;color:#ef4444;margin-top:8px;">사이즈를 선택해 주세요.</p>
+    `;
+  } else {
+    // 프리사이즈
+    _selectedSize = 'Free';
+    area.innerHTML = `
+      <div style="padding:12px 16px;background:#f0fdf4;border-radius:10px;display:flex;align-items:center;gap:8px;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+        <span style="font-size:14px;font-weight:600;color:#16a34a;">본 제품은 프리사이즈(Free size)입니다</span>
+      </div>
+    `;
+  }
+}
+
+// 사이즈 선택
+function selectSize(size) {
+  _selectedSize = size;
+  document.querySelectorAll('.size-btn').forEach((btn) => {
+    if (btn.dataset.size === size) {
+      btn.style.borderColor = '#2563eb';
+      btn.style.background = '#eff6ff';
+      btn.style.color = '#2563eb';
+    } else {
+      btn.style.borderColor = '#e5e7eb';
+      btn.style.background = '#fff';
+      btn.style.color = '#4b5563';
+    }
+  });
+  const err = document.getElementById('sizeError');
+  if (err) err.style.display = 'none';
+}
+
 // 1단계: 참여하기 버튼 → 예약 확정 팝업
 function handleJoinClick() {
   if (currentProduct.isReserved) {
     alert('이미 참여한 공구입니다.');
     return;
   }
+  _selectedSize = null;
   showModal('modalReservation');
+  // 모달이 열린 후 사이즈 선택 영역 렌더링
+  requestAnimationFrame(() => renderSizeSelection());
 }
 
-// 2단계: 예약 확정 → 정책 안내
+// 2단계: 예약 확정 → 사이즈 유효성 검사 → 정책 안내
 function handleReservationConfirm() {
-  // 원래 포커스를 보존한 채 모달 전환
+  const sizeType = (currentProduct && currentProduct.sizeType) || 'free';
+
+  // multiple 타입인데 사이즈 미선택 시 차단
+  if (sizeType === 'multiple' && !_selectedSize) {
+    const err = document.getElementById('sizeError');
+    if (err) err.style.display = 'block';
+    return;
+  }
+
+  // 프리사이즈면 자동 설정
+  if (sizeType === 'free') {
+    _selectedSize = 'Free';
+  }
+
   const savedFocus = _previousFocus;
   hideModal('modalReservation');
   renderPolicyModal();
   showModal('modalPolicy');
-  // 정책 모달이 닫힐 때 최초 트리거 버튼으로 복귀하도록 복원
   _previousFocus = savedFocus;
 }
 
@@ -195,10 +258,13 @@ function handlePolicyAgree() {
     return;
   }
   hideModal('modalPolicy');
-  // 예약 상태 저장 (setReserved 내부에서 currentQuantity 증가 + delta 저장)
+  // 예약 상태 저장 + 사이즈 저장
   setReserved(currentProduct.id, true);
+  if (_selectedSize) {
+    localStorage.setItem('selectedSize_' + currentProduct.id, _selectedSize);
+  }
   renderDetail();
-  alert('공구 참여가 완료되었습니다!');
+  alert('공구 참여가 완료되었습니다! (사이즈: ' + _selectedSize + ')');
 }
 
 /* ===== 메인 렌더링 ===== */
@@ -289,10 +355,12 @@ function renderDetail() {
 /* ===== 결제 페이지 이동 ===== */
 function goToPayment() {
   if (!currentProduct) return;
+  const size = localStorage.getItem('selectedSize_' + currentProduct.id) || '';
   const params = new URLSearchParams({
     id: currentProduct.id,
     title: currentProduct.title,
     price: currentProduct.price,
+    size: size,
   });
   window.location.href = 'payment.html?' + params.toString();
 }

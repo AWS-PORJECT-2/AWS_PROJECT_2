@@ -29,6 +29,7 @@ const MOCK_PRODUCTS = [
     isLiked: true,
     isReserved: true,
     isPaid: false,
+    sizeType: 'multiple',
   },
   {
     id: 2,
@@ -49,6 +50,7 @@ const MOCK_PRODUCTS = [
     isLiked: true,
     isReserved: false,
     isPaid: false,
+    sizeType: 'multiple',
   },
   {
     id: 3,
@@ -69,6 +71,7 @@ const MOCK_PRODUCTS = [
     isLiked: false,
     isReserved: true,
     isPaid: false,
+    sizeType: 'multiple',
   },
   {
     id: 4,
@@ -89,6 +92,7 @@ const MOCK_PRODUCTS = [
     isLiked: false,
     isReserved: false,
     isPaid: false,
+    sizeType: 'free',
   },
 ];
 
