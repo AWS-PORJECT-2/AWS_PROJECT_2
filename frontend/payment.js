@@ -221,12 +221,25 @@ function setupCardFormatting() {
 function confirmPayment() {
   const info = getPaymentParams();
 
+  // 원본 상품 데이터 검증 (URL 가격 변조 방지)
+  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  const product = products.find((p) => p.id === info.id);
+
+  if (!product) {
+    alert('상품 정보를 불러오지 못했습니다.');
+    return;
+  }
+
+  // 검증된 원본 가격 사용 (URL 파라미터 무시)
+  const verifiedPrice = product.price;
+
   // 간편결제 시뮬레이션 (토스/카카오/네이버)
   if (['tosspay', 'kakaopay', 'naverpay'].includes(selectedMethod)) {
     const methodLabels = { tosspay: '토스페이', kakaopay: '카카오페이', naverpay: '네이버페이' };
     const label = methodLabels[selectedMethod];
     const proceed = confirm(
-      label + '로 ' + formatPrice(info.price) + '을 결제합니다.\n\n' +
+      label + '로 ' + formatPrice(verifiedPrice) + '을 결제합니다.\n\n' +
       '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
       '예금주: ' + ADMIN_ACCOUNT.holder + '\n\n' +
       '결제를 진행하시겠습니까?'
@@ -245,7 +258,6 @@ function confirmPayment() {
         alert('카드 정보를 정확히 입력해 주세요.');
         return;
       }
-      // 테스트용 카드 저장 (마지막 4자리만)
       const saved = JSON.parse(localStorage.getItem('saved_cards') || '[]');
       saved.push({ last4: num.slice(-4), expiry: expiry });
       localStorage.setItem('saved_cards', JSON.stringify(saved));
@@ -262,7 +274,6 @@ function confirmPayment() {
         alert('은행과 입금자명을 입력해 주세요.');
         return;
       }
-      // 계좌 저장
       const bankNames = { kb: '국민은행', shinhan: '신한은행', woori: '우리은행', hana: '하나은행', nh: '농협은행', kakao: '카카오뱅크', toss: '토스뱅크' };
       const saved = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
       saved.push({ bankName: bankNames[bank] || bank, depositor: depositor });
@@ -270,12 +281,12 @@ function confirmPayment() {
     }
   }
 
-  // 결제 데이터 구성
+  // 결제 데이터 구성 (검증된 원본 가격 사용)
   const finalSize = _paySelectedSize || info.size || 'Free';
   const paymentData = {
     productId: info.id,
     method: selectedMethod,
-    amount: info.price,
+    amount: verifiedPrice,
     selectedSize: finalSize,
     adminAccount: ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number,
     paidAt: new Date().toISOString(),

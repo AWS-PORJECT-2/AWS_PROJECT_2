@@ -154,15 +154,41 @@ function renderHomeSearchResults(container, results, keyword) {
   if (!container) return;
 
   if (results.length === 0) {
-    container.innerHTML = `
-      <div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="1.5" style="margin:0 auto 16px;">
-          <circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>
-        </svg>
-        <p style="font-size:15px;font-weight:600;color:#6b7280;">'${keyword}'에 대한 검색 결과가 없습니다</p>
-        <p style="font-size:13px;margin-top:6px;">다른 키워드로 검색해 보세요</p>
-      </div>
-    `;
+    // XSS 방지: textContent로 안전하게 렌더링
+    container.innerHTML = '';
+    const wrapper = document.createElement('div');
+    wrapper.style.cssText = 'grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;';
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNS, 'svg');
+    svg.setAttribute('width', '48');
+    svg.setAttribute('height', '48');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', '#d1d5db');
+    svg.setAttribute('stroke-width', '1.5');
+    svg.style.cssText = 'margin:0 auto 16px;display:block;';
+    const circle = document.createElementNS(svgNS, 'circle');
+    circle.setAttribute('cx', '11');
+    circle.setAttribute('cy', '11');
+    circle.setAttribute('r', '8');
+    const path = document.createElementNS(svgNS, 'path');
+    path.setAttribute('d', 'M21 21l-4.35-4.35');
+    svg.appendChild(circle);
+    svg.appendChild(path);
+    wrapper.appendChild(svg);
+
+    const message = document.createElement('p');
+    message.style.cssText = 'font-size:15px;font-weight:600;color:#6b7280;';
+    message.textContent = '\'' + keyword + '\'에 대한 검색 결과가 없습니다';
+    wrapper.appendChild(message);
+
+    const sub = document.createElement('p');
+    sub.style.cssText = 'font-size:13px;margin-top:6px;';
+    sub.textContent = '다른 키워드로 검색해 보세요';
+    wrapper.appendChild(sub);
+
+    container.appendChild(wrapper);
     return;
   }
 
