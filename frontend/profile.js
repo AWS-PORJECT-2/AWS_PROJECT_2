@@ -3,6 +3,34 @@
  * CSS는 외부에서 제공 — 여기서는 구조와 로직만 담당
  */
 
+/* ===== 예약 취소 함수 (전역) ===== */
+function cancelReservation(productId) {
+  if (!confirm('정말로 이 펀딩 참여(예약)를 취소하시겠습니까?')) return;
+
+  // 로컬 스토리지에서 예약 데이터 삭제
+  localStorage.removeItem('reserved_' + productId);
+  localStorage.removeItem('selectedSize_' + productId);
+
+  // delta 조정 (참여 인원 감소)
+  const deltaKey = 'reserved_delta_' + productId;
+  const currentDelta = Number(localStorage.getItem(deltaKey)) || 0;
+  localStorage.setItem(deltaKey, String(currentDelta - 1));
+
+  // MOCK_PRODUCTS 동기화
+  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  const product = products.find(function(p) { return p.id === productId; });
+  if (product) {
+    product.isReserved = false;
+    product.currentQuantity--;
+  }
+
+  alert('예약이 정상적으로 취소되었습니다.');
+
+  // UI 즉시 갱신 (새로고침 없이)
+  switchProfileTab('joined');
+}
+
 /* 임시 유저 데이터 */
 const MOCK_USER = {
   name: '이로운',
@@ -85,16 +113,22 @@ function renderProfileTabContent() {
       const rate = (typeof calcAchievementRate === 'function')
         ? calcAchievementRate(item)
         : 0;
+      const cancelBtn = (profileTab === 'joined' && !item.isPaid)
+        ? '<button onclick="event.stopPropagation(); cancelReservation(' + item.id + ')" style="background:#fee2e2;color:#ef4444;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">예약 취소</button>'
+        : '';
       return `
-    <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;cursor:pointer;text-decoration:none;color:inherit;">
-      <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;">
-        <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${item.priceText} · ${rate}% 달성 · 사이즈: ${localStorage.getItem('selectedSize_' + item.id) || '미선택'}</div>
-      </div>
-    </a>
+    <div style="padding:14px 20px;border-bottom:1px solid #f0f0f0;">
+      <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;cursor:pointer;text-decoration:none;color:inherit;">
+        <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;">
+          <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${item.priceText} · ${rate}% 달성 · 사이즈: ${localStorage.getItem('selectedSize_' + item.id) || '미선택'}</div>
+        </div>
+      </a>
+      ${cancelBtn}
+    </div>
   `;
     })
     .join('');
