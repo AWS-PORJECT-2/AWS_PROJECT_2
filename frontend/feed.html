@@ -67,6 +67,22 @@
       </div>
     </header>
 
+    <!-- 필터 및 정렬 -->
+    <div style="padding:12px 20px 0;display:flex;flex-direction:column;gap:10px;">
+      <!-- 카테고리 칩 -->
+      <div id="categoryChips" style="display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;"></div>
+      <!-- 정렬 + 학과 필터 -->
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="sortSelect" onchange="onSortChange()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#1a1a1a;background:#fff;outline:none;">
+          <option value="popular">인기순</option>
+          <option value="latest">최신순</option>
+        </select>
+        <select id="deptFilter" onchange="onFilterChange()" style="padding:8px 12px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;color:#1a1a1a;background:#fff;outline:none;">
+          <option value="all">전체 학과</option>
+        </select>
+      </div>
+    </div>
+
     <!-- 피드 카드 컨테이너 -->
     <div class="feed-card-container">
       <section class="feed-list" id="feedList"></section>

@@ -30,6 +30,8 @@ const MOCK_PRODUCTS = [
     isReserved: true,
     isPaid: false,
     sizeType: 'multiple',
+    category: '의류',
+    createdAt: '2026-04-29T09:00:00Z',
   },
   {
     id: 2,
@@ -51,6 +53,8 @@ const MOCK_PRODUCTS = [
     isReserved: false,
     isPaid: false,
     sizeType: 'multiple',
+    category: '의류',
+    createdAt: '2026-04-29T06:00:00Z',
   },
   {
     id: 3,
@@ -72,6 +76,8 @@ const MOCK_PRODUCTS = [
     isReserved: true,
     isPaid: false,
     sizeType: 'multiple',
+    category: '의류',
+    createdAt: '2026-04-29T04:00:00Z',
   },
   {
     id: 4,
@@ -93,6 +99,8 @@ const MOCK_PRODUCTS = [
     isReserved: false,
     isPaid: false,
     sizeType: 'free',
+    category: '잡화',
+    createdAt: '2026-04-28T12:00:00Z',
   },
 ];
 
