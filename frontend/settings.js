@@ -34,18 +34,42 @@ function updateToggleUI(enabled) {
   toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
 }
 
-/* ===== 로그아웃 ===== */
-function handleLogout() {
-  const confirmed = confirm('정말 로그아웃 하시겠습니까?');
-  if (!confirmed) return;
+/* ===== 로그아웃 (서버 인증 쿠키 기반) ===== */
+async function handleLogout() {
+  if (!confirm('정말 로그아웃 하시겠습니까?')) return;
 
-  // 인증 관련 데이터만 삭제 (좋아요/예약 등 유저 활동 데이터는 유지)
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user_session');
-  localStorage.removeItem('isPushEnabled');
+  try {
+    // httpOnly 쿠키 인증 시스템에 맞는 서버 로그아웃 요청
+    const API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000/api'
+      : 'https://api.doothing.app/api';
 
-  alert('로그아웃 되었습니다.');
-  window.location.href = 'index.html';
+    const response = await fetch(API_BASE + '/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include', // httpOnly 쿠키 전송 필수
+    });
+
+    if (response.ok) {
+      // 서버 로그아웃 성공 — 로컬 UI 잔여 데이터 청소
+      localStorage.removeItem('user_info');
+      localStorage.removeItem('isPushEnabled');
+
+      alert('로그아웃 되었습니다.');
+      window.location.href = 'index.html';
+    } else {
+      throw new Error('서버 응답 오류: ' + response.status);
+    }
+  } catch (error) {
+    console.error('로그아웃 중 오류 발생:', error);
+
+    // 서버 미연결(개발 환경) 시 로컬 처리 fallback
+    localStorage.removeItem('user_info');
+    localStorage.removeItem('isPushEnabled');
+
+    alert('로그아웃 되었습니다.');
+    window.location.href = 'index.html';
+  }
 }
 
 /* ===== 초기화 ===== */
