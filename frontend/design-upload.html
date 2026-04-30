@@ -94,21 +94,21 @@
           <p style="font-size:14px;color:#9ca3af;margin-top:6px;">제품을 선택하면 맞춤 도면을 받을 수 있어요</p>
         </div>
         <div class="category-container">
-          <button class="category-card" onclick="selectCategory('varsity')">
+          <button class="category-card" onclick="selectCategory(event, 'varsity')">
             <div class="icon" style="background:#eff6ff;">🧥</div>
             <div>
               <div class="title">과잠</div>
               <div class="desc">대학 과잠바 · 사이즈 선택 가능</div>
             </div>
           </button>
-          <button class="category-card" onclick="selectCategory('tshirt')">
+          <button class="category-card" onclick="selectCategory(event, 'tshirt')">
             <div class="icon" style="background:#f0fdf4;">👕</div>
             <div>
               <div class="title">반팔티</div>
               <div class="desc">라운드넥 반팔 · 사이즈 선택 가능</div>
             </div>
           </button>
-          <button class="category-card" onclick="selectCategory('ecobag')">
+          <button class="category-card" onclick="selectCategory(event, 'ecobag')">
             <div class="icon" style="background:#fef3c7;">👜</div>
             <div>
               <div class="title">에코백</div>
@@ -144,7 +144,7 @@
 
         <div id="uploadPreview" style="display:none;width:100%;padding:20px;text-align:center;">
           <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">✅ 디자인이 첨부되었습니다</p>
-          <img id="previewImage" src="" alt="업로드된 디자인" style="max-width:100%;max-height:250px;border-radius:12px;border:1px solid #e5e7eb;">
+          <img id="previewImage" alt="업로드된 디자인" style="display:none;max-width:100%;max-height:250px;border-radius:12px;border:1px solid #e5e7eb;">
         </div>
 
         <div style="width:100%;padding:20px;">
@@ -174,7 +174,7 @@
       ecobag: { label: '에코백', template: 'assets/blueprint.jpg', templateName: 'ecobag_template.jpg' },
     };
 
-    function selectCategory(category) {
+    function selectCategory(event, category) {
       selectedProduct = category;
       var data = CATEGORY_DATA[category];
 
@@ -213,13 +213,15 @@
         var reader = new FileReader();
         reader.onload = function(ev) {
           previewImg.src = ev.target.result;
+          previewImg.style.display = 'block';
           preview.style.display = 'block';
         };
         reader.readAsDataURL(file);
       } else {
-        previewImg.src = '';
-        preview.style.display = 'block';
+        previewImg.style.display = 'none';
+        previewImg.removeAttribute('src');
         previewImg.alt = file.name;
+        preview.style.display = 'block';
       }
 
       // 백엔드 전송 시도 (카테고리 포함)
