@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>설정 - 국민대학교</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <main class="main-content" style="padding-bottom:80px;">
+
+    <!-- 헤더 -->
+    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
+      <div class="header-left">
+        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">설정</span>
+      </div>
+    </header>
+
+    <!-- 설정 메뉴 리스트 -->
+    <nav style="padding:8px 0;">
+
+      <!-- 디자인 도면 다운로드 -->
+      <a href="assets/blueprint.zip" download class="settings-item" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
+        <span style="width:36px;height:36px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </span>
+        <span style="flex:1;font-size:15px;font-weight:500;">디자인 도면 다운로드</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <!-- 결제 수단 관리 -->
+      <a href="payment-manage.html" class="settings-item" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
+        <span style="width:36px;height:36px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><path d="M1 10h22"/></svg>
+        </span>
+        <span style="flex:1;font-size:15px;font-weight:500;">결제 수단 관리</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <!-- 배송지 관리 -->
+      <a href="address-manage.html" class="settings-item" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
+        <span style="width:36px;height:36px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        </span>
+        <span style="flex:1;font-size:15px;font-weight:500;">배송지 관리</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <!-- 푸시 알림 설정 -->
+      <div class="settings-item" style="display:flex;align-items:center;gap:14px;padding:16px 20px;border-bottom:1px solid #f5f5f5;">
+        <span style="width:36px;height:36px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </span>
+        <span style="flex:1;font-size:15px;font-weight:500;">푸시 알림 설정</span>
+        <button id="pushToggle" onclick="togglePush()" aria-label="푸시 알림 토글" style="width:48px;height:28px;border-radius:14px;border:none;cursor:pointer;position:relative;transition:background 0.3s;padding:0;">
+          <span id="pushToggleKnob" style="position:absolute;top:2px;width:24px;height:24px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.2);transition:left 0.3s;"></span>
+        </button>
+      </div>
+
+      <!-- 개인정보 처리방침 -->
+      <a href="privacy.html" class="settings-item" style="display:flex;align-items:center;gap:14px;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
+        <span style="width:36px;height:36px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        </span>
+        <span style="flex:1;font-size:15px;font-weight:500;">개인정보 처리방침</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      </a>
+
+      <!-- 로그아웃 -->
+      <button onclick="handleLogout()" class="settings-item" style="display:flex;align-items:center;gap:14px;padding:16px 20px;width:100%;background:none;border:none;border-bottom:1px solid #f5f5f5;cursor:pointer;text-align:left;">
+        <span style="width:36px;height:36px;border-radius:10px;background:#fef2f2;display:flex;align-items:center;justify-content:center;">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </span>
+        <span style="flex:1;font-size:15px;font-weight:500;color:#ef4444;">로그아웃</span>
+      </button>
+
+    </nav>
+
+  </main>
+
+  <script src="settings.js"></script>
+</body>
+</html>
