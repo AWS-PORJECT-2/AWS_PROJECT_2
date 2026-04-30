@@ -102,7 +102,7 @@ function renderNotificationList() {
               <span style="font-size:11px;color:#9ca3af;">사이즈: ${size}</span>
             </div>
           </div>
-          <a href="payment.html?id=${item.id}&title=${encodeURIComponent(item.title)}&price=${item.price}&size=${encodeURIComponent(size)}" style="display:block;margin-top:12px;padding:10px;border:none;border-radius:10px;background:#f97316;color:#fff;font-size:14px;font-weight:700;text-align:center;text-decoration:none;">결제하기</a>
+          <a href="payment.html?id=${item.id}&size=${encodeURIComponent(size)}" style="display:block;margin-top:12px;padding:10px;border:none;border-radius:10px;background:#f97316;color:#fff;font-size:14px;font-weight:700;text-align:center;text-decoration:none;">결제하기</a>
         </div>`;
       } else if (item.isPaid) {
         // 결제 완료

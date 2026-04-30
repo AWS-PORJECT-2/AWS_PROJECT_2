@@ -24,14 +24,23 @@ const ADMIN_ACCOUNT = {
   holder: '두띵(Doothing)',
 };
 
-/* ===== URL 파라미터 ===== */
+/* ===== URL 파라미터 (id + size만 수신) ===== */
 function getPaymentParams() {
   const params = new URLSearchParams(window.location.search);
+  const id = Number(params.get('id')) || 0;
+  const size = params.get('size') || 'Free';
+
+  // 보안: title/price는 URL에서 받지 않음. id로 서버/DB에서 직접 조회.
+  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  const product = products.find((p) => p.id === id);
+
   return {
-    id: Number(params.get('id')) || 0,
-    title: params.get('title') || '',
-    price: Number(params.get('price')) || 0,
-    size: params.get('size') || 'Free',
+    id: id,
+    title: product ? product.title : '',
+    price: product ? product.price : 0,
+    size: size,
+    product: product || null,
   };
 }
 
