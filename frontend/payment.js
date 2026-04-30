@@ -8,6 +8,13 @@
 let selectedMethod = 'tosspay';
 const BACKEND_URL = 'http://localhost:3000/f';
 
+// 관리자 입금 계좌 정보
+const ADMIN_ACCOUNT = {
+  bank: '경남은행',
+  number: '29837974',
+  holder: '두띵(Doothing)',
+};
+
 /* ===== URL 파라미터 ===== */
 function getPaymentParams() {
   const params = new URLSearchParams(window.location.search);
@@ -158,7 +165,6 @@ function renderPaymentPage() {
 
   // 사이즈 변경 버튼 — 프리사이즈면 숨김
   const changeSizeBtn = document.getElementById('changeSizeBtn');
-  const product = products.find((p) => p.id === info.id);
   const sizeType = (product && product.sizeType) || 'free';
   if (changeSizeBtn && sizeType === 'free') {
     changeSizeBtn.style.display = 'none';
@@ -190,6 +196,19 @@ function setupCardFormatting() {
 /* ===== 결제 확인 ===== */
 function confirmPayment() {
   const info = getPaymentParams();
+
+  // 간편결제 시뮬레이션 (토스/카카오/네이버)
+  if (['tosspay', 'kakaopay', 'naverpay'].includes(selectedMethod)) {
+    const methodLabels = { tosspay: '토스페이', kakaopay: '카카오페이', naverpay: '네이버페이' };
+    const label = methodLabels[selectedMethod];
+    const proceed = confirm(
+      label + '로 ' + formatPrice(info.price) + '을 결제합니다.\n\n' +
+      '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
+      '예금주: ' + ADMIN_ACCOUNT.holder + '\n\n' +
+      '결제를 진행하시겠습니까?'
+    );
+    if (!proceed) return;
+  }
 
   // 카드 결제 유효성 검사
   if (selectedMethod === 'card') {
@@ -234,6 +253,7 @@ function confirmPayment() {
     method: selectedMethod,
     amount: info.price,
     selectedSize: finalSize,
+    adminAccount: ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number,
     paidAt: new Date().toISOString(),
     status: selectedMethod === 'bank' ? 'pending' : 'paid',
   };
@@ -268,7 +288,13 @@ function completePayment(info, paymentData) {
   } else {
     // 무통장 입금 — 결제 대기
     localStorage.setItem('paid_' + info.id, 'pending');
-    alert('입금 요청이 완료되었습니다.\n입금 확인 후 결제가 완료됩니다.');
+    alert(
+      '입금 요청이 완료되었습니다.\n\n' +
+      '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
+      '예금주: ' + ADMIN_ACCOUNT.holder + '\n' +
+      '입금액: ' + formatPrice(paymentData.amount) + '\n\n' +
+      '입금 확인 후 결제가 완료됩니다.'
+    );
   }
 
   // 결제 내역 저장
