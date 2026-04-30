@@ -18,6 +18,24 @@ function escapeHTML(str) {
     .replace(/'/g, '&#039;');
 }
 
+/* ===== 결제 상태 서버 검증 (API Wrapper) ===== */
+async function fetchPaymentStatus(productId) {
+  try {
+    // 실제 백엔드 API 연동 시:
+    // const response = await fetch(`/api/payments/status/${productId}`);
+    // const data = await response.json();
+    // return data.status; // 'paid', 'pending', 'none'
+
+    // [임시 Mock 처리] 백엔드 연결 전까지 로컬 스토리지로 모의 반환
+    // UI 렌더링 로직은 이 내부 구현을 알지 못함 (추상화)
+    const mockStatus = localStorage.getItem('paid_' + productId);
+    return mockStatus === '1' ? 'paid' : (mockStatus === 'pending' ? 'pending' : 'none');
+  } catch (error) {
+    console.error('결제 상태 조회 실패:', error);
+    return 'none';
+  }
+}
+
 /* ===== 스마트 뒤로가기 (Fallback 포함) ===== */
 function goBack() {
   if (document.referrer && document.referrer.indexOf(location.hostname) !== -1) {
@@ -288,7 +306,7 @@ function handlePolicyAgree() {
 }
 
 /* ===== 메인 렌더링 ===== */
-function renderDetail() {
+async function renderDetail() {
   currentProduct = findProduct(getProductId());
   const rate = getAchievement(currentProduct);
   const container = document.getElementById('detailContainer');
