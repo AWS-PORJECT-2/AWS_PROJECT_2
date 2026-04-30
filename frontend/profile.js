@@ -17,7 +17,7 @@ const MOCK_USER = {
 };
 
 /* 탭 상태 */
-let profileTab = 'joined'; // 'joined' | 'created'
+let profileTab = 'liked'; // 'liked' | 'joined' | 'created'
 
 /* 배송/결제 현황 카운트 (임시) */
 const MOCK_ORDER_STATUS = {
@@ -34,19 +34,19 @@ function switchProfileTab(tab) {
 }
 
 function renderProfileTabs() {
+  const likedBtn = document.getElementById('tabLiked');
   const joinedBtn = document.getElementById('tabJoined');
   const createdBtn = document.getElementById('tabCreated');
-  if (profileTab === 'joined') {
-    joinedBtn.style.borderBottom = '2px solid #2563eb';
-    joinedBtn.style.color = '#2563eb';
-    createdBtn.style.borderBottom = '2px solid transparent';
-    createdBtn.style.color = '#9ca3af';
-  } else {
-    createdBtn.style.borderBottom = '2px solid #2563eb';
-    createdBtn.style.color = '#2563eb';
-    joinedBtn.style.borderBottom = '2px solid transparent';
-    joinedBtn.style.color = '#9ca3af';
-  }
+  [likedBtn, joinedBtn, createdBtn].forEach((btn) => {
+    if (!btn) return;
+    if (btn.id === 'tab' + profileTab.charAt(0).toUpperCase() + profileTab.slice(1)) {
+      btn.style.borderBottom = '2px solid #2563eb';
+      btn.style.color = '#2563eb';
+    } else {
+      btn.style.borderBottom = '2px solid transparent';
+      btn.style.color = '#9ca3af';
+    }
+  });
 }
 
 function renderProfileTabContent() {
@@ -58,7 +58,9 @@ function renderProfileTabContent() {
     ? MOCK_PRODUCTS
     : [];
 
-  if (profileTab === 'joined') {
+  if (profileTab === 'liked') {
+    items = products.filter((p) => p.isLiked === true);
+  } else if (profileTab === 'joined') {
     items = products.filter((p) => p.isReserved === true);
     MOCK_USER.joinedFundingCount = items.length;
   } else {
@@ -68,7 +70,7 @@ function renderProfileTabContent() {
   }
 
   if (items.length === 0) {
-    const label = profileTab === 'joined' ? '참여한 펀딩' : '제작한 펀딩';
+    const label = profileTab === 'liked' ? '찜한 상품' : profileTab === 'joined' ? '참여한 펀딩' : '제작한 펀딩';
     container.innerHTML = `
       <div style="text-align:center;padding:48px 20px;color:#9ca3af;">
         <p style="font-size:14px;">${label}이 아직 없습니다</p>
@@ -117,7 +119,7 @@ function renderProfile() {
     <!-- 내 프로젝트 관리 -->
     <section id="projectManage" style="padding:16px 20px;border-bottom:8px solid #f5f5f5;">
       <div style="display:flex;gap:10px;">
-        <button onclick="location.href='mypage.html'" style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <button onclick="switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
           나의 활동
         </button>
@@ -131,7 +133,8 @@ function renderProfile() {
     <!-- 탭: 참여한 펀딩 / 제작한 펀딩 -->
     <section style="border-bottom:8px solid #f5f5f5;">
       <div style="display:flex;border-bottom:1px solid #f0f0f0;">
-        <button id="tabJoined" onclick="switchProfileTab('joined')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #2563eb;color:#2563eb;">참여한 펀딩</button>
+        <button id="tabLiked" onclick="switchProfileTab('liked')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #2563eb;color:#2563eb;">좋아요</button>
+        <button id="tabJoined" onclick="switchProfileTab('joined')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;">참여한 펀딩</button>
         <button id="tabCreated" onclick="switchProfileTab('created')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;">제작한 펀딩</button>
       </div>
       <div id="profileTabContent"></div>
@@ -171,7 +174,7 @@ function renderProfile() {
   menuSection.style.cssText = 'padding:8px 0;';
 
   const menuItems = [
-    { icon: 'heart', label: '찜한 굿즈 아이디어', href: 'mypage.html' },
+    { icon: 'heart', label: '찜한 굿즈 아이디어', href: '#', onclick: "switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" },
     { icon: 'bell', label: '알림 내역', href: '#' },
     { icon: 'message', label: '1:1 문의', href: '#' },
     { icon: 'megaphone', label: '공지사항', href: '#' },
