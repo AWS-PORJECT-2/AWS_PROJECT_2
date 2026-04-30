@@ -163,7 +163,10 @@
 
   <script>
     var selectedProduct = '';
-    var BACKEND_URL = 'http://localhost:3000/f';
+    var UPLOAD_API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000/api'
+      : 'https://api.doothing.app/api';
+    var UPLOAD_ENDPOINT = UPLOAD_API_BASE + '/designs/upload';
 
     var CATEGORY_DATA = {
       varsity: { label: '과잠', template: 'assets/blueprint.jpg', templateName: 'varsity_template.jpg' },
@@ -225,7 +228,7 @@
       formData.append('category', selectedProduct);
       formData.append('categoryLabel', CATEGORY_DATA[selectedProduct].label);
 
-      fetch(BACKEND_URL, { method: 'POST', body: formData })
+      fetch(UPLOAD_ENDPOINT, { method: 'POST', body: formData })
         .then(function() { console.log('업로드 성공'); })
         .catch(function() { console.log('백엔드 미연결 — 로컬 처리'); });
 

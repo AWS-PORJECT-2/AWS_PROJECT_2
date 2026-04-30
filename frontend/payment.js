@@ -6,7 +6,16 @@
  */
 
 let selectedMethod = 'tosspay';
-const BACKEND_URL = 'http://localhost:3000/f';
+
+/* ===== API 환경 설정 ===== */
+const API_BASE_URL = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000/api'
+  : 'https://api.doothing.app/api';
+
+const PAYMENT_ENDPOINT = API_BASE_URL + '/payments/confirm';
+
+// 백엔드 미구현 시 Mock 모드 (true: fetch 대신 시뮬레이션)
+const USE_MOCK_API = true;
 
 // 관리자 입금 계좌 정보
 const ADMIN_ACCOUNT = {
@@ -302,14 +311,25 @@ function confirmPayment() {
     });
 }
 
-/* ===== 백엔드 전송 ===== */
+/* ===== 백엔드 전송 (Mock 모드 지원) ===== */
 async function sendPaymentToServer(data) {
-  const response = await fetch(BACKEND_URL, {
+  if (USE_MOCK_API) {
+    // Mock 모드: 0.5초 후 성공 응답 시뮬레이션
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.log('[Mock API] 결제 요청 성공:', data);
+        resolve({ success: true, orderId: 'MOCK-' + Date.now() });
+      }, 500);
+    });
+  }
+
+  // 실제 백엔드 API 호출
+  const response = await fetch(PAYMENT_ENDPOINT, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Server error');
+  if (!response.ok) throw new Error('Server error: ' + response.status);
   return response.json();
 }
 
