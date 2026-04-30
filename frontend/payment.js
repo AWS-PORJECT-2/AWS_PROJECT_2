@@ -290,21 +290,33 @@ function confirmPayment() {
     }
   }
 
-  // 결제 데이터 구성 (검증된 원본 가격 사용)
+  // 보안: 결제 금액(amount)은 클라이언트에서 전송하지 않습니다.
+  // 서버가 productId를 기준으로 DB의 원본 가격을 조회하여 최종 결제를 수행합니다.
+  // 클라이언트는 유저가 선택한 "변수"(상품ID, 옵션, 결제수단)만 전달합니다.
   const finalSize = _paySelectedSize || info.size || 'Free';
   const paymentData = {
     productId: info.id,
     method: selectedMethod,
-    amount: verifiedPrice,
     selectedSize: finalSize,
-    adminAccount: ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number,
-    paidAt: new Date().toISOString(),
-    status: selectedMethod === 'bank' ? 'pending' : 'paid',
+    quantity: 1,
+    requestedAt: new Date().toISOString(),
   };
 
   // 백엔드 전송 시도
   sendPaymentToServer(paymentData)
-    .then(() => completePayment(info, paymentData))
+    .then((serverResponse) => {
+      // Mock 환경: 서버가 DB 가격으로 계산을 완료했다고 가정
+      // 실제 환경: serverResponse.amount, serverResponse.status 등을 사용
+      const confirmedData = {
+        productId: info.id,
+        method: selectedMethod,
+        amount: verifiedPrice, // UI 표시용 (실제로는 서버 응답값 사용)
+        selectedSize: finalSize,
+        paidAt: new Date().toISOString(),
+        status: selectedMethod === 'bank' ? 'pending' : 'paid',
+      };
+      completePayment(info, confirmedData);
+    })
     .catch((error) => {
       console.error('서버 결제 요청 실패:', error);
       alert('결제 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
