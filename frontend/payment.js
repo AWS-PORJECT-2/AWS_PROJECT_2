@@ -119,38 +119,62 @@ function renderSavedAccounts() {
 /* ===== 주문 정보 렌더링 ===== */
 function renderPaymentPage() {
   const info = getPaymentParams();
+
+  // id 유효성 검사
+  if (!info.id) {
+    alert('잘못된 접근입니다.');
+    history.back();
+    return;
+  }
+
   const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
     ? MOCK_PRODUCTS : [];
   const product = products.find((p) => p.id === info.id);
 
+  // 상품을 찾지 못한 경우
+  if (!product && !info.title) {
+    alert('상품 정보를 찾을 수 없습니다.');
+    history.back();
+    return;
+  }
+
+  // 사이즈 라벨
+  const sizeLabel = (!info.size || info.size === 'Free') ? '프리사이즈' : '사이즈 ' + info.size;
+  const price = product ? product.price : info.price;
+  const title = product ? product.title : info.title;
+
+  // 주문 요약 렌더링
   const summary = document.getElementById('orderSummary');
   if (summary && product) {
     summary.innerHTML = `
-      <div style="display:flex;gap:14px;align-items:center;">
-        <div style="width:80px;height:80px;border-radius:12px;overflow:hidden;flex-shrink:0;">
+      <div style="display:flex;gap:14px;align-items:flex-start;">
+        <div style="width:88px;height:88px;border-radius:14px;overflow:hidden;flex-shrink:0;border:1px solid #f0f0f0;">
           <img src="${product.imageUrl}" alt="${product.title}" style="width:100%;height:100%;object-fit:cover;">
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:15px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${product.title}</div>
+          <div style="font-size:16px;font-weight:700;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${product.title}</div>
           <div style="font-size:12px;color:#9ca3af;margin-top:4px;">${product.department} · ${product.author}</div>
-          <div style="font-size:17px;font-weight:700;color:#1a1a1a;margin-top:6px;">${product.priceText}</div>
+          <div style="display:inline-block;margin-top:8px;padding:4px 10px;background:#f3f4f6;border-radius:6px;font-size:12px;font-weight:600;color:#4b5563;">옵션: ${sizeLabel}</div>
+          <div style="font-size:18px;font-weight:800;color:#1a1a1a;margin-top:8px;">${formatPrice(price)}</div>
         </div>
       </div>
     `;
   } else if (summary) {
     summary.innerHTML = `
-      <div style="font-size:15px;font-weight:600;color:#1a1a1a;">${info.title}</div>
-      <div style="font-size:17px;font-weight:700;color:#1a1a1a;margin-top:6px;">${formatPrice(info.price)}</div>
+      <div style="padding:4px 0;">
+        <div style="font-size:16px;font-weight:700;color:#1a1a1a;">${title}</div>
+        <div style="display:inline-block;margin-top:8px;padding:4px 10px;background:#f3f4f6;border-radius:6px;font-size:12px;font-weight:600;color:#4b5563;">옵션: ${sizeLabel}</div>
+        <div style="font-size:18px;font-weight:800;color:#1a1a1a;margin-top:8px;">${formatPrice(price)}</div>
+      </div>
     `;
   }
 
-  const price = product ? product.price : info.price;
   const itemPriceEl = document.getElementById('itemPrice');
   const totalPriceEl = document.getElementById('totalPrice');
   if (itemPriceEl) itemPriceEl.textContent = formatPrice(price);
   if (totalPriceEl) totalPriceEl.textContent = formatPrice(price);
 
-  document.title = (product ? product.title : info.title) + ' 결제 - 국민대학교';
+  document.title = title + ' 결제 - 국민대학교';
 
   renderSavedCards();
   renderSavedAccounts();
