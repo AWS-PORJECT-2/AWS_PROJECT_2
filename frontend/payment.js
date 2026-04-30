@@ -296,7 +296,10 @@ function confirmPayment() {
   // 백엔드 전송 시도
   sendPaymentToServer(paymentData)
     .then(() => completePayment(info, paymentData))
-    .catch(() => completePayment(info, paymentData));
+    .catch((error) => {
+      console.error('서버 결제 요청 실패:', error);
+      alert('결제 처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+    });
 }
 
 /* ===== 백엔드 전송 ===== */
