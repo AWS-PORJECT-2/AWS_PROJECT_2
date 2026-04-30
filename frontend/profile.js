@@ -190,7 +190,7 @@ function renderProfile() {
   menuSection.innerHTML = menuItems
     .map(
       (item) => `
-    <a href="${item.href}" style="display:flex;align-items:center;gap:14px;padding:14px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
+    <a href="${item.href}" ${item.onclick ? 'onclick="' + item.onclick + '; return false;"' : ''} style="display:flex;align-items:center;gap:14px;padding:14px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
       <span style="color:#6b7280;">${iconMap[item.icon]}</span>
       <span style="font-size:14px;font-weight:500;flex:1;">${item.label}</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
