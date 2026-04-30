@@ -29,6 +29,9 @@ function updateToggleUI(enabled) {
     toggle.style.background = '#d1d5db';
     knob.style.left = '2px';
   }
+
+  // 접근성 상태 동기화
+  toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
 }
 
 /* ===== 로그아웃 ===== */

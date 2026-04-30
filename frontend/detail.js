@@ -318,41 +318,41 @@ function renderDetail() {
     </div>
   `;
 
-  // 하단 액션바 — 조건부 렌더링
+  // 하단 액션바 — 조건부 렌더링 (4단계 분기)
   const bottomBar = document.getElementById('detailBottomBar');
   const isAchieved = rate >= 100;
+  const paymentState = localStorage.getItem('paid_' + currentProduct.id);
 
-  if (currentProduct.isPaid) {
-    // 결제 완료 상태
-    bottomBar.innerHTML = `
-      <button class="btn-wish" id="btnWish" onclick="handleLike()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-        <span>${currentProduct.likeCount}</span>
-      </button>
+  const likeBtn = `
+    <button class="btn-wish" id="btnWish" onclick="handleLike()">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
+      <span>${currentProduct.likeCount}</span>
+    </button>`;
+
+  if (paymentState === 'pending') {
+    // A: 입금 대기 중 (무통장 입금 후)
+    bottomBar.innerHTML = likeBtn + `
+      <button class="btn-join" style="background:#9ca3af;cursor:default;" disabled>입금 확인 중</button>
+    `;
+  } else if (currentProduct.isPaid || paymentState === '1') {
+    // B: 결제 완료
+    bottomBar.innerHTML = likeBtn + `
       <button class="btn-join" style="background:#16a34a;cursor:default;" disabled>결제 완료</button>
     `;
   } else if (currentProduct.isReserved && isAchieved) {
-    // 참여 완료 + 달성률 100% → 결제 버튼
-    bottomBar.innerHTML = `
-      <button class="btn-wish" id="btnWish" onclick="handleLike()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-        <span>${currentProduct.likeCount}</span>
-      </button>
+    // C: 참여 완료 + 달성률 100% → 결제 버튼
+    bottomBar.innerHTML = likeBtn + `
       <button class="btn-join" style="background:#f97316;" onclick="goToPayment()">결제하기</button>
     `;
   } else {
-    // 기본: 공구 참여하기
-    bottomBar.innerHTML = `
-      <button class="btn-wish" id="btnWish" onclick="handleLike()">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-        <span>${currentProduct.likeCount}</span>
-      </button>
+    // D: 기본 — 공구 참여하기
+    bottomBar.innerHTML = likeBtn + `
       <button class="btn-join" onclick="handleJoinClick()">공구 참여하기</button>
     `;
   }
 
-  // 달성률 100% 알림 (참여자에게 최초 1회)
-  if (currentProduct.isReserved && isAchieved && !currentProduct.isPaid) {
+  // 달성률 100% 알림 (참여자에게 최초 1회, pending/paid 제외)
+  if (currentProduct.isReserved && isAchieved && !currentProduct.isPaid && paymentState !== 'pending') {
     const notifiedKey = 'notified_100_' + currentProduct.id;
     if (!localStorage.getItem(notifiedKey)) {
       localStorage.setItem(notifiedKey, '1');
