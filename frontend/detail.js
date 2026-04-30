@@ -7,6 +7,20 @@
 
 let currentProduct = null;
 
+/* ===== 스마트 뒤로가기 (Fallback 포함) ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  const backBtn = document.querySelector('.back-btn');
+  if (backBtn) {
+    backBtn.addEventListener('click', () => {
+      if (document.referrer && history.length > 1) {
+        history.back();
+      } else {
+        location.href = 'feed.html';
+      }
+    });
+  }
+});
+
 function getProductId() {
   const params = new URLSearchParams(window.location.search);
   return Number(params.get('id')) || 1;
