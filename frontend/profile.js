@@ -102,21 +102,6 @@ function renderProfile() {
   const main = document.getElementById('profileMain');
 
   main.innerHTML = `
-    <!-- 모바일 헤더 -->
-    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
-      <div class="header-left">
-        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기" style="margin-right:4px;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;">마이페이지</span>
-      </div>
-      <div class="header-right">
-        <a href="settings.html" class="icon-btn" aria-label="설정" style="display:flex;align-items:center;justify-content:center;position:relative;z-index:10;">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="pointer-events:none;"><path d="M12.22 2h-.44a2 2 0 00-2 2v.18a2 2 0 01-1 1.73l-.43.25a2 2 0 01-2 0l-.15-.08a2 2 0 00-2.73.73l-.22.38a2 2 0 00.73 2.73l.15.1a2 2 0 011 1.72v.51a2 2 0 01-1 1.74l-.15.09a2 2 0 00-.73 2.73l.22.38a2 2 0 002.73.73l.15-.08a2 2 0 012 0l.43.25a2 2 0 011 1.73V20a2 2 0 002 2h.44a2 2 0 002-2v-.18a2 2 0 011-1.73l.43-.25a2 2 0 012 0l.15.08a2 2 0 002.73-.73l.22-.39a2 2 0 00-.73-2.73l-.15-.08a2 2 0 01-1-1.74v-.5a2 2 0 011-1.74l.15-.09a2 2 0 00.73-2.73l-.22-.38a2 2 0 00-2.73-.73l-.15.08a2 2 0 01-2 0l-.43-.25a2 2 0 01-1-1.73V4a2 2 0 00-2-2z"/><circle cx="12" cy="12" r="3"/></svg>
-        </a>
-      </div>
-    </header>
-
     <!-- 유저 프로필 정보 -->
     <section id="profileInfo" style="padding:24px 20px;text-align:center;border-bottom:8px solid #f5f5f5;">
       <img src="${MOCK_USER.avatarUrl}" alt="${MOCK_USER.name}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
