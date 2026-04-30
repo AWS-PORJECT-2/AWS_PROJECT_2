@@ -393,11 +393,10 @@ async function renderDetail() {
 /* ===== 결제 페이지 이동 ===== */
 function goToPayment() {
   if (!currentProduct) return;
+  // 보안: price/title은 URL에 포함하지 않음. 결제 페이지가 id로 서버/DB에서 직접 조회.
   const size = localStorage.getItem('selectedSize_' + currentProduct.id) || '';
   const params = new URLSearchParams({
     id: currentProduct.id,
-    title: currentProduct.title,
-    price: currentProduct.price,
     size: size,
   });
   window.location.href = 'payment.html?' + params.toString();
