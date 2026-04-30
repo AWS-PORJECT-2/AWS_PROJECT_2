@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>나의 디자인 업로드 - 국민대학교</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .upload-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 0;
+      gap: 6px;
+      width: 100%;
+      max-width: 375px;
+      min-height: 630px;
+      margin: 0 auto;
+      flex: none;
+      flex-grow: 0;
+    }
+    .category-container {
+      display: grid;
+      grid-template-columns: repeat(1, 1fr);
+      gap: 12px;
+      padding: 20px;
+      width: 100%;
+    }
+    .category-card {
+      background: #f9fafb;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      text-align: left;
+    }
+    .category-card:hover {
+      border-color: #6366f1;
+      background: #eef2ff;
+    }
+    .category-card.selected {
+      border-color: #2563eb;
+      background: #eff6ff;
+    }
+    .category-card .icon {
+      font-size: 24px;
+      margin-right: 12px;
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+    .category-card .title {
+      font-weight: 600;
+      color: #111827;
+      font-size: 15px;
+    }
+    .category-card .desc {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+
+  <div style="display:flex;flex-direction:column;align-items:flex-start;padding:0;width:100%;min-height:100vh;flex:none;z-index:2;">
+
+  <main class="main-content" style="padding-bottom:80px;width:100%;">
+
+    <!-- 헤더 -->
+    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
+      <div class="header-left">
+        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">나의 디자인</span>
+      </div>
+    </header>
+
+    <div class="upload-container">
+
+      <!-- 1단계: 제품 카테고리 선택 -->
+      <div id="stepCategory">
+        <div style="width:100%;padding:24px 20px 8px;">
+          <h2 style="font-size:20px;font-weight:800;color:#1a1a1a;">어떤 제품을 디자인할까요?</h2>
+          <p style="font-size:14px;color:#9ca3af;margin-top:6px;">제품을 선택하면 맞춤 도면을 받을 수 있어요</p>
+        </div>
+        <div class="category-container">
+          <button class="category-card" onclick="selectCategory(event, 'varsity')">
+            <div class="icon" style="background:#eff6ff;">🧥</div>
+            <div>
+              <div class="title">과잠</div>
+              <div class="desc">대학 과잠바 · 사이즈 선택 가능</div>
+            </div>
+          </button>
+          <button class="category-card" onclick="selectCategory(event, 'tshirt')">
+            <div class="icon" style="background:#f0fdf4;">👕</div>
+            <div>
+              <div class="title">반팔티</div>
+              <div class="desc">라운드넥 반팔 · 사이즈 선택 가능</div>
+            </div>
+          </button>
+          <button class="category-card" onclick="selectCategory(event, 'ecobag')">
+            <div class="icon" style="background:#fef3c7;">👜</div>
+            <div>
+              <div class="title">에코백</div>
+              <div class="desc">친환경 에코백 · 프리사이즈</div>
+            </div>
+          </button>
+        </div>
+      </div>
+
+      <!-- 2단계: 업로드/다운로드 선택 (숨김) -->
+      <div id="stepAction" style="display:none;width:100%;">
+        <div style="padding:32px 20px 24px;text-align:center;">
+          <div style="width:80px;height:80px;border-radius:20px;background:#eff6ff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          </div>
+          <h2 id="actionTitle" style="font-size:20px;font-weight:800;color:#1a1a1a;">과잠 디자인</h2>
+          <p style="font-size:14px;color:#9ca3af;margin-top:8px;line-height:1.6;">디자인이 준비되어 있다면 업로드하고,<br>아직 없다면 도면 템플릿을 다운로드하세요</p>
+        </div>
+
+        <input type="file" id="customDesignUpload" accept="image/*, .pdf, .ai, .psd" style="display:none;">
+
+        <div style="padding:0 20px;display:flex;flex-direction:column;gap:12px;">
+          <button onclick="triggerUpload()" style="width:100%;padding:18px;border:2px solid #2563eb;border-radius:14px;background:#eff6ff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/></svg>
+            <span style="font-size:16px;font-weight:700;color:#2563eb;">이미 있어요</span>
+          </button>
+          <a id="downloadLink" href="#" download style="width:100%;padding:18px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2"><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/></svg>
+            <span id="downloadLabel" style="font-size:16px;font-weight:700;color:#6b7280;">도면 다운로드</span>
+          </a>
+          <button onclick="goBackToCategory()" style="width:100%;padding:14px;border:none;border-radius:14px;background:transparent;cursor:pointer;font-size:14px;color:#9ca3af;font-weight:500;">← 다른 제품 선택</button>
+        </div>
+
+        <div id="uploadPreview" style="display:none;width:100%;padding:20px;text-align:center;">
+          <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">✅ 디자인이 첨부되었습니다</p>
+          <img id="previewImage" alt="업로드된 디자인" style="display:none;max-width:100%;max-height:250px;border-radius:12px;border:1px solid #e5e7eb;">
+        </div>
+
+        <div style="width:100%;padding:20px;">
+          <div style="background:#f9fafb;border-radius:12px;padding:16px;">
+            <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+              <strong style="color:#1a1a1a;">지원 형식</strong><br>
+              JPG, PNG, PDF, AI, PSD (최대 10MB)
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+  </div>
+
+  <script>
+    var selectedProduct = '';
+    var UPLOAD_API_BASE = window.location.hostname === 'localhost'
+      ? 'http://localhost:3000/api'
+      : 'https://api.doothing.app/api';
+    var UPLOAD_ENDPOINT = UPLOAD_API_BASE + '/designs/upload';
+
+    var CATEGORY_DATA = {
+      varsity: { label: '과잠', template: 'assets/blueprint.jpg', templateName: 'varsity_template.jpg' },
+      tshirt: { label: '반팔티', template: 'assets/blueprint.jpg', templateName: 'tshirt_template.jpg' },
+      ecobag: { label: '에코백', template: 'assets/blueprint.jpg', templateName: 'ecobag_template.jpg' },
+    };
+
+    function selectCategory(event, category) {
+      selectedProduct = category;
+      var data = CATEGORY_DATA[category];
+
+      // 카드 하이라이트
+      document.querySelectorAll('.category-card').forEach(function(card) { card.classList.remove('selected'); });
+      event.currentTarget.classList.add('selected');
+
+      // 2단계 표시
+      document.getElementById('stepCategory').style.display = 'none';
+      document.getElementById('stepAction').style.display = 'block';
+      document.getElementById('actionTitle').textContent = data.label + ' 디자인';
+      document.getElementById('downloadLink').href = data.template;
+      document.getElementById('downloadLink').download = data.templateName;
+      document.getElementById('downloadLabel').textContent = data.label + ' 도면 다운로드';
+      document.getElementById('uploadPreview').style.display = 'none';
+    }
+
+    function goBackToCategory() {
+      selectedProduct = '';
+      document.getElementById('stepCategory').style.display = 'block';
+      document.getElementById('stepAction').style.display = 'none';
+    }
+
+    function triggerUpload() {
+      document.getElementById('customDesignUpload').click();
+    }
+
+    document.getElementById('customDesignUpload').addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      if (!file) return;
+
+      // 미리보기
+      var preview = document.getElementById('uploadPreview');
+      var previewImg = document.getElementById('previewImage');
+      if (file.type.startsWith('image/')) {
+        var reader = new FileReader();
+        reader.onload = function(ev) {
+          previewImg.src = ev.target.result;
+          previewImg.style.display = 'block';
+          preview.style.display = 'block';
+        };
+        reader.readAsDataURL(file);
+      } else {
+        previewImg.style.display = 'none';
+        previewImg.removeAttribute('src');
+        previewImg.alt = file.name;
+        preview.style.display = 'block';
+      }
+
+      // 백엔드 전송 시도 (카테고리 포함)
+      var formData = new FormData();
+      formData.append('file', file);
+      formData.append('category', selectedProduct);
+      formData.append('categoryLabel', CATEGORY_DATA[selectedProduct].label);
+
+      fetch(UPLOAD_ENDPOINT, { method: 'POST', body: formData })
+        .then(function() { console.log('업로드 성공'); })
+        .catch(function() { console.log('백엔드 미연결 — 로컬 처리'); });
+
+      alert('디자인 파일이 성공적으로 불러와졌습니다!\n\n파일명: ' + file.name + '\n제품: ' + CATEGORY_DATA[selectedProduct].label);
+    });
+  </script>
+
+</body>
+</html>
