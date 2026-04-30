@@ -178,10 +178,18 @@ function setReserved(productId, value) {
 /**
  * 페이지 로드 시 localStorage와 isLiked/isReserved/수치 동기화
  * - 스토리지에 기록이 없으면(null) 기존 목데이터 값을 유지
- * - delta 값을 읽어 likeCount, currentQuantity에 반영
+ * - delta 값을 읽어 원본 + delta = 최종값 (멱등성 보장)
  */
 function syncUserState() {
   MOCK_PRODUCTS.forEach((p) => {
+    // 원본 값 보존 (최초 1회만 저장)
+    if (typeof p._baseLikeCount === 'undefined') {
+      p._baseLikeCount = p.likeCount;
+    }
+    if (typeof p._baseCurrentQuantity === 'undefined') {
+      p._baseCurrentQuantity = p.currentQuantity;
+    }
+
     // 플래그 복원 (null이면 seed data 유지)
     const liked = localStorage.getItem('liked_' + p.id);
     const reserved = localStorage.getItem('reserved_' + p.id);
@@ -199,12 +207,12 @@ function syncUserState() {
       p.isPaid = paid === '1';
     }
 
-    // 수치 delta 복원
+    // 수치: 원본 + delta = 최종값 (누적 아닌 대입)
     const likeDelta = Number(localStorage.getItem('liked_delta_' + p.id)) || 0;
     const reservedDelta = Number(localStorage.getItem('reserved_delta_' + p.id)) || 0;
 
-    p.likeCount += likeDelta;
-    p.currentQuantity += reservedDelta;
+    p.likeCount = p._baseLikeCount + likeDelta;
+    p.currentQuantity = p._baseCurrentQuantity + reservedDelta;
   });
 }
 
