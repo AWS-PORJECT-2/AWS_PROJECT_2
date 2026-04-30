@@ -158,19 +158,23 @@ function setReserved(productId, value) {
 
   const flagKey = 'reserved_' + productId;
   const deltaKey = 'reserved_delta_' + productId;
-  const currentDelta = Number(localStorage.getItem(deltaKey)) || 0;
 
   if (value && !product.isReserved) {
     // 새로 참여
+    const currentDelta = Number(localStorage.getItem(deltaKey)) || 0;
     localStorage.setItem(flagKey, '1');
     localStorage.setItem(deltaKey, String(currentDelta + 1));
     product.currentQuantity++;
     product.isReserved = true;
   } else if (!value && product.isReserved) {
-    // 참여 취소
-    localStorage.setItem(flagKey, '0');
-    localStorage.setItem(deltaKey, String(currentDelta - 1));
-    product.currentQuantity--;
+    // 참여 취소 — 플래그 해제 + delta 완전 초기화
+    localStorage.removeItem(flagKey);
+    localStorage.removeItem(deltaKey);
+    localStorage.removeItem('selectedSize_' + productId);
+    // 원본 기준으로 수치 복원 (멱등성)
+    if (typeof product._baseCurrentQuantity !== 'undefined') {
+      product.currentQuantity = product._baseCurrentQuantity;
+    }
     product.isReserved = false;
   }
 }

@@ -7,22 +7,9 @@
 function cancelReservation(productId) {
   if (!confirm('정말로 이 펀딩 참여(예약)를 취소하시겠습니까?')) return;
 
-  // 로컬 스토리지에서 예약 데이터 삭제
-  localStorage.removeItem('reserved_' + productId);
-  localStorage.removeItem('selectedSize_' + productId);
-
-  // delta 조정 (참여 인원 감소)
-  const deltaKey = 'reserved_delta_' + productId;
-  const currentDelta = Number(localStorage.getItem(deltaKey)) || 0;
-  localStorage.setItem(deltaKey, String(currentDelta - 1));
-
-  // MOCK_PRODUCTS 동기화
-  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
-    ? MOCK_PRODUCTS : [];
-  const product = products.find(function(p) { return p.id === productId; });
-  if (product) {
-    product.isReserved = false;
-    product.currentQuantity--;
+  // 통합 함수로 플래그 + delta + 사이즈 일괄 정리
+  if (typeof setReserved === 'function') {
+    setReserved(productId, false);
   }
 
   alert('예약이 정상적으로 취소되었습니다.');
