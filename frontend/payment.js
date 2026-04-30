@@ -102,37 +102,87 @@ function updatePayButton() {
 /* ===== 등록된 카드/계좌 렌더링 ===== */
 function renderSavedCards() {
   const container = document.getElementById('savedCards');
-  const saved = JSON.parse(localStorage.getItem('saved_cards') || '[]');
+
+  let saved = [];
+  try {
+    const raw = localStorage.getItem('saved_cards');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) saved = parsed;
+    }
+  } catch (e) {
+    console.error('카드 데이터 파싱 실패:', e);
+  }
 
   if (saved.length === 0) {
     container.innerHTML = '<p style="font-size:13px;color:#9ca3af;margin-bottom:8px;">등록된 카드가 없습니다. 아래에서 새 카드를 입력하세요.</p>';
     return;
   }
 
-  container.innerHTML = saved.map((card, i) => `
-    <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;">
-      <input type="radio" name="savedCard" value="${i}" style="accent-color:#2563eb;width:16px;height:16px;">
-      <span style="font-size:14px;color:#1a1a1a;">**** **** **** ${card.last4}</span>
-      <span style="font-size:11px;color:#9ca3af;margin-left:auto;">${card.expiry}</span>
-    </label>
-  `).join('');
+  container.innerHTML = '';
+  saved.forEach(function (card, i) {
+    var label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;';
+
+    var radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'savedCard';
+    radio.value = i;
+    radio.style.cssText = 'accent-color:#2563eb;width:16px;height:16px;';
+
+    var cardSpan = document.createElement('span');
+    cardSpan.style.cssText = 'font-size:14px;color:#1a1a1a;';
+    cardSpan.textContent = '**** **** **** ' + (card.last4 || '');
+
+    var expirySpan = document.createElement('span');
+    expirySpan.style.cssText = 'font-size:11px;color:#9ca3af;margin-left:auto;';
+    expirySpan.textContent = card.expiry || '';
+
+    label.appendChild(radio);
+    label.appendChild(cardSpan);
+    label.appendChild(expirySpan);
+    container.appendChild(label);
+  });
 }
 
 function renderSavedAccounts() {
   const container = document.getElementById('savedAccounts');
-  const saved = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+
+  let saved = [];
+  try {
+    const raw = localStorage.getItem('saved_accounts');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) saved = parsed;
+    }
+  } catch (e) {
+    console.error('계좌 데이터 파싱 실패:', e);
+  }
 
   if (saved.length === 0) {
     container.innerHTML = '<p style="font-size:13px;color:#9ca3af;margin-bottom:8px;">등록된 계좌가 없습니다. 아래에서 입금 정보를 입력하세요.</p>';
     return;
   }
 
-  container.innerHTML = saved.map((acc, i) => `
-    <label style="display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;">
-      <input type="radio" name="savedAccount" value="${i}" style="accent-color:#2563eb;width:16px;height:16px;">
-      <span style="font-size:14px;color:#1a1a1a;">${acc.bankName} · ${acc.depositor}</span>
-    </label>
-  `).join('');
+  container.innerHTML = '';
+  saved.forEach(function (acc, i) {
+    var label = document.createElement('label');
+    label.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;';
+
+    var radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'savedAccount';
+    radio.value = i;
+    radio.style.cssText = 'accent-color:#2563eb;width:16px;height:16px;';
+
+    var span = document.createElement('span');
+    span.style.cssText = 'font-size:14px;color:#1a1a1a;';
+    span.textContent = (acc.bankName || '') + ' · ' + (acc.depositor || '');
+
+    label.appendChild(radio);
+    label.appendChild(span);
+    container.appendChild(label);
+  });
 }
 
 /* ===== 주문 정보 렌더링 ===== */
@@ -277,7 +327,7 @@ function confirmPayment() {
         alert('카드 정보를 정확히 입력해 주세요.');
         return;
       }
-      const saved = JSON.parse(localStorage.getItem('saved_cards') || '[]');
+      const saved = (() => { try { const p = JSON.parse(localStorage.getItem('saved_cards') || '[]'); return Array.isArray(p) ? p : []; } catch (e) { return []; } })();
       saved.push({ last4: num.slice(-4), expiry: expiry });
       localStorage.setItem('saved_cards', JSON.stringify(saved));
     }
@@ -294,7 +344,7 @@ function confirmPayment() {
         return;
       }
       const bankNames = { kb: '국민은행', shinhan: '신한은행', woori: '우리은행', hana: '하나은행', nh: '농협은행', kakao: '카카오뱅크', toss: '토스뱅크' };
-      const saved = JSON.parse(localStorage.getItem('saved_accounts') || '[]');
+      const saved = (() => { try { const p = JSON.parse(localStorage.getItem('saved_accounts') || '[]'); return Array.isArray(p) ? p : []; } catch (e) { return []; } })();
       saved.push({ bankName: bankNames[bank] || bank, depositor: depositor });
       localStorage.setItem('saved_accounts', JSON.stringify(saved));
     }
@@ -379,7 +429,7 @@ function completePayment(info, paymentData) {
   }
 
   // 결제 내역 저장
-  const history = JSON.parse(localStorage.getItem('payment_history') || '[]');
+  const history = (() => { try { const p = JSON.parse(localStorage.getItem('payment_history') || '[]'); return Array.isArray(p) ? p : []; } catch (e) { return []; } })();
   history.push(paymentData);
   localStorage.setItem('payment_history', JSON.stringify(history));
 

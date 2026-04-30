@@ -47,11 +47,14 @@ function goBack() {
 
 function getProductId() {
   const params = new URLSearchParams(window.location.search);
-  return Number(params.get('id')) || 1;
+  const id = Number(params.get('id'));
+  if (isNaN(id) || id <= 0) return null;
+  return id;
 }
 
 function findProduct(id) {
-  return MOCK_PRODUCTS.find((p) => p.id === id) || MOCK_PRODUCTS[0];
+  if (id === null || id === undefined) return null;
+  return MOCK_PRODUCTS.find((p) => p.id === id) || null;
 }
 
 /* ===== 달성률 계산 ===== */
@@ -308,6 +311,13 @@ function handlePolicyAgree() {
 /* ===== 메인 렌더링 ===== */
 async function renderDetail() {
   currentProduct = findProduct(getProductId());
+
+  if (!currentProduct) {
+    alert('상품 정보를 찾을 수 없습니다.');
+    window.location.href = 'feed.html';
+    return;
+  }
+
   const rate = getAchievement(currentProduct);
   const container = document.getElementById('detailContainer');
 
