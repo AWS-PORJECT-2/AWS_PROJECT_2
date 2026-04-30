@@ -6,6 +6,7 @@
  */
 
 let selectedMethod = 'tosspay';
+let selectedQuantity = 1;
 
 /* ===== API 환경 설정 ===== */
 const API_BASE_URL = window.location.hostname === 'localhost'
@@ -92,9 +93,9 @@ function updatePayButton() {
   const label = methodNames[selectedMethod] || '';
 
   if (selectedMethod === 'bank') {
-    if (btnText) btnText.textContent = formatPrice(price) + ' 입금 요청하기';
+    if (btnText) btnText.textContent = formatPrice(price * selectedQuantity) + ' 입금 요청하기';
   } else {
-    if (btnText) btnText.textContent = formatPrice(price) + ' ' + label + ' 결제하기';
+    if (btnText) btnText.textContent = formatPrice(price * selectedQuantity) + ' ' + label + ' 결제하기';
   }
 }
 
@@ -257,7 +258,7 @@ function confirmPayment() {
     const methodLabels = { tosspay: '토스페이', kakaopay: '카카오페이', naverpay: '네이버페이' };
     const label = methodLabels[selectedMethod];
     const proceed = confirm(
-      label + '로 ' + formatPrice(verifiedPrice) + '을 결제합니다.\n\n' +
+      label + '로 ' + formatPrice(verifiedPrice * selectedQuantity) + ' (' + selectedQuantity + '개)을 결제합니다.\n\n' +
       '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
       '예금주: ' + ADMIN_ACCOUNT.holder + '\n\n' +
       '결제를 진행하시겠습니까?'
@@ -307,7 +308,7 @@ function confirmPayment() {
     productId: info.id,
     method: selectedMethod,
     selectedSize: finalSize,
-    quantity: 1,
+    selectedQuantity: selectedQuantity,
     requestedAt: new Date().toISOString(),
   };
 
@@ -319,8 +320,9 @@ function confirmPayment() {
       const confirmedData = {
         productId: info.id,
         method: selectedMethod,
-        amount: verifiedPrice, // UI 표시용 (실제로는 서버 응답값 사용)
+        amount: verifiedPrice * selectedQuantity, // UI 표시용 (실제로는 서버 응답값 사용)
         selectedSize: finalSize,
+        selectedQuantity: selectedQuantity,
         paidAt: new Date().toISOString(),
         status: selectedMethod === 'bank' ? 'pending' : 'paid',
       };
@@ -382,6 +384,32 @@ function completePayment(info, paymentData) {
   localStorage.setItem('payment_history', JSON.stringify(history));
 
   window.location.href = 'detail.html?id=' + info.id;
+}
+
+/* ===== 수량 조절 ===== */
+function changeQuantity(delta) {
+  const newQty = selectedQuantity + delta;
+  if (newQty < 1) return; // 최소 1개
+  selectedQuantity = newQty;
+
+  // UI 업데이트
+  const display = document.getElementById('quantityDisplay');
+  if (display) display.textContent = selectedQuantity;
+
+  // 금액 재계산
+  updateTotalPrice();
+  updatePayButton();
+}
+
+function updateTotalPrice() {
+  const info = getPaymentParams();
+  const unitPrice = info.price;
+  const total = unitPrice * selectedQuantity;
+
+  const itemPriceEl = document.getElementById('itemPrice');
+  const totalPriceEl = document.getElementById('totalPrice');
+  if (itemPriceEl) itemPriceEl.textContent = formatPrice(unitPrice) + ' × ' + selectedQuantity;
+  if (totalPriceEl) totalPriceEl.textContent = formatPrice(total);
 }
 
 /* ===== 사이즈 변경 ===== */
