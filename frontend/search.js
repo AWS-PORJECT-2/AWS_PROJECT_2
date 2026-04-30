@@ -8,7 +8,12 @@
  */
 
 const POPULAR_KEYWORDS = ['과잠', '후드티', '키링', '에코백', '크롭탑'];
-const BACKEND_SEARCH_URL = 'http://localhost:3000/f';
+
+/* ===== API 환경 설정 ===== */
+const SEARCH_API_BASE = window.location.hostname === 'localhost'
+  ? 'http://localhost:3000/api'
+  : 'https://api.doothing.app/api';
+const SEARCH_ENDPOINT = SEARCH_API_BASE + '/products/search';
 
 /* ===== 검색 오버레이 동적 생성 ===== */
 function ensureSearchOverlay() {
@@ -115,7 +120,7 @@ function searchLocal(keyword) {
 
 /* ===== 백엔드 fetch ===== */
 async function fetchSearchResults(keyword) {
-  const url = BACKEND_SEARCH_URL + '?search=' + encodeURIComponent(keyword);
+  const url = SEARCH_ENDPOINT + '?search=' + encodeURIComponent(keyword);
   const response = await fetch(url);
   if (!response.ok) throw new Error('Backend not available');
   return response.json();
