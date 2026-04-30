@@ -9,6 +9,17 @@
 
 const POPULAR_KEYWORDS = ['과잠', '후드티', '키링', '에코백', '크롭탑'];
 
+/* ===== XSS 방어용 Escape 헬퍼 ===== */
+function escapeSearchHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /* ===== API 환경 설정 ===== */
 const SEARCH_API_BASE = window.location.hostname === 'localhost'
   ? 'http://localhost:3000/api'
@@ -201,16 +212,16 @@ function renderHomeSearchResults(container, results, keyword) {
     .map((item) => {
       const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(item) : 0;
       const badge = (typeof getBadgeInfo === 'function') ? getBadgeInfo(rate) : { text: '모집중', type: 'open' };
-      const logo = item.department.substring(0, 2).toUpperCase();
+      const logo = escapeSearchHTML(item.department.substring(0, 2).toUpperCase());
       return `
     <a href="detail.html?id=${item.id}" class="funding-card">
       <div class="card-thumb">
-        <img src="${item.imageUrl}" alt="${item.title}">
-        <span class="card-badge ${badge.type}">${badge.text}</span>
+        <img src="${item.imageUrl}" alt="${escapeSearchHTML(item.title)}">
+        <span class="card-badge ${badge.type}">${escapeSearchHTML(badge.text)}</span>
         <span class="card-logo">${logo}</span>
       </div>
-      <div class="card-title">${item.title}</div>
-      <div class="card-price">${item.priceText}</div>
+      <div class="card-title">${escapeSearchHTML(item.title)}</div>
+      <div class="card-price">${escapeSearchHTML(item.priceText)}</div>
       <div class="progress-bar">
         <div class="progress-fill" style="width: ${Math.min(rate, 100)}%"></div>
       </div>
