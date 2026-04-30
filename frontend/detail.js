@@ -7,6 +7,17 @@
 
 let currentProduct = null;
 
+/* ===== XSS 방어용 Escape 헬퍼 ===== */
+function escapeHTML(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 /* ===== 스마트 뒤로가기 (Fallback 포함) ===== */
 function goBack() {
   if (document.referrer && document.referrer.indexOf(location.hostname) !== -1) {
@@ -284,18 +295,18 @@ function renderDetail() {
 
   container.innerHTML = `
     <div class="detail-image">
-      <img src="${currentProduct.imageUrl}" alt="${currentProduct.title}">
+      <img src="${currentProduct.imageUrl}" alt="${escapeHTML(currentProduct.title)}">
     </div>
     <div class="detail-author">
-      <img src="${currentProduct.authorAvatar}" alt="${currentProduct.author}" class="author-avatar">
+      <img src="${currentProduct.authorAvatar}" alt="${escapeHTML(currentProduct.author)}" class="author-avatar">
       <div class="author-info">
-        <span class="author-name">${currentProduct.author}</span>
-        <span class="author-dept">${currentProduct.department}</span>
+        <span class="author-name">${escapeHTML(currentProduct.author)}</span>
+        <span class="author-dept">${escapeHTML(currentProduct.department)}</span>
       </div>
     </div>
     <div class="detail-body">
-      <h2 class="detail-title">${currentProduct.title}</h2>
-      <p class="detail-price">${currentProduct.priceText}</p>
+      <h2 class="detail-title">${escapeHTML(currentProduct.title)}</h2>
+      <p class="detail-price">${escapeHTML(currentProduct.priceText)}</p>
       <div class="detail-achievement">
         <div class="achievement-bar">
           <div class="achievement-fill" style="width: ${Math.min(rate, 100)}%"></div>
@@ -305,10 +316,10 @@ function renderDetail() {
           <span class="achievement-count">${currentProduct.currentQuantity}/${currentProduct.targetQuantity}명 참여</span>
         </div>
       </div>
-      <p class="detail-deadline">마감일: ${currentProduct.deadline}</p>
+      <p class="detail-deadline">마감일: ${escapeHTML(currentProduct.deadline)}</p>
       <div class="detail-description">
         <h3>상품 설명</h3>
-        <p>${currentProduct.description}</p>
+        <p>${escapeHTML(currentProduct.description)}</p>
       </div>
     </div>
   `;
