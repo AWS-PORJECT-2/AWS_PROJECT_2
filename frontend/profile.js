@@ -114,11 +114,11 @@ function renderProfileTabContent() {
         ? calcAchievementRate(item)
         : 0;
       const cancelBtn = (profileTab === 'joined' && !item.isPaid)
-        ? '<button onclick="event.stopPropagation(); cancelReservation(' + item.id + ')" style="background:#fee2e2;color:#ef4444;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;margin-top:8px;">예약 취소</button>'
+        ? '<button onclick="event.stopPropagation(); cancelReservation(' + item.id + ')" style="background:#fee2e2;color:#ef4444;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;align-self:center;">취소</button>'
         : '';
       return `
-    <div style="padding:14px 20px;border-bottom:1px solid #f0f0f0;">
-      <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;cursor:pointer;text-decoration:none;color:inherit;">
+    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;">
+      <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;cursor:pointer;text-decoration:none;color:inherit;flex:1;min-width:0;">
         <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;">
           <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
         </div>
