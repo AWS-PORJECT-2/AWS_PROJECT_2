@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>나의 디자인 업로드 - 국민대학교</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .upload-container {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      padding: 0;
+      gap: 6px;
+      width: 100%;
+      max-width: 375px;
+      min-height: 630px;
+      margin: 0 auto;
+      flex: none;
+      flex-grow: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <div style="display:flex;flex-direction:column;align-items:flex-start;padding:0;width:100%;min-height:100vh;flex:none;z-index:2;">
+
+  <main class="main-content" style="padding-bottom:80px;width:100%;">
+
+    <!-- 헤더 -->
+    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
+      <div class="header-left">
+        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">나의 디자인</span>
+      </div>
+    </header>
+
+    <!-- 업로드 컨테이너 -->
+    <div class="upload-container">
+
+      <!-- 안내 영역 -->
+      <div style="width:100%;padding:32px 20px 24px;text-align:center;">
+        <div style="width:80px;height:80px;border-radius:20px;background:#eff6ff;display:flex;align-items:center;justify-content:center;margin:0 auto 16px;">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        </div>
+        <h2 style="font-size:20px;font-weight:800;color:#1a1a1a;">디자인 도면이 있으신가요?</h2>
+        <p style="font-size:14px;color:#9ca3af;margin-top:8px;line-height:1.6;">이미 디자인이 준비되어 있다면 업로드하고,<br>아직 없다면 도면 템플릿을 다운로드하세요</p>
+      </div>
+
+      <!-- 숨겨진 파일 입력 -->
+      <input type="file" id="designInput" accept="image/*" style="display:none;">
+
+      <!-- 버튼 영역 -->
+      <div style="width:100%;padding:0 20px;display:flex;flex-direction:column;gap:12px;">
+
+        <!-- 이미 있어요 (업로드) -->
+        <button onclick="document.getElementById('designInput').click()" style="width:100%;padding:18px;border:2px solid #2563eb;border-radius:14px;background:#eff6ff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.2s;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          <span style="font-size:16px;font-weight:700;color:#2563eb;">이미 있어요</span>
+        </button>
+
+        <!-- 다운로드 할래요 -->
+        <a href="https://via.placeholder.com/500x500.png?text=Doothing+Blueprint" download="doothing-blueprint.png" style="width:100%;padding:18px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;text-decoration:none;transition:all 0.2s;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span style="font-size:16px;font-weight:700;color:#6b7280;">다운로드 할래요</span>
+        </a>
+
+      </div>
+
+      <!-- 업로드 미리보기 영역 -->
+      <div id="uploadPreview" style="display:none;width:100%;padding:20px;text-align:center;">
+        <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">✅ 디자인이 첨부되었습니다</p>
+        <img id="previewImage" src="" alt="업로드된 디자인" style="max-width:100%;max-height:300px;border-radius:12px;border:1px solid #e5e7eb;">
+      </div>
+
+      <!-- 안내 문구 -->
+      <div style="width:100%;padding:20px;margin-top:auto;">
+        <div style="background:#f9fafb;border-radius:12px;padding:16px;">
+          <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+            <strong style="color:#1a1a1a;">지원 형식</strong><br>
+            JPG, PNG, PDF (최대 10MB)<br><br>
+            <strong style="color:#1a1a1a;">도면 템플릿</strong><br>
+            다운로드한 템플릿에 디자인을 넣어 업로드하면 제작이 더 빠릅니다.
+          </p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  </div>
+
+  <script>
+    // 파일 선택 이벤트
+    document.getElementById('designInput').addEventListener('change', function (e) {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      // 미리보기 표시
+      const preview = document.getElementById('uploadPreview');
+      const previewImg = document.getElementById('previewImage');
+      const reader = new FileReader();
+      reader.onload = function (ev) {
+        previewImg.src = ev.target.result;
+        preview.style.display = 'block';
+      };
+      reader.readAsDataURL(file);
+
+      alert('디자인 파일이 첨부되었습니다. (' + file.name + ')');
+    });
+  </script>
+
+</body>
+</html>
