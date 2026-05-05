@@ -57,19 +57,47 @@ export class AuthServiceImpl implements AuthService {
     return { accessToken, refreshToken, rememberMe, user: { id: user.id, email: user.email, name: user.name } };
   }
 
-  async refreshToken(refreshToken: string): Promise<{ accessToken: string }> {
+  async refreshToken(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
     const payload = this.tokenService.verifyRefreshToken(refreshToken);
     if (!payload) throw new AppError('INVALID_REFRESH_TOKEN');
     const tokenHash = TokenServiceImpl.hashToken(refreshToken);
     const storedToken = this.refreshTokens.get(tokenHash);
-    if (!storedToken) throw new AppError('INVALID_REFRESH_TOKEN');
+    if (!storedToken) {
+      // 토큰 재사용 감지: 이미 무효화된 토큰이 다시 사용됨 → 해당 유저의 모든 토큰 폐기
+      this.revokeAllUserTokens(payload.userId);
+      throw new AppError('INVALID_REFRESH_TOKEN');
+    }
     if (new Date() > storedToken.expiresAt) {
       this.refreshTokens.delete(tokenHash);
       throw new AppError('INVALID_REFRESH_TOKEN');
     }
     const user = this.findUserById(payload.userId);
     if (!user) throw new AppError('INVALID_REFRESH_TOKEN');
-    return { accessToken: this.tokenService.generateAccessToken(user) };
+
+    // 기존 refresh token 즉시 무효화
+    this.refreshTokens.delete(tokenHash);
+
+    // 새 토큰 발급 (rotation)
+    const newAccessToken = this.tokenService.generateAccessToken(user);
+    const newRefreshToken = this.tokenService.generateRefreshToken(user, storedToken.rememberMe);
+    const newTokenHash = TokenServiceImpl.hashToken(newRefreshToken);
+    const now = new Date();
+    this.refreshTokens.set(newTokenHash, {
+      id: randomUUID(), userId: user.id, token: newTokenHash, rememberMe: storedToken.rememberMe,
+      expiresAt: new Date(now.getTime() + (storedToken.rememberMe ? 30*24*60*60*1000 : 24*60*60*1000)),
+      createdAt: now,
+    });
+    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+  }
+
+  private revokeAllUserTokens(userId: string): void {
+    for (const [hash, token] of this.refreshTokens) {
+      if (token.userId === userId) this.refreshTokens.delete(hash);
+    }
+  }
+
+  logout(userId: string): void {
+    this.revokeAllUserTokens(userId);
   }
 
   private findOrCreateUser(email: string, name: string, picture?: string): User {

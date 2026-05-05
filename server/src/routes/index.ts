@@ -5,6 +5,7 @@ import { createLoginHandler } from './login.js';
 import { createCallbackHandler } from './callback.js';
 import { createRefreshHandler } from './refresh.js';
 import { createMeHandler } from './me.js';
+import { createLogoutHandler } from './logout.js';
 
 export function createAuthRouter(authService: AuthService, tokenService: TokenService): Router {
   const router = Router();
@@ -12,5 +13,6 @@ export function createAuthRouter(authService: AuthService, tokenService: TokenSe
   router.get('/callback', createCallbackHandler(authService));
   router.post('/refresh', createRefreshHandler(authService));
   router.get('/me', createMeHandler(tokenService));
+  router.post('/logout', createLogoutHandler(authService, tokenService));
   return router;
 }

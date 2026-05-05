@@ -7,11 +7,19 @@ export class TokenServiceImpl implements TokenService {
   private readonly accessTokenSecret: string;
   private readonly refreshTokenSecret: string;
 
+  private static readonly MIN_SECRET_LENGTH = 32;
+
   constructor(accessTokenSecret?: string, refreshTokenSecret?: string) {
     if (!accessTokenSecret && !process.env.ACCESS_TOKEN_SECRET) throw new Error('ACCESS_TOKEN_SECRET 미설정');
     if (!refreshTokenSecret && !process.env.REFRESH_TOKEN_SECRET) throw new Error('REFRESH_TOKEN_SECRET 미설정');
     this.accessTokenSecret = accessTokenSecret ?? process.env.ACCESS_TOKEN_SECRET!;
     this.refreshTokenSecret = refreshTokenSecret ?? process.env.REFRESH_TOKEN_SECRET!;
+    if (this.accessTokenSecret.length < TokenServiceImpl.MIN_SECRET_LENGTH) {
+      throw new Error(`ACCESS_TOKEN_SECRET은 최소 ${TokenServiceImpl.MIN_SECRET_LENGTH}자 이상이어야 합니다`);
+    }
+    if (this.refreshTokenSecret.length < TokenServiceImpl.MIN_SECRET_LENGTH) {
+      throw new Error(`REFRESH_TOKEN_SECRET은 최소 ${TokenServiceImpl.MIN_SECRET_LENGTH}자 이상이어야 합니다`);
+    }
   }
 
   generateAccessToken(user: User): string { return jwt.sign({ userId: user.id, email: user.email }, this.accessTokenSecret, { expiresIn: '15m' }); }

@@ -1,4 +1,5 @@
 import { createApp } from './app.js';
+import { logger } from './logger.js';
 
 const rawPort = process.env.PORT ?? '3000';
 const PORT = Number(rawPort);
@@ -8,5 +9,5 @@ if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {
 
 const app = createApp();
 app.listen(PORT, () => {
-  console.log(`doothing 서버가 http://localhost:${PORT} 에서 실행 중입니다`);
+  logger.info({ port: PORT }, `doothing 서버가 http://localhost:${PORT} 에서 실행 중입니다`);
 });
