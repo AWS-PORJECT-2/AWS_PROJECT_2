@@ -13,9 +13,7 @@ export default function App() {
 
     if (errorParam) {
       const messages: Record<string, string> = {
-        INVALID_EMAIL_DOMAIN: '허용된 학교 이메일 계정으로만 로그인 가능합니다',
-        AUTH_FAILED: 'Google 인증에 실패했습니다',
-        INVALID_STATE: '로그인 세션이 만료되었습니다. 다시 시도해주세요',
+        login_failed: '로그인에 실패했습니다. 다시 시도해주세요',
         missing_params: '인증 정보가 누락되었습니다',
       };
       setError(messages[errorParam] || '로그인에 실패했습니다');
