@@ -11,6 +11,10 @@ import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { pool } from './db.js';
+import { PgUserRepository } from './repositories/pg-user-repository.js';
+import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
+import { PgRefreshTokenRepository } from './repositories/pg-refresh-token-repository.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
@@ -43,10 +47,20 @@ export function createApp(
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
+
   const emailValidator = new EmailValidatorImpl(allowedDomains);
   const oauthClient = new GoogleOAuthClientImpl(googleClientId, googleClientSecret, redirectUri);
   const tokenService = new TokenServiceImpl();
-  const authService = new AuthServiceImpl(emailValidator, oauthClient, tokenService);
+
+  const userRepository = new PgUserRepository(pool);
+  const oauthStateRepository = new PgOAuthStateRepository(pool);
+  const refreshTokenRepository = new PgRefreshTokenRepository(pool);
+
+  const authService = new AuthServiceImpl({
+    emailValidator, oauthClient, tokenService,
+    userRepository, oauthStateRepository, refreshTokenRepository,
+  });
+
   app.use('/api/auth/login', authRateLimit);
   app.use('/api/auth/refresh', authRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService));
