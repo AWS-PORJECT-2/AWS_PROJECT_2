@@ -44,12 +44,13 @@
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  align-items: flex-start;
+  /* 카드가 적을 때 컨테이너 가운데로 떠올라 보이는 문제를 막기 위해
+     세로 정렬은 위쪽으로 고정. */
+  justify-content: flex-start;
+  align-items: stretch;
   padding: 0;
   width: 100%;
   max-width: 375px;
-  min-height: 609px;
   margin: 0 auto;
   background: #ffffff;
   border: 0.75px solid #e5e7eb;
