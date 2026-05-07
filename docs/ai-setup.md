@@ -5,17 +5,37 @@
 
 ---
 
-## 1. 왜 이 조합인가
+## ⚠️ 라이선스 주의사항 (먼저 읽기)
+
+가상 피팅 모델 대부분은 **비상업적 라이선스**입니다. 두띵이 펀드 중개 수수료를 받는 구조라면 상업적 사용으로 분류될 수 있습니다.
+
+| 모델 | 라이선스 | 상업 운영 |
+|---|---|---|
+| **CatVTON** | CC BY-NC-SA 4.0 | ❌ 비상업만 — 학생 시연·교내 데모용 한정 |
+| **IDM-VTON** | CC BY-NC-SA 4.0 | ❌ 비상업만 |
+| **OOTDiffusion** | CC BY-NC-SA 4.0 | ❌ 비상업만 |
+| **FASHN AI** | 상업 API | ✅ 가능 (월 $40~80, 시연·운영 모두 OK) |
+| **Replicate 호스팅** | 모델별 상이 | ⚠️ 모델 페이지에서 각자 확인 필요 |
+
+> **권장 운영 시나리오**:
+> - 시연·MVP·내부 데모 → **CatVTON** (자체 GPU, 무료, 비상업 라이선스 OK)
+> - 실제 펀드 거래·수익 발생 → **FASHN AI** 같은 상업 API로 전환
+> - 환경변수 `AI_TRYON_URL` 만 바꿔주면 두띵 백엔드는 그대로 동작 (`CatVtonVirtualTryOn` ↔ `FashnAiClient` 어댑터 교체)
+
+---
+
+## 1. 왜 이 조합인가 (시연·MVP 기준)
 
 | 영역 | 추천 | 이유 |
 |---|---|---|
 | AI 디자인 생성 | **SDXL + 패션 LoRA** (또는 FLUX.1 [schnell] GGUF) | RX 7900 GRE 16GB 에 잘 맞음. SDXL은 검증된 생태계, FLUX는 더 고품질 |
-| 가상 피팅 | **CatVTON** (ComfyUI 노드 사용) | 8~16GB VRAM에서 동작, 마스킹 기반이라 인물 사진을 거의 변형 안 함, ROCm 호환 |
-| 워크플로우 엔진 | **ComfyUI** | 두 모델 모두 노드로 통합 가능, REST API 제공 → 백엔드에서 호출 쉬움 |
+| 가상 피팅 | **CatVTON** (ComfyUI 노드 사용) | <8GB VRAM(bf16) 으로 가볍고 인물 보존력 좋음. 단 비상업 라이선스 |
+| 워크플로우 엔진 | **ComfyUI** | REST API 제공 → 백엔드에서 호출 쉬움 |
 
-검증된 대안:
-- **FASHN AI** (클라우드 API): 자체 GPU 부담 없음. 한 장 ~$0.04~0.08. 품질 매우 우수. 빠른 시연용 추천.
-- **Replicate**: IDM-VTON, OOTDiffusion 호스팅. CatVTON 보다 무겁지만 디테일은 더 높음.
+**ROCm 호환 주의**: CatVTON 공식 문서는 CUDA 기준으로만 작성되어 있습니다. PyTorch ROCm 빌드와 ComfyUI 자체는 RX 7900 GRE에서 동작이 검증되어 있으나, **CatVTON 노드의 ROCm 동작은 사장님이 셋업 후 직접 검증**해야 합니다 (저자 공식 보증 X). 동작 안 하면 IDM-VTON 또는 FASHN AI 로 fallback.
+
+검증된 상업 가능 대안:
+- **FASHN AI** (클라우드 API): 한 장 ~$0.04~0.08. 품질 매우 우수. 라이선스 깔끔.
 - **AWS Bedrock**: 운영 시 후보. 한국 학생 프로젝트면 비용 비쌈.
 
 ---

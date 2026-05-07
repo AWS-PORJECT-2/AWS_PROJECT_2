@@ -11,8 +11,10 @@
   <!-- ===== 데스크톱 사이드바 (768px 이상) ===== -->
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <span class="logo-icon">🎓</span>
-      <span class="logo-text">국민대학교</span>
+      <a href="index.html" class="logo-link">
+        <span class="logo-mark"></span>
+        <span class="logo-text">doothing</span>
+      </a>
     </div>
     <nav class="sidebar-nav">
       <a href="#" class="sidebar-item active">
@@ -95,12 +97,6 @@
       <div class="action-buttons">
         <a href="fund-create.html" class="action-card" style="text-decoration:none;color:inherit;">
           <div class="action-icon">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.5"><path d="M12 5v14M5 12h14"/></svg>
-          </div>
-          <span>펀드 개설</span>
-        </a>
-        <a href="design-select.html" class="action-card" style="text-decoration:none;color:inherit;">
-          <div class="action-icon">
             <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3B82F6" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
           </div>
           <span>디자인 시작</span>
@@ -141,7 +137,9 @@
     </a>
   </nav>
 
+  <script src="api.js"></script>
   <script src="mock-data.js"></script>
+  <script src="motion.js"></script>
   <script src="app.js"></script>
   <script src="search.js"></script>
   <script src="notification.js"></script>

@@ -63,8 +63,12 @@ export function createFundsCreateHandler() {
     //  6. 알림 자동 생성: 본인에게 "펀드가 개설되었습니다"
     //  7. 응답: { id }
 
-    res.status(501).json(createErrorResponse(
-      new AppError('INTERNAL_ERROR', '펀드 개설 백엔드 로직은 담당 B(B-5)에서 구현 예정. fund 테이블·Repository 연결 후 활성화'),
+    // 사용자에게는 친화 메시지만 노출하고, 내부 사유는 서버 로그로 남긴다.
+    console.warn('[funds-create] placeholder hit', {
+      userId, reason: 'fund Repository 미연결 — 백엔드 도메인 작업 필요',
+    });
+    res.status(503).json(createErrorResponse(
+      new AppError('FEATURE_UNAVAILABLE', '펀드 개설 기능은 곧 열립니다. 잠시만 기다려 주세요.'),
     ));
   };
 }

@@ -9,10 +9,12 @@ import rateLimit from 'express-rate-limit';
 import type { AllowedDomain } from './types/allowed-domain.js';
 import { EmailValidatorImpl } from './services/email-validator.js';
 import { GoogleOAuthClientImpl } from './services/google-oauth-client.js';
+import { MockOAuthClient } from './services/mock-oauth-client.js';
 import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
 import { createAiRouter } from './routes/ai.js';
+import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
@@ -36,6 +38,8 @@ const defaultAllowedDomains: AllowedDomain[] = [
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const USE_INMEMORY = process.env.USE_INMEMORY === 'true' && !IS_PRODUCTION;
+const USE_MOCK_OAUTH = process.env.USE_MOCK_OAUTH === 'true' && !IS_PRODUCTION;
+const MOCK_LOGIN_EMAIL = process.env.MOCK_LOGIN_EMAIL ?? 'test@kookmin.ac.kr';
 
 // AI 어댑터 환경변수 — 미설정 시 NullAi* 로 fallback (라우트가 503 응답)
 const AI_DESIGN_URL = process.env.AI_DESIGN_URL ?? '';
@@ -84,16 +88,19 @@ export function createApp(
   const app = express();
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
-  app.use(express.json());
+  // 옷 사진 dataURL 등을 body 로 받기 위해 한도 상향 (이미지 ~10MB 가정)
+  app.use(express.json({ limit: '15mb' }));
   app.use(cookieParser());
 
   const emailValidator = new EmailValidatorImpl(allowedDomains);
 
-  const oauthClient = new GoogleOAuthClientImpl(
-    googleClientId ?? requireEnv('GOOGLE_CLIENT_ID'),
-    googleClientSecret ?? requireEnv('GOOGLE_CLIENT_SECRET'),
-    redirectUri,
-  );
+  const oauthClient = USE_MOCK_OAUTH
+    ? new MockOAuthClient(redirectUri, MOCK_LOGIN_EMAIL)
+    : new GoogleOAuthClientImpl(
+        googleClientId ?? requireEnv('GOOGLE_CLIENT_ID'),
+        googleClientSecret ?? requireEnv('GOOGLE_CLIENT_SECRET'),
+        redirectUri,
+      );
 
   // dev 모드에서는 토큰 시크릿이 없으면 무작위 32바이트 hex로 생성
   if (!IS_PRODUCTION) {
@@ -125,18 +132,23 @@ export function createApp(
   // 펀드 개설 (placeholder — 담당 B(B-5) 가 fund Repository 연결 후 활성화)
   app.post('/api/funds', authRequired, createFundsCreateHandler());
 
+  // 상품 URL → 대표 이미지 추출 placeholder
+  app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
+
   // frontend/ 정적 서빙: 백엔드와 동일 origin에서 페이지를 제공해
   // CORS·쿠키 흐름을 단순화한다.
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const frontendDir = path.resolve(__dirname, '../../frontend');
 
-  // / 진입 시 access token 쿠키 유무로 로그인 페이지 / 메인 분기
+  // / 진입 시 access token 쿠키 유무로 분기:
+  //  - 로그인 상태 → index.html (메인 화면)
+  //  - 비로그인   → landing.html (사이트 소개 + 로그인 진입)
   app.get('/', (req, res) => {
     const token = req.cookies?.accessToken;
     if (token && tokenService.verifyAccessToken(token)) {
       res.sendFile(path.join(frontendDir, 'index.html'));
     } else {
-      res.sendFile(path.join(frontendDir, 'login.html'));
+      res.sendFile(path.join(frontendDir, 'landing.html'));
     }
   });
 

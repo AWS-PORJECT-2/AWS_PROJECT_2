@@ -4,17 +4,23 @@ import type { AiTryOnRequest, AiTryOnResult } from '../../types/ai.js';
 /**
  * CatVTON 기반 가상 피팅 어댑터.
  *
- * 사장님 PC(RX 7900 GRE 16GB, ROCm)에서 CatVTON 또는 CatVTON ComfyUI 노드를
- * 띄워두고 HTTP 로 호출한다.
+ * ⚠️ 라이선스 주의 — CatVTON 은 **CC BY-NC-SA 4.0 (비상업적 전용)** 입니다.
+ *    펀드 중개 수수료 등 수익이 발생하는 운영에서는 상업적 사용으로 분류될 수
+ *    있으므로, 시연·MVP 단계에서만 사용하고 실제 거래 단계에서는 FASHN AI
+ *    같은 상업 라이선스 모델로 교체해야 합니다 (어댑터만 바꾸면 됨).
  *
- * 왜 CatVTON?
- *  - 8~16GB VRAM 으로 안정 동작 (RX 7900 GRE 적합)
+ * 사장님 PC(RX 7900 GRE 16GB, ROCm)에서 CatVTON ComfyUI 노드를 띄워두고
+ * HTTP 로 호출한다.
+ *
+ * 왜 CatVTON? (시연·MVP 한정)
+ *  - bf16 정밀도에서 <8GB VRAM 으로 동작 (RX 7900 GRE 16GB 충분)
  *  - 마스킹 기반 인페인팅 → 인물 사진을 거의 변형하지 않음
- *  - PyTorch ROCm 빌드와 호환
- *  - 공식 ComfyUI 노드 존재 → 워크플로우 통합 용이
+ *  - 공식 ComfyUI 노드 존재 (ComfyUI_CatVTON_Wrapper)
  *
- * 옵션:
- *  - 자체 호스팅이 부담스러우면 환경변수만 바꿔 FashnAiClient 로 교체 가능
+ * ROCm 호환 주의:
+ *  - CatVTON 공식 문서는 CUDA 기준이며 ROCm 동작은 저자 보증이 아님
+ *  - PyTorch ROCm 빌드와 ComfyUI 자체는 RX 7900 GRE 에서 동작 검증되어 있으나,
+ *    CatVTON 노드 자체는 셋업 후 자체 검증 필요
  *
  * 환경변수:
  *   AI_TRYON_URL           (ComfyUI 서버 또는 별도 try-on 서버)
