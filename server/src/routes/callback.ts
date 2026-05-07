@@ -3,7 +3,7 @@ import type { AuthService } from '../interfaces/auth-service.js';
 import { AppError } from '../errors/app-error.js';
 import { logger } from '../logger.js';
 
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export function createCallbackHandler(authService: AuthService) {
