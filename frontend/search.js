@@ -21,9 +21,8 @@ function escapeSearchHTML(str) {
 }
 
 /* ===== API 환경 설정 ===== */
-const SEARCH_API_BASE = window.location.hostname === 'localhost'
-  ? 'http://localhost:3000/api'
-  : 'https://api.doothing.app/api';
+// 프론트엔드와 백엔드는 동일 origin 에서 서비스되므로 location.origin 을 그대로 사용.
+const SEARCH_API_BASE = window.location.origin + '/api';
 const SEARCH_ENDPOINT = SEARCH_API_BASE + '/products/search';
 
 /* ===== 검색 오버레이 동적 생성 ===== */
@@ -213,10 +212,12 @@ function renderHomeSearchResults(container, results, keyword) {
       const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(item) : 0;
       const badge = (typeof getBadgeInfo === 'function') ? getBadgeInfo(rate) : { text: '모집중', type: 'open' };
       const logo = escapeSearchHTML(item.department.substring(0, 2).toUpperCase());
+      const id = encodeURIComponent(item.id);
+      const imageUrl = escapeSearchHTML(item.imageUrl);
       return `
-    <a href="detail.html?id=${item.id}" class="funding-card">
+    <a href="detail.html?id=${id}" class="funding-card">
       <div class="card-thumb">
-        <img src="${item.imageUrl}" alt="${escapeSearchHTML(item.title)}">
+        <img src="${imageUrl}" alt="${escapeSearchHTML(item.title)}">
         <span class="card-badge ${badge.type}">${escapeSearchHTML(badge.text)}</span>
         <span class="card-logo">${logo}</span>
       </div>

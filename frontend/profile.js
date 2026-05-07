@@ -1,7 +1,17 @@
 /**
  * 상세 마이페이지 렌더링
  * CSS는 외부에서 제공 — 여기서는 구조와 로직만 담당
+ *
+ * 주의: HTML 보간 시 사용자 데이터는 반드시 escapeHTML 을 거친다.
+ *   기본은 api.js 의 window.escapeHTML 을 사용하고, 미로드 시 아래 fallback 사용.
  */
+if (typeof window.escapeHTML !== 'function') {
+  window.escapeHTML = function (v) {
+    if (v === null || v === undefined) return '';
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+}
 
 /* ===== 예약 취소 함수 (전역) ===== */
 function cancelReservation(productId) {
@@ -67,6 +77,7 @@ function renderProfileTabs() {
 function renderProfileTabContent() {
   const container = document.getElementById('profileTabContent');
   let items;
+  const esc = window.escapeHTML;
 
   // 방어 로직: MOCK_PRODUCTS가 로드되지 않았을 경우 빈 배열로 fallback
   const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
@@ -79,7 +90,6 @@ function renderProfileTabContent() {
     items = products.filter((p) => p.isReserved === true);
     MOCK_USER.joinedFundingCount = items.length;
   } else {
-    // 제작한 펀딩 — 현재 mock에서는 없으므로 빈 배열
     items = [];
     MOCK_USER.createdFundingCount = items.length;
   }
@@ -88,7 +98,7 @@ function renderProfileTabContent() {
     const label = profileTab === 'liked' ? '찜한 상품' : profileTab === 'joined' ? '참여한 펀딩' : '제작한 펀딩';
     container.innerHTML = `
       <div style="text-align:center;padding:48px 20px;color:#9ca3af;">
-        <p style="font-size:14px;">${label}이 아직 없습니다</p>
+        <p style="font-size:14px;">${esc(label)}이 아직 없습니다</p>
       </div>
     `;
     return;
@@ -96,22 +106,30 @@ function renderProfileTabContent() {
 
   container.innerHTML = items
     .map((item) => {
-      // 방어 로직: calcAchievementRate가 로드되지 않았을 경우 0으로 fallback
       const rate = (typeof calcAchievementRate === 'function')
         ? calcAchievementRate(item)
         : 0;
+      const id = encodeURIComponent(item.id);
+      const title = esc(item.title);
+      const imageUrl = esc(item.imageUrl);
+      const priceText = esc(item.priceText);
+      const sizeRaw = localStorage.getItem('selectedSize_' + item.id) || '미선택';
+      const size = esc(sizeRaw);
+      // item.id 가 number/string 이라 cancelReservation 인자에 그대로 전달.
+      // onclick 핸들러는 quote 안전을 위해 JSON.stringify 로 감싼다.
+      const cancelArg = JSON.stringify(item.id);
       const cancelBtn = (profileTab === 'joined' && !item.isPaid)
-        ? '<button onclick="event.stopPropagation(); cancelReservation(' + item.id + ')" style="background:#fee2e2;color:#ef4444;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;align-self:center;">취소</button>'
+        ? '<button onclick="event.stopPropagation(); cancelReservation(' + cancelArg + ')" style="background:#fee2e2;color:#ef4444;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;align-self:center;">취소</button>'
         : '';
       return `
     <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;">
-      <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;cursor:pointer;text-decoration:none;color:inherit;flex:1;min-width:0;">
+      <a href="detail.html?id=${id}" style="display:flex;gap:12px;cursor:pointer;text-decoration:none;color:inherit;flex:1;min-width:0;">
         <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;">
-          <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
+          <img src="${imageUrl}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">
         </div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
-          <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${item.priceText} · ${rate}% 달성 · 사이즈: ${localStorage.getItem('selectedSize_' + item.id) || '미선택'}</div>
+          <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${priceText} · ${rate}% 달성 · 사이즈: ${size}</div>
         </div>
       </a>
       ${cancelBtn}
@@ -123,18 +141,26 @@ function renderProfileTabContent() {
 
 function renderProfile() {
   const main = document.getElementById('profileMain');
+  const esc = window.escapeHTML;
+  const userName = esc(MOCK_USER.name);
+  const userAvatar = esc(MOCK_USER.avatarUrl);
+  const userUni = esc(MOCK_USER.university);
+  const userDept = esc(MOCK_USER.department);
+  const userLevel = esc(MOCK_USER.level);
+  const userLevelTitle = esc(MOCK_USER.levelTitle);
+  const userPoints = esc(MOCK_USER.points.toLocaleString());
 
   main.innerHTML = `
     <!-- 유저 프로필 정보 -->
     <section id="profileInfo" style="padding:24px 20px;text-align:center;border-bottom:8px solid #f5f5f5;">
-      <img src="${MOCK_USER.avatarUrl}" alt="${MOCK_USER.name}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
-      <div style="font-size:18px;font-weight:700;color:#1a1a1a;">${MOCK_USER.name}</div>
-      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${MOCK_USER.university} · ${MOCK_USER.department}</div>
+      <img src="${userAvatar}" alt="${userName}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
+      <div style="font-size:18px;font-weight:700;color:#1a1a1a;">${userName}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${userUni} · ${userDept}</div>
       <div style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 14px;background:#eff6ff;border-radius:20px;">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span style="font-size:13px;font-weight:600;color:#2563eb;">Lv.${MOCK_USER.level} ${MOCK_USER.levelTitle}</span>
+        <span style="font-size:13px;font-weight:600;color:#2563eb;">Lv.${userLevel} ${userLevelTitle}</span>
       </div>
-      <div style="margin-top:8px;font-size:12px;color:#6b7280;">${MOCK_USER.points.toLocaleString()} 포인트</div>
+      <div style="margin-top:8px;font-size:12px;color:#6b7280;">${userPoints} 포인트</div>
     </section>
 
     <!-- 내 프로젝트 관리 -->
@@ -166,23 +192,24 @@ function renderProfile() {
   const orderSection = document.createElement('section');
   orderSection.id = 'orderStatus';
   orderSection.style.cssText = 'padding:20px;border-bottom:8px solid #f5f5f5;';
+  // 카운트는 number 라 escape 불필요하지만 일관성을 위해 거친다.
   orderSection.innerHTML = `
     <div style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">배송/결제 현황</div>
     <div style="display:flex;justify-content:space-around;text-align:center;">
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${MOCK_ORDER_STATUS.paymentPending}</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paymentPending)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 대기</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${MOCK_ORDER_STATUS.paymentDone}</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paymentDone)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 완료</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${MOCK_ORDER_STATUS.shippingReady}</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.shippingReady)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 준비</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${MOCK_ORDER_STATUS.shippingDone}</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.shippingDone)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 완료</div>
       </div>
     </div>
@@ -208,12 +235,13 @@ function renderProfile() {
     megaphone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>',
   };
 
+  // menuItems 는 정적 배열 — 외부 데이터 아님. 그래도 일관성을 위해 escape.
   menuSection.innerHTML = menuItems
     .map(
       (item) => `
-    <a href="${item.href}" ${item.onclick ? 'onclick="' + item.onclick + '; return false;"' : ''} style="display:flex;align-items:center;gap:14px;padding:14px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
+    <a href="${esc(item.href)}" ${item.onclick ? 'onclick="' + item.onclick + '; return false;"' : ''} style="display:flex;align-items:center;gap:14px;padding:14px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
       <span style="color:#6b7280;">${iconMap[item.icon]}</span>
-      <span style="font-size:14px;font-weight:500;flex:1;">${item.label}</span>
+      <span style="font-size:14px;font-weight:500;flex:1;">${esc(item.label)}</span>
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#d1d5db" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
     </a>
   `
@@ -222,7 +250,6 @@ function renderProfile() {
 
   main.appendChild(menuSection);
 
-  // 탭 콘텐츠 초기 렌더링
   renderProfileTabContent();
 }
 

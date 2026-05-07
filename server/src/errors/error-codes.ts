@@ -8,7 +8,12 @@ export const ErrorCodes = {
   AUTH_FAILED: { httpStatus: 401, code: 'AUTH_FAILED', message: 'Google 인증에 실패했습니다' },
   TOKEN_EXPIRED: { httpStatus: 401, code: 'TOKEN_EXPIRED', message: '인증이 만료되었습니다' },
   INVALID_REFRESH_TOKEN: { httpStatus: 401, code: 'INVALID_REFRESH_TOKEN', message: '다시 로그인해주세요' },
+  NOT_AUTHENTICATED: { httpStatus: 401, code: 'NOT_AUTHENTICATED', message: '로그인이 필요합니다' },
+  INVALID_TOKEN: { httpStatus: 401, code: 'INVALID_TOKEN', message: '유효하지 않은 인증입니다' },
   GOOGLE_UNAVAILABLE: { httpStatus: 500, code: 'GOOGLE_UNAVAILABLE', message: 'Google 서버에 연결할 수 없습니다' },
+  AI_UNAVAILABLE: { httpStatus: 503, code: 'AI_UNAVAILABLE', message: 'AI 서버가 연결되어 있지 않습니다' },
+  AI_TIMEOUT: { httpStatus: 504, code: 'AI_TIMEOUT', message: 'AI 생성이 시간 내에 완료되지 않았습니다' },
+  FEATURE_UNAVAILABLE: { httpStatus: 503, code: 'FEATURE_UNAVAILABLE', message: '해당 기능은 아직 준비 중입니다' },
   INTERNAL_ERROR: { httpStatus: 500, code: 'INTERNAL_ERROR', message: '서버 오류가 발생했습니다' },
 } as const satisfies Record<string, ErrorCodeDefinition>;
 
