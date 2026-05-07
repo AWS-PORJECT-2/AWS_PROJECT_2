@@ -15,7 +15,7 @@ export function createCallbackHandler(authService: AuthService) {
       const result = await authService.handleCallback(code, state);
       const refreshMaxAge = result.rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
       res.cookie('accessToken', result.accessToken, {
-        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth', maxAge: 15 * 60 * 1000,
+        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 15 * 60 * 1000,
       });
       res.cookie('refreshToken', result.refreshToken, {
         httpOnly: true, secure: IS_PRODUCTION, sameSite: 'strict', path: '/api/auth', maxAge: refreshMaxAge,
