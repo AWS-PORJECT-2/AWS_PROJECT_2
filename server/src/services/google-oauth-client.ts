@@ -40,7 +40,20 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
       });
     } catch { throw new AppError('GOOGLE_UNAVAILABLE'); }
     if (!response.ok) throw this.classifyHttpError(response.status);
-    return (await response.json()) as OAuthTokenResponse;
+
+    // 200 OK 라도 응답 본문이 비정상이면 그 다음 단계에서 access_token=undefined 로
+    // Authorization 헤더가 깨진다. 여기서 명시적으로 검증한다.
+    const data = (await response.json()) as Record<string, unknown>;
+    if (typeof data.access_token !== 'string' || !data.access_token) {
+      throw new AppError('AUTH_FAILED');
+    }
+    return {
+      access_token: data.access_token,
+      token_type: typeof data.token_type === 'string' ? data.token_type : 'Bearer',
+      expires_in: typeof data.expires_in === 'number' ? data.expires_in : 0,
+      id_token: typeof data.id_token === 'string' ? data.id_token : undefined,
+      refresh_token: typeof data.refresh_token === 'string' ? data.refresh_token : undefined,
+    };
   }
 
   async getUserInfo(accessToken: string): Promise<UserInfo> {
@@ -49,12 +62,15 @@ export class GoogleOAuthClientImpl implements GoogleOAuthClient {
     catch { throw new AppError('GOOGLE_UNAVAILABLE'); }
     if (!response.ok) throw this.classifyHttpError(response.status);
     const data = await response.json() as Record<string, unknown>;
+    if (typeof data.email !== 'string' || typeof data.name !== 'string') {
+      throw new AppError('AUTH_FAILED');
+    }
     return {
-      email: data.email as string,
-      name: data.name as string,
-      picture: data.picture as string | undefined,
-      hd: data.hd as string | undefined,
-      email_verified: data.email_verified as boolean | undefined,
+      email: data.email,
+      name: data.name,
+      picture: typeof data.picture === 'string' ? data.picture : undefined,
+      hd: typeof data.hd === 'string' ? data.hd : undefined,
+      email_verified: typeof data.email_verified === 'boolean' ? data.email_verified : undefined,
     };
   }
 

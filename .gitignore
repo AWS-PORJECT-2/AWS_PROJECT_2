@@ -5,6 +5,7 @@
 .vscode/
 .idea/
 .kiro/
+.claude/
 
 # Personal docs (not part of repo)
 project_overview.md.pdf

@@ -4,7 +4,17 @@
  * - 종 아이콘 클릭 → 알림 패널 동적 생성
  * - 예약 상품 중 100% 달성 → 결제 유도
  * - 진행 중 → 상세 페이지 이동
+ *
+ * 주의: HTML 보간 시 사용자 데이터는 반드시 escapeHTML 을 거친다.
+ *   기본은 api.js 의 window.escapeHTML 을 사용하고, 미로드 시 아래 fallback 사용.
  */
+if (typeof window.escapeHTML !== 'function') {
+  window.escapeHTML = function (v) {
+    if (v === null || v === undefined) return '';
+    return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  };
+}
 
 /* ===== 알림 패널 동적 생성 ===== */
 function ensureNotificationPanel() {
@@ -13,6 +23,7 @@ function ensureNotificationPanel() {
   const panel = document.createElement('div');
   panel.id = 'notificationPanel';
   panel.style.cssText = 'display:none;position:fixed;inset:0;z-index:600;';
+  // 정적 마크업 — 사용자 데이터 없음.
   panel.innerHTML = `
     <div id="notifBackdrop" onclick="closeNotification()" style="position:absolute;inset:0;background:rgba(0,0,0,0.4);"></div>
     <div id="notifContent" style="position:absolute;top:0;right:0;width:100%;max-width:380px;height:100%;background:#fff;box-shadow:-4px 0 20px rgba(0,0,0,0.1);display:flex;flex-direction:column;transform:translateX(100%);transition:transform 0.3s ease;">
@@ -57,6 +68,7 @@ function renderNotificationList() {
 
   const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
     ? MOCK_PRODUCTS : [];
+  const esc = window.escapeHTML;
 
   // 예약한 상품만 필터링
   const reserved = products.filter((p) => p.isReserved === true);
@@ -80,16 +92,22 @@ function renderNotificationList() {
       const isAchieved = rate >= 100;
       const size = localStorage.getItem('selectedSize_' + item.id) || 'Free';
 
+      const id = encodeURIComponent(item.id);
+      const title = esc(item.title);
+      const imageUrl = esc(item.imageUrl);
+      const safeSize = esc(size);
+      const sizeForUrl = encodeURIComponent(size);
+
       if (isAchieved && !item.isPaid) {
         // 100% 달성 + 미결제 → 결제 유도
         return `
         <div style="padding:16px 20px;border-bottom:1px solid #f0f0f0;background:#fffbeb;">
           <div style="display:flex;gap:12px;align-items:center;">
             <div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;">
-              <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
+              <img src="${imageUrl}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">
             </div>
             <div style="flex:1;min-width:0;">
-              <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
+              <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
               <div style="font-size:12px;color:#f97316;font-weight:600;margin-top:4px;">🎉 100% 달성! 결제를 진행해 주세요</div>
             </div>
           </div>
@@ -99,32 +117,32 @@ function renderNotificationList() {
             </div>
             <div style="display:flex;justify-content:space-between;margin-top:6px;">
               <span style="font-size:11px;color:#f97316;font-weight:600;">${rate}% 달성</span>
-              <span style="font-size:11px;color:#9ca3af;">사이즈: ${size}</span>
+              <span style="font-size:11px;color:#9ca3af;">사이즈: ${safeSize}</span>
             </div>
           </div>
-          <a href="payment.html?id=${item.id}&size=${encodeURIComponent(size)}" style="display:block;margin-top:12px;padding:10px;border:none;border-radius:10px;background:#f97316;color:#fff;font-size:14px;font-weight:700;text-align:center;text-decoration:none;">결제하기</a>
+          <a href="payment.html?id=${id}&size=${sizeForUrl}" style="display:block;margin-top:12px;padding:10px;border:none;border-radius:10px;background:#f97316;color:#fff;font-size:14px;font-weight:700;text-align:center;text-decoration:none;">결제하기</a>
         </div>`;
       } else if (item.isPaid) {
         // 결제 완료
         return `
-        <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:inherit;align-items:center;">
+        <a href="detail.html?id=${id}" style="display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:inherit;align-items:center;">
           <div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;">
-            <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
+            <img src="${imageUrl}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
+            <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
             <div style="font-size:12px;color:#16a34a;font-weight:600;margin-top:4px;">✅ 결제 완료</div>
           </div>
         </a>`;
       } else {
         // 진행 중
         return `
-        <a href="detail.html?id=${item.id}" style="display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:inherit;">
+        <a href="detail.html?id=${id}" style="display:flex;gap:12px;padding:16px 20px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:inherit;">
           <div style="width:56px;height:56px;border-radius:10px;overflow:hidden;flex-shrink:0;">
-            <img src="${item.imageUrl}" alt="${item.title}" style="width:100%;height:100%;object-fit:cover;">
+            <img src="${imageUrl}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">
           </div>
           <div style="flex:1;min-width:0;">
-            <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${item.title}</div>
+            <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
             <div style="font-size:12px;color:#2563eb;margin-top:4px;">공구가 현재 ${rate}% 진행 중입니다</div>
             <div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;margin-top:6px;">
               <div style="height:100%;background:#2563eb;border-radius:2px;width:${Math.min(rate, 100)}%;"></div>

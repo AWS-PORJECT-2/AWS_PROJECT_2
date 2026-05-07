@@ -15,8 +15,11 @@ export function createRefreshHandler(authService: AuthService) {
     }
     try {
       const result = await authService.refreshToken(refreshToken);
+      // 쿠키 path 는 callback / logout 과 일치시켜야 한다 (불일치 시 별도 쿠키로 분기되어 인증이 깨짐).
+      // - accessToken: 모든 경로에서 인증 필요 → '/'
+      // - refreshToken: /api/auth/refresh, /api/auth/logout 에서만 사용 → '/api/auth' 로 좁힘 (보안)
       res.cookie('accessToken', result.accessToken, {
-        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth', maxAge: 15 * 60 * 1000,
+        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 15 * 60 * 1000,
       });
       res.cookie('refreshToken', result.refreshToken, {
         httpOnly: true, secure: IS_PRODUCTION, sameSite: 'strict', path: '/api/auth', maxAge: 30 * 24 * 60 * 60 * 1000,

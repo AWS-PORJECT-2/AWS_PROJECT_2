@@ -8,10 +8,14 @@
 let selectedMethod = 'tosspay';
 let selectedQuantity = 1;
 
+// 과거 버전에서 카드/계좌 정보를 localStorage 에 보관하던 키 정리.
+// 한 번 페이지를 로드하면 평문 보관 흔적이 사라진다.
+try { localStorage.removeItem('saved_cards'); } catch (e) {}
+try { localStorage.removeItem('saved_accounts'); } catch (e) {}
+
 /* ===== API 환경 설정 ===== */
-const API_BASE_URL = window.location.hostname === 'localhost'
-  ? 'http://localhost:3000/api'
-  : 'https://api.doothing.app/api';
+// 프론트엔드와 백엔드는 동일 origin 에서 서비스되므로 location.origin 을 그대로 사용.
+const API_BASE_URL = window.location.origin + '/api';
 
 const PAYMENT_ENDPOINT = API_BASE_URL + '/payments/confirm';
 
@@ -99,90 +103,28 @@ function updatePayButton() {
   }
 }
 
-/* ===== 등록된 카드/계좌 렌더링 ===== */
+/* ===== 등록된 카드/계좌 렌더링 =====
+ * 운영 환경에서는 PG SDK 가 발급한 "결제수단 토큰"을 서버에서 받아와 표시한다.
+ * 현재는 mock 단계 → 항상 "신규 입력" 안내만 노출.
+ */
 function renderSavedCards() {
   const container = document.getElementById('savedCards');
-
-  let saved = [];
-  try {
-    const raw = localStorage.getItem('saved_cards');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) saved = parsed;
-    }
-  } catch (e) {
-    console.error('카드 데이터 파싱 실패:', e);
-  }
-
-  if (saved.length === 0) {
-    container.innerHTML = '<p style="font-size:13px;color:#9ca3af;margin-bottom:8px;">등록된 카드가 없습니다. 아래에서 새 카드를 입력하세요.</p>';
-    return;
-  }
-
-  container.innerHTML = '';
-  saved.forEach(function (card, i) {
-    var label = document.createElement('label');
-    label.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;';
-
-    var radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'savedCard';
-    radio.value = i;
-    radio.style.cssText = 'accent-color:#2563eb;width:16px;height:16px;';
-
-    var cardSpan = document.createElement('span');
-    cardSpan.style.cssText = 'font-size:14px;color:#1a1a1a;';
-    cardSpan.textContent = '**** **** **** ' + (card.last4 || '');
-
-    var expirySpan = document.createElement('span');
-    expirySpan.style.cssText = 'font-size:11px;color:#9ca3af;margin-left:auto;';
-    expirySpan.textContent = card.expiry || '';
-
-    label.appendChild(radio);
-    label.appendChild(cardSpan);
-    label.appendChild(expirySpan);
-    container.appendChild(label);
-  });
+  if (!container) return;
+  container.textContent = '';
+  const p = document.createElement('p');
+  p.style.cssText = 'font-size:13px;color:#9ca3af;margin-bottom:8px;';
+  p.textContent = '등록된 카드가 없습니다. 아래에서 새 카드를 입력하세요.';
+  container.appendChild(p);
 }
 
 function renderSavedAccounts() {
   const container = document.getElementById('savedAccounts');
-
-  let saved = [];
-  try {
-    const raw = localStorage.getItem('saved_accounts');
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) saved = parsed;
-    }
-  } catch (e) {
-    console.error('계좌 데이터 파싱 실패:', e);
-  }
-
-  if (saved.length === 0) {
-    container.innerHTML = '<p style="font-size:13px;color:#9ca3af;margin-bottom:8px;">등록된 계좌가 없습니다. 아래에서 입금 정보를 입력하세요.</p>';
-    return;
-  }
-
-  container.innerHTML = '';
-  saved.forEach(function (acc, i) {
-    var label = document.createElement('label');
-    label.style.cssText = 'display:flex;align-items:center;gap:12px;padding:12px 14px;border:1.5px solid #e5e7eb;border-radius:10px;cursor:pointer;margin-bottom:8px;';
-
-    var radio = document.createElement('input');
-    radio.type = 'radio';
-    radio.name = 'savedAccount';
-    radio.value = i;
-    radio.style.cssText = 'accent-color:#2563eb;width:16px;height:16px;';
-
-    var span = document.createElement('span');
-    span.style.cssText = 'font-size:14px;color:#1a1a1a;';
-    span.textContent = (acc.bankName || '') + ' · ' + (acc.depositor || '');
-
-    label.appendChild(radio);
-    label.appendChild(span);
-    container.appendChild(label);
-  });
+  if (!container) return;
+  container.textContent = '';
+  const p = document.createElement('p');
+  p.style.cssText = 'font-size:13px;color:#9ca3af;margin-bottom:8px;';
+  p.textContent = '등록된 계좌가 없습니다. 아래에서 입금 정보를 입력하세요.';
+  container.appendChild(p);
 }
 
 /* ===== 주문 정보 렌더링 ===== */
@@ -300,15 +242,18 @@ function confirmPayment() {
     return;
   }
 
-  // 검증된 원본 가격 사용 (URL 파라미터 무시)
-  const verifiedPrice = product.price;
+  // 표시용 가격 — URL 파라미터 변조는 차단되지만, MOCK_PRODUCTS 자체가 클라이언트
+  // 데이터라 사용자가 DevTools 로 product.price 를 바꿀 수 있다. 따라서 이 값은
+  // "사용자가 본 가격"의 안내·확인 용도로만 쓰고, 실제 결제 금액은 서버가
+  // productId 로 DB 의 base_price 를 조회해 다시 계산한다.
+  const displayPrice = product.price;
 
   // 간편결제 시뮬레이션 (토스/카카오/네이버)
   if (['tosspay', 'kakaopay', 'naverpay'].includes(selectedMethod)) {
     const methodLabels = { tosspay: '토스페이', kakaopay: '카카오페이', naverpay: '네이버페이' };
     const label = methodLabels[selectedMethod];
     const proceed = confirm(
-      label + '로 ' + formatPrice(verifiedPrice * selectedQuantity) + ' (' + selectedQuantity + '개)을 결제합니다.\n\n' +
+      label + '로 ' + formatPrice(displayPrice * selectedQuantity) + ' (' + selectedQuantity + '개)을 결제합니다.\n\n' +
       '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
       '예금주: ' + ADMIN_ACCOUNT.holder + '\n\n' +
       '결제를 진행하시겠습니까?'
@@ -317,6 +262,10 @@ function confirmPayment() {
   }
 
   // 카드 결제 유효성 검사
+  // 보안: 카드번호/만료일/CVC 는 localStorage 에 절대 저장하지 않는다.
+  //   - last4 + expiry 만으로도 PCI-DSS 위반 여지 + XSS 한 방이면 다 노출됨
+  //   - 운영에서는 PG(토스/이니시스/포트원 등) SDK 가 발급하는 "결제수단 토큰"만
+  //     서버에 보관하고, 클라이언트는 토큰 ID 만 들고 있어야 한다.
   if (selectedMethod === 'card') {
     const savedCard = document.querySelector('input[name="savedCard"]:checked');
     if (!savedCard) {
@@ -327,13 +276,11 @@ function confirmPayment() {
         alert('카드 정보를 정확히 입력해 주세요.');
         return;
       }
-      const saved = (() => { try { const p = JSON.parse(localStorage.getItem('saved_cards') || '[]'); return Array.isArray(p) ? p : []; } catch (e) { return []; } })();
-      saved.push({ last4: num.slice(-4), expiry: expiry });
-      localStorage.setItem('saved_cards', JSON.stringify(saved));
     }
   }
 
   // 무통장 입금 유효성 검사
+  // 은행명/입금자명은 민감도 낮지만 동일한 원칙 적용 — 운영 환경에서는 서버에서 관리.
   if (selectedMethod === 'bank') {
     const savedAcc = document.querySelector('input[name="savedAccount"]:checked');
     if (!savedAcc) {
@@ -343,10 +290,6 @@ function confirmPayment() {
         alert('은행과 입금자명을 입력해 주세요.');
         return;
       }
-      const bankNames = { kb: '국민은행', shinhan: '신한은행', woori: '우리은행', hana: '하나은행', nh: '농협은행', kakao: '카카오뱅크', toss: '토스뱅크' };
-      const saved = (() => { try { const p = JSON.parse(localStorage.getItem('saved_accounts') || '[]'); return Array.isArray(p) ? p : []; } catch (e) { return []; } })();
-      saved.push({ bankName: bankNames[bank] || bank, depositor: depositor });
-      localStorage.setItem('saved_accounts', JSON.stringify(saved));
     }
   }
 
@@ -367,10 +310,13 @@ function confirmPayment() {
     .then((serverResponse) => {
       // Mock 환경: 서버가 DB 가격으로 계산을 완료했다고 가정
       // 실제 환경: serverResponse.amount, serverResponse.status 등을 사용
+      // amount 는 화면 표시 용도. 운영 환경에서는 serverResponse.amount 를 사용한다.
       const confirmedData = {
         productId: info.id,
         method: selectedMethod,
-        amount: verifiedPrice * selectedQuantity, // UI 표시용 (실제로는 서버 응답값 사용)
+        amount: (serverResponse && typeof serverResponse.amount === 'number')
+          ? serverResponse.amount
+          : displayPrice * selectedQuantity,
         selectedSize: finalSize,
         selectedQuantity: selectedQuantity,
         paidAt: new Date().toISOString(),

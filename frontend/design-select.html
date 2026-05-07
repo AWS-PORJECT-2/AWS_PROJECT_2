@@ -187,7 +187,8 @@
       document.getElementById('customDesignUpload').click();
     }
     function handleAIDesign() {
-      alert('AI 디자인 기능은 준비 중입니다.');
+      // AI 디자인 모달은 펀드 개설 화면에 통합되어 있음
+      window.location.href = 'fund-create.html?openAi=1&category=' + encodeURIComponent(_selectedProduct || '');
     }
     document.getElementById('customDesignUpload').addEventListener('change', function(e) {
       var file = e.target.files[0];

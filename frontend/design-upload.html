@@ -95,21 +95,35 @@
         </div>
         <div class="category-container">
           <button class="category-card" onclick="selectCategory(event, 'varsity')">
-            <div class="icon" style="background:#eff6ff;">🧥</div>
+            <div class="icon" style="background:#eff6ff;color:#2563eb;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 7l3-2h8l3 2v3l-3 1v9H8v-9l-3-1z"/>
+                <path d="M9 5v3l3 2 3-2V5"/>
+              </svg>
+            </div>
             <div>
               <div class="title">과잠</div>
               <div class="desc">대학 과잠바 · 사이즈 선택 가능</div>
             </div>
           </button>
           <button class="category-card" onclick="selectCategory(event, 'tshirt')">
-            <div class="icon" style="background:#f0fdf4;">👕</div>
+            <div class="icon" style="background:#f0fdf4;color:#16a34a;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M4 8l3-3 3 1a3 3 0 006 0l3-1 3 3-3 3v9H7v-9z"/>
+              </svg>
+            </div>
             <div>
               <div class="title">반팔티</div>
               <div class="desc">라운드넥 반팔 · 사이즈 선택 가능</div>
             </div>
           </button>
           <button class="category-card" onclick="selectCategory(event, 'ecobag')">
-            <div class="icon" style="background:#fef3c7;">👜</div>
+            <div class="icon" style="background:#fef3c7;color:#d97706;">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 8h14l-1 12H6z"/>
+                <path d="M9 8V6a3 3 0 016 0v2"/>
+              </svg>
+            </div>
             <div>
               <div class="title">에코백</div>
               <div class="desc">친환경 에코백 · 프리사이즈</div>
@@ -163,9 +177,8 @@
 
   <script>
     var selectedProduct = '';
-    var UPLOAD_API_BASE = window.location.hostname === 'localhost'
-      ? 'http://localhost:3000/api'
-      : 'https://api.doothing.app/api';
+    // 프론트엔드와 백엔드는 동일 origin 에서 서비스되므로 location.origin 을 그대로 사용.
+    var UPLOAD_API_BASE = window.location.origin + '/api';
     var UPLOAD_ENDPOINT = UPLOAD_API_BASE + '/designs/upload';
 
     var CATEGORY_DATA = {

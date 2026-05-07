@@ -49,9 +49,13 @@ export class AuthServiceImpl implements AuthService {
   async handleCallback(code: string, state: string): Promise<AuthResult> {
     const oauthState = await this.oauthStateRepo.findByState(state);
     if (!oauthState) throw new AppError('INVALID_STATE');
+    if (new Date() > oauthState.expiresAt) {
+      // 만료된 state 도 즉시 삭제하여 재시도 시 INVALID_STATE 로 일관되게 떨어지게 한다.
+      await this.oauthStateRepo.delete(state);
+      throw new AppError('INVALID_STATE');
+    }
     const rememberMe = oauthState.rememberMe;
     await this.oauthStateRepo.delete(state);
-    if (new Date() > oauthState.expiresAt) throw new AppError('INVALID_STATE');
 
     const tokenResponse = await this.oauthClient.exchangeCodeForToken(code);
 

@@ -39,10 +39,8 @@ async function handleLogout() {
   if (!confirm('정말 로그아웃 하시겠습니까?')) return;
 
   try {
-    // httpOnly 쿠키 인증 시스템에 맞는 서버 로그아웃 요청
-    const API_BASE = window.location.hostname === 'localhost'
-      ? 'http://localhost:3000/api'
-      : 'https://api.doothing.app/api';
+    // 프론트엔드와 백엔드는 동일 origin 에서 서비스되므로 location.origin 을 그대로 사용.
+    const API_BASE = window.location.origin + '/api';
 
     const response = await fetch(API_BASE + '/auth/logout', {
       method: 'POST',
