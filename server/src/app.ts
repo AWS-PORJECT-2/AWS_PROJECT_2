@@ -9,7 +9,6 @@ import rateLimit from 'express-rate-limit';
 import type { AllowedDomain } from './types/allowed-domain.js';
 import { EmailValidatorImpl } from './services/email-validator.js';
 import { GoogleOAuthClientImpl } from './services/google-oauth-client.js';
-import { MockOAuthClient } from './services/mock-oauth-client.js';
 import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
@@ -29,8 +28,6 @@ const defaultAllowedDomains: AllowedDomain[] = [
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const USE_INMEMORY = process.env.USE_INMEMORY === 'true' && !IS_PRODUCTION;
-const USE_MOCK_OAUTH = process.env.USE_MOCK_OAUTH === 'true' && !IS_PRODUCTION;
-const MOCK_LOGIN_EMAIL = process.env.MOCK_LOGIN_EMAIL ?? 'test@kookmin.ac.kr';
 
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -67,13 +64,11 @@ export function createApp(
 
   const emailValidator = new EmailValidatorImpl(allowedDomains);
 
-  const oauthClient = USE_MOCK_OAUTH
-    ? new MockOAuthClient(redirectUri, MOCK_LOGIN_EMAIL)
-    : new GoogleOAuthClientImpl(
-        googleClientId ?? requireEnv('GOOGLE_CLIENT_ID'),
-        googleClientSecret ?? requireEnv('GOOGLE_CLIENT_SECRET'),
-        redirectUri,
-      );
+  const oauthClient = new GoogleOAuthClientImpl(
+    googleClientId ?? requireEnv('GOOGLE_CLIENT_ID'),
+    googleClientSecret ?? requireEnv('GOOGLE_CLIENT_SECRET'),
+    redirectUri,
+  );
 
   // dev 모드에서는 토큰 시크릿이 없으면 무작위 32바이트 hex로 생성
   if (!IS_PRODUCTION) {
@@ -94,11 +89,6 @@ export function createApp(
   app.use('/api/auth/login', authRateLimit);
   app.use('/api/auth/refresh', authRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService));
-
-  // 결제 mock 엔드포인트 (PR #9의 payment.js 호출 대상)
-  app.post('/api/payments/confirm', (req, res) => {
-    res.json({ ok: true, paymentId: 'mock-payment-' + Date.now(), receivedAt: new Date().toISOString(), echo: req.body });
-  });
 
   // frontend/ 정적 서빙: 백엔드와 동일 origin에서 페이지를 제공해
   // CORS·쿠키 흐름을 단순화한다.
