@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import express from 'express';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -7,6 +9,7 @@ import rateLimit from 'express-rate-limit';
 import type { AllowedDomain } from './types/allowed-domain.js';
 import { EmailValidatorImpl } from './services/email-validator.js';
 import { GoogleOAuthClientImpl } from './services/google-oauth-client.js';
+import { MockOAuthClient } from './services/mock-oauth-client.js';
 import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
@@ -15,12 +18,19 @@ import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
 import { PgRefreshTokenRepository } from './repositories/pg-refresh-token-repository.js';
+import { InMemoryUserRepository } from './repositories/user-repository.js';
+import { InMemoryOAuthStateRepository } from './repositories/oauth-state-repository.js';
+import { InMemoryRefreshTokenRepository } from './repositories/refresh-token-repository.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
 ];
 
-const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const USE_INMEMORY = process.env.USE_INMEMORY === 'true' && !IS_PRODUCTION;
+const USE_MOCK_OAUTH = process.env.USE_MOCK_OAUTH === 'true' && !IS_PRODUCTION;
+const MOCK_LOGIN_EMAIL = process.env.MOCK_LOGIN_EMAIL ?? 'test@kookmin.ac.kr';
 
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -36,25 +46,45 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function envOrDevDefault(name: string, devDefault: string): string {
+  const value = process.env[name];
+  if (value) return value;
+  if (IS_PRODUCTION) throw new Error(`환경변수 ${name}이(가) 설정되지 않았습니다.`);
+  return devDefault;
+}
+
 export function createApp(
   allowedDomains: AllowedDomain[] = defaultAllowedDomains,
-  googleClientId: string = requireEnv('GOOGLE_CLIENT_ID'),
-  googleClientSecret: string = requireEnv('GOOGLE_CLIENT_SECRET'),
+  googleClientId?: string,
+  googleClientSecret?: string,
   redirectUri: string = process.env.OAUTH_REDIRECT_URI ?? 'http://localhost:3000/api/auth/callback',
 ) {
   const app = express();
-  app.use(helmet());
+  app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
 
   const emailValidator = new EmailValidatorImpl(allowedDomains);
-  const oauthClient = new GoogleOAuthClientImpl(googleClientId, googleClientSecret, redirectUri);
+
+  const oauthClient = USE_MOCK_OAUTH
+    ? new MockOAuthClient(redirectUri, MOCK_LOGIN_EMAIL)
+    : new GoogleOAuthClientImpl(
+        googleClientId ?? requireEnv('GOOGLE_CLIENT_ID'),
+        googleClientSecret ?? requireEnv('GOOGLE_CLIENT_SECRET'),
+        redirectUri,
+      );
+
+  // dev 모드에서는 토큰 시크릿이 없으면 무작위 32바이트 hex로 생성
+  if (!IS_PRODUCTION) {
+    process.env.ACCESS_TOKEN_SECRET = envOrDevDefault('ACCESS_TOKEN_SECRET', randomDevSecret());
+    process.env.REFRESH_TOKEN_SECRET = envOrDevDefault('REFRESH_TOKEN_SECRET', randomDevSecret());
+  }
   const tokenService = new TokenServiceImpl();
 
-  const userRepository = new PgUserRepository(pool);
-  const oauthStateRepository = new PgOAuthStateRepository(pool);
-  const refreshTokenRepository = new PgRefreshTokenRepository(pool);
+  const userRepository = USE_INMEMORY ? new InMemoryUserRepository() : new PgUserRepository(pool);
+  const oauthStateRepository = USE_INMEMORY ? new InMemoryOAuthStateRepository() : new PgOAuthStateRepository(pool);
+  const refreshTokenRepository = USE_INMEMORY ? new InMemoryRefreshTokenRepository() : new PgRefreshTokenRepository(pool);
 
   const authService = new AuthServiceImpl({
     emailValidator, oauthClient, tokenService,
@@ -64,6 +94,34 @@ export function createApp(
   app.use('/api/auth/login', authRateLimit);
   app.use('/api/auth/refresh', authRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService));
+
+  // 결제 mock 엔드포인트 (PR #9의 payment.js 호출 대상)
+  app.post('/api/payments/confirm', (req, res) => {
+    res.json({ ok: true, paymentId: 'mock-payment-' + Date.now(), receivedAt: new Date().toISOString(), echo: req.body });
+  });
+
+  // frontend/ 정적 서빙: 백엔드와 동일 origin에서 페이지를 제공해
+  // CORS·쿠키 흐름을 단순화한다.
+  const __dirname = path.dirname(fileURLToPath(import.meta.url));
+  const frontendDir = path.resolve(__dirname, '../../frontend');
+
+  // / 진입 시 access token 쿠키 유무로 로그인 페이지 / 메인 분기
+  app.get('/', (req, res) => {
+    const token = req.cookies?.accessToken;
+    if (token && tokenService.verifyAccessToken(token)) {
+      res.sendFile(path.join(frontendDir, 'index.html'));
+    } else {
+      res.sendFile(path.join(frontendDir, 'login.html'));
+    }
+  });
+
+  app.use(express.static(frontendDir, { index: false, extensions: ['html'] }));
+
   app.use(errorHandler);
   return app;
+}
+
+function randomDevSecret(): string {
+  // dev 전용. 운영에서는 위 IS_PRODUCTION 가드로 진입 불가.
+  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
 }
