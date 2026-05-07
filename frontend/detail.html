@@ -70,12 +70,15 @@
       <!-- JS에서 렌더링 -->
     </div>
 
-  </main>
+    <!-- 하단 액션바 (찜하기 / 참여하기 — placeholder)
+         PC에서는 main-content 흐름 안에서 사이드바 옆 컨텐츠 영역 기준으로 정렬되도록
+         이 위치에 둔다. 모바일에서는 detail.css가 position:fixed로 화면 하단 고정.
+    -->
+    <div class="detail-bottom-bar" id="detailBottomBar">
+      <!-- JS에서 렌더링 -->
+    </div>
 
-  <!-- 하단 액션바 (찜하기 / 참여하기 — placeholder) -->
-  <div class="detail-bottom-bar" id="detailBottomBar">
-    <!-- JS에서 렌더링 -->
-  </div>
+  </main>
 
   <!-- 모바일 하단 네비게이션 -->
   <nav class="bottom-nav mobile-only">
