@@ -1,5 +1,7 @@
 import type { AiDesignGenerator } from '../../interfaces/ai-design-generator.js';
 import type { AiDesignRequest, AiDesignResult } from '../../types/ai.js';
+import { AppError } from '../../errors/app-error.js';
+import { fetchWithTimeout } from '../../utils/fetch-with-timeout.js';
 
 /**
  * ComfyUI 기반 AI 디자인 생성 어댑터.
@@ -48,16 +50,8 @@ export class ComfyUiDesignGenerator implements AiDesignGenerator {
     //  5. 결과 이미지를 /view 로 다운로드
     //  6. uploads/ 또는 S3에 저장 후 design 레코드 INSERT
     //  7. AiDesignResult[] 반환
-    throw new Error('ComfyUiDesignGenerator.generate 미구현 — 사장님 셋업 후 채우세요');
-  }
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try {
-    return await fetch(url, { ...init, signal: ctl.signal });
-  } finally {
-    clearTimeout(t);
+    //
+    // 어댑터 본체 미구현 단계 — 라우트의 catch 가 AppError 면 그대로 503 으로 떨어진다.
+    throw new AppError('AI_UNAVAILABLE', 'ComfyUI 디자인 생성 어댑터 미구현 — 셋업 후 활성화');
   }
 }

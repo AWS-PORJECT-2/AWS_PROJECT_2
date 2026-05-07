@@ -3,6 +3,7 @@ import type { AiDesignGenerator } from '../interfaces/ai-design-generator.js';
 import type { AiProductCategory } from '../types/ai.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
+import { withTimeout } from '../utils/fetch-with-timeout.js';
 
 const ALLOWED_CATEGORIES: AiProductCategory[] = ['varsity', 'tshirt', 'hoodie', 'ecobag', 'keyring', 'sticker'];
 const MAX_PROMPT_LENGTH = 300;
@@ -14,8 +15,9 @@ const MAX_COUNT = 4;
  * body: { prompt, productCategory, count? }
  *
  * 인증 필요. 결과 design 레코드는 자동 INSERT(추후 design Repository 연결).
+ * timeoutMs 안에 응답이 안 오면 AI_TIMEOUT(504) 로 떨어진다.
  */
-export function createAiGenerateDesignHandler(generator: AiDesignGenerator) {
+export function createAiGenerateDesignHandler(generator: AiDesignGenerator, timeoutMs: number) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {
@@ -38,7 +40,10 @@ export function createAiGenerateDesignHandler(generator: AiDesignGenerator) {
     }
 
     try {
-      const designs = await generator.generate({ prompt, productCategory, count, userId });
+      const designs = await withTimeout(
+        generator.generate({ prompt, productCategory, count, userId }),
+        timeoutMs,
+      );
       res.json({ designs });
     } catch (err) {
       if (err instanceof AppError) {

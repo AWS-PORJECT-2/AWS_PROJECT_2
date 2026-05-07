@@ -43,7 +43,7 @@ export function createFundsCreateHandler() {
     if (!title || title.length > TITLE_MAX) errors.push('title');
     if (description && description.length > DESCRIPTION_MAX) errors.push('description');
     if (!department || department.length > DEPARTMENT_MAX) errors.push('department');
-    if (!deadline || !/^\d{4}-\d{2}-\d{2}$/.test(deadline)) errors.push('deadline');
+    if (!isValidFutureDate(deadline)) errors.push('deadline');
     if (designFee === null) errors.push('designFee');
     if (targetQuantity === null) errors.push('targetQuantity');
 
@@ -83,4 +83,23 @@ function intField(v: unknown, min: number, max: number): number | null {
   if (!Number.isFinite(n)) return null;
   if (n < min || n > max) return null;
   return n;
+}
+
+/**
+ * deadline 검증.
+ *  1. YYYY-MM-DD 형식
+ *  2. 실제 존재하는 날짜 (예: 2024-13-99 거부 — Date 가 자동 보정해도 컴포넌트 매칭으로 잡음)
+ *  3. 오늘보다 미래 (오늘 자정 KST 기준)
+ *
+ * 단순 정규식만으론 2024-02-30 같은 가짜 날짜를 통과시킨다.
+ */
+function isValidFutureDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split('-').map((p) => Number(p));
+  const dt = new Date(y, m - 1, d);
+  if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return false;
+  // 오늘 자정 (로컬 타임존) 기준 — 같은 날짜는 거부, 다음 날부터 허용.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return dt.getTime() > today.getTime();
 }

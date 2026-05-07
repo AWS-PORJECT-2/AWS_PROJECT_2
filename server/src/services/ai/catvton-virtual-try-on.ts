@@ -1,5 +1,7 @@
 import type { AiVirtualTryOn } from '../../interfaces/ai-virtual-try-on.js';
 import type { AiTryOnRequest, AiTryOnResult } from '../../types/ai.js';
+import { AppError } from '../../errors/app-error.js';
+import { fetchWithTimeout } from '../../utils/fetch-with-timeout.js';
 
 /**
  * CatVTON 기반 가상 피팅 어댑터.
@@ -52,16 +54,9 @@ export class CatVtonVirtualTryOn implements AiVirtualTryOn {
     //  5. /history/:id 폴링 후 결과 이미지 다운로드
     //  6. uploads/ 또는 S3 저장
     //  7. AiTryOnResult 반환
-    throw new Error('CatVtonVirtualTryOn.generate 미구현 — 사장님 GPU 셋업 후 채우세요');
-  }
-}
-
-async function fetchWithTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
-  const ctl = new AbortController();
-  const t = setTimeout(() => ctl.abort(), ms);
-  try {
-    return await fetch(url, { ...init, signal: ctl.signal });
-  } finally {
-    clearTimeout(t);
+    //
+    // 어댑터 본체 미구현 단계 — 라우트의 catch 가 AppError 면 그대로 503 으로 떨어진다.
+    // 일반 Error 로 던지면 글로벌 핸들러에서 500 으로 처리되므로, 명시적으로 AI_UNAVAILABLE.
+    throw new AppError('AI_UNAVAILABLE', 'CatVTON 어댑터 미구현 — GPU 셋업 후 활성화');
   }
 }

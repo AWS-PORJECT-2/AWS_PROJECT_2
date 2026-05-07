@@ -1,7 +1,9 @@
 # AI 디자인 생성 + 가상 피팅 셋업 가이드
 
 > **대상 GPU**: AMD Radeon RX 7900 GRE (16GB VRAM, RDNA3)
-> **권장 OS**: Ubuntu 22.04 / 24.04 (네이티브) — Windows + ZLUDA 도 가능하지만 ROCm 정식 지원이 더 안정적
+> **권장 OS**: Ubuntu 22.04 (jammy) — Windows + ZLUDA 도 가능하지만 ROCm 정식 지원이 더 안정적
+>
+> Ubuntu 24.04 (noble) 를 사용하는 경우 아래 `amdgpu-install` 다운로드 URL 의 `jammy` 부분을 `noble` 로 바꿔주세요.
 
 ---
 
@@ -40,7 +42,7 @@
 
 ---
 
-## 2. ROCm + PyTorch 설치 (Ubuntu 24.04 기준)
+## 2. ROCm + PyTorch 설치 (Ubuntu 22.04 기준)
 
 ### 2-1. ROCm 6.x 설치
 

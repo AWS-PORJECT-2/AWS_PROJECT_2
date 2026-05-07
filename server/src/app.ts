@@ -46,7 +46,17 @@ const AI_DESIGN_URL = process.env.AI_DESIGN_URL ?? '';
 const AI_TRYON_URL = process.env.AI_TRYON_URL ?? '';
 const AI_WORKFLOW_DIR = process.env.AI_COMFYUI_WORKFLOW_DIR ?? '';
 const AI_TRYON_MODEL_DIR = process.env.AI_TRYON_MODEL_DIR ?? '';
-const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 60000);
+const AI_TIMEOUT_DEFAULT = 60000;
+const AI_TIMEOUT_MS = parsePositiveInt(process.env.AI_TIMEOUT_MS, AI_TIMEOUT_DEFAULT);
+
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  if (!raw) return fallback;
+  const n = Number(raw);
+  // 비정상 입력(빈 문자열, 'abc', NaN, 음수) 은 모두 기본값으로 흡수.
+  // 그래야 setTimeout 에 NaN 이 흘러가서 즉시 abort 되는 사고를 막을 수 있다.
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
 
 function buildDesignGenerator(): AiDesignGenerator {
   if (!AI_DESIGN_URL) return new NullAiDesignGenerator();
@@ -127,7 +137,7 @@ export function createApp(
   // AI 라우터 (사장님 영역) — 인증 필요. AI 서버 미연결 시 라우트 자체는 떠 있고 503 응답
   const designGenerator = buildDesignGenerator();
   const virtualTryOn = buildVirtualTryOn();
-  app.use('/api/ai', authRequired, createAiRouter(designGenerator, virtualTryOn));
+  app.use('/api/ai', authRequired, createAiRouter(designGenerator, virtualTryOn, AI_TIMEOUT_MS));
 
   // 펀드 개설 (placeholder — 담당 B(B-5) 가 fund Repository 연결 후 활성화)
   app.post('/api/funds', authRequired, createFundsCreateHandler());

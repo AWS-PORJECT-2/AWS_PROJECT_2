@@ -530,8 +530,10 @@
         ? 'AI 서버가 연결되어 있지 않습니다. 펀드 등록은 그대로 진행 가능합니다.'
         : '미리보기 생성에 실패했습니다.';
       area.appendChild(msg);
+    } finally {
+      // 성공·실패 어느 쪽이든 버튼이 비활성 + "생성 중..." 으로 남는 일이 없게 한다.
       btn.disabled = false;
-      btn.textContent = '다시 시도';
+      btn.textContent = '🧥 다시 시도';
     }
   }
 
@@ -566,13 +568,22 @@
   }
 
   function setDefaultDeadline() {
-    const d = new Date();
-    d.setDate(d.getDate() + RECOMMEND_DEADLINE_DAYS);
     const input = document.getElementById('fundDeadline');
-    input.value = d.toISOString().slice(0, 10);
+    const recommend = new Date();
+    recommend.setDate(recommend.getDate() + RECOMMEND_DEADLINE_DAYS);
     const min = new Date();
     min.setDate(min.getDate() + MIN_DEADLINE_DAYS);
-    input.min = min.toISOString().slice(0, 10);
+    // toISOString() 은 UTC 기준 날짜라 한국(KST) 자정 직전엔 하루 빠진 날짜가 들어간다.
+    // <input type="date"> 는 사용자 로컬 타임존 해석이므로 로컬 컴포넌트로 직접 포맷.
+    input.value = formatLocalYmd(recommend);
+    input.min = formatLocalYmd(min);
+  }
+
+  function formatLocalYmd(d) {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   function onStep4Next() {

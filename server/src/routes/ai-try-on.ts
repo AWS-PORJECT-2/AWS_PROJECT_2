@@ -3,6 +3,7 @@ import type { AiVirtualTryOn } from '../interfaces/ai-virtual-try-on.js';
 import type { AiTryOnRequest } from '../types/ai.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
+import { withTimeout } from '../utils/fetch-with-timeout.js';
 
 const ALLOWED_MODEL_TYPES: AiTryOnRequest['modelType'][] =
   ['female', 'male', 'female_athletic', 'male_athletic'];
@@ -14,8 +15,9 @@ const ALLOWED_BACKGROUNDS: AiTryOnRequest['background'][] =
  * body: { designId, modelType, background }
  *
  * 인증 필요. 결과 이미지는 영구 저장된 URL 배열.
+ * timeoutMs 안에 응답이 안 오면 AI_TIMEOUT(504) 로 떨어진다.
  */
-export function createAiTryOnHandler(provider: AiVirtualTryOn) {
+export function createAiTryOnHandler(provider: AiVirtualTryOn, timeoutMs: number) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {
@@ -42,7 +44,10 @@ export function createAiTryOnHandler(provider: AiVirtualTryOn) {
     }
 
     try {
-      const result = await provider.generate({ designId, modelType, background, userId });
+      const result = await withTimeout(
+        provider.generate({ designId, modelType, background, userId }),
+        timeoutMs,
+      );
       res.json(result);
     } catch (err) {
       if (err instanceof AppError) {
