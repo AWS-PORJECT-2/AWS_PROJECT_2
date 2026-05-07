@@ -1,0 +1,393 @@
+/* ===== 상품 상세 페이지 스타일 (최소한) ===== */
+
+.detail-main {
+  padding-bottom: 100px;
+}
+
+/* 모바일 헤더 */
+.detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 100;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.detail-header-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* 상품 이미지 */
+.detail-image {
+  width: 100%;
+  max-height: 400px;
+  overflow: hidden;
+}
+
+.detail-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 작성자 */
+.detail-author {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.author-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.author-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.author-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.author-dept {
+  font-size: 12px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* 상품 본문 */
+.detail-body {
+  padding: 20px;
+}
+
+.detail-title {
+  font-size: 20px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.4;
+}
+
+.detail-price {
+  font-size: 22px;
+  font-weight: 800;
+  color: #1a1a1a;
+  margin-top: 8px;
+}
+
+/* 달성률 게이지 (placeholder) */
+.detail-achievement {
+  margin-top: 20px;
+}
+
+.achievement-bar {
+  height: 8px;
+  background: #e5e7eb;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.achievement-fill {
+  height: 100%;
+  background: #2563eb;
+  border-radius: 4px;
+}
+
+.achievement-info {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+}
+
+.achievement-rate {
+  font-size: 14px;
+  font-weight: 600;
+  color: #2563eb;
+}
+
+.achievement-count {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+/* 마감일 */
+.detail-deadline {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+/* 상품 설명 */
+.detail-description {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.detail-description h3 {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+}
+
+.detail-description p {
+  font-size: 14px;
+  color: #4b5563;
+  line-height: 1.7;
+}
+
+/* 하단 액션바 (placeholder) */
+.detail-bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 20px;
+  background: #fff;
+  border-top: 1px solid #e5e7eb;
+  z-index: 200;
+  max-width: 430px;
+  margin: 0 auto;
+}
+
+.btn-wish {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  color: #6b7280;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-wish:hover {
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.btn-wish.liked {
+  color: #ef4444;
+  border-color: #fca5a5;
+  background: #fef2f2;
+}
+
+.btn-join {
+  flex: 1;
+  padding: 14px;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.btn-join:hover {
+  background: #1d4ed8;
+}
+
+/* ===== 데스크톱 ===== */
+@media (min-width: 768px) {
+  .detail-main {
+    padding-bottom: 40px;
+  }
+
+  .detail-container {
+    max-width: 680px;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 16px;
+    border: 1px solid #e5e7eb;
+    overflow: hidden;
+  }
+
+  .detail-bottom-bar {
+    position: static;
+    max-width: 680px;
+    margin: 16px auto 0;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+  }
+
+  .detail-image {
+    max-height: 480px;
+  }
+}
+
+/* ===== 모달 공통 ===== */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 500;
+  justify-content: center;
+  align-items: center;
+}
+
+.modal-overlay.active {
+  display: flex;
+}
+
+.modal-content {
+  background: #fff;
+  border-radius: 20px;
+  width: 90%;
+  max-width: 380px;
+  padding: 24px;
+  animation: modal-in 0.2s ease-out;
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  color: #9ca3af;
+  cursor: pointer;
+  padding: 4px;
+  line-height: 1;
+}
+
+.modal-close:hover {
+  color: #1a1a1a;
+}
+
+.modal-body {
+  margin-bottom: 20px;
+}
+
+.modal-body p {
+  font-size: 15px;
+  color: #4b5563;
+  line-height: 1.6;
+}
+
+.modal-sub {
+  font-size: 13px !important;
+  color: #9ca3af !important;
+  margin-top: 8px;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.modal-btn-cancel {
+  flex: 1;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  background: #fff;
+  color: #6b7280;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-btn-cancel:hover {
+  background: #f9fafb;
+}
+
+.modal-btn-confirm {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  border-radius: 12px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.modal-btn-confirm:hover {
+  background: #1d4ed8;
+}
+
+/* ===== 정책 안내 모달 ===== */
+.policy-refund-ok {
+  background: #dcfce7;
+  color: #16a34a;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.policy-refund-no {
+  background: #fef2f2;
+  color: #ef4444;
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+
+.policy-notice {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+}
+
+.policy-notice p {
+  font-size: 13px;
+  color: #92400e;
+  line-height: 1.6;
+}
+
+.policy-detail {
+  padding: 8px 0;
+}
+
+.policy-detail p {
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 4px;
+}
