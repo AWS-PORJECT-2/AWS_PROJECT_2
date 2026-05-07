@@ -12,7 +12,15 @@ import { GoogleOAuthClientImpl } from './services/google-oauth-client.js';
 import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
+import { createAiRouter } from './routes/ai.js';
+import { createFundsCreateHandler } from './routes/funds-create.js';
+import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { ComfyUiDesignGenerator } from './services/ai/comfyui-design-generator.js';
+import { CatVtonVirtualTryOn } from './services/ai/catvton-virtual-try-on.js';
+import { NullAiDesignGenerator, NullAiVirtualTryOn } from './services/ai/null-ai-providers.js';
+import type { AiDesignGenerator } from './interfaces/ai-design-generator.js';
+import type { AiVirtualTryOn } from './interfaces/ai-virtual-try-on.js';
 import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
@@ -28,6 +36,23 @@ const defaultAllowedDomains: AllowedDomain[] = [
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const USE_INMEMORY = process.env.USE_INMEMORY === 'true' && !IS_PRODUCTION;
+
+// AI 어댑터 환경변수 — 미설정 시 NullAi* 로 fallback (라우트가 503 응답)
+const AI_DESIGN_URL = process.env.AI_DESIGN_URL ?? '';
+const AI_TRYON_URL = process.env.AI_TRYON_URL ?? '';
+const AI_WORKFLOW_DIR = process.env.AI_COMFYUI_WORKFLOW_DIR ?? '';
+const AI_TRYON_MODEL_DIR = process.env.AI_TRYON_MODEL_DIR ?? '';
+const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS ?? 60000);
+
+function buildDesignGenerator(): AiDesignGenerator {
+  if (!AI_DESIGN_URL) return new NullAiDesignGenerator();
+  return new ComfyUiDesignGenerator(AI_DESIGN_URL, AI_WORKFLOW_DIR, AI_TIMEOUT_MS);
+}
+
+function buildVirtualTryOn(): AiVirtualTryOn {
+  if (!AI_TRYON_URL) return new NullAiVirtualTryOn();
+  return new CatVtonVirtualTryOn(AI_TRYON_URL, AI_TRYON_MODEL_DIR, AI_TIMEOUT_MS);
+}
 
 const authRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
@@ -89,6 +114,16 @@ export function createApp(
   app.use('/api/auth/login', authRateLimit);
   app.use('/api/auth/refresh', authRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService));
+
+  const authRequired = createAuthRequired(tokenService);
+
+  // AI 라우터 (사장님 영역) — 인증 필요. AI 서버 미연결 시 라우트 자체는 떠 있고 503 응답
+  const designGenerator = buildDesignGenerator();
+  const virtualTryOn = buildVirtualTryOn();
+  app.use('/api/ai', authRequired, createAiRouter(designGenerator, virtualTryOn));
+
+  // 펀드 개설 (placeholder — 담당 B(B-5) 가 fund Repository 연결 후 활성화)
+  app.post('/api/funds', authRequired, createFundsCreateHandler());
 
   // frontend/ 정적 서빙: 백엔드와 동일 origin에서 페이지를 제공해
   // CORS·쿠키 흐름을 단순화한다.
