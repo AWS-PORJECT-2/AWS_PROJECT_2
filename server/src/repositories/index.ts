@@ -9,3 +9,23 @@ export { InMemoryRefreshTokenRepository } from './refresh-token-repository.js';
 export { PgRefreshTokenRepository } from './pg-refresh-token-repository.js';
 export type { AllowedDomainRepository } from './allowed-domain-repository.js';
 export { InMemoryAllowedDomainRepository } from './allowed-domain-repository.js';
+
+// Payment repositories
+export type { GroupBuyRepository } from './groupbuy-repository.js';
+export { InMemoryGroupBuyRepository } from './groupbuy-repository.js';
+export { PgGroupBuyRepository } from './pg-groupbuy-repository.js';
+export type { ParticipationRepository } from './participation-repository.js';
+export { InMemoryParticipationRepository } from './participation-repository.js';
+export { PgParticipationRepository } from './pg-participation-repository.js';
+export type { OrderRepository } from './order-repository.js';
+export { InMemoryOrderRepository } from './order-repository.js';
+export { PgOrderRepository } from './pg-order-repository.js';
+export type { PaymentRepository } from './payment-repository.js';
+export { InMemoryPaymentRepository } from './payment-repository.js';
+export { PgPaymentRepository } from './pg-payment-repository.js';
+export type { PaymentEventRepository } from './payment-event-repository.js';
+export { InMemoryPaymentEventRepository } from './payment-event-repository.js';
+export { PgPaymentEventRepository } from './pg-payment-event-repository.js';
+export type { RefundRepository } from './refund-repository.js';
+export { InMemoryRefundRepository } from './refund-repository.js';
+export { PgRefundRepository } from './pg-refund-repository.js';

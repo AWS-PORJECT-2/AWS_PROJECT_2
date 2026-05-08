@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>나의 디자인 업로드 - 국민대학교</title>
+  <title>디자인 업로드 - 국민대학교</title>
   <link rel="stylesheet" href="style.css">
   <style>
     .upload-container {
@@ -81,7 +81,7 @@
         <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
         </button>
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">나의 디자인</span>
+        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">디자인 업로드</span>
       </div>
     </header>
 
@@ -145,7 +145,7 @@
         <input type="file" id="customDesignUpload" accept="image/*, .pdf, .ai, .psd" style="display:none;">
 
         <div style="padding:0 20px;display:flex;flex-direction:column;gap:12px;">
-          <button onclick="triggerUpload()" style="width:100%;padding:18px;border:2px solid #2563eb;border-radius:14px;background:#eff6ff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
+          <button onclick="goToFundCreate()" style="width:100%;padding:18px;border:2px solid #2563eb;border-radius:14px;background:#eff6ff;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;">
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/></svg>
             <span style="font-size:16px;font-weight:700;color:#2563eb;">이미 있어요</span>
           </button>
@@ -159,6 +159,10 @@
         <div id="uploadPreview" style="display:none;width:100%;padding:20px;text-align:center;">
           <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">✅ 디자인이 첨부되었습니다</p>
           <img id="previewImage" alt="업로드된 디자인" style="display:none;max-width:100%;max-height:250px;border-radius:12px;border:1px solid #e5e7eb;">
+        </div>
+
+        <div id="nextStepBtn" style="display:none;width:100%;padding:20px;">
+          <button onclick="goToFundCreate()" style="width:100%;padding:16px;border:none;border-radius:14px;background:#2563eb;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">AI 피팅으로 →</button>
         </div>
 
         <div style="width:100%;padding:20px;">
@@ -185,6 +189,9 @@
       varsity: { label: '과잠', template: 'assets/blueprint.jpg', templateName: 'varsity_template.jpg' },
       tshirt: { label: '반팔티', template: 'assets/blueprint.jpg', templateName: 'tshirt_template.jpg' },
       ecobag: { label: '에코백', template: 'assets/blueprint.jpg', templateName: 'ecobag_template.jpg' },
+      hoodie: { label: '후드티', template: 'assets/blueprint.jpg', templateName: 'hoodie_template.jpg' },
+      keyring: { label: '키링', template: 'assets/blueprint.jpg', templateName: 'keyring_template.jpg' },
+      sticker: { label: '스티커', template: 'assets/blueprint.jpg', templateName: 'sticker_template.jpg' },
     };
 
     function selectCategory(event, category) {
@@ -203,6 +210,7 @@
       document.getElementById('downloadLink').download = data.templateName;
       document.getElementById('downloadLabel').textContent = data.label + ' 도면 다운로드';
       document.getElementById('uploadPreview').style.display = 'none';
+      document.getElementById('nextStepBtn').style.display = 'none';
     }
 
     function goBackToCategory() {
@@ -213,6 +221,11 @@
 
     function triggerUpload() {
       document.getElementById('customDesignUpload').click();
+    }
+
+    function goToFundCreate() {
+      var cat = CATEGORY_DATA[selectedProduct] ? CATEGORY_DATA[selectedProduct].label : selectedProduct;
+      window.location.href = 'fund-create.html?category=' + encodeURIComponent(cat);
     }
 
     document.getElementById('customDesignUpload').addEventListener('change', function(e) {
@@ -228,6 +241,7 @@
           previewImg.src = ev.target.result;
           previewImg.style.display = 'block';
           preview.style.display = 'block';
+          document.getElementById('nextStepBtn').style.display = 'block';
         };
         reader.readAsDataURL(file);
       } else {
@@ -235,6 +249,7 @@
         previewImg.removeAttribute('src');
         previewImg.alt = file.name;
         preview.style.display = 'block';
+        document.getElementById('nextStepBtn').style.display = 'block';
       }
 
       // 백엔드 전송 시도 (카테고리 포함)
@@ -249,6 +264,26 @@
 
       alert('디자인 파일이 성공적으로 불러와졌습니다!\n\n파일명: ' + file.name + '\n제품: ' + CATEGORY_DATA[selectedProduct].label);
     });
+
+    // Auto-select category from URL param
+    (function() {
+      var params = new URLSearchParams(window.location.search);
+      var cat = params.get('category');
+      if (cat) {
+        // Map Korean category names to internal keys
+        var categoryMap = { '과잠': 'varsity', '반팔티': 'tshirt', '에코백': 'ecobag', '후드티': 'hoodie', '키링': 'keyring', '스티커': 'sticker' };
+        var key = categoryMap[cat] || cat;
+        if (CATEGORY_DATA[key]) {
+          selectedProduct = key;
+          document.getElementById('stepCategory').style.display = 'none';
+          document.getElementById('stepAction').style.display = 'block';
+          document.getElementById('actionTitle').textContent = CATEGORY_DATA[key].label + ' 디자인';
+          document.getElementById('downloadLink').href = CATEGORY_DATA[key].template;
+          document.getElementById('downloadLink').download = CATEGORY_DATA[key].templateName;
+          document.getElementById('downloadLabel').textContent = CATEGORY_DATA[key].label + ' 도면 다운로드';
+        }
+      }
+    })();
   </script>
 
 </body>

@@ -1,9 +1,21 @@
 /**
  * 결제 페이지
- * - 간편결제 (토스/카카오/네이버)
+ * - 간편결제 (토스/카카오/네이버) → 토스페이먼츠 SDK 연동
  * - 카드 결제 (등록 카드 + 신규 입력)
  * - 무통장 입금 (등록 계좌 + 실시간 입력)
  */
+
+/* ===== 토스페이먼츠 SDK 초기화 ===== */
+const TOSS_CLIENT_KEY = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
+let tossPayments = null;
+
+function initTossPayments() {
+  if (typeof TossPayments === 'undefined') {
+    console.warn('토스페이먼츠 SDK가 로드되지 않았습니다.');
+    return;
+  }
+  tossPayments = TossPayments(TOSS_CLIENT_KEY);
+}
 
 let selectedMethod = 'tosspay';
 let selectedQuantity = 1;
@@ -229,7 +241,7 @@ function setupCardFormatting() {
 }
 
 /* ===== 결제 확인 ===== */
-function confirmPayment() {
+async function confirmPayment() {
   const info = getPaymentParams();
 
   // 원본 상품 데이터 검증 (URL 가격 변조 방지)
@@ -248,18 +260,38 @@ function confirmPayment() {
   // productId 로 DB 의 base_price 를 조회해 다시 계산한다.
   const displayPrice = product.price;
 
-  // 간편결제 시뮬레이션 (토스/카카오/네이버)
-  if (['tosspay', 'kakaopay', 'naverpay'].includes(selectedMethod)) {
-    const methodLabels = { tosspay: '토스페이', kakaopay: '카카오페이', naverpay: '네이버페이' };
-    const label = methodLabels[selectedMethod];
-    const proceed = confirm(
-      label + '로 ' + formatPrice(displayPrice * selectedQuantity) + ' (' + selectedQuantity + '개)을 결제합니다.\n\n' +
-      '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
-      '예금주: ' + ADMIN_ACCOUNT.holder + '\n\n' +
-      '결제를 진행하시겠습니까?'
-    );
-    if (!proceed) return;
+  // 토스페이먼츠 SDK 결제 (토스페이 선택 시)
+  if (selectedMethod === 'tosspay') {
+    if (!tossPayments) {
+      alert('토스페이먼츠 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+      return;
+    }
+
+    const orderId = 'DOOTHING_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
+    const totalAmount = displayPrice * selectedQuantity;
+
+    try {
+      const payment = tossPayments.payment({ customerKey: 'customer_' + (info.id || 'guest') });
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: totalAmount },
+        orderId: orderId,
+        orderName: product.title + (selectedQuantity > 1 ? ' x' + selectedQuantity : ''),
+        successUrl: window.location.origin + '/payment.html?status=success&id=' + info.id,
+        failUrl: window.location.origin + '/payment.html?status=fail&id=' + info.id,
+      });
+    } catch (err) {
+      if (err.code === 'USER_CANCEL') {
+        // 사용자가 결제창을 닫음
+        return;
+      }
+      console.error('토스페이먼츠 결제 요청 실패:', err);
+      alert('결제 요청 중 오류가 발생했습니다: ' + (err.message || ''));
+    }
+    return;
   }
+
+  // 카드/무통장 결제 (기존 로직)
 
   // 카드 결제 유효성 검사
   // 보안: 카드번호/만료일/CVC 는 localStorage 에 절대 저장하지 않는다.
@@ -450,6 +482,43 @@ function highlightPaySize(size) {
 
 /* ===== 초기화 ===== */
 document.addEventListener('DOMContentLoaded', () => {
+  // 토스페이먼츠 SDK 초기화
+  initTossPayments();
+
+  // 결제 성공/실패 리다이렉트 처리
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentStatus = urlParams.get('status');
+
+  if (paymentStatus === 'success') {
+    const productId = urlParams.get('id');
+    const paymentKey = urlParams.get('paymentKey');
+    const orderId = urlParams.get('orderId');
+    const amount = urlParams.get('amount');
+
+    // 결제 완료 처리
+    if (productId) {
+      localStorage.setItem('paid_' + productId, '1');
+      const product = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+        ? MOCK_PRODUCTS.find((p) => p.id === Number(productId)) : null;
+      if (product) product.isPaid = true;
+    }
+
+    alert('🎉 결제가 완료되었습니다!\n\n주문번호: ' + (orderId || '') + '\n결제금액: ' + (amount ? Number(amount).toLocaleString() + '원' : ''));
+
+    // 상세 페이지로 이동
+    window.location.href = 'detail.html?id=' + (productId || '');
+    return;
+  }
+
+  if (paymentStatus === 'fail') {
+    const errorCode = urlParams.get('code');
+    const errorMessage = urlParams.get('message');
+    alert('결제에 실패했습니다.\n\n' + (errorMessage || errorCode || '알 수 없는 오류'));
+    // URL에서 status 파라미터 제거
+    const cleanUrl = window.location.pathname + '?id=' + (urlParams.get('id') || '');
+    history.replaceState(null, '', cleanUrl);
+  }
+
   renderPaymentPage();
   setupCardFormatting();
 });

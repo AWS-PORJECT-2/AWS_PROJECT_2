@@ -30,6 +30,28 @@ import { PgRefreshTokenRepository } from './repositories/pg-refresh-token-reposi
 import { InMemoryUserRepository } from './repositories/user-repository.js';
 import { InMemoryOAuthStateRepository } from './repositories/oauth-state-repository.js';
 import { InMemoryRefreshTokenRepository } from './repositories/refresh-token-repository.js';
+// Payment system imports
+import {
+  InMemoryGroupBuyRepository, PgGroupBuyRepository,
+  InMemoryParticipationRepository, PgParticipationRepository,
+  InMemoryOrderRepository, PgOrderRepository,
+  InMemoryPaymentRepository, PgPaymentRepository,
+  InMemoryPaymentEventRepository, PgPaymentEventRepository,
+  InMemoryRefundRepository, PgRefundRepository,
+} from './repositories/index.js';
+import { InMemoryPgClient } from './services/in-memory-pg-client.js';
+import { TossPaymentsClient } from './services/toss-payments-client.js';
+import { PaymentServiceImpl } from './services/payment-service.js';
+import { PaymentScheduler } from './services/scheduler.js';
+import { InMemoryLockProvider, PgDistributedLockProvider } from './services/distributed-lock.js';
+import { createPaymentWebhookHandler } from './routes/payment-webhook.js';
+import { createGroupBuyParticipateHandler } from './routes/groupbuy-participate.js';
+import { createGroupBuyCancelParticipationHandler } from './routes/groupbuy-cancel-participation.js';
+import { createGroupBuyGetParticipationHandler } from './routes/groupbuy-get-participation.js';
+import { createPaymentRefundHandler } from './routes/payment-refund.js';
+import { createMeOrdersHandler } from './routes/me-orders.js';
+import { createPaymentEventsHandler } from './routes/payment-events.js';
+import { logger } from './logger.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
@@ -144,6 +166,51 @@ export function createApp(
 
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
+
+  // --- Payment System ---
+  const groupBuyRepository = USE_INMEMORY ? new InMemoryGroupBuyRepository() : new PgGroupBuyRepository(pool);
+  const participationRepository = USE_INMEMORY ? new InMemoryParticipationRepository() : new PgParticipationRepository(pool);
+  const orderRepository = USE_INMEMORY ? new InMemoryOrderRepository() : new PgOrderRepository(pool);
+  const paymentRepository = USE_INMEMORY ? new InMemoryPaymentRepository() : new PgPaymentRepository(pool);
+  const paymentEventRepository = USE_INMEMORY ? new InMemoryPaymentEventRepository() : new PgPaymentEventRepository(pool);
+  const refundRepository = USE_INMEMORY ? new InMemoryRefundRepository() : new PgRefundRepository(pool);
+
+  const tossSecretKey = envOrDevDefault('TOSS_SECRET_KEY', 'test_sk_000000000000000000000000000');
+  const tossWebhookSecret = envOrDevDefault('TOSS_WEBHOOK_SECRET', 'dev-toss-webhook-secret');
+
+  const pgClient = USE_INMEMORY
+    ? new InMemoryPgClient()
+    : new TossPaymentsClient(tossSecretKey);
+
+  const paymentService = new PaymentServiceImpl({
+    pgClient,
+    pool: USE_INMEMORY ? null : pool,
+    groupBuyRepository,
+    participationRepository,
+    orderRepository,
+    paymentRepository,
+    paymentEventRepository,
+    refundRepository,
+  });
+
+  // Payment routes (webhook - no auth)
+  app.post('/api/payments/webhook', createPaymentWebhookHandler(paymentService, pgClient, tossWebhookSecret));
+
+  // Payment routes (authenticated)
+  app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService));
+  app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
+  app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
+  app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
+  app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
+  app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
+
+  // Start scheduler (only in non-test environments)
+  if (process.env.NODE_ENV !== 'test') {
+    const lockProvider = USE_INMEMORY ? new InMemoryLockProvider() : new PgDistributedLockProvider(pool);
+    const scheduler = new PaymentScheduler(paymentService, groupBuyRepository, orderRepository, lockProvider);
+    scheduler.start();
+    logger.info('결제 스케줄러가 시작되었습니다');
+  }
 
   // frontend/ 정적 서빙: 백엔드와 동일 origin에서 페이지를 제공해
   // CORS·쿠키 흐름을 단순화한다.

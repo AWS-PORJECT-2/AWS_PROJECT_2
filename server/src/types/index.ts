@@ -7,3 +7,8 @@ export type { TokenVerifyResult } from './token-verify-result.js';
 export type { AuthResult } from './auth-result.js';
 export type { OAuthTokenResponse } from './oauth-token-response.js';
 export type { UserInfo } from './user-info.js';
+export type {
+  GroupBuyStatus, ParticipationStatus, OrderStatus, PaymentStatus, RefundStatus,
+  ProductOption, GroupBuy, Participation, Order, Payment, PaymentEvent, Refund,
+  ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,
+} from './payment.js';
