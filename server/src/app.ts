@@ -51,6 +51,7 @@ import { createGroupBuyGetParticipationHandler } from './routes/groupbuy-get-par
 import { createPaymentRefundHandler } from './routes/payment-refund.js';
 import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
+import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -130,8 +131,13 @@ export function createApp(
   const app = express();
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
-  // 옷 사진 dataURL 등을 body 로 받기 위해 한도 상향 (이미지 ~10MB 가정)
-  app.use(express.json({ limit: '15mb' }));
+
+  // 웹훅은 raw body가 필요하므로 전역 JSON 파서보다 먼저 등록 (아래에서 등록)
+  // 웹훅 외 라우트용 JSON 파서 — webhook 경로는 제외
+  app.use((req, res, next) => {
+    if (req.path === '/api/payments/webhook') return next();
+    express.json({ limit: '15mb' })(req, res, next);
+  });
   app.use(cookieParser());
 
   const emailValidator = new EmailValidatorImpl(allowedDomains);
@@ -203,8 +209,8 @@ export function createApp(
     refundRepository,
   });
 
-  // Payment routes (webhook - no auth)
-  app.post('/api/payments/webhook', createPaymentWebhookHandler(paymentService, pgClient, tossWebhookSecret));
+  // Payment routes (webhook - no auth, raw body for HMAC verification)
+  app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), createPaymentWebhookHandler(paymentService, pgClient, tossWebhookSecret));
 
   // Payment routes (authenticated)
   app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService));
@@ -213,6 +219,9 @@ export function createApp(
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
+
+  // --- Order Preparation (Toss Payments v2 security) ---
+  app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler());
 
   // --- Payment Methods & Addresses ---
   const paymentMethodRepository = USE_INMEMORY

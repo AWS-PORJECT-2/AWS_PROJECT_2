@@ -261,31 +261,44 @@ async function confirmPayment() {
   const displayPrice = product.price;
 
   // 토스페이먼츠 SDK 결제 (토스페이 선택 시)
+  // 보안: 금액과 주문 정보는 서버에서 생성. 클라이언트는 상품 선택 정보만 전달.
   if (selectedMethod === 'tosspay') {
     if (!tossPayments) {
       alert('토스페이먼츠 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
       return;
     }
 
-    const orderId = 'DOOTHING_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);
-    const totalAmount = displayPrice * selectedQuantity;
-
     try {
-      const payment = tossPayments.payment({ customerKey: 'customer_' + (info.id || 'guest') });
+      // Step 1: 서버에 주문 사전 생성 요청 (금액은 서버가 DB에서 계산)
+      const orderData = await fetch(API_BASE_URL + '/orders/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          productId: info.id,
+          size: _paySelectedSize || info.size || 'Free',
+          quantity: selectedQuantity,
+        }),
+      }).then(r => {
+        if (!r.ok) throw new Error('주문 생성 실패');
+        return r.json();
+      });
+
+      // Step 2: 서버가 보증한 데이터로 토스 결제창 호출
+      const payment = tossPayments.payment({ customerKey: orderData.customerKey });
       await payment.requestPayment({
         method: 'CARD',
-        amount: { currency: 'KRW', value: totalAmount },
-        orderId: orderId,
-        orderName: product.title + (selectedQuantity > 1 ? ' x' + selectedQuantity : ''),
-        successUrl: window.location.origin + '/payment.html?status=success&id=' + info.id,
-        failUrl: window.location.origin + '/payment.html?status=fail&id=' + info.id,
+        amount: { currency: 'KRW', value: orderData.amount },
+        orderId: orderData.orderId,
+        orderName: orderData.orderName,
+        successUrl: window.location.origin + '/payment.html?status=success&id=' + info.id + '&orderId=' + encodeURIComponent(orderData.orderId),
+        failUrl: window.location.origin + '/payment.html?status=fail&id=' + info.id + '&orderId=' + encodeURIComponent(orderData.orderId),
       });
     } catch (err) {
       if (err.code === 'USER_CANCEL') {
-        // 사용자가 결제창을 닫음
         return;
       }
-      console.error('토스페이먼츠 결제 요청 실패:', err);
+      console.error('결제 요청 실패:', err);
       alert('결제 요청 중 오류가 발생했습니다: ' + (err.message || ''));
     }
     return;
@@ -362,25 +375,37 @@ async function confirmPayment() {
     });
 }
 
-/* ===== 백엔드 전송 (Mock 모드 지원) ===== */
+/* ===== 백엔드 전송 (서버 승인 API) ===== */
+// ⚠️ 프로덕션 배포 시 USE_MOCK_API는 반드시 false로 설정할 것.
+// Mock 모드는 개발/테스트 환경에서만 사용. 실서비스에서 true면 결제 검증이 우회됨.
 async function sendPaymentToServer(data) {
-  if (USE_MOCK_API) {
-    // Mock 모드: 0.5초 후 성공 응답 시뮬레이션
+  if (USE_MOCK_API && process.env?.NODE_ENV !== 'production') {
+    // ⚠️ 개발 환경 전용 Mock. 프로덕션에서는 절대 이 분기를 타면 안 됨.
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.log('[Mock API] 결제 요청 성공:', data);
-        resolve({ success: true, orderId: 'MOCK-' + Date.now() });
+        console.warn('[Mock API] 결제 승인 시뮬레이션 — 프로덕션에서는 사용 금지');
+        resolve({ success: true, orderId: data.orderId || 'MOCK-' + Date.now(), verified: true });
       }, 500);
     });
   }
 
-  // 실제 백엔드 API 호출
-  const response = await fetch(PAYMENT_ENDPOINT, {
+  // 실제 서버 승인 API 호출 (토스페이먼츠 서버 승인)
+  const response = await fetch(API_BASE_URL + '/payments/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
+    credentials: 'include',
+    body: JSON.stringify({
+      paymentKey: data.paymentKey,
+      orderId: data.orderId,
+      amount: data.amount,
+    }),
   });
-  if (!response.ok) throw new Error('Server error: ' + response.status);
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || '서버 결제 승인 실패 (HTTP ' + response.status + ')');
+  }
+
   return response.json();
 }
 
@@ -495,18 +520,37 @@ document.addEventListener('DOMContentLoaded', () => {
     const orderId = urlParams.get('orderId');
     const amount = urlParams.get('amount');
 
-    // 결제 완료 처리
-    if (productId) {
-      localStorage.setItem('paid_' + productId, '1');
-      const product = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
-        ? MOCK_PRODUCTS.find((p) => p.id === Number(productId)) : null;
-      if (product) product.isPaid = true;
-    }
+    // 서버 승인 API 호출 — 프론트 단독으로 결제 완료 처리하면 안 됨
+    (async function() {
+      try {
+        const serverResult = await sendPaymentToServer({
+          paymentKey: paymentKey,
+          orderId: orderId,
+          amount: Number(amount),
+          productId: productId,
+        });
 
-    alert('🎉 결제가 완료되었습니다!\n\n주문번호: ' + (orderId || '') + '\n결제금액: ' + (amount ? Number(amount).toLocaleString() + '원' : ''));
+        // 서버 승인 성공 시에만 결제 완료 처리
+        if (productId) {
+          localStorage.setItem('paid_' + productId, '1');
+          const product = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+            ? MOCK_PRODUCTS.find((p) => p.id === Number(productId)) : null;
+          if (product) product.isPaid = true;
+        }
 
-    // 상세 페이지로 이동
-    window.location.href = 'detail.html?id=' + (productId || '');
+        alert('🎉 결제가 성공적으로 완료되었습니다!');
+        window.location.href = 'detail.html?id=' + (productId || '');
+      } catch (err) {
+        // 서버 승인 실패 — localStorage 건드리지 않음
+        console.error('결제 승인 실패:', err);
+        alert('결제 승인에 실패했습니다. 다시 시도해 주세요.\n\n' + (err.message || ''));
+        // 결제 페이지에 머무르며 실패 상태로 전환
+        const cleanUrl = window.location.pathname + '?id=' + (productId || '');
+        history.replaceState(null, '', cleanUrl);
+        renderPaymentPage();
+        setupCardFormatting();
+      }
+    })();
     return;
   }
 
