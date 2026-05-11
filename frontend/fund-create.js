@@ -12,8 +12,7 @@
 
 (function () {
   // ========== 상수 ==========
-  const PRINT_FEE = 3000;
-  const PLATFORM_FEE = 2000;
+  const PLATFORM_FEE = 5000; // 인쇄/중개 통합 수수료
   const BASE_PRICE_DEFAULT = 20000;
   const MIN_DEADLINE_DAYS = 7;
   const RECOMMEND_DEADLINE_DAYS = 14;
@@ -130,9 +129,8 @@
     var designFee = clampInt(document.getElementById('fundDesignFee').value, 0, 50000);
     document.getElementById('previewBasePrice').textContent = formatWon(BASE_PRICE_DEFAULT);
     document.getElementById('previewDesignFee').textContent = formatWon(designFee);
-    document.getElementById('previewPrintFee').textContent = formatWon(PRINT_FEE);
     document.getElementById('previewPlatformFee').textContent = formatWon(PLATFORM_FEE);
-    var finalPrice = BASE_PRICE_DEFAULT + PRINT_FEE + designFee + PLATFORM_FEE;
+    var finalPrice = BASE_PRICE_DEFAULT + designFee + PLATFORM_FEE;
     document.getElementById('previewFinalPrice').textContent = formatWon(finalPrice);
   }
 
@@ -177,7 +175,7 @@
     var summary = document.getElementById('finalSummary');
     summary.innerHTML = '';
     var v = state.formValues || {};
-    var finalPrice = BASE_PRICE_DEFAULT + PRINT_FEE + (v.designFee || 0) + PLATFORM_FEE;
+    var finalPrice = BASE_PRICE_DEFAULT + (v.designFee || 0) + PLATFORM_FEE;
     var rows = [
       ['제목', v.title || '-'],
       ['학과', v.department || '-'],
