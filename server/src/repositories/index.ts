@@ -29,3 +29,13 @@ export { PgPaymentEventRepository } from './pg-payment-event-repository.js';
 export type { RefundRepository } from './refund-repository.js';
 export { InMemoryRefundRepository } from './refund-repository.js';
 export { PgRefundRepository } from './pg-refund-repository.js';
+
+// Payment method repositories
+export type { PaymentMethodRepository } from './payment-method-repository.js';
+export { InMemoryPaymentMethodRepository } from './payment-method-repository.js';
+export { PgPaymentMethodRepository } from './pg-payment-method-repository.js';
+
+// Address repositories
+export type { AddressRepository } from './address-repository.js';
+export { InMemoryAddressRepository } from './address-repository.js';
+export { PgAddressRepository } from './pg-address-repository.js';

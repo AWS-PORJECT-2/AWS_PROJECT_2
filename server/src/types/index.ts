@@ -12,3 +12,5 @@ export type {
   ProductOption, GroupBuy, Participation, Order, Payment, PaymentEvent, Refund,
   ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,
 } from './payment.js';
+export type { PaymentMethod } from './payment-method.js';
+export type { Address } from './address.js';

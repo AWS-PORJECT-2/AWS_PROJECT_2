@@ -53,6 +53,16 @@ import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { logger } from './logger.js';
 
+// Payment method & address imports
+import {
+  InMemoryPaymentMethodRepository, PgPaymentMethodRepository,
+  InMemoryAddressRepository, PgAddressRepository,
+} from './repositories/index.js';
+import { createPaymentMethodService } from './services/payment-method-service-impl.js';
+import { createAddressService } from './services/address-service-impl.js';
+import { createPaymentMethodsHandlers } from './routes/payment-methods-routes.js';
+import { createAddressesHandlers } from './routes/addresses-routes.js';
+
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
 ];
@@ -203,6 +213,20 @@ export function createApp(
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
+
+  // --- Payment Methods & Addresses ---
+  const paymentMethodRepository = USE_INMEMORY
+    ? new InMemoryPaymentMethodRepository()
+    : new PgPaymentMethodRepository(pool);
+  const addressRepository = USE_INMEMORY
+    ? new InMemoryAddressRepository()
+    : new PgAddressRepository(pool);
+
+  const paymentMethodService = createPaymentMethodService({ paymentMethodRepository });
+  const addressService = createAddressService({ addressRepository });
+
+  app.use('/api/payment-methods', authRequired, createPaymentMethodsHandlers(paymentMethodService));
+  app.use('/api/addresses', authRequired, createAddressesHandlers(addressService));
 
   // Start scheduler (only in non-test environments)
   if (process.env.NODE_ENV !== 'test') {
