@@ -216,8 +216,8 @@ function renderProfile() {
   const menuItems = [
     { icon: 'heart', label: '찜한 굿즈 아이디어', href: '#', onclick: "switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" },
     { icon: 'bell', label: '알림 내역', href: '#' },
-    { icon: 'message', label: '1:1 문의', href: '#' },
-    { icon: 'megaphone', label: '공지사항', href: '#' },
+    { icon: 'message', label: '1:1 문의', href: '/support.html' },
+    { icon: 'megaphone', label: '공지사항', href: '/notice.html' },
   ];
 
   const iconMap = {
