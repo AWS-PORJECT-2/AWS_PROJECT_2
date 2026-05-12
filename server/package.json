@@ -6,7 +6,10 @@
     "dev": "npx tsx src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "vitest run"
+    "test": "vitest run",
+    "db:test": "tsx scripts/test-db.ts",
+    "db:migrate": "tsx scripts/migrate.ts",
+    "db:check-users": "tsx scripts/check-users.ts"
   },
   "dependencies": {
     "cookie-parser": "^1.4.7",
