@@ -50,8 +50,7 @@ export function createOrderConfirmHandler(orderRepo: OrderRepository, pgClient: 
       }
 
       // Step 5: 토스페이먼츠 최종 승인 API 호출
-      // TODO: 실제 토스 승인 API 호출 (현재는 InMemory 모드에서 바로 성공 처리)
-      // const tossResult = await pgClient.confirmPayment(paymentKey, orderId, amount);
+      // TODO: pgClient.confirmPayment(paymentKey, orderId, amount) 연결. 현재는 skip 후 바로 PAID 전이.
 
       // Step 6: 주문 상태를 PAID로 전이
       await orderRepo.updateStatus(orderId, 'paid', paymentKey);

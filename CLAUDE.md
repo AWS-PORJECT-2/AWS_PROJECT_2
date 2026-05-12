@@ -34,7 +34,7 @@
 │   │   ├── logger.ts        # pino 로거
 │   │   ├── types/           # 엔티티 인터페이스 (한 파일당 한 엔티티)
 │   │   ├── interfaces/      # 서비스 인터페이스 (DI용)
-│   │   ├── repositories/    # DB 접근 (InMemory + PostgreSQL 구현)
+│   │   ├── repositories/    # DB 접근 (PostgreSQL)
 │   │   ├── services/        # 비즈니스 로직 (인증, OAuth, 토큰, AI)
 │   │   ├── routes/          # 라우트 핸들러 (팩토리 패턴)
 │   │   ├── middleware/      # auth-required, error-handler
@@ -74,8 +74,10 @@
 ```bash
 cd server
 cp .env.example .env
-# .env에 USE_INMEMORY=true, USE_MOCK_OAUTH=true 설정하면 DB/OAuth 없이 실행 가능
+# .env 에 DATABASE_URL (RDS) + GOOGLE_CLIENT_ID/SECRET 필수.
+# 로컬에서 OAuth 우회만 원하면 USE_MOCK_OAUTH=true.
 npm install
+npm run db:migrate    # 신규 마이그레이션 적용
 npm run dev
 # → http://localhost:3000
 ```
@@ -86,13 +88,11 @@ npm run dev
 
 ## 아키텍처 패턴
 
-### Repository 패턴 (3종 세트)
+### Repository 패턴 (2종 세트)
 새 엔티티 추가 시:
 1. `types/<entity>.ts` — 인터페이스
-2. `repositories/<entity>-repository.ts` — Repository 인터페이스 + InMemory 구현
-3. `repositories/pg-<entity>-repository.ts` — PostgreSQL 구현
-
-`app.ts`에서 `USE_INMEMORY` 환경변수로 InMemory/PG 분기.
+2. `repositories/<entity>-repository.ts` — Repository 인터페이스
+3. `repositories/pg-<entity>-repository.ts` — PostgreSQL 구현 (운영용 단일 구현)
 
 ### 라우트 핸들러 팩토리
 각 엔드포인트는 팩토리 함수로 생성 (DI 주입):
@@ -166,7 +166,6 @@ ACCESS_TOKEN_SECRET=
 REFRESH_TOKEN_SECRET=
 
 # 로컬 개발
-USE_INMEMORY=true          # DB 없이 메모리 저장소
 USE_MOCK_OAUTH=true        # Google OAuth 우회
 MOCK_LOGIN_EMAIL=test@kookmin.ac.kr
 PORT=3000

@@ -28,18 +28,46 @@ function cancelReservation(productId) {
   switchProfileTab('joined');
 }
 
-/* 임시 유저 데이터 */
-const MOCK_USER = {
-  name: '이로운',
-  university: '국민대학교',
-  department: '소프트웨어학부',
-  level: 3,
-  levelTitle: '굿즈 크리에이터',
-  points: 1250,
+/* 사용자 정보 — /api/auth/me 로 채워짐.
+ * loadError 가 채워지면 renderProfile 이 "정보를 불러오지 못했습니다" 배너를 띄운다.
+ * 절대로 "게스트" 같은 가짜 신원을 사용자에게 노출하지 않는다.
+ */
+const SCHOOL_DOMAIN_TO_NAME = {
+  'kookmin.ac.kr': '국민대학교',
+};
+const currentUser = {
+  name: '',
+  university: '',
+  department: '',
   avatarUrl: 'https://picsum.photos/seed/profile1/120/120',
   joinedFundingCount: 0,
   createdFundingCount: 0,
+  loaded: false,
+  loadError: null,
 };
+
+async function loadCurrentUser() {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (res.status === 401 || res.status === 410) {
+      window.location.href = '/login.html';
+      return false; // 호출자에게 "더 진행하지 마라" 신호
+    }
+    if (!res.ok) {
+      throw new Error('failed to load /api/auth/me: HTTP ' + res.status);
+    }
+    const data = await res.json();
+    currentUser.name = data.name || data.email || '';
+    currentUser.university = SCHOOL_DOMAIN_TO_NAME[data.schoolDomain] || data.schoolDomain || '';
+    if (data.picture) currentUser.avatarUrl = data.picture;
+    currentUser.loaded = true;
+    return true;
+  } catch (err) {
+    console.error('[profile] failed to load user', err);
+    currentUser.loadError = (err && err.message) ? err.message : String(err);
+    return true; // 페이지는 렌더하되 에러 배너 표시
+  }
+}
 
 /* 탭 상태 */
 let profileTab = 'liked'; // 'liked' | 'joined' | 'created'
@@ -88,10 +116,10 @@ function renderProfileTabContent() {
     items = products.filter((p) => p.isLiked === true);
   } else if (profileTab === 'joined') {
     items = products.filter((p) => p.isReserved === true);
-    MOCK_USER.joinedFundingCount = items.length;
+    currentUser.joinedFundingCount = items.length;
   } else {
     items = [];
-    MOCK_USER.createdFundingCount = items.length;
+    currentUser.createdFundingCount = items.length;
   }
 
   if (items.length === 0) {
@@ -142,17 +170,27 @@ function renderProfileTabContent() {
 function renderProfile() {
   const main = document.getElementById('profileMain');
   const esc = window.escapeHTML;
-  const userName = esc(MOCK_USER.name);
-  const userAvatar = esc(MOCK_USER.avatarUrl);
-  const userUni = esc(MOCK_USER.university);
-  const userDept = esc(MOCK_USER.department);
+  const displayName = currentUser.loaded
+    ? currentUser.name
+    : (currentUser.loadError ? '정보를 불러오지 못했습니다' : '불러오는 중…');
+  const userName = esc(displayName);
+  const userAvatar = esc(currentUser.avatarUrl);
+  const userUni = esc(currentUser.university);
+  const userDept = esc(currentUser.department);
+  const metaLine = currentUser.loaded
+    ? [userUni, userDept].filter(Boolean).join(' · ')
+    : '';
+  const errorBanner = currentUser.loadError
+    ? `<div style="background:#fef2f2;color:#991b1b;padding:10px 16px;font-size:13px;border-bottom:1px solid #fecaca;">프로필 정보를 불러오지 못했습니다. 잠시 후 새로고침해 주세요. (${esc(currentUser.loadError)})</div>`
+    : '';
 
   main.innerHTML = `
+    ${errorBanner}
     <!-- 유저 프로필 정보 -->
     <section id="profileInfo" style="padding:24px 20px;text-align:center;border-bottom:8px solid #f5f5f5;">
       <img src="${userAvatar}" alt="${userName}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
       <div style="font-size:18px;font-weight:700;color:#1a1a1a;">${userName}</div>
-      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${userUni} · ${userDept}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${metaLine}</div>
     </section>
 
     <!-- 내 프로젝트 관리 -->
@@ -245,4 +283,8 @@ function renderProfile() {
   renderProfileTabContent();
 }
 
-renderProfile();
+(async function init() {
+  // loadCurrentUser 가 false 면 401/410 으로 인한 redirect 진행 중 — 깜빡임 방지를 위해 렌더 스킵
+  const shouldRender = await loadCurrentUser();
+  if (shouldRender) renderProfile();
+})();

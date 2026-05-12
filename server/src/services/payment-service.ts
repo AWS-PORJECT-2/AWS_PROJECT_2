@@ -17,7 +17,7 @@ import { logger } from '../logger.js';
 
 export interface PaymentServiceDeps {
   pgClient: PgClient;
-  pool: Pool | null;
+  pool: Pool;
   groupBuyRepository: GroupBuyRepository;
   participationRepository: ParticipationRepository;
   orderRepository: OrderRepository;
@@ -32,7 +32,7 @@ const MAX_RETRY_COUNT = 3;
 
 export class PaymentServiceImpl implements PaymentService {
   private readonly pgClient: PgClient;
-  private readonly pool: Pool | null;
+  private readonly pool: Pool;
   private readonly groupBuyRepo: GroupBuyRepository;
   private readonly participationRepo: ParticipationRepository;
   private readonly orderRepo: OrderRepository;
@@ -262,6 +262,12 @@ export class PaymentServiceImpl implements PaymentService {
     const order = await this.orderRepo.findById(orderId);
     if (!order || order.status !== 'failed') return;
 
+    // 단건결제(one_off) 는 자동 재시도 흐름이 정의돼 있지 않다. 명시적으로 skip + 로그.
+    if (order.kind !== 'groupbuy' || !order.groupbuyId || !order.participationId) {
+      logger.warn({ orderId, kind: order.kind }, 'retryFailedPayment: groupbuy 가 아닌 order 는 재시도 대상 아님');
+      return;
+    }
+
     const participation = await this.participationRepo.findByUserAndGroupBuy(order.userId, order.groupbuyId);
     if (!participation) return;
 
@@ -362,9 +368,11 @@ export class PaymentServiceImpl implements PaymentService {
 
     const order: Order = {
       id: orderId,
+      kind: 'groupbuy',
       participationId: participation.id,
       userId: participation.userId,
       groupbuyId: groupbuy.id,
+      productRef: null,
       amount,
       status: 'pending',
       pgPaymentId: null,
@@ -441,11 +449,7 @@ export class PaymentServiceImpl implements PaymentService {
     throw lastError;
   }
 
-  private async withTransaction<T>(fn: (client: PoolClient | null) => Promise<T>): Promise<T> {
-    if (!this.pool) {
-      // InMemory mode - just execute without real transaction, client = null
-      return fn(null);
-    }
+  private async withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
     const client: PoolClient = await this.pool.connect();
     try {
       await client.query('BEGIN');
