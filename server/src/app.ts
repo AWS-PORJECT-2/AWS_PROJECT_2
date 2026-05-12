@@ -168,7 +168,7 @@ export function createApp(
   app.use('/api/auth/refresh', authRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
-  const authRequired = createAuthRequired(tokenService);
+  const authRequired = createAuthRequired(tokenService, userRepository);
 
   // AI 라우터 (사장님 영역) — 인증 필요. AI 서버 미연결 시 라우트 자체는 떠 있고 503 응답
   const designGenerator = buildDesignGenerator();

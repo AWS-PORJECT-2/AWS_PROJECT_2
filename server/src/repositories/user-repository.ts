@@ -11,20 +11,3 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   updateLastLogin(userId: string): Promise<void>;
 }
-export class InMemoryUserRepository implements UserRepository {
-  private readonly users = new Map<string, User>();
-  async create(user: User) {
-    const normalized = { ...user, email: user.email.toLowerCase() };
-    this.users.set(normalized.email, { ...normalized });
-    return { ...normalized };
-  }
-  async findByEmail(email: string) {
-    const user = this.users.get(email.toLowerCase());
-    return user ? { ...user } : null;
-  }
-  async findById(id: string) {
-    for (const u of this.users.values()) { if (u.id === id) return { ...u }; }
-    return null;
-  }
-  async updateLastLogin(userId: string) { for (const u of this.users.values()) { if (u.id === userId) { u.lastLoginAt = new Date(); return; } } }
-}

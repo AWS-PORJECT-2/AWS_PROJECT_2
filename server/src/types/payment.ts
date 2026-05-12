@@ -41,11 +41,19 @@ export interface Participation {
   updatedAt: Date;
 }
 
+export type OrderKind = 'groupbuy' | 'one_off';
+
 export interface Order {
   id: string;
-  participationId: string;
+  /** 결제 경로 구분. groupbuy=공동구매(participation 보유), one_off=단건결제(orders-prepare). */
+  kind: OrderKind;
+  /** groupbuy 일 때만 유효. one_off 면 null. */
+  participationId: string | null;
   userId: string;
-  groupbuyId: string;
+  /** groupbuy 일 때만 UUID. one_off 는 productId 문자열을 보관 (참조무결성 없음). */
+  groupbuyId: string | null;
+  /** one_off 일 때만 의미있음 (productId 문자열). groupbuy 는 null. */
+  productRef: string | null;
   amount: number;
   status: OrderStatus;
   pgPaymentId: string | null;

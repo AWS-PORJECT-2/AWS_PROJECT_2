@@ -12,7 +12,7 @@ const IV_LENGTH = 12; // GCM 권장 IV 길이
 const AUTH_TAG_LENGTH = 16;
 
 // lazy 캐시 — 첫 호출 시 파싱·검증 후 모듈 메모리에 보관.
-// 모듈 로드 시 throw 하면 결제 안 쓰는 dev (InMemory) 모드까지 깨지므로 lazy 가 안전.
+// 모듈 로드 시 throw 하면 결제 안 쓰는 dev 경로까지 깨지므로 lazy 가 안전.
 let cachedKey: Buffer | undefined;
 
 function getEncryptionKey(): Buffer {
