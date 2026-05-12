@@ -39,9 +39,11 @@ export function createOrderPrepareHandler(orderRepo: OrderRepository) {
       // DB에 PENDING 상태로 주문 선제 저장
       const order: Order = {
         id: orderId,
-        participationId: '', // 단건 결제용 — participation 없음
+        kind: 'one_off',
+        participationId: null,
         userId,
-        groupbuyId: String(productId), // 단건 결제에서는 productId를 임시 사용
+        groupbuyId: null,
+        productRef: String(productId),
         amount,
         status: 'pending',
         pgPaymentId: null,

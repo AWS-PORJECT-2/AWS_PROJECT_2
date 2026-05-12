@@ -34,40 +34,49 @@ function updateToggleUI(enabled) {
   toggle.setAttribute('aria-pressed', enabled ? 'true' : 'false');
 }
 
-/* ===== 로그아웃 (서버 인증 쿠키 기반) ===== */
+/* ===== 로그아웃 (서버 인증 쿠키 기반) =====
+ * 서버 호출이 실패하면 사용자는 "로그아웃했다"고 착각한 채 자리를 떠날 수 있다 — 공용 PC 에서
+ * 다음 사용자가 그 계정을 그대로 쓰게 되는 보안 사고. 그래서 서버 실패 시에도 사용자에게
+ * 상태를 명시적으로 알리고, 동의 시 클라이언트 측 자격증명을 즉시 정리한 뒤 로그인 화면으로
+ * 강제 이동시킨다. (httpOnly 쿠키는 JS 로 직접 못 지워도 max-age=0 으로 덮어쓰기 시도.)
+ */
 async function handleLogout() {
   if (!confirm('정말 로그아웃 하시겠습니까?')) return;
 
+  let serverOk = false;
   try {
-    // 프론트엔드와 백엔드는 동일 origin 에서 서비스되므로 location.origin 을 그대로 사용.
-    const API_BASE = window.location.origin + '/api';
-
-    const response = await fetch(API_BASE + '/auth/logout', {
+    const response = await fetch('/api/auth/logout', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include', // httpOnly 쿠키 전송 필수
+      credentials: 'include',
     });
-
-    if (response.ok) {
-      // 서버 로그아웃 성공 — 로컬 UI 잔여 데이터 청소
-      localStorage.removeItem('user_info');
-      localStorage.removeItem('isPushEnabled');
-
-      alert('로그아웃 되었습니다.');
-      window.location.href = 'index.html';
-    } else {
-      throw new Error('서버 응답 오류: ' + response.status);
+    serverOk = response.ok;
+    if (!serverOk) {
+      console.error('서버 로그아웃 실패: HTTP ' + response.status);
     }
   } catch (error) {
-    console.error('로그아웃 중 오류 발생:', error);
+    console.error('서버 로그아웃 네트워크 오류:', error);
+  }
 
-    // 서버 미연결(개발 환경) 시 로컬 처리 fallback
+  if (serverOk) {
     localStorage.removeItem('user_info');
     localStorage.removeItem('isPushEnabled');
-
-    alert('로그아웃 되었습니다.');
-    window.location.href = 'index.html';
+    window.location.href = '/login.html';
+    return;
   }
+
+  const force = confirm(
+    '서버와 통신에 실패해 로그아웃이 완료되지 않았을 수 있습니다.\n' +
+    '이 기기의 자격증명을 강제로 정리하고 로그인 화면으로 이동할까요?\n' +
+    '(다른 기기/탭의 세션은 만료되지 않을 수 있습니다.)'
+  );
+  if (!force) return;
+
+  document.cookie = 'accessToken=; Max-Age=0; Path=/; SameSite=Lax';
+  document.cookie = 'refreshToken=; Max-Age=0; Path=/api/auth; SameSite=Lax';
+  localStorage.removeItem('user_info');
+  localStorage.removeItem('isPushEnabled');
+  window.location.href = '/login.html';
 }
 
 /* ===== 초기화 ===== */

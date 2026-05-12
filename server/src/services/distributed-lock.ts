@@ -47,19 +47,3 @@ export class PgDistributedLockProvider implements DistributedLockProvider {
   }
 }
 
-/**
- * 테스트용 InMemory 락 구현.
- */
-export class InMemoryLockProvider implements DistributedLockProvider {
-  private readonly locks = new Set<number>();
-
-  async acquire(lockKey: number): Promise<DistributedLock | null> {
-    if (this.locks.has(lockKey)) return null;
-    this.locks.add(lockKey);
-    return {
-      release: async () => {
-        this.locks.delete(lockKey);
-      },
-    };
-  }
-}
