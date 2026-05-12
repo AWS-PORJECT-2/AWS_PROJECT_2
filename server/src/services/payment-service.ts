@@ -427,10 +427,13 @@ export class PaymentServiceImpl implements PaymentService {
         return await fn();
       } catch (err: unknown) {
         lastError = err;
-        const isDeadlock = err instanceof Error && (
-          err.message.includes('deadlock') || err.message.includes('40P01')
-        );
-        if (!isDeadlock || attempt === MAX_DEADLOCK_RETRIES) throw err;
+        // pg 드라이버는 err.code 로 SQLSTATE 를 정확히 노출.
+        // 40P01 = deadlock_detected, 40001 = serialization_failure (둘 다 재시도 가능).
+        // err.message 매칭은 로케일/wrapper 따라 깨질 수 있어 fallback 으로만.
+        const code = (err as { code?: unknown })?.code;
+        const isRetryable = code === '40P01' || code === '40001'
+          || (err instanceof Error && (err.message.includes('deadlock') || err.message.includes('40P01')));
+        if (!isRetryable || attempt === MAX_DEADLOCK_RETRIES) throw err;
         const delay = Math.pow(2, attempt) * 100; // 100ms, 200ms, 400ms
         await new Promise(resolve => setTimeout(resolve, delay));
       }
@@ -450,7 +453,12 @@ export class PaymentServiceImpl implements PaymentService {
       await client.query('COMMIT');
       return result;
     } catch (err) {
-      await client.query('ROLLBACK');
+      // ROLLBACK 자체가 throw (이미 죽은 connection 등) 하더라도 원본 err 를 잃지 않게.
+      try {
+        await client.query('ROLLBACK');
+      } catch (rbErr) {
+        logger.error({ rbErr, originalErr: err }, 'ROLLBACK 실패 — 원본 에러는 throw');
+      }
       throw err;
     } finally {
       client.release();

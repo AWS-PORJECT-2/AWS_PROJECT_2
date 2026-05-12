@@ -73,6 +73,20 @@ export class PgPaymentMethodRepository implements PaymentMethodRepository {
     );
   }
 
+  async setDefaultAtomic(userId: string, id: string): Promise<PaymentMethod | null> {
+    // 단일 UPDATE 로 모든 ACTIVE row 의 is_default 를 (id == $2) 로 설정 → TOCTOU 제거.
+    // partial unique index (is_default=TRUE AND status='ACTIVE') 위반 없이 항상 1행만 true.
+    const result = await this.pool.query(
+      `UPDATE payment_methods
+       SET is_default = (id = $2), updated_at = NOW()
+       WHERE user_id = $1 AND status = 'ACTIVE'
+       RETURNING *`,
+      [userId, id],
+    );
+    const target = result.rows.find((r: Record<string, unknown>) => r.id === id);
+    return target ? this.mapRow(target) : null;
+  }
+
   private mapRow(row: Record<string, unknown>): PaymentMethod {
     return {
       id: row.id as string,

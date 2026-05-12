@@ -91,16 +91,12 @@ export function createAddressService(deps: AddressServiceDeps): AddressService {
     },
 
     async setDefault(userId, id) {
-      const addr = await addressRepository.findById(id);
-      if (!addr) {
+      // 단일 atomic UPDATE 로 TOCTOU 제거 — 동시 호출 시 partial unique index 23505 노출 방지.
+      const result = await addressRepository.setDefaultAtomic(userId, id);
+      if (!result) {
         throw new AppError('ADDRESS_NOT_FOUND');
       }
-      if (addr.userId !== userId) {
-        throw new AppError('FORBIDDEN');
-      }
-
-      await addressRepository.unsetAllDefaults(userId);
-      return addressRepository.update(id, { isDefault: true });
+      return result;
     },
 
     async delete(userId, id) {

@@ -46,7 +46,7 @@
 <body>
   <div class="addr-container">
     <div class="addr-header">
-      <button class="back-btn" onclick="history.back()">
+      <button class="back-btn" onclick="if(history.length>1)history.back();else location.href='/index.html'">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <h1>배송지 관리</h1>
@@ -133,11 +133,23 @@
           '<div class="address">[' + esc(addr.postalCode) + '] ' + esc(addr.roadAddress) +
           (addr.detailAddress ? '<br>' + esc(addr.detailAddress) : '') + '</div>' +
           '<div class="actions">' +
-          (!addr.isDefault ? '<button onclick="setDefault(\'' + addr.id + '\')">기본으로 설정</button>' : '') +
-          '<button onclick="editAddress(\'' + addr.id + '\')">수정</button>' +
-          '<button onclick="deleteAddress(\'' + addr.id + '\')">삭제</button>' +
+          // addr.id 도 escape (서버가 발급한 UUID 이어도 형식이 바뀌면 onclick 인라인 깨질 수 있음)
+          (!addr.isDefault ? '<button data-action="set-default" data-id="' + esc(addr.id) + '">기본으로 설정</button>' : '') +
+          '<button data-action="edit" data-id="' + esc(addr.id) + '">수정</button>' +
+          '<button data-action="delete" data-id="' + esc(addr.id) + '">삭제</button>' +
           '</div></div>';
       }).join('');
+
+      // 이벤트 위임 — onclick 문자열 보간 대신 dataset 사용 (XSS 방어)
+      listEl.querySelectorAll('button[data-action]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var id = btn.getAttribute('data-id');
+          var action = btn.getAttribute('data-action');
+          if (action === 'set-default') setDefault(id);
+          else if (action === 'edit') editAddress(id);
+          else if (action === 'delete') deleteAddress(id);
+        });
+      });
     }
 
     function esc(s) { return s ? String(s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }) : ''; }

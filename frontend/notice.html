@@ -34,7 +34,7 @@
 <body>
   <div class="notice-container">
     <div class="notice-header">
-      <button class="back-btn" onclick="history.back()">
+      <button class="back-btn" onclick="if(history.length>1)history.back();else location.href='/index.html'">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <h1>공지사항</h1>
@@ -78,8 +78,8 @@
         var res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.ok) {
           var user = await res.json();
-          // 서버 응답의 role 또는 email로 관리자 판별
-          isAdmin = user.role === 'admin' || user.email === 'test@kookmin.ac.kr';
+          // 관리자 판별은 서버의 role claim 만 신뢰. mock 이메일 분기 금지 (mock OAuth 켜진 환경에서 권한 도용 가능).
+          isAdmin = user.role === 'admin';
         }
       } catch (e) {
         // API 호출 실패 또는 미로그인 → 기본값 false 유지

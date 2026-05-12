@@ -170,16 +170,14 @@ export class TossPaymentsClient implements PgClient {
 
     // 수신 서명 파싱: 쉼표로 분리 → v1: 접두사 필터 → Base64 디코딩
     const signatureParts = signature.split(',').map(s => s.trim());
-    const v1Signatures = signatureParts
-      .filter(s => s.startsWith('v1:'))
-      .map(s => {
-        try {
-          return Buffer.from(s.slice(3), 'base64');
-        } catch {
-          return null;
-        }
-      })
-      .filter((b): b is Buffer => b !== null);
+    // Buffer<ArrayBufferLike> 타입 호환 — 신 node typings 와 type predicate 호환.
+    const v1Signatures: Buffer[] = [];
+    for (const s of signatureParts) {
+      if (!s.startsWith('v1:')) continue;
+      try {
+        v1Signatures.push(Buffer.from(s.slice(3), 'base64'));
+      } catch { /* skip invalid base64 */ }
+    }
 
     // v1: 접두사가 없는 경우 — 레거시 hex 형식으로 fallback
     if (v1Signatures.length === 0) {

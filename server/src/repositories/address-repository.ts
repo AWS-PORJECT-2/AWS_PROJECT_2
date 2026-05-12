@@ -8,6 +8,8 @@ export interface AddressRepository {
   update(id: string, patch: Partial<Address>): Promise<Address>;
   delete(id: string): Promise<void>;
   unsetAllDefaults(userId: string): Promise<void>;
+  /** 한 SQL 안에 unset+set 처리. setDefault 동시 호출의 partial unique index 충돌 방지. */
+  setDefaultAtomic(userId: string, id: string): Promise<Address | null>;
 }
 
 export class InMemoryAddressRepository implements AddressRepository {
@@ -61,5 +63,21 @@ export class InMemoryAddressRepository implements AddressRepository {
         addr.updatedAt = new Date();
       }
     }
+  }
+
+  async setDefaultAtomic(userId: string, id: string): Promise<Address | null> {
+    const target = this.store.get(id);
+    if (!target || target.userId !== userId) return null;
+    const now = new Date();
+    for (const addr of this.store.values()) {
+      if (addr.userId === userId) {
+        const shouldBeDefault = addr.id === id;
+        if (addr.isDefault !== shouldBeDefault) {
+          addr.isDefault = shouldBeDefault;
+          addr.updatedAt = now;
+        }
+      }
+    }
+    return { ...this.store.get(id)! };
   }
 }

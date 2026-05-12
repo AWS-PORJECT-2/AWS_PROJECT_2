@@ -54,16 +54,13 @@ export function createPaymentMethodService(deps: PaymentMethodServiceDeps): Paym
     },
 
     async setDefault(userId, id) {
-      const pm = await paymentMethodRepository.findById(id);
-      if (!pm || pm.status !== 'ACTIVE') {
+      // atomic UPDATE 로 unset+set 을 한 쿼리에 묶음 — 동시 호출 시 partial unique index
+      // 23505 가 노출되지 않음. ownership/status 검증은 SQL 의 WHERE user_id+status='ACTIVE' 가 동시에 처리.
+      const result = await paymentMethodRepository.setDefaultAtomic(userId, id);
+      if (!result) {
         throw new AppError('PAYMENT_METHOD_NOT_FOUND');
       }
-      if (pm.userId !== userId) {
-        throw new AppError('FORBIDDEN');
-      }
-
-      await paymentMethodRepository.unsetAllDefaults(userId);
-      return paymentMethodRepository.update(id, { isDefault: true });
+      return result;
     },
 
     async delete(userId, id) {

@@ -81,6 +81,19 @@ export class PgAddressRepository implements AddressRepository {
     );
   }
 
+  async setDefaultAtomic(userId: string, id: string): Promise<Address | null> {
+    // 단일 UPDATE — partial unique index 의 race 충돌 없이 atomic 전환.
+    const result = await this.pool.query(
+      `UPDATE addresses
+       SET is_default = (id = $2), updated_at = NOW()
+       WHERE user_id = $1
+       RETURNING *`,
+      [userId, id],
+    );
+    const target = result.rows.find((r: Record<string, unknown>) => r.id === id);
+    return target ? this.mapRow(target) : null;
+  }
+
   private mapRow(row: Record<string, unknown>): Address {
     return {
       id: row.id as string,

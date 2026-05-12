@@ -258,7 +258,8 @@
       formData.append('category', selectedProduct);
       formData.append('categoryLabel', CATEGORY_DATA[selectedProduct].label);
 
-      fetch(UPLOAD_ENDPOINT, { method: 'POST', body: formData })
+      // credentials: 'include' — httpOnly 인증 쿠키 전송 (다른 fetch 와 일관)
+      fetch(UPLOAD_ENDPOINT, { method: 'POST', body: formData, credentials: 'include' })
         .then(function() { console.log('업로드 성공'); })
         .catch(function() { console.log('백엔드 미연결 — 로컬 처리'); });
 

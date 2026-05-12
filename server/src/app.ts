@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomBytes } from 'node:crypto';
 import express from 'express';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -279,5 +280,6 @@ export function createApp(
 
 function randomDevSecret(): string {
   // dev 전용. 운영에서는 위 IS_PRODUCTION 가드로 진입 불가.
-  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
+  // 그래도 Math.random 은 약한 엔트로피 — staging 등에 누출되면 위험하므로 crypto 사용.
+  return randomBytes(32).toString('hex');
 }

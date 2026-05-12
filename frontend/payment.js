@@ -53,7 +53,8 @@ const API_BASE_URL = window.location.origin + '/api';
 
 const PAYMENT_ENDPOINT = API_BASE_URL + '/payments/confirm';
 
-// 백엔드 미구현 시 Mock 모드 (true: fetch 대신 시뮬레이션)
+// 백엔드 미구현 시 Mock 모드 (true: fetch 대신 시뮬레이션).
+// 운영 전환 시 false 로 변경. 브라우저에는 process 가 없으므로 명시적 상수로 분기.
 const USE_MOCK_API = true;
 
 // 관리자 입금 계좌 정보
@@ -313,8 +314,10 @@ async function confirmPayment() {
         amount: { currency: 'KRW', value: orderData.amount },
         orderId: orderData.orderId,
         orderName: orderData.orderName,
-        successUrl: window.location.origin + '/payment.html?status=success&id=' + info.id + '&orderId=' + encodeURIComponent(orderData.orderId),
-        failUrl: window.location.origin + '/payment.html?status=fail&id=' + info.id + '&orderId=' + encodeURIComponent(orderData.orderId),
+        // 토스 SDK 가 successUrl 에 paymentKey/orderId/amount 를 자동으로 append.
+        // 우리가 또 붙이면 ?orderId=X&orderId=X 중복 → URLSearchParams.get 동작이 SDK 인코딩과 미세 차이.
+        successUrl: window.location.origin + '/payment.html?status=success&id=' + info.id,
+        failUrl: window.location.origin + '/payment.html?status=fail&id=' + info.id,
       });
     } catch (err) {
       if (err.code === 'USER_CANCEL') {
@@ -401,10 +404,11 @@ async function confirmPayment() {
 // 토스 결제 성공 리다이렉트 후 서버에 최종 승인을 요청하는 함수.
 // { paymentKey, orderId, amount }만 전송. 서버가 토스 API로 최종 확인.
 async function sendPaymentConfirmationToServer(data) {
-  if (USE_MOCK_API && typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+  // 브라우저에 process 가 없어서 기존 guard 는 항상 false → mock 미동작이었음. 명시 가드로 교체.
+  if (USE_MOCK_API) {
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.warn('[Mock API] 결제 승인 시뮬레이션 — 프로덕션에서는 사용 금지');
+        console.warn('[Mock API] 결제 승인 시뮬레이션 — 운영 전환 시 USE_MOCK_API=false');
         resolve({ success: true, orderId: data.orderId || 'MOCK-' + Date.now(), verified: true });
       }, 500);
     });
@@ -432,7 +436,7 @@ async function sendPaymentConfirmationToServer(data) {
 /* ===== 백엔드 전송 — 초기 주문/결제 요청 (카드/무통장/카카오/네이버) ===== */
 // 토스 외 결제 수단에서 사용. productId, method, size, quantity 등 전체 페이로드 전송.
 async function sendInitialPaymentToServer(data) {
-  if (USE_MOCK_API && typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+  if (USE_MOCK_API) {
     return new Promise((resolve) => {
       setTimeout(() => {
         console.warn('[Mock API] 초기 결제 요청 시뮬레이션');
