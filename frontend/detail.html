@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>상품 상세</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="detail.css">
+</head>
+<body>
+
+  <!-- ===== 데스크톱 사이드바 ===== -->
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <a href="index.html" class="logo-link">
+        <span class="logo-mark"></span>
+        <span class="logo-text">doothing</span>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html" class="sidebar-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h1v7c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-7h1a1 1 0 00.7-1.7l-9-9a1 1 0 00-1.4 0l-9 9A1 1 0 003 13z"/></svg>
+        <span>홈</span>
+      </a>
+      <a href="feed.html" class="sidebar-item active">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>공동구매</span>
+      </a>
+      <a href="javascript:void(0);" onclick="openNotification();" class="sidebar-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <span>알림</span>
+      </a>
+    </nav>
+    <div class="sidebar-bottom">
+      <a href="profile.html" class="sidebar-item">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        <span>마이페이지</span>
+      </a>
+    </div>
+  </aside>
+
+  <!-- ===== 메인 콘텐츠 ===== -->
+  <main class="main-content detail-main">
+
+    <!-- 모바일 헤더 -->
+    <header class="detail-header mobile-only">
+      <button class="back-btn" onclick="goBack()" aria-label="뒤로가기">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h1 class="detail-header-title">상품 상세</h1>
+      <div style="width:36px"></div>
+    </header>
+
+    <!-- 데스크톱 상단바 -->
+    <header class="desktop-topbar desktop-only">
+      <div class="topbar-search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+        <input type="text" placeholder="공동구매 검색..." class="search-input">
+      </div>
+      <div class="topbar-right">
+        <button class="icon-btn" aria-label="알림" onclick="openNotification()">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        </button>
+        <div class="topbar-profile">
+          <img src="https://picsum.photos/seed/profile1/36/36" alt="프로필" class="topbar-avatar">
+        </div>
+      </div>
+    </header>
+
+    <!-- 상품 상세 콘텐츠 -->
+    <div class="detail-container" id="detailContainer">
+      <!-- JS에서 렌더링 -->
+    </div>
+
+    <!-- 하단 액션바 (찜하기 / 참여하기 — placeholder)
+         PC에서는 main-content 흐름 안에서 사이드바 옆 컨텐츠 영역 기준으로 정렬되도록
+         이 위치에 둔다. 모바일에서는 detail.css가 position:fixed로 화면 하단 고정.
+    -->
+    <div class="detail-bottom-bar" id="detailBottomBar">
+      <!-- JS에서 렌더링 -->
+    </div>
+
+  </main>
+
+  <!-- 모바일 하단 네비게이션 -->
+  <nav class="bottom-nav mobile-only">
+    <a href="feed.html" class="nav-item active" aria-label="공동구매">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+    </a>
+    <a href="index.html" class="nav-item" aria-label="홈">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 00-1-1h-4a1 1 0 00-1 1v8"/><path d="M3 10a2 2 0 01.709-1.528l7-5.999a2 2 0 012.582 0l7 5.999A2 2 0 0121 10v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+    </a>
+    <a href="profile.html" class="nav-item" aria-label="마이페이지">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </a>
+  </nav>
+
+  <!-- 예약 확정 모달 -->
+  <div class="modal-overlay" id="modalReservation" role="dialog" aria-modal="true" aria-labelledby="modalReservationTitle">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modalReservationTitle">예약 확정</h2>
+        <button class="modal-close" onclick="hideModal('modalReservation')" aria-label="닫기">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p>이 상품의 공동구매에 참여하시겠습니까?</p>
+        <!-- 사이즈 선택 (JS에서 sizeType에 따라 동적 렌더링) -->
+        <div id="sizeSelectionArea" style="margin-top:16px;"></div>
+        <p class="modal-sub">참여 확정 후 정책 안내를 확인해 주세요.</p>
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn-cancel" onclick="hideModal('modalReservation')">취소</button>
+        <button class="modal-btn-confirm" onclick="handleReservationConfirm()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 정책 안내 모달 -->
+  <div class="modal-overlay" id="modalPolicy" role="dialog" aria-modal="true" aria-labelledby="modalPolicyTitle">
+    <div class="modal-content modal-policy">
+      <div class="modal-header">
+        <h2 id="modalPolicyTitle">정책 안내</h2>
+        <button class="modal-close" onclick="hideModal('modalPolicy')" aria-label="닫기">&times;</button>
+      </div>
+      <div class="modal-body" id="policyBody">
+        <!-- JS에서 렌더링 -->
+      </div>
+      <div class="modal-actions">
+        <button class="modal-btn-cancel" onclick="hideModal('modalPolicy')">취소</button>
+        <button class="modal-btn-confirm" onclick="handlePolicyAgree()">동의 후 참여</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="api.js"></script>
+  <script src="mock-data.js"></script>
+  <script src="motion.js"></script>
+  <script src="detail.js"></script>
+  <script src="search.js"></script>
+  <script src="notification.js"></script>
+</body>
+</html>
