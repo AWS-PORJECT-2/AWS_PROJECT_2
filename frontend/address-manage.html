@@ -3,23 +3,227 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>배송지 관리 - 국민대학교</title>
+  <title>배송지 관리 - 두띵</title>
   <link rel="stylesheet" href="style.css">
+  <style>
+    .addr-container { max-width:430px; margin:0 auto; min-height:100vh; background:#fff; }
+    .addr-header { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #f0f0f0; }
+    .addr-header .back-btn { background:none; border:none; cursor:pointer; }
+    .addr-header h1 { font-size:17px; font-weight:700; color:#1a1a1a; flex:1; }
+    .addr-list { padding:0; }
+    .addr-card { padding:16px 20px; border-bottom:1px solid #f5f5f5; }
+    .addr-card.is-default { background:#eff6ff; }
+    .addr-card .card-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .addr-card .label { font-size:15px; font-weight:600; color:#1a1a1a; }
+    .addr-card .badge { font-size:11px; background:#2563eb; color:#fff; padding:2px 8px; border-radius:10px; }
+    .addr-card .recipient { font-size:13px; color:#4b5563; margin-bottom:4px; }
+    .addr-card .address { font-size:13px; color:#6b7280; line-height:1.5; }
+    .addr-card .actions { display:flex; gap:8px; margin-top:10px; }
+    .addr-card .actions button, .addr-card .actions a { font-size:12px; padding:6px 12px; border-radius:8px; border:1px solid #e5e7eb; background:#fff; color:#4b5563; cursor:pointer; text-decoration:none; }
+    .addr-card .actions button:hover, .addr-card .actions a:hover { background:#f3f4f6; }
+    .add-btn-wrap { padding:20px; }
+    .add-btn { display:block; width:100%; padding:14px; text-align:center; border:2px dashed #d1d5db; border-radius:14px; color:#6b7280; font-size:15px; font-weight:600; text-decoration:none; cursor:pointer; background:none; }
+    .add-btn:hover { border-color:#2563eb; color:#2563eb; }
+    .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.active { display:flex; }
+    .modal-box { background:#fff; border-radius:16px; padding:24px; width:90%; max-width:380px; max-height:90vh; overflow-y:auto; }
+    .modal-box h2 { font-size:18px; font-weight:700; margin-bottom:16px; }
+    .modal-box .field { margin-bottom:14px; }
+    .modal-box .field label { display:block; font-size:13px; font-weight:600; color:#1a1a1a; margin-bottom:6px; }
+    .modal-box .field input { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; box-sizing:border-box; }
+    .modal-box .field input:focus { border-color:#2563eb; }
+    .modal-box .field input[readonly] { background:#f9fafb; color:#6b7280; }
+    .modal-box .quick-labels { display:flex; gap:6px; margin-top:6px; }
+    .modal-box .quick-labels button { padding:6px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; }
+    .modal-box .quick-labels button:hover { border-color:#2563eb; color:#2563eb; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+    .modal-actions button { padding:10px 20px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
+    .modal-actions .btn-cancel { background:#f3f4f6; color:#6b7280; }
+    .modal-actions .btn-submit { background:#2563eb; color:#fff; }
+  </style>
 </head>
 <body>
-  <main class="main-content">
-    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
-      <div class="header-left">
-        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">배송지 관리</span>
+  <div class="addr-container">
+    <div class="addr-header">
+      <button class="back-btn" onclick="history.back()">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h1>배송지 관리</h1>
+    </div>
+    <div class="addr-list" id="addrList">
+      <div class="empty-state"><p>불러오는 중...</p></div>
+    </div>
+    <div class="add-btn-wrap">
+      <button class="add-btn" onclick="openAddForm()">+ 새 배송지 추가</button>
+    </div>
+  </div>
+
+  <!-- 배송지 추가/수정 모달 -->
+  <div class="modal-overlay" id="addrModal">
+    <div class="modal-box">
+      <h2 id="modalTitle">새 배송지 추가</h2>
+      <div class="field">
+        <label>배송지 별칭 *</label>
+        <input type="text" id="inputLabel" placeholder="예: 집, 학교, 기숙사" maxlength="20">
+        <div class="quick-labels">
+          <button type="button" onclick="document.getElementById('inputLabel').value='집'">집</button>
+          <button type="button" onclick="document.getElementById('inputLabel').value='학교'">학교</button>
+          <button type="button" onclick="document.getElementById('inputLabel').value='기숙사'">기숙사</button>
+        </div>
       </div>
-    </header>
-    <section style="padding:40px 20px;text-align:center;color:#9ca3af;">
-      <p style="font-size:14px;">등록된 배송지가 없습니다.</p>
-      <p style="font-size:13px;margin-top:8px;">배송지를 추가해 주세요.</p>
-    </section>
-  </main>
+      <div class="field">
+        <label>받는 사람 *</label>
+        <input type="text" id="inputName" placeholder="홍길동" maxlength="50">
+      </div>
+      <div class="field">
+        <label>연락처 *</label>
+        <input type="tel" id="inputPhone" placeholder="010-1234-5678">
+      </div>
+      <div class="field">
+        <label>우편번호 *</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="inputPostal" placeholder="우편번호" readonly style="flex:1;">
+          <button type="button" onclick="searchAddress()" style="padding:10px 14px;border:1.5px solid #2563eb;border-radius:10px;background:#eff6ff;color:#2563eb;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">우편번호 검색</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>도로명 주소</label>
+        <input type="text" id="inputRoad" placeholder="도로명 주소" readonly>
+      </div>
+      <div class="field">
+        <label>상세 주소</label>
+        <input type="text" id="inputDetail" placeholder="상세 주소 (예: 101동 1502호)" maxlength="100">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeModal()">취소</button>
+        <button class="btn-submit" onclick="saveAddress()">저장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js"></script>
+  <script src="api.js"></script>
+  <script>
+    var editId = null;
+
+    async function loadAddresses() {
+      var listEl = document.getElementById('addrList');
+      try {
+        var addresses = await window.api.get('/addresses');
+        if (!Array.isArray(addresses)) addresses = [];
+        render(addresses);
+      } catch (err) {
+        listEl.innerHTML = '<div class="empty-state"><p>배송지를 불러올 수 없습니다.</p></div>';
+      }
+    }
+
+    function render(addresses) {
+      var listEl = document.getElementById('addrList');
+      if (!addresses.length) {
+        listEl.innerHTML = '<div class="empty-state"><p>등록된 배송지가 없습니다.</p><p style="font-size:13px;margin-top:8px;">아래 버튼을 눌러 배송지를 추가하세요.</p></div>';
+        return;
+      }
+      var sorted = addresses.sort(function(a, b) { return a.isDefault ? -1 : 1; });
+      listEl.innerHTML = sorted.map(function(addr) {
+        return '<div class="addr-card ' + (addr.isDefault ? 'is-default' : '') + '">' +
+          '<div class="card-head"><span class="label">' + esc(addr.label) + '</span>' +
+          (addr.isDefault ? '<span class="badge">기본</span>' : '') + '</div>' +
+          '<div class="recipient"><strong>' + esc(addr.recipientName) + '</strong> ' + esc(addr.recipientPhone) + '</div>' +
+          '<div class="address">[' + esc(addr.postalCode) + '] ' + esc(addr.roadAddress) +
+          (addr.detailAddress ? '<br>' + esc(addr.detailAddress) : '') + '</div>' +
+          '<div class="actions">' +
+          (!addr.isDefault ? '<button onclick="setDefault(\'' + addr.id + '\')">기본으로 설정</button>' : '') +
+          '<button onclick="editAddress(\'' + addr.id + '\')">수정</button>' +
+          '<button onclick="deleteAddress(\'' + addr.id + '\')">삭제</button>' +
+          '</div></div>';
+      }).join('');
+    }
+
+    function esc(s) { return s ? String(s).replace(/[&<>"']/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }) : ''; }
+
+    function openAddForm() {
+      editId = null;
+      document.getElementById('modalTitle').textContent = '새 배송지 추가';
+      document.getElementById('inputLabel').value = '';
+      document.getElementById('inputName').value = '';
+      document.getElementById('inputPhone').value = '';
+      document.getElementById('inputPostal').value = '';
+      document.getElementById('inputRoad').value = '';
+      document.getElementById('inputDetail').value = '';
+      document.getElementById('addrModal').classList.add('active');
+    }
+
+    async function editAddress(id) {
+      try {
+        var addr = await window.api.get('/addresses/' + id);
+        editId = id;
+        document.getElementById('modalTitle').textContent = '배송지 수정';
+        document.getElementById('inputLabel').value = addr.label || '';
+        document.getElementById('inputName').value = addr.recipientName || '';
+        document.getElementById('inputPhone').value = addr.recipientPhone || '';
+        document.getElementById('inputPostal').value = addr.postalCode || '';
+        document.getElementById('inputRoad').value = addr.roadAddress || '';
+        document.getElementById('inputDetail').value = addr.detailAddress || '';
+        document.getElementById('addrModal').classList.add('active');
+      } catch (err) { alert('배송지를 불러올 수 없습니다.'); }
+    }
+
+    function closeModal() { document.getElementById('addrModal').classList.remove('active'); }
+
+    function searchAddress() {
+      if (typeof daum === 'undefined' || !daum.Postcode) { alert('주소 검색 서비스를 불러올 수 없습니다.'); return; }
+      new daum.Postcode({
+        oncomplete: function(data) {
+          document.getElementById('inputPostal').value = data.zonecode;
+          document.getElementById('inputRoad').value = data.roadAddress || data.address;
+          document.getElementById('inputDetail').focus();
+        }
+      }).open();
+    }
+
+    async function saveAddress() {
+      var data = {
+        label: document.getElementById('inputLabel').value.trim(),
+        recipientName: document.getElementById('inputName').value.trim(),
+        recipientPhone: document.getElementById('inputPhone').value.trim(),
+        postalCode: document.getElementById('inputPostal').value.trim(),
+        roadAddress: document.getElementById('inputRoad').value.trim(),
+        detailAddress: document.getElementById('inputDetail').value.trim() || undefined,
+      };
+      if (!data.label || !data.recipientName || !data.recipientPhone || !data.postalCode || !data.roadAddress) {
+        alert('필수 항목을 모두 입력해 주세요.'); return;
+      }
+      try {
+        if (editId) {
+          await window.api.patch('/addresses/' + editId, data);
+        } else {
+          await window.api.post('/addresses', data);
+        }
+        closeModal();
+        await loadAddresses();
+      } catch (err) { alert('저장 실패: ' + (err.message || '')); }
+    }
+
+    async function setDefault(id) {
+      try {
+        await window.api.patch('/addresses/' + id + '/default');
+        await loadAddresses();
+      } catch (err) { alert('설정 실패: ' + (err.message || '')); }
+    }
+
+    async function deleteAddress(id) {
+      if (!confirm('이 배송지를 삭제하시겠습니까?')) return;
+      try {
+        await window.api.del('/addresses/' + id);
+        await loadAddresses();
+      } catch (err) {
+        if (err.message && err.message.includes('마지막')) alert('마지막 배송지는 삭제할 수 없습니다.');
+        else alert('삭제 실패: ' + (err.message || ''));
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadAddresses);
+  </script>
 </body>
 </html>
