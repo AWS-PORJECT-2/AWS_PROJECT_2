@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import { randomBytes } from 'node:crypto';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -28,6 +29,40 @@ import { PgRefreshTokenRepository } from './repositories/pg-refresh-token-reposi
 import { InMemoryUserRepository } from './repositories/user-repository.js';
 import { InMemoryOAuthStateRepository } from './repositories/oauth-state-repository.js';
 import { InMemoryRefreshTokenRepository } from './repositories/refresh-token-repository.js';
+// Payment system imports
+import {
+  InMemoryGroupBuyRepository, PgGroupBuyRepository,
+  InMemoryParticipationRepository, PgParticipationRepository,
+  InMemoryOrderRepository, PgOrderRepository,
+  InMemoryPaymentRepository, PgPaymentRepository,
+  InMemoryPaymentEventRepository, PgPaymentEventRepository,
+  InMemoryRefundRepository, PgRefundRepository,
+} from './repositories/index.js';
+import { InMemoryPgClient } from './services/in-memory-pg-client.js';
+import { TossPaymentsClient } from './services/toss-payments-client.js';
+import { PaymentServiceImpl } from './services/payment-service.js';
+import { PaymentScheduler } from './services/scheduler.js';
+import { InMemoryLockProvider, PgDistributedLockProvider } from './services/distributed-lock.js';
+import { createPaymentWebhookHandler } from './routes/payment-webhook.js';
+import { createGroupBuyParticipateHandler } from './routes/groupbuy-participate.js';
+import { createGroupBuyCancelParticipationHandler } from './routes/groupbuy-cancel-participation.js';
+import { createGroupBuyGetParticipationHandler } from './routes/groupbuy-get-participation.js';
+import { createPaymentRefundHandler } from './routes/payment-refund.js';
+import { createMeOrdersHandler } from './routes/me-orders.js';
+import { createPaymentEventsHandler } from './routes/payment-events.js';
+import { createOrderPrepareHandler } from './routes/orders-prepare.js';
+import { createOrderConfirmHandler } from './routes/orders-confirm.js';
+import { logger } from './logger.js';
+
+// Payment method & address imports
+import {
+  InMemoryPaymentMethodRepository, PgPaymentMethodRepository,
+  InMemoryAddressRepository, PgAddressRepository,
+} from './repositories/index.js';
+import { createPaymentMethodService } from './services/payment-method-service-impl.js';
+import { createAddressService } from './services/address-service-impl.js';
+import { createPaymentMethodsHandlers } from './routes/payment-methods-routes.js';
+import { createAddressesHandlers } from './routes/addresses-routes.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
@@ -99,8 +134,13 @@ export function createApp(
   app.set('trust proxy', 1);
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
-  // 옷 사진 dataURL 등을 body 로 받기 위해 한도 상향 (이미지 ~10MB 가정)
-  app.use(express.json({ limit: '15mb' }));
+
+  // 웹훅은 raw body가 필요하므로 전역 JSON 파서보다 먼저 등록 (아래에서 등록)
+  // 웹훅 외 라우트용 JSON 파서 — webhook 경로는 제외
+  app.use((req, res, next) => {
+    if (req.path === '/api/payments/webhook') return next();
+    express.json({ limit: '15mb' })(req, res, next);
+  });
   app.use(cookieParser());
 
   const emailValidator = new EmailValidatorImpl(allowedDomains);
@@ -146,8 +186,78 @@ export function createApp(
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
 
-  // 정적 자산은 CloudFront(+ S3) 가 책임진다.
-  // EC2 는 API 전용. 루트 경로엔 health check 만 응답해서 ALB·CloudFront origin health check 에 대비.
+  // --- Payment System ---
+  const groupBuyRepository = USE_INMEMORY ? new InMemoryGroupBuyRepository() : new PgGroupBuyRepository(pool);
+  const participationRepository = USE_INMEMORY ? new InMemoryParticipationRepository() : new PgParticipationRepository(pool);
+  const orderRepository = USE_INMEMORY ? new InMemoryOrderRepository() : new PgOrderRepository(pool);
+  const paymentRepository = USE_INMEMORY ? new InMemoryPaymentRepository() : new PgPaymentRepository(pool);
+  const paymentEventRepository = USE_INMEMORY ? new InMemoryPaymentEventRepository() : new PgPaymentEventRepository(pool);
+  const refundRepository = USE_INMEMORY ? new InMemoryRefundRepository() : new PgRefundRepository(pool);
+
+  const tossSecretKey = envOrDevDefault('TOSS_SECRET_KEY', 'test_sk_000000000000000000000000000');
+  const tossWebhookSecret = envOrDevDefault('TOSS_WEBHOOK_SECRET', 'dev-toss-webhook-secret');
+
+  const pgClient = USE_INMEMORY
+    ? new InMemoryPgClient()
+    : new TossPaymentsClient(tossSecretKey);
+
+  const paymentService = new PaymentServiceImpl({
+    pgClient,
+    pool: USE_INMEMORY ? null : pool,
+    groupBuyRepository,
+    participationRepository,
+    orderRepository,
+    paymentRepository,
+    paymentEventRepository,
+    refundRepository,
+  });
+
+  // Payment routes (webhook - no auth, raw body for HMAC verification)
+  app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), createPaymentWebhookHandler(paymentService, pgClient, tossWebhookSecret));
+
+  // Payment routes (authenticated)
+  app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService));
+  app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
+  app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
+  app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
+  app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
+  app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
+
+  // --- Order Preparation & Confirmation (Toss Payments v2 security) ---
+  app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler(orderRepository));
+  app.post('/api/payments/confirm', authRequired, createOrderConfirmHandler(orderRepository, pgClient));
+
+  // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
+  app.get('/api/config/toss', (_req, res) => {
+    res.json({
+      clientKey: envOrDevDefault('TOSS_CLIENT_KEY', 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'),
+    });
+  });
+
+  // --- Payment Methods & Addresses ---
+  const paymentMethodRepository = USE_INMEMORY
+    ? new InMemoryPaymentMethodRepository()
+    : new PgPaymentMethodRepository(pool);
+  const addressRepository = USE_INMEMORY
+    ? new InMemoryAddressRepository()
+    : new PgAddressRepository(pool);
+
+  const paymentMethodService = createPaymentMethodService({ paymentMethodRepository });
+  const addressService = createAddressService({ addressRepository });
+
+  app.use('/api/payment-methods', authRequired, createPaymentMethodsHandlers(paymentMethodService));
+  app.use('/api/addresses', authRequired, createAddressesHandlers(addressService));
+
+  // Start scheduler (only in non-test environments)
+  if (process.env.NODE_ENV !== 'test') {
+    const lockProvider = USE_INMEMORY ? new InMemoryLockProvider() : new PgDistributedLockProvider(pool);
+    const scheduler = new PaymentScheduler(paymentService, groupBuyRepository, orderRepository, lockProvider);
+    scheduler.start();
+    logger.info('결제 스케줄러가 시작되었습니다');
+  }
+
+  // 정적 자산은 CloudFront(+ S3) 가 책임진다. EC2 는 API 전용.
+  // 루트 경로엔 health check 만 — CloudFront origin health check 대비.
   app.get('/', (_req, res) => {
     res.json({ service: 'doothing-api', ok: true });
   });
@@ -158,5 +268,6 @@ export function createApp(
 
 function randomDevSecret(): string {
   // dev 전용. 운영에서는 위 IS_PRODUCTION 가드로 진입 불가.
-  return Array.from({ length: 32 }, () => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('');
+  // 그래도 Math.random 은 약한 엔트로피 — staging 등에 누출되면 위험하므로 crypto 사용.
+  return randomBytes(32).toString('hex');
 }

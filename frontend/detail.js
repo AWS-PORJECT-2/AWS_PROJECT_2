@@ -371,7 +371,7 @@ async function renderDetail() {
   } else if (currentProduct.isPaid || paymentState === '1') {
     // B: 결제 완료
     bottomBar.innerHTML = likeBtn + `
-      <button class="btn-join" style="background:#16a34a;cursor:default;" disabled>결제 완료</button>
+      <button class="btn-join" style="background:#f97316;" onclick="goToPayment()">결제하기</button>
     `;
   } else if (currentProduct.isReserved && isAchieved) {
     // C: 참여 완료 + 달성률 100% → 결제 버튼
