@@ -1,11 +1,8 @@
 import 'dotenv/config';
-import pg from 'pg';
+import { createPool } from './_shared.js';
 
 async function main() {
-  const pool = new pg.Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false },
-  });
+  const pool = createPool();
   try {
     const users = await pool.query('SELECT id, email, name, school_domain, created_at, last_login_at FROM "user"');
     console.log(`유저 수: ${users.rows.length}`);
@@ -16,6 +13,7 @@ async function main() {
     console.table(tokens.rows);
   } catch (err) {
     console.error('조회 실패:', err);
+    process.exitCode = 1;
   } finally {
     await pool.end();
   }
