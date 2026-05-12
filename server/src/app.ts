@@ -94,6 +94,9 @@ export function createApp(
   redirectUri: string = process.env.OAUTH_REDIRECT_URI ?? 'http://localhost:3000/api/auth/callback',
 ) {
   const app = express();
+  // CloudFront / ALB 같은 프록시가 X-Forwarded-For 를 보내므로 한 단계 신뢰.
+  // 안 하면 express-rate-limit 가 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR 던지며 거절.
+  app.set('trust proxy', 1);
   app.use(helmet({ contentSecurityPolicy: false }));
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
   // 옷 사진 dataURL 등을 body 로 받기 위해 한도 상향 (이미지 ~10MB 가정)
