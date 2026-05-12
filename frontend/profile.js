@@ -44,10 +44,13 @@ const currentUser = {
 async function loadCurrentUser() {
   try {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
-    if (!res.ok) {
-      // 401 → 로그인 화면으로
+    if (res.status === 401) {
       window.location.href = '/login.html';
       return;
+    }
+    if (!res.ok) {
+      // 500/503 등 서버 장애는 강제 로그아웃 시키지 않고 fallback 값 유지
+      throw new Error('failed to load /api/auth/me: ' + res.status);
     }
     const data = await res.json();
     currentUser.name = data.name || data.email || '사용자';

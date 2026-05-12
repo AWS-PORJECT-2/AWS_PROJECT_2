@@ -61,7 +61,9 @@ CREATE TABLE IF NOT EXISTS orders (
   next_retry_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK (status IN ('pending', 'paid', 'failed', 'refunded', 'cancelled'))
+  CHECK (status IN ('pending', 'paid', 'failed', 'refunded', 'cancelled')),
+  CHECK (amount >= 0),
+  CHECK (retry_count >= 0)
 );
 CREATE INDEX IF NOT EXISTS idx_orders_user ON orders(user_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_status_retry ON orders(status, next_retry_at) WHERE status = 'failed';
@@ -78,7 +80,8 @@ CREATE TABLE IF NOT EXISTS payments (
   pg_response JSONB,
   attempted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
-  CHECK (status IN ('pending', 'succeeded', 'failed', 'cancelled'))
+  CHECK (status IN ('pending', 'succeeded', 'failed', 'cancelled')),
+  CHECK (amount >= 0)
 );
 CREATE INDEX IF NOT EXISTS idx_payments_order ON payments(order_id, attempted_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_payments_pg_txn ON payments(pg_transaction_id) WHERE pg_transaction_id IS NOT NULL;
@@ -104,7 +107,8 @@ CREATE TABLE IF NOT EXISTS refunds (
   pg_refund_id TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   completed_at TIMESTAMPTZ,
-  CHECK (status IN ('pending', 'succeeded', 'failed'))
+  CHECK (status IN ('pending', 'succeeded', 'failed')),
+  CHECK (amount >= 0)
 );
 CREATE INDEX IF NOT EXISTS idx_refunds_order ON refunds(order_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_refunds_payment ON refunds(payment_id);

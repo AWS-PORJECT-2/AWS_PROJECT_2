@@ -18,18 +18,23 @@ export function createMeHandler(tokenService: TokenService, userRepo: UserReposi
       return;
     }
 
-    const user = await userRepo.findById(result.payload.userId);
-    if (!user) {
-      res.status(401).json({ error: 'NOT_AUTHENTICATED', message: '로그인이 필요합니다' });
-      return;
-    }
+    try {
+      const user = await userRepo.findById(result.payload.userId);
+      if (!user) {
+        res.status(401).json({ error: 'NOT_AUTHENTICATED', message: '로그인이 필요합니다' });
+        return;
+      }
 
-    res.json({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      schoolDomain: user.schoolDomain,
-      picture: user.picture ?? null,
-    });
+      res.json({
+        userId: user.id,
+        email: user.email,
+        name: user.name,
+        schoolDomain: user.schoolDomain,
+        picture: user.picture ?? null,
+      });
+    } catch (err) {
+      logger.error({ err, userId: result.payload.userId, ip: req.ip }, '/me 사용자 조회 실패');
+      res.status(500).json({ error: 'INTERNAL_ERROR', message: '서버 오류가 발생했습니다' });
+    }
   };
 }
