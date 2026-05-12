@@ -28,18 +28,35 @@ function cancelReservation(productId) {
   switchProfileTab('joined');
 }
 
-/* 임시 유저 데이터 */
-const MOCK_USER = {
-  name: '이로운',
-  university: '국민대학교',
-  department: '소프트웨어학부',
-  level: 3,
-  levelTitle: '굿즈 크리에이터',
-  points: 1250,
+/* 사용자 정보 — /api/auth/me 로 채워짐. 로그인 전이거나 fetch 실패 시 fallback. */
+const SCHOOL_DOMAIN_TO_NAME = {
+  'kookmin.ac.kr': '국민대학교',
+};
+const currentUser = {
+  name: '게스트',
+  university: '',
+  department: '', // 백엔드에 학과 정보 없음 — 우선 비움
   avatarUrl: 'https://picsum.photos/seed/profile1/120/120',
   joinedFundingCount: 0,
   createdFundingCount: 0,
 };
+
+async function loadCurrentUser() {
+  try {
+    const res = await fetch('/api/auth/me', { credentials: 'include' });
+    if (!res.ok) {
+      // 401 → 로그인 화면으로
+      window.location.href = '/login.html';
+      return;
+    }
+    const data = await res.json();
+    currentUser.name = data.name || data.email || '사용자';
+    currentUser.university = SCHOOL_DOMAIN_TO_NAME[data.schoolDomain] || data.schoolDomain || '';
+    if (data.picture) currentUser.avatarUrl = data.picture;
+  } catch (err) {
+    console.error('failed to load user', err);
+  }
+}
 
 /* 탭 상태 */
 let profileTab = 'liked'; // 'liked' | 'joined' | 'created'
@@ -88,10 +105,10 @@ function renderProfileTabContent() {
     items = products.filter((p) => p.isLiked === true);
   } else if (profileTab === 'joined') {
     items = products.filter((p) => p.isReserved === true);
-    MOCK_USER.joinedFundingCount = items.length;
+    currentUser.joinedFundingCount = items.length;
   } else {
     items = [];
-    MOCK_USER.createdFundingCount = items.length;
+    currentUser.createdFundingCount = items.length;
   }
 
   if (items.length === 0) {
@@ -142,17 +159,18 @@ function renderProfileTabContent() {
 function renderProfile() {
   const main = document.getElementById('profileMain');
   const esc = window.escapeHTML;
-  const userName = esc(MOCK_USER.name);
-  const userAvatar = esc(MOCK_USER.avatarUrl);
-  const userUni = esc(MOCK_USER.university);
-  const userDept = esc(MOCK_USER.department);
+  const userName = esc(currentUser.name);
+  const userAvatar = esc(currentUser.avatarUrl);
+  const userUni = esc(currentUser.university);
+  const userDept = esc(currentUser.department);
+  const metaLine = [userUni, userDept].filter(Boolean).join(' · ');
 
   main.innerHTML = `
     <!-- 유저 프로필 정보 -->
     <section id="profileInfo" style="padding:24px 20px;text-align:center;border-bottom:8px solid #f5f5f5;">
       <img src="${userAvatar}" alt="${userName}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
       <div style="font-size:18px;font-weight:700;color:#1a1a1a;">${userName}</div>
-      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${userUni} · ${userDept}</div>
+      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${metaLine}</div>
     </section>
 
     <!-- 내 프로젝트 관리 -->
@@ -245,4 +263,7 @@ function renderProfile() {
   renderProfileTabContent();
 }
 
-renderProfile();
+(async function init() {
+  await loadCurrentUser();
+  renderProfile();
+})();

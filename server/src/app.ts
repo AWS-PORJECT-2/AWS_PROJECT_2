@@ -26,23 +26,19 @@ import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
 import { PgRefreshTokenRepository } from './repositories/pg-refresh-token-repository.js';
-import { InMemoryUserRepository } from './repositories/user-repository.js';
-import { InMemoryOAuthStateRepository } from './repositories/oauth-state-repository.js';
-import { InMemoryRefreshTokenRepository } from './repositories/refresh-token-repository.js';
 // Payment system imports
 import {
-  InMemoryGroupBuyRepository, PgGroupBuyRepository,
-  InMemoryParticipationRepository, PgParticipationRepository,
-  InMemoryOrderRepository, PgOrderRepository,
-  InMemoryPaymentRepository, PgPaymentRepository,
-  InMemoryPaymentEventRepository, PgPaymentEventRepository,
-  InMemoryRefundRepository, PgRefundRepository,
+  PgGroupBuyRepository,
+  PgParticipationRepository,
+  PgOrderRepository,
+  PgPaymentRepository,
+  PgPaymentEventRepository,
+  PgRefundRepository,
 } from './repositories/index.js';
-import { InMemoryPgClient } from './services/in-memory-pg-client.js';
 import { TossPaymentsClient } from './services/toss-payments-client.js';
 import { PaymentServiceImpl } from './services/payment-service.js';
 import { PaymentScheduler } from './services/scheduler.js';
-import { InMemoryLockProvider, PgDistributedLockProvider } from './services/distributed-lock.js';
+import { PgDistributedLockProvider } from './services/distributed-lock.js';
 import { createPaymentWebhookHandler } from './routes/payment-webhook.js';
 import { createGroupBuyParticipateHandler } from './routes/groupbuy-participate.js';
 import { createGroupBuyCancelParticipationHandler } from './routes/groupbuy-cancel-participation.js';
@@ -56,8 +52,8 @@ import { logger } from './logger.js';
 
 // Payment method & address imports
 import {
-  InMemoryPaymentMethodRepository, PgPaymentMethodRepository,
-  InMemoryAddressRepository, PgAddressRepository,
+  PgPaymentMethodRepository,
+  PgAddressRepository,
 } from './repositories/index.js';
 import { createPaymentMethodService } from './services/payment-method-service-impl.js';
 import { createAddressService } from './services/address-service-impl.js';
@@ -70,7 +66,6 @@ const defaultAllowedDomains: AllowedDomain[] = [
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const USE_INMEMORY = process.env.USE_INMEMORY === 'true' && !IS_PRODUCTION;
 const USE_MOCK_OAUTH = process.env.USE_MOCK_OAUTH === 'true' && !IS_PRODUCTION;
 const MOCK_LOGIN_EMAIL = process.env.MOCK_LOGIN_EMAIL ?? 'test@kookmin.ac.kr';
 
@@ -160,9 +155,9 @@ export function createApp(
   }
   const tokenService = new TokenServiceImpl();
 
-  const userRepository = USE_INMEMORY ? new InMemoryUserRepository() : new PgUserRepository(pool);
-  const oauthStateRepository = USE_INMEMORY ? new InMemoryOAuthStateRepository() : new PgOAuthStateRepository(pool);
-  const refreshTokenRepository = USE_INMEMORY ? new InMemoryRefreshTokenRepository() : new PgRefreshTokenRepository(pool);
+  const userRepository = new PgUserRepository(pool);
+  const oauthStateRepository = new PgOAuthStateRepository(pool);
+  const refreshTokenRepository = new PgRefreshTokenRepository(pool);
 
   const authService = new AuthServiceImpl({
     emailValidator, oauthClient, tokenService,
@@ -171,7 +166,7 @@ export function createApp(
 
   app.use('/api/auth/login', authRateLimit);
   app.use('/api/auth/refresh', authRateLimit);
-  app.use('/api/auth', createAuthRouter(authService, tokenService));
+  app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
   const authRequired = createAuthRequired(tokenService);
 
@@ -187,23 +182,21 @@ export function createApp(
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
 
   // --- Payment System ---
-  const groupBuyRepository = USE_INMEMORY ? new InMemoryGroupBuyRepository() : new PgGroupBuyRepository(pool);
-  const participationRepository = USE_INMEMORY ? new InMemoryParticipationRepository() : new PgParticipationRepository(pool);
-  const orderRepository = USE_INMEMORY ? new InMemoryOrderRepository() : new PgOrderRepository(pool);
-  const paymentRepository = USE_INMEMORY ? new InMemoryPaymentRepository() : new PgPaymentRepository(pool);
-  const paymentEventRepository = USE_INMEMORY ? new InMemoryPaymentEventRepository() : new PgPaymentEventRepository(pool);
-  const refundRepository = USE_INMEMORY ? new InMemoryRefundRepository() : new PgRefundRepository(pool);
+  const groupBuyRepository = new PgGroupBuyRepository(pool);
+  const participationRepository = new PgParticipationRepository(pool);
+  const orderRepository = new PgOrderRepository(pool);
+  const paymentRepository = new PgPaymentRepository(pool);
+  const paymentEventRepository = new PgPaymentEventRepository(pool);
+  const refundRepository = new PgRefundRepository(pool);
 
   const tossSecretKey = envOrDevDefault('TOSS_SECRET_KEY', 'test_sk_000000000000000000000000000');
   const tossWebhookSecret = envOrDevDefault('TOSS_WEBHOOK_SECRET', 'dev-toss-webhook-secret');
 
-  const pgClient = USE_INMEMORY
-    ? new InMemoryPgClient()
-    : new TossPaymentsClient(tossSecretKey);
+  const pgClient = new TossPaymentsClient(tossSecretKey);
 
   const paymentService = new PaymentServiceImpl({
     pgClient,
-    pool: USE_INMEMORY ? null : pool,
+    pool,
     groupBuyRepository,
     participationRepository,
     orderRepository,
@@ -235,12 +228,8 @@ export function createApp(
   });
 
   // --- Payment Methods & Addresses ---
-  const paymentMethodRepository = USE_INMEMORY
-    ? new InMemoryPaymentMethodRepository()
-    : new PgPaymentMethodRepository(pool);
-  const addressRepository = USE_INMEMORY
-    ? new InMemoryAddressRepository()
-    : new PgAddressRepository(pool);
+  const paymentMethodRepository = new PgPaymentMethodRepository(pool);
+  const addressRepository = new PgAddressRepository(pool);
 
   const paymentMethodService = createPaymentMethodService({ paymentMethodRepository });
   const addressService = createAddressService({ addressRepository });
@@ -250,7 +239,7 @@ export function createApp(
 
   // Start scheduler (only in non-test environments)
   if (process.env.NODE_ENV !== 'test') {
-    const lockProvider = USE_INMEMORY ? new InMemoryLockProvider() : new PgDistributedLockProvider(pool);
+    const lockProvider = new PgDistributedLockProvider(pool);
     const scheduler = new PaymentScheduler(paymentService, groupBuyRepository, orderRepository, lockProvider);
     scheduler.start();
     logger.info('결제 스케줄러가 시작되었습니다');

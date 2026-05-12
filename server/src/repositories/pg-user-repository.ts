@@ -24,6 +24,15 @@ export class PgUserRepository implements UserRepository {
     return this.mapRow(result.rows[0]);
   }
 
+  async findById(id: string): Promise<User | null> {
+    const result = await this.pool.query(
+      `SELECT * FROM "user" WHERE id = $1`,
+      [id],
+    );
+    if (result.rows.length === 0) return null;
+    return this.mapRow(result.rows[0]);
+  }
+
   async updateLastLogin(userId: string): Promise<void> {
     await this.pool.query(
       `UPDATE "user" SET last_login_at = NOW() WHERE id = $1`,

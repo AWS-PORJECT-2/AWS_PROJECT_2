@@ -1,9 +1,10 @@
 import type { Request, Response } from 'express';
 import type { TokenService } from '../interfaces/token-service.js';
+import type { UserRepository } from '../repositories/user-repository.js';
 import { logger } from '../logger.js';
 
-export function createMeHandler(tokenService: TokenService) {
-  return (req: Request, res: Response): void => {
+export function createMeHandler(tokenService: TokenService, userRepo: UserRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
     const token = req.cookies?.accessToken;
     if (!token) { res.status(401).json({ error: 'NOT_AUTHENTICATED', message: '로그인이 필요합니다' }); return; }
     const result = tokenService.verifyAccessTokenDetailed(token);
@@ -16,6 +17,19 @@ export function createMeHandler(tokenService: TokenService) {
       }
       return;
     }
-    res.json({ userId: result.payload.userId, email: result.payload.email });
+
+    const user = await userRepo.findById(result.payload.userId);
+    if (!user) {
+      res.status(401).json({ error: 'NOT_AUTHENTICATED', message: '로그인이 필요합니다' });
+      return;
+    }
+
+    res.json({
+      userId: user.id,
+      email: user.email,
+      name: user.name,
+      schoolDomain: user.schoolDomain,
+      picture: user.picture ?? null,
+    });
   };
 }
