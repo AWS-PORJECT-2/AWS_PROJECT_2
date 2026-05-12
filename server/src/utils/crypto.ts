@@ -11,14 +11,24 @@ const ALGORITHM = 'aes-256-gcm';
 const IV_LENGTH = 12; // GCM 권장 IV 길이
 const AUTH_TAG_LENGTH = 16;
 
+// lazy 캐시 — 첫 호출 시 파싱·검증 후 모듈 메모리에 보관.
+// 모듈 로드 시 throw 하면 결제 안 쓰는 dev (InMemory) 모드까지 깨지므로 lazy 가 안전.
+let cachedKey: Buffer | undefined;
+
 function getEncryptionKey(): Buffer {
+  if (cachedKey) return cachedKey;
   const keyHex = process.env.PAYMENT_ENCRYPTION_KEY;
-  if (!keyHex || keyHex.length !== 64) {
+  if (!keyHex || keyHex.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(keyHex)) {
     throw new Error(
-      'PAYMENT_ENCRYPTION_KEY 환경변수가 설정되지 않았거나 길이가 올바르지 않습니다 (32바이트 hex = 64자 필요)',
+      'PAYMENT_ENCRYPTION_KEY 환경변수가 설정되지 않았거나 형식이 올바르지 않습니다 (32바이트 hex = 64자 hex 문자 필요)',
     );
   }
-  return Buffer.from(keyHex, 'hex');
+  const buf = Buffer.from(keyHex, 'hex');
+  if (buf.length !== 32) {
+    throw new Error('PAYMENT_ENCRYPTION_KEY 디코딩 결과가 32바이트가 아닙니다');
+  }
+  cachedKey = buf;
+  return cachedKey;
 }
 
 /**
@@ -49,7 +59,9 @@ export function decryptBillingKey(ciphertext: string): string {
   const key = getEncryptionKey();
   const parts = ciphertext.split(':');
   if (parts.length !== 3) {
-    throw new Error('암호화된 빌링키 형식이 올바르지 않습니다');
+    throw new Error(
+      `암호화된 빌링키 형식이 올바르지 않습니다. 예상: base64(iv):base64(authTag):base64(ciphertext) (3 segments), 실제: ${parts.length} segments`,
+    );
   }
 
   const iv = Buffer.from(parts[0], 'base64');

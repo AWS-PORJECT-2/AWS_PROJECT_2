@@ -55,10 +55,12 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
   }
 
   async unsetAllDefaults(userId: string): Promise<void> {
+    // 다른 메서드들(create/findById/list/update)의 방어적 복사 패턴과 일관:
+    // store 의 기존 객체를 mutate 하지 않고 새 객체로 교체.
+    const now = new Date();
     for (const pm of this.store.values()) {
       if (pm.userId === userId && pm.isDefault && pm.status === 'ACTIVE') {
-        pm.isDefault = false;
-        pm.updatedAt = new Date();
+        this.store.set(pm.id, { ...pm, isDefault: false, updatedAt: now });
       }
     }
   }
@@ -71,8 +73,7 @@ export class InMemoryPaymentMethodRepository implements PaymentMethodRepository 
       if (pm.userId === userId && pm.status === 'ACTIVE') {
         const shouldBeDefault = pm.id === id;
         if (pm.isDefault !== shouldBeDefault) {
-          pm.isDefault = shouldBeDefault;
-          pm.updatedAt = now;
+          this.store.set(pm.id, { ...pm, isDefault: shouldBeDefault, updatedAt: now });
         }
       }
     }

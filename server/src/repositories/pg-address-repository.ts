@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import type { Address } from '../types/index.js';
-import type { AddressRepository } from './address-repository.js';
+import type { AddressRepository, DeleteResult } from './address-repository.js';
 
 export class PgAddressRepository implements AddressRepository {
   constructor(private readonly pool: pg.Pool) {}
@@ -92,6 +92,28 @@ export class PgAddressRepository implements AddressRepository {
     );
     const target = result.rows.find((r: Record<string, unknown>) => r.id === id);
     return target ? this.mapRow(target) : null;
+  }
+
+  async deleteWithGuard(userId: string, id: string): Promise<DeleteResult> {
+    // 한 SQL — "user 의 주소 개수 > 1" 조건이 DELETE 의 WHERE 절 안에서 검증되어 race 없음.
+    // 동시 두 삭제 요청이 들어와도 PG 가 row lock + WHERE 절 재평가로 직렬화.
+    const result = await this.pool.query(
+      `DELETE FROM addresses
+       WHERE id = $1 AND user_id = $2
+         AND (SELECT COUNT(*) FROM addresses WHERE user_id = $2) > 1
+       RETURNING is_default`,
+      [id, userId],
+    );
+    if (result.rowCount === 0) {
+      // 삭제 안 됨 — 존재하지 않거나 마지막 1개. 원인 구분.
+      const existsResult = await this.pool.query(
+        'SELECT 1 FROM addresses WHERE id = $1 AND user_id = $2',
+        [id, userId],
+      );
+      if (existsResult.rowCount === 0) return { deleted: false, reason: 'NOT_FOUND' };
+      return { deleted: false, reason: 'LAST' };
+    }
+    return { deleted: true, wasDefault: result.rows[0].is_default as boolean };
   }
 
   private mapRow(row: Record<string, unknown>): Address {

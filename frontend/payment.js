@@ -53,9 +53,17 @@ const API_BASE_URL = window.location.origin + '/api';
 
 const PAYMENT_ENDPOINT = API_BASE_URL + '/payments/confirm';
 
-// 백엔드 미구현 시 Mock 모드 (true: fetch 대신 시뮬레이션).
-// 운영 전환 시 false 로 변경. 브라우저에는 process 가 없으므로 명시적 상수로 분기.
-const USE_MOCK_API = true;
+// Mock 모드 — 기본 false (운영 안전). 개발 환경에서만 명시적 opt-in.
+// 활성화 방법 1: HTML 의 <script>window.__APP_CONFIG__ = { USE_MOCK_API: true }</script>
+// 활성화 방법 2: URL ?mock=1 쿼리 파라미터 (로컬 테스트 한정)
+const USE_MOCK_API = (function () {
+  if (typeof window === 'undefined') return false;
+  if (window.__APP_CONFIG__ && window.__APP_CONFIG__.USE_MOCK_API === true) return true;
+  try {
+    if (new URLSearchParams(window.location.search).get('mock') === '1') return true;
+  } catch (e) {}
+  return false;
+})();
 
 // 관리자 입금 계좌 정보
 const ADMIN_ACCOUNT = {
@@ -89,7 +97,29 @@ function formatPrice(num) {
 }
 
 /* ===== 결제 수단 선택 ===== */
+// 백엔드 결제 라우트가 토스 SDK 분기만 완성된 상태. 다른 결제수단은
+// /api/orders 라우트 미구현 → 호출 시 404. 결제 시스템 완성 전까지 명시적으로 안내.
+const IMPLEMENTED_METHODS = new Set(['tosspay']);
+
+// 페이지 로드 시 미구현 결제수단 버튼을 시각적으로 비활성화
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.pay-option').forEach(function (btn) {
+      var m = btn.dataset.method;
+      if (m && !IMPLEMENTED_METHODS.has(m)) {
+        btn.style.opacity = '0.5';
+        btn.title = '준비 중';
+        btn.setAttribute('aria-disabled', 'true');
+      }
+    });
+  });
+}
+
 function selectMethod(method) {
+  if (!IMPLEMENTED_METHODS.has(method)) {
+    alert('해당 결제수단은 아직 준비 중입니다. 토스페이를 이용해 주세요.');
+    return;
+  }
   selectedMethod = method;
 
   // 버튼 스타일 업데이트

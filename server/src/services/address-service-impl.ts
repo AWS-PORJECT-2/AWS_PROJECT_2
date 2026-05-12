@@ -100,26 +100,18 @@ export function createAddressService(deps: AddressServiceDeps): AddressService {
     },
 
     async delete(userId, id) {
-      const addr = await addressRepository.findById(id);
-      if (!addr) {
-        throw new AppError('ADDRESS_NOT_FOUND');
-      }
-      if (addr.userId !== userId) {
-        throw new AppError('FORBIDDEN');
+      // atomic: "마지막 1개는 못 지움" 가드 + DELETE 가 한 SQL 안에서 처리 → TOCTOU 없음.
+      const result = await addressRepository.deleteWithGuard(userId, id);
+      if (!result.deleted) {
+        throw new AppError(result.reason === 'NOT_FOUND' ? 'ADDRESS_NOT_FOUND' : 'CANNOT_DELETE_LAST_ADDRESS');
       }
 
-      const allAddresses = await addressRepository.list(userId);
-      if (allAddresses.length <= 1) {
-        throw new AppError('CANNOT_DELETE_LAST_ADDRESS');
-      }
-
-      await addressRepository.delete(id);
-
-      // If deleted address was default, promote the next one (no extra query)
-      if (addr.isDefault) {
-        const remaining = allAddresses.filter(a => a.id !== id);
+      // 삭제된 주소가 default 였다면 남은 것 중 하나를 default 로 승격.
+      // (이미 1개 이상 남음을 deleteWithGuard 가 보장 — count > 1 조건이었으므로)
+      if (result.wasDefault) {
+        const remaining = await addressRepository.list(userId);
         if (remaining.length > 0) {
-          await addressRepository.update(remaining[0].id, { isDefault: true });
+          await addressRepository.setDefaultAtomic(userId, remaining[0].id);
         }
       }
     },
