@@ -146,9 +146,6 @@ function renderProfile() {
   const userAvatar = esc(MOCK_USER.avatarUrl);
   const userUni = esc(MOCK_USER.university);
   const userDept = esc(MOCK_USER.department);
-  const userLevel = esc(MOCK_USER.level);
-  const userLevelTitle = esc(MOCK_USER.levelTitle);
-  const userPoints = esc(MOCK_USER.points.toLocaleString());
 
   main.innerHTML = `
     <!-- 유저 프로필 정보 -->
@@ -156,11 +153,6 @@ function renderProfile() {
       <img src="${userAvatar}" alt="${userName}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
       <div style="font-size:18px;font-weight:700;color:#1a1a1a;">${userName}</div>
       <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${userUni} · ${userDept}</div>
-      <div style="display:inline-flex;align-items:center;gap:6px;margin-top:10px;padding:6px 14px;background:#eff6ff;border-radius:20px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#2563eb" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-        <span style="font-size:13px;font-weight:600;color:#2563eb;">Lv.${userLevel} ${userLevelTitle}</span>
-      </div>
-      <div style="margin-top:8px;font-size:12px;color:#6b7280;">${userPoints} 포인트</div>
     </section>
 
     <!-- 내 프로젝트 관리 -->
@@ -224,8 +216,8 @@ function renderProfile() {
   const menuItems = [
     { icon: 'heart', label: '찜한 굿즈 아이디어', href: '#', onclick: "switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" },
     { icon: 'bell', label: '알림 내역', href: '#' },
-    { icon: 'message', label: '1:1 문의', href: '#' },
-    { icon: 'megaphone', label: '공지사항', href: '#' },
+    { icon: 'message', label: '1:1 문의', href: '/support.html' },
+    { icon: 'megaphone', label: '공지사항', href: '/notice.html' },
   ];
 
   const iconMap = {

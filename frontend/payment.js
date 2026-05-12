@@ -1,9 +1,43 @@
 /**
  * 결제 페이지
- * - 간편결제 (토스/카카오/네이버)
+ * - 간편결제 (토스/카카오/네이버) → 토스페이먼츠 SDK 연동
  * - 카드 결제 (등록 카드 + 신규 입력)
  * - 무통장 입금 (등록 계좌 + 실시간 입력)
  */
+
+/* ===== 토스페이먼츠 SDK 초기화 ===== */
+let tossPayments = null;
+
+async function initTossPayments() {
+  if (typeof TossPayments === 'undefined') {
+    console.warn('토스페이먼츠 SDK가 로드되지 않았습니다.');
+    return;
+  }
+
+  try {
+    // 1. window.__APP_CONFIG__에서 먼저 확인 (서버가 HTML에 주입한 경우)
+    let clientKey = window.__APP_CONFIG__?.TOSS_CLIENT_KEY;
+
+    // 2. 없으면 서버 API에서 동적으로 가져오기
+    if (!clientKey) {
+      const res = await fetch(API_BASE_URL + '/config/toss', { credentials: 'include' });
+      if (res.ok) {
+        const config = await res.json();
+        clientKey = config.clientKey;
+      }
+    }
+
+    if (!clientKey) {
+      console.error('Toss Payments 초기화 실패: 클라이언트 키를 불러올 수 없습니다.');
+      return;
+    }
+
+    tossPayments = TossPayments(clientKey);
+  } catch (err) {
+    console.error('Toss Payments 초기화 실패:', err);
+    // tossPayments가 null로 유지되어 결제 시도 시 사용자에게 안내됨
+  }
+}
 
 let selectedMethod = 'tosspay';
 let selectedQuantity = 1;
@@ -19,8 +53,17 @@ const API_BASE_URL = window.location.origin + '/api';
 
 const PAYMENT_ENDPOINT = API_BASE_URL + '/payments/confirm';
 
-// 백엔드 미구현 시 Mock 모드 (true: fetch 대신 시뮬레이션)
-const USE_MOCK_API = true;
+// Mock 모드 — 기본 false (운영 안전). 개발 환경에서만 명시적 opt-in.
+// 활성화 방법 1: HTML 의 <script>window.__APP_CONFIG__ = { USE_MOCK_API: true }</script>
+// 활성화 방법 2: URL ?mock=1 쿼리 파라미터 (로컬 테스트 한정)
+const USE_MOCK_API = (function () {
+  if (typeof window === 'undefined') return false;
+  if (window.__APP_CONFIG__ && window.__APP_CONFIG__.USE_MOCK_API === true) return true;
+  try {
+    if (new URLSearchParams(window.location.search).get('mock') === '1') return true;
+  } catch (e) {}
+  return false;
+})();
 
 // 관리자 입금 계좌 정보
 const ADMIN_ACCOUNT = {
@@ -54,7 +97,29 @@ function formatPrice(num) {
 }
 
 /* ===== 결제 수단 선택 ===== */
+// 백엔드 결제 라우트가 토스 SDK 분기만 완성된 상태. 다른 결제수단은
+// /api/orders 라우트 미구현 → 호출 시 404. 결제 시스템 완성 전까지 명시적으로 안내.
+const IMPLEMENTED_METHODS = new Set(['tosspay']);
+
+// 페이지 로드 시 미구현 결제수단 버튼을 시각적으로 비활성화
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.pay-option').forEach(function (btn) {
+      var m = btn.dataset.method;
+      if (m && !IMPLEMENTED_METHODS.has(m)) {
+        btn.style.opacity = '0.5';
+        btn.title = '준비 중';
+        btn.setAttribute('aria-disabled', 'true');
+      }
+    });
+  });
+}
+
 function selectMethod(method) {
+  if (!IMPLEMENTED_METHODS.has(method)) {
+    alert('해당 결제수단은 아직 준비 중입니다. 토스페이를 이용해 주세요.');
+    return;
+  }
   selectedMethod = method;
 
   // 버튼 스타일 업데이트
@@ -229,7 +294,7 @@ function setupCardFormatting() {
 }
 
 /* ===== 결제 확인 ===== */
-function confirmPayment() {
+async function confirmPayment() {
   const info = getPaymentParams();
 
   // 원본 상품 데이터 검증 (URL 가격 변조 방지)
@@ -248,18 +313,53 @@ function confirmPayment() {
   // productId 로 DB 의 base_price 를 조회해 다시 계산한다.
   const displayPrice = product.price;
 
-  // 간편결제 시뮬레이션 (토스/카카오/네이버)
-  if (['tosspay', 'kakaopay', 'naverpay'].includes(selectedMethod)) {
-    const methodLabels = { tosspay: '토스페이', kakaopay: '카카오페이', naverpay: '네이버페이' };
-    const label = methodLabels[selectedMethod];
-    const proceed = confirm(
-      label + '로 ' + formatPrice(displayPrice * selectedQuantity) + ' (' + selectedQuantity + '개)을 결제합니다.\n\n' +
-      '입금 계좌: ' + ADMIN_ACCOUNT.bank + ' ' + ADMIN_ACCOUNT.number + '\n' +
-      '예금주: ' + ADMIN_ACCOUNT.holder + '\n\n' +
-      '결제를 진행하시겠습니까?'
-    );
-    if (!proceed) return;
+  // 토스페이먼츠 SDK 결제 (토스페이 선택 시)
+  // 보안: 금액과 주문 정보는 서버에서 생성. 클라이언트는 상품 선택 정보만 전달.
+  if (selectedMethod === 'tosspay') {
+    if (!tossPayments) {
+      alert('토스페이먼츠 SDK가 로드되지 않았습니다. 페이지를 새로고침해주세요.');
+      return;
+    }
+
+    try {
+      // Step 1: 서버에 주문 사전 생성 요청 (금액은 서버가 DB에서 계산)
+      const orderData = await fetch(API_BASE_URL + '/orders/prepare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          productId: info.id,
+          size: _paySelectedSize || info.size || 'Free',
+          quantity: selectedQuantity,
+        }),
+      }).then(r => {
+        if (!r.ok) throw new Error('주문 생성 실패');
+        return r.json();
+      });
+
+      // Step 2: 서버가 보증한 데이터로 토스 결제창 호출
+      const payment = tossPayments.payment({ customerKey: orderData.customerKey });
+      await payment.requestPayment({
+        method: 'CARD',
+        amount: { currency: 'KRW', value: orderData.amount },
+        orderId: orderData.orderId,
+        orderName: orderData.orderName,
+        // 토스 SDK 가 successUrl 에 paymentKey/orderId/amount 를 자동으로 append.
+        // 우리가 또 붙이면 ?orderId=X&orderId=X 중복 → URLSearchParams.get 동작이 SDK 인코딩과 미세 차이.
+        successUrl: window.location.origin + '/payment.html?status=success&id=' + info.id,
+        failUrl: window.location.origin + '/payment.html?status=fail&id=' + info.id,
+      });
+    } catch (err) {
+      if (err.code === 'USER_CANCEL') {
+        return;
+      }
+      console.error('결제 요청 실패:', err);
+      alert('결제 요청 중 오류가 발생했습니다: ' + (err.message || ''));
+    }
+    return;
   }
+
+  // 카드/무통장 결제 (기존 로직)
 
   // 카드 결제 유효성 검사
   // 보안: 카드번호/만료일/CVC 는 localStorage 에 절대 저장하지 않는다.
@@ -305,8 +405,8 @@ function confirmPayment() {
     requestedAt: new Date().toISOString(),
   };
 
-  // 백엔드 전송 시도
-  sendPaymentToServer(paymentData)
+  // 백엔드 전송 시도 (카드/무통장/카카오/네이버 — 초기 주문 요청)
+  sendInitialPaymentToServer(paymentData)
     .then((serverResponse) => {
       // Mock 환경: 서버가 DB 가격으로 계산을 완료했다고 가정
       // 실제 환경: serverResponse.amount, serverResponse.status 등을 사용
@@ -330,25 +430,63 @@ function confirmPayment() {
     });
 }
 
-/* ===== 백엔드 전송 (Mock 모드 지원) ===== */
-async function sendPaymentToServer(data) {
+/* ===== 백엔드 전송 — 토스 결제 승인 전용 ===== */
+// 토스 결제 성공 리다이렉트 후 서버에 최종 승인을 요청하는 함수.
+// { paymentKey, orderId, amount }만 전송. 서버가 토스 API로 최종 확인.
+async function sendPaymentConfirmationToServer(data) {
+  // 브라우저에 process 가 없어서 기존 guard 는 항상 false → mock 미동작이었음. 명시 가드로 교체.
   if (USE_MOCK_API) {
-    // Mock 모드: 0.5초 후 성공 응답 시뮬레이션
     return new Promise((resolve) => {
       setTimeout(() => {
-        console.log('[Mock API] 결제 요청 성공:', data);
+        console.warn('[Mock API] 결제 승인 시뮬레이션 — 운영 전환 시 USE_MOCK_API=false');
+        resolve({ success: true, orderId: data.orderId || 'MOCK-' + Date.now(), verified: true });
+      }, 500);
+    });
+  }
+
+  const response = await fetch(API_BASE_URL + '/payments/confirm', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({
+      paymentKey: data.paymentKey,
+      orderId: data.orderId,
+      amount: data.amount,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || '서버 결제 승인 실패 (HTTP ' + response.status + ')');
+  }
+
+  return response.json();
+}
+
+/* ===== 백엔드 전송 — 초기 주문/결제 요청 (카드/무통장/카카오/네이버) ===== */
+// 토스 외 결제 수단에서 사용. productId, method, size, quantity 등 전체 페이로드 전송.
+async function sendInitialPaymentToServer(data) {
+  if (USE_MOCK_API) {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn('[Mock API] 초기 결제 요청 시뮬레이션');
         resolve({ success: true, orderId: 'MOCK-' + Date.now() });
       }, 500);
     });
   }
 
-  // 실제 백엔드 API 호출
-  const response = await fetch(PAYMENT_ENDPOINT, {
+  const response = await fetch(API_BASE_URL + '/orders', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
     body: JSON.stringify(data),
   });
-  if (!response.ok) throw new Error('Server error: ' + response.status);
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || '주문 요청 실패 (HTTP ' + response.status + ')');
+  }
+
   return response.json();
 }
 
@@ -450,6 +588,62 @@ function highlightPaySize(size) {
 
 /* ===== 초기화 ===== */
 document.addEventListener('DOMContentLoaded', () => {
+  // 토스페이먼츠 SDK 초기화
+  initTossPayments();
+
+  // 결제 성공/실패 리다이렉트 처리
+  const urlParams = new URLSearchParams(window.location.search);
+  const paymentStatus = urlParams.get('status');
+
+  if (paymentStatus === 'success') {
+    const productId = urlParams.get('id');
+    const paymentKey = urlParams.get('paymentKey');
+    const orderId = urlParams.get('orderId');
+    const amount = urlParams.get('amount');
+
+    // 서버 승인 API 호출 — 프론트 단독으로 결제 완료 처리하면 안 됨
+    (async function() {
+      try {
+        const serverResult = await sendPaymentConfirmationToServer({
+          paymentKey: paymentKey,
+          orderId: orderId,
+          amount: Number(amount),
+          productId: productId,
+        });
+
+        // 서버 승인 성공 시에만 결제 완료 처리
+        if (productId) {
+          localStorage.setItem('paid_' + productId, '1');
+          const product = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+            ? MOCK_PRODUCTS.find((p) => p.id === Number(productId)) : null;
+          if (product) product.isPaid = true;
+        }
+
+        alert('🎉 결제가 성공적으로 완료되었습니다!');
+        window.location.href = 'detail.html?id=' + (productId || '');
+      } catch (err) {
+        // 서버 승인 실패 — localStorage 건드리지 않음
+        console.error('결제 승인 실패:', err);
+        alert('결제 승인에 실패했습니다. 다시 시도해 주세요.\n\n' + (err.message || ''));
+        // 결제 페이지에 머무르며 실패 상태로 전환
+        const cleanUrl = window.location.pathname + '?id=' + (productId || '');
+        history.replaceState(null, '', cleanUrl);
+        renderPaymentPage();
+        setupCardFormatting();
+      }
+    })();
+    return;
+  }
+
+  if (paymentStatus === 'fail') {
+    const errorCode = urlParams.get('code');
+    const errorMessage = urlParams.get('message');
+    alert('결제에 실패했습니다.\n\n' + (errorMessage || errorCode || '알 수 없는 오류'));
+    // URL에서 status 파라미터 제거
+    const cleanUrl = window.location.pathname + '?id=' + (urlParams.get('id') || '');
+    history.replaceState(null, '', cleanUrl);
+  }
+
   renderPaymentPage();
   setupCardFormatting();
 });

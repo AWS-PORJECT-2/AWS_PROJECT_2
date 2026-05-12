@@ -6,8 +6,6 @@
   <title>펀드 개설 - 두띵(Doothing)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="fund-create.css">
-  <!-- Fabric.js 6.x — 캔버스 에디터 (텍스트·도형·스티커·이미지 합성) -->
-  <script src="https://cdn.jsdelivr.net/npm/fabric@6.4.3/dist/index.min.js"></script>
 </head>
 <body>
 
@@ -33,7 +31,7 @@
       </a>
     </nav>
     <div class="sidebar-bottom">
-      <a href="profile.html" class="sidebar-item">
+      <a href="/profile.html" class="sidebar-item">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
         <span>마이페이지</span>
       </a>
@@ -57,70 +55,66 @@
 
     <!-- 진행 상태 -->
     <div class="step-indicator">
-      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">옷 가져오기</span></div>
+      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">AI 모델 피팅</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">설계도 편집</span></div>
+      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">펀드 정보</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">모델 피팅</span></div>
-      <div class="step-line"></div>
-      <div class="step" data-step="4"><span class="step-num">4</span><span class="step-label">펀드 정보</span></div>
-      <div class="step-line"></div>
-      <div class="step" data-step="5"><span class="step-num">5</span><span class="step-label">검토</span></div>
+      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">검토</span></div>
     </div>
 
-    <!-- ===== Step 1: 옷 가져오기 ===== -->
+    <!-- ===== Step 1: AI 모델 피팅 ===== -->
     <section class="step-panel" data-step-panel="1">
-      <h2 class="panel-title">옷 사진을 가져와 주세요</h2>
-      <p class="panel-desc">SPA 브랜드 상품 사진이나 직접 촬영한 옷 사진을 업로드하면, 다음 단계에서 자유롭게 편집할 수 있어요.</p>
+      <h2 class="panel-title">AI 모델 피팅</h2>
+      <p class="panel-desc">굿즈 디자인 이미지를 업로드하면 AI가 모델에 입혀 미리보기를 생성합니다.</p>
 
-      <div class="source-tabs">
-        <button type="button" class="source-tab active" data-tab="upload">사진 업로드</button>
-        <button type="button" class="source-tab" data-tab="url">상품 URL</button>
-      </div>
-
-      <!-- 사진 업로드 -->
-      <div class="source-pane" data-pane="upload">
-        <label for="garmentFile" class="upload-zone" id="uploadZone">
-          <input id="garmentFile" type="file" accept="image/*" hidden>
-          <svg class="upload-icon" width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <div style="padding:20px;">
+        <!-- 이미지 업로드 -->
+        <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;transition:all 0.2s;">
+          <input id="tryonGarmentFile" type="file" accept="image/*" hidden>
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>
           </svg>
-          <p class="upload-main">옷 사진을 선택하거나 여기에 드롭하세요</p>
-          <p class="upload-sub">JPG, PNG, WEBP — 최대 10MB. 배경이 깔끔할수록 결과가 좋아요.</p>
+          <p style="font-size:15px;font-weight:600;color:#4b5563;margin-top:12px;">굿즈 디자인 이미지 업로드</p>
+          <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG, PNG, WEBP — 최대 10MB</p>
         </label>
-      </div>
 
-      <!-- URL 입력 -->
-      <div class="source-pane" data-pane="url" hidden>
-        <div class="field">
-          <label for="garmentUrl">상품 페이지 URL</label>
-          <input id="garmentUrl" type="url" placeholder="https://www.musinsa.com/app/goods/...">
-          <p class="field-hint">상품 페이지 대표 이미지를 자동으로 가져옵니다. (현재 시연 단계 — 일부 사이트만 지원)</p>
+        <!-- 업로드된 이미지 미리보기 -->
+        <div id="tryonUploadPreview" style="display:none;margin-top:16px;text-align:center;">
+          <img id="tryonPreviewImg" alt="업로드된 디자인" style="max-width:100%;max-height:300px;border-radius:12px;border:1px solid #e5e7eb;">
         </div>
-        <button type="button" class="btn-fetch-url" id="btnFetchUrl">URL에서 가져오기</button>
-      </div>
 
-      <p id="step1Status" class="status-line"></p>
-
-      <!-- 가져온 옷 미리보기 + 설계도 변환 -->
-      <div class="garment-preview" id="garmentPreview" hidden>
-        <div class="garment-preview-image">
-          <img id="garmentImage" alt="가져온 옷 사진">
+        <!-- 모델 옵션 -->
+        <div style="margin-top:24px;display:flex;gap:12px;">
+          <div class="field" style="flex:1;">
+            <label for="tryonModelSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">모델 타입</label>
+            <select id="tryonModelSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+              <option value="female">여성</option>
+              <option value="male">남성</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;">
+            <label for="tryonBgSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">배경</label>
+            <select id="tryonBgSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+              <option value="studio">스튜디오</option>
+              <option value="campus">캠퍼스</option>
+              <option value="outdoor">야외</option>
+            </select>
+          </div>
         </div>
-        <div class="garment-preview-actions">
-          <h3>옷 설계도로 변환</h3>
-          <p>배경을 제거하고 깔끔한 평면 도면 형태로 다듬어요. (AI 미연결 시 원본 그대로 사용)</p>
-          <button type="button" class="btn-extract" id="btnExtract">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/>
-            </svg>
-            설계도 자동 추출 (AI)
-          </button>
-          <button type="button" class="btn-skip-extract" id="btnSkipExtract">
-            원본 그대로 사용
-          </button>
+
+        <!-- AI 피팅 버튼 -->
+        <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;margin-top:20px;padding:16px;border:none;border-radius:14px;background:#7c3aed;color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          AI 모델 피팅 생성
+        </button>
+        <p style="font-size:12px;color:#9ca3af;margin-top:8px;text-align:center;">Amazon Try-On API 연동 예정 — 현재는 업로드된 이미지가 그대로 사용됩니다.</p>
+
+        <!-- 피팅 결과 -->
+        <div id="tryonResultArea" style="display:none;margin-top:20px;padding:20px;background:#f0fdf4;border-radius:14px;text-align:center;">
+          <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">✅ 피팅 이미지가 준비되었습니다</p>
+          <img id="tryonResultImg" alt="AI 피팅 결과" style="max-width:100%;max-height:300px;border-radius:12px;">
         </div>
       </div>
 
@@ -130,155 +124,8 @@
       </div>
     </section>
 
-    <!-- ===== Step 2: 설계도 편집 ===== -->
-    <section class="step-panel editor-panel" data-step-panel="2" hidden>
-      <h2 class="panel-title">설계도 위에 디자인을 얹어보세요</h2>
-      <p class="panel-desc">텍스트, 스티커, 도형을 자유롭게 배치하세요. 클릭으로 선택, 드래그로 이동, 모서리로 크기 조절·회전 가능합니다.</p>
-
-      <div class="editor-layout">
-        <!-- 좌측 도구 패널 -->
-        <aside class="editor-tools">
-          <h4>도구</h4>
-
-          <button type="button" class="tool-btn" id="toolText">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="4 7 4 4 20 4 20 7"/>
-              <line x1="9" y1="20" x2="15" y2="20"/>
-              <line x1="12" y1="4" x2="12" y2="20"/>
-            </svg>
-            <span>텍스트</span>
-          </button>
-
-          <button type="button" class="tool-btn" id="toolRect">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <rect x="4" y="4" width="16" height="16" rx="2"/>
-            </svg>
-            <span>사각형</span>
-          </button>
-
-          <button type="button" class="tool-btn" id="toolCircle">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="12" r="8"/>
-            </svg>
-            <span>원</span>
-          </button>
-
-          <label class="tool-btn" for="toolImageInput">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <rect x="3" y="3" width="18" height="18" rx="2"/>
-              <circle cx="8.5" cy="8.5" r="1.5"/>
-              <polyline points="21 15 16 10 5 21"/>
-            </svg>
-            <span>이미지</span>
-            <input id="toolImageInput" type="file" accept="image/*" hidden>
-          </label>
-
-          <h4>스티커</h4>
-          <div class="sticker-grid" id="stickerGrid">
-            <!-- JS에서 SVG 스티커 채움 -->
-          </div>
-
-          <h4>색상</h4>
-          <div class="color-row">
-            <button type="button" class="color-swatch" data-color="#1a1a1a" style="background:#1a1a1a"></button>
-            <button type="button" class="color-swatch" data-color="#ffffff" style="background:#ffffff;border:1px solid #e5e7eb"></button>
-            <button type="button" class="color-swatch" data-color="#ef4444" style="background:#ef4444"></button>
-            <button type="button" class="color-swatch" data-color="#f59e0b" style="background:#f59e0b"></button>
-            <button type="button" class="color-swatch" data-color="#10b981" style="background:#10b981"></button>
-            <button type="button" class="color-swatch" data-color="#2563eb" style="background:#2563eb"></button>
-            <button type="button" class="color-swatch" data-color="#7c3aed" style="background:#7c3aed"></button>
-            <input type="color" id="colorPicker" value="#1a1a1a" title="다른 색상 선택">
-          </div>
-
-          <h4>편집</h4>
-          <button type="button" class="tool-btn" id="toolUndo">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M3 7v6h6"/><path d="M21 17a9 9 0 00-15-6.7L3 13"/>
-            </svg>
-            <span>되돌리기</span>
-          </button>
-          <button type="button" class="tool-btn" id="toolRedo">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0115-6.7L21 13"/>
-            </svg>
-            <span>다시</span>
-          </button>
-          <button type="button" class="tool-btn danger" id="toolDelete">
-            <svg class="tool-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="3 6 5 6 21 6"/>
-              <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6"/>
-              <path d="M10 11v6M14 11v6"/>
-            </svg>
-            <span>선택 삭제</span>
-          </button>
-        </aside>
-
-        <!-- 캔버스 -->
-        <div class="editor-canvas-wrap">
-          <canvas id="garmentCanvas" width="540" height="540"></canvas>
-        </div>
-      </div>
-
-      <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="1">← 이전</button>
-        <button type="button" class="btn-next" id="step2Next">모델 피팅으로 →</button>
-      </div>
-    </section>
-
-    <!-- ===== Step 3: 모델 피팅 ===== -->
-    <section class="step-panel" data-step-panel="3" hidden>
-      <h2 class="panel-title">모델에 입혀보기</h2>
-      <p class="panel-desc">편집한 설계도를 모델에 자동으로 입혀 펀드 게시글에 사용할 미리보기를 생성합니다.</p>
-
-      <div class="tryon-options">
-        <div class="field">
-          <label>모델</label>
-          <select id="tryonModelType">
-            <option value="female">여성</option>
-            <option value="male">남성</option>
-            <option value="female_athletic">여성 (운동복 체형)</option>
-            <option value="male_athletic">남성 (운동복 체형)</option>
-          </select>
-        </div>
-        <div class="field">
-          <label>배경</label>
-          <select id="tryonBackground">
-            <option value="campus">캠퍼스</option>
-            <option value="studio">스튜디오</option>
-            <option value="classroom">강의실</option>
-            <option value="outdoor">야외</option>
-          </select>
-        </div>
-      </div>
-
-      <div class="tryon-preview">
-        <div class="tryon-design">
-          <h4>편집된 설계도</h4>
-          <img id="previewDesignImg" alt="편집된 설계도">
-        </div>
-        <div class="tryon-result">
-          <h4>모델 피팅 결과</h4>
-          <div id="tryonResultArea" class="tryon-result-area">
-            <button type="button" class="btn-tryon" id="btnTryOn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M3 7l9-4 9 4v10l-9 4-9-4z"/>
-                <path d="M3 7l9 4 9-4M12 11v10"/>
-              </svg>
-              AI 모델 피팅 미리보기 생성
-            </button>
-            <p class="field-hint">AI 서버가 연결되어 있을 때만 동작합니다. 미연결 시에도 펀드 등록은 가능해요.</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="2">← 이전</button>
-        <button type="button" class="btn-next" id="step3Next">다음 →</button>
-      </div>
-    </section>
-
-    <!-- ===== Step 4: 펀드 정보 ===== -->
-    <section class="step-panel" data-step-panel="4" hidden>
+    <!-- ===== Step 2: 펀드 정보 ===== -->
+    <section class="step-panel" data-step-panel="2" hidden>
       <h2 class="panel-title">펀드 정보 입력</h2>
 
       <form id="fundForm" novalidate>
@@ -325,32 +172,27 @@
           <h3 class="price-preview-title">최종 구매가 미리보기</h3>
           <ul class="price-breakdown">
             <li><span>도매원가 (예시)</span><strong id="previewBasePrice">20,000원</strong></li>
-            <li><span>인쇄/자수</span><strong id="previewPrintFee">3,000원</strong></li>
+            <li><span>플랫폼 수수료 (인쇄/중개 포함)</span><strong id="previewPlatformFee">5,000원</strong></li>
             <li><span>디자인 수수료 (개설자 수익)</span><strong id="previewDesignFee">0원</strong></li>
-            <li><span>중개 수수료 (플랫폼)</span><strong id="previewPlatformFee">2,000원</strong></li>
             <li class="total"><span>최종 구매가</span><strong id="previewFinalPrice">25,000원</strong></li>
           </ul>
         </div>
       </form>
 
       <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="3">← 이전</button>
-        <button type="button" class="btn-next" id="step4Next">다음 →</button>
+        <button type="button" class="btn-prev" data-go="1">← 이전</button>
+        <button type="button" class="btn-next" id="step2Next">다음 →</button>
       </div>
     </section>
 
-    <!-- ===== Step 5: 검토 + 등록 ===== -->
-    <section class="step-panel" data-step-panel="5" hidden>
+    <!-- ===== Step 3: 검토 + 등록 ===== -->
+    <section class="step-panel" data-step-panel="3" hidden>
       <h2 class="panel-title">최종 확인</h2>
 
       <div class="review-images">
         <div>
           <h4>설계도</h4>
           <img id="reviewDesignImg" alt="">
-        </div>
-        <div>
-          <h4>모델 피팅</h4>
-          <div id="reviewTryonArea"></div>
         </div>
       </div>
 
@@ -359,7 +201,7 @@
       </div>
 
       <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="4">← 이전</button>
+        <button type="button" class="btn-prev" data-go="2">← 이전</button>
         <button type="submit" class="btn-submit" id="btnSubmit">펀드 개설하기</button>
       </div>
     </section>

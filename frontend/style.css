@@ -704,3 +704,9 @@ body { animation: page-fade-in 0.3s ease; }
     height: 420px;
   }
 }
+
+/* ===== 설정 아이콘 항상 표시 ===== */
+.header-right .icon-btn[aria-label="설정"],
+.topbar-right .icon-btn[aria-label="설정"] {
+  display: flex !important;
+}

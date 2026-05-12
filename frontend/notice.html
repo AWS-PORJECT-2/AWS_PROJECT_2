@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 - 두띵</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .notice-container { max-width:430px; margin:0 auto; min-height:100vh; background:#fff; }
+    .notice-header { display:flex; align-items:center; gap:12px; padding:14px 16px; border-bottom:1px solid #f0f0f0; }
+    .notice-header .back-btn { background:none; border:none; cursor:pointer; }
+    .notice-header h1 { font-size:17px; font-weight:700; color:#1a1a1a; flex:1; }
+    .btn-add-notice { padding:8px 14px; background:#2563eb; color:#fff; border:none; border-radius:8px; font-size:13px; font-weight:600; cursor:pointer; }
+    .notice-list { padding:0; }
+    .notice-item { padding:16px 20px; border-bottom:1px solid #f5f5f5; cursor:pointer; }
+    .notice-item:hover { background:#f9fafb; }
+    .notice-item .notice-title { font-size:15px; font-weight:600; color:#1a1a1a; }
+    .notice-item .notice-date { font-size:12px; color:#9ca3af; margin-top:4px; }
+    .notice-item .notice-body { font-size:13px; color:#6b7280; margin-top:8px; line-height:1.5; display:none; }
+    .notice-item.expanded .notice-body { display:block; }
+    .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; }
+    .modal-overlay.active { display:flex; }
+    .modal-box { background:#fff; border-radius:16px; padding:24px; width:90%; max-width:380px; }
+    .modal-box h2 { font-size:18px; font-weight:700; margin-bottom:16px; }
+    .modal-box input, .modal-box textarea { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:14px; margin-bottom:12px; outline:none; box-sizing:border-box; }
+    .modal-box textarea { height:120px; resize:none; }
+    .modal-actions { display:flex; gap:8px; justify-content:flex-end; }
+    .modal-actions button { padding:10px 20px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
+    .modal-actions .btn-cancel { background:#f3f4f6; color:#6b7280; }
+    .modal-actions .btn-submit { background:#2563eb; color:#fff; }
+    .empty-notice { text-align:center; padding:60px 20px; color:#9ca3af; font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="notice-container">
+    <div class="notice-header">
+      <button class="back-btn" aria-label="뒤로가기" onclick="if(history.length>1)history.back();else location.href='/index.html'">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h1>공지사항</h1>
+      <button class="btn-add-notice" id="btnAddNotice" style="display:none;" onclick="openNoticeModal()">+ 등록</button>
+    </div>
+    <div class="notice-list" id="noticeList"></div>
+  </div>
+
+  <!-- 공지 등록 모달 -->
+  <div class="modal-overlay" id="noticeModal">
+    <div class="modal-box">
+      <h2>공지사항 등록</h2>
+      <input type="text" id="noticeTitle" placeholder="제목을 입력하세요">
+      <textarea id="noticeBody" placeholder="내용을 입력하세요"></textarea>
+      <div class="modal-actions">
+        <button class="btn-cancel" onclick="closeNoticeModal()">취소</button>
+        <button class="btn-submit" onclick="submitNotice()">등록</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var NOTICE_STORAGE_KEY = 'doothing_notices';
+    var notices = [];
+    try {
+      var raw = localStorage.getItem(NOTICE_STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        notices = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {
+      // 데이터 손상 시 빈 배열로 초기화 — 화면 렌더링 중단 방지
+      notices = [];
+    }
+
+    // Admin check: 서버 인증 API로 실제 권한 확인
+    var isAdmin = false;
+
+    // 현재 로그인 사용자 정보 (작성자 자동 채움용). 관리자 인증 콜백 후 갱신.
+    var currentUser = null;
+
+    // Seed initial notices if empty — 렌더링 즉시 가능하도록 인증 응답 대기 전에 채움.
+    if (notices.length === 0) {
+      notices = [
+        { id: 1, title: '두띵 서비스 오픈 안내', body: '국민대학교 전용 공동구매 플랫폼 두띵이 정식 오픈했습니다! 많은 이용 부탁드립니다.', date: '2026-05-01', author: '관리자' },
+        { id: 2, title: '결제 시스템 업데이트', body: '토스페이먼츠 연동이 완료되어 카드 결제가 가능합니다. 테스트 기간 중 문제가 있으면 1:1 문의로 알려주세요.', date: '2026-05-10', author: '관리자' },
+      ];
+      localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(notices));
+    }
+
+    // 1) 공지 즉시 렌더 — 인증 API 응답 안 와도 사용자가 빠르게 본다.
+    renderNotices();
+
+    // 2) 인증 확인은 비동기로 — 결과 오면 관리자 버튼만 토글.
+    async function checkAdminAndRender() {
+      try {
+        var res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          var user = await res.json();
+          currentUser = user;
+          // 관리자 판별은 서버의 role claim 만 신뢰. mock 이메일 분기 금지 (mock OAuth 켜진 환경에서 권한 도용 가능).
+          isAdmin = user.role === 'admin';
+        }
+      } catch (e) {
+        // API 호출 실패 또는 미로그인 → 기본값 false 유지
+        isAdmin = false;
+      }
+
+      // 관리자 버튼 노출
+      if (isAdmin) {
+        document.getElementById('btnAddNotice').style.display = 'block';
+      }
+    }
+
+    checkAdminAndRender();
+
+    function renderNotices() {
+      var container = document.getElementById('noticeList');
+      if (notices.length === 0) {
+        container.innerHTML = '<div class="empty-notice">등록된 공지사항이 없습니다.</div>';
+        return;
+      }
+      container.innerHTML = '';
+      notices.forEach(function(n) {
+        var item = document.createElement('div');
+        item.className = 'notice-item';
+        item.onclick = function() { item.classList.toggle('expanded'); };
+        item.innerHTML = '<div class="notice-title">' + escapeHtml(n.title) + '</div>' +
+          '<div class="notice-date">' + escapeHtml(n.date) + ' · ' + escapeHtml(n.author) + '</div>' +
+          '<div class="notice-body">' + escapeHtml(n.body) + '</div>';
+        container.appendChild(item);
+      });
+    }
+
+    function openNoticeModal() {
+      if (!isAdmin) return;
+      document.getElementById('noticeModal').classList.add('active');
+    }
+
+    function closeNoticeModal() {
+      document.getElementById('noticeModal').classList.remove('active');
+      document.getElementById('noticeTitle').value = '';
+      document.getElementById('noticeBody').value = '';
+    }
+
+    function submitNotice() {
+      if (!isAdmin) return; // Security guard (프론트엔드)
+      // TODO: 백엔드 POST /api/notices 라우트에서도 반드시 세션 기반의 role === 'admin' 검증이 필요함
+      // 프론트엔드에서 버튼을 숨기는 것만으로는 API 직접 호출(Postman 등)을 막을 수 없음
+      var title = document.getElementById('noticeTitle').value.trim();
+      var body = document.getElementById('noticeBody').value.trim();
+      if (!title || !body) { alert('제목과 내용을 모두 입력해 주세요.'); return; }
+
+      var now = new Date();
+      var dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+      // 작성자: 로그인 사용자 이름 또는 이메일. 인증 정보 없으면 '관리자' fallback.
+      var authorName = (currentUser && (currentUser.name || currentUser.email)) || '관리자';
+      var notice = { id: Date.now(), title: title, body: body, date: dateStr, author: authorName };
+      notices.unshift(notice);
+      localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(notices));
+      closeNoticeModal();
+      renderNotices();
+    }
+
+    function escapeHtml(s) {
+      if (!s) return '';
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // renderNotices()는 checkAdminAndRender()에서 비동기로 호출됨
+  </script>
+</body>
+</html>
