@@ -7,11 +7,11 @@ export class PgPaymentMethodRepository implements PaymentMethodRepository {
 
   async create(pm: PaymentMethod): Promise<PaymentMethod> {
     const result = await this.pool.query(
-      `INSERT INTO payment_methods (id, user_id, pg_provider, channel_type, billing_key_ref, card_name, card_last_four, is_default, status, created_at, updated_at)
+      `INSERT INTO payment_methods (id, user_id, pg_provider, channel_type, encrypted_billing_key, card_name, card_last_four, is_default, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
-        pm.id, pm.userId, pm.pgProvider, pm.channelType, pm.billingKeyRef,
+        pm.id, pm.userId, pm.pgProvider, pm.channelType, pm.encryptedBillingKey,
         pm.cardName, pm.cardLastFour, pm.isDefault, pm.status,
         pm.createdAt, pm.updatedAt,
       ],
@@ -60,6 +60,9 @@ export class PgPaymentMethodRepository implements PaymentMethodRepository {
       `UPDATE payment_methods SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
       values,
     );
+    if (result.rows.length === 0) {
+      throw new Error(`PaymentMethod not found: ${id}`);
+    }
     return this.mapRow(result.rows[0]);
   }
 
@@ -76,7 +79,7 @@ export class PgPaymentMethodRepository implements PaymentMethodRepository {
       userId: row.user_id as string,
       pgProvider: row.pg_provider as string,
       channelType: row.channel_type as PaymentMethod['channelType'],
-      billingKeyRef: row.billing_key_ref as string,
+      encryptedBillingKey: row.encrypted_billing_key as string,
       cardName: (row.card_name as string) ?? null,
       cardLastFour: (row.card_last_four as string) ?? null,
       isDefault: row.is_default as boolean,

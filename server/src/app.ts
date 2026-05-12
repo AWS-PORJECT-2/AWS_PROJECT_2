@@ -52,6 +52,7 @@ import { createPaymentRefundHandler } from './routes/payment-refund.js';
 import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
+import { createOrderConfirmHandler } from './routes/orders-confirm.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -220,8 +221,16 @@ export function createApp(
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
 
-  // --- Order Preparation (Toss Payments v2 security) ---
-  app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler());
+  // --- Order Preparation & Confirmation (Toss Payments v2 security) ---
+  app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler(orderRepository));
+  app.post('/api/payments/confirm', authRequired, createOrderConfirmHandler(orderRepository, pgClient));
+
+  // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
+  app.get('/api/config/toss', (_req, res) => {
+    res.json({
+      clientKey: envOrDevDefault('TOSS_CLIENT_KEY', 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'),
+    });
+  });
 
   // --- Payment Methods & Addresses ---
   const paymentMethodRepository = USE_INMEMORY

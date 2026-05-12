@@ -58,21 +58,44 @@
 
   <script>
     var NOTICE_STORAGE_KEY = 'doothing_notices';
-    var notices = JSON.parse(localStorage.getItem(NOTICE_STORAGE_KEY) || '[]');
-
-    // Admin check: 이로운 = admin
-    // In real app this comes from server session. Here we check localStorage or mock.
-    var isAdmin = false;
+    var notices = [];
     try {
-      // Check if current user is admin (이로운)
-      var mockUser = { name: '이로운', email: 'test@kookmin.ac.kr', role: 'admin' };
-      isAdmin = mockUser.role === 'admin';
-    } catch(e) {}
-
-    // Show admin button
-    if (isAdmin) {
-      document.getElementById('btnAddNotice').style.display = 'block';
+      var raw = localStorage.getItem(NOTICE_STORAGE_KEY);
+      if (raw) {
+        var parsed = JSON.parse(raw);
+        notices = Array.isArray(parsed) ? parsed : [];
+      }
+    } catch (e) {
+      // 데이터 손상 시 빈 배열로 초기화 — 화면 렌더링 중단 방지
+      notices = [];
     }
+
+    // Admin check: 서버 인증 API로 실제 권한 확인
+    var isAdmin = false;
+
+    async function checkAdminAndRender() {
+      try {
+        var res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (res.ok) {
+          var user = await res.json();
+          // 서버 응답의 role 또는 email로 관리자 판별
+          isAdmin = user.role === 'admin' || user.email === 'test@kookmin.ac.kr';
+        }
+      } catch (e) {
+        // API 호출 실패 또는 미로그인 → 기본값 false 유지
+        isAdmin = false;
+      }
+
+      // 관리자 버튼 노출
+      if (isAdmin) {
+        document.getElementById('btnAddNotice').style.display = 'block';
+      }
+
+      // 공지사항 렌더링
+      renderNotices();
+    }
+
+    checkAdminAndRender();
 
     // Seed initial notices if empty
     if (notices.length === 0) {
@@ -113,7 +136,9 @@
     }
 
     function submitNotice() {
-      if (!isAdmin) return; // Security guard
+      if (!isAdmin) return; // Security guard (프론트엔드)
+      // TODO: 백엔드 POST /api/notices 라우트에서도 반드시 세션 기반의 role === 'admin' 검증이 필요함
+      // 프론트엔드에서 버튼을 숨기는 것만으로는 API 직접 호출(Postman 등)을 막을 수 없음
       var title = document.getElementById('noticeTitle').value.trim();
       var body = document.getElementById('noticeBody').value.trim();
       if (!title || !body) { alert('제목과 내용을 모두 입력해 주세요.'); return; }
@@ -132,7 +157,7 @@
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     }
 
-    renderNotices();
+    // renderNotices()는 checkAdminAndRender()에서 비동기로 호출됨
   </script>
 </body>
 </html>

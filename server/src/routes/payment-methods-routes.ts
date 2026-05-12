@@ -1,7 +1,10 @@
 import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import type { PaymentMethodService } from '../services/payment-method-service-impl.js';
+import type { PaymentMethod } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
+
+const VALID_CHANNEL_TYPES: PaymentMethod['channelType'][] = ['TOSSPAY', 'KAKAOPAY', 'NAVERPAY', 'CARD_DIRECT'];
 
 export function createPaymentMethodsHandlers(service: PaymentMethodService): Router {
   const router = Router();
@@ -20,9 +23,13 @@ export function createPaymentMethodsHandlers(service: PaymentMethodService): Rou
         throw new AppError('MISSING_REQUIRED_FIELD', 'channelType, billingKeyRef가 필요합니다');
       }
 
+      if (!VALID_CHANNEL_TYPES.includes(channelType as PaymentMethod['channelType'])) {
+        throw new AppError('MISSING_REQUIRED_FIELD', `유효하지 않은 channelType: ${channelType}`);
+      }
+
       const result = await service.register(userId, {
         pgProvider: (body.pgProvider as string) ?? undefined,
-        channelType: channelType as any,
+        channelType: channelType as PaymentMethod['channelType'],
         billingKeyRef,
         cardName: (body.cardName as string) ?? undefined,
         cardLastFour: (body.cardLastFour as string) ?? undefined,

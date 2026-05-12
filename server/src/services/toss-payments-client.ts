@@ -41,12 +41,17 @@ export class TossPaymentsClient implements PgClient {
       });
 
       if (res.billingKey) {
+        const rawNumber = res.card?.number as string | undefined;
+        const maskedNumber = rawNumber && rawNumber.length >= 15
+          ? `${rawNumber.slice(0, 4)}-****-****-${rawNumber.slice(-4)}`
+          : rawNumber || '';
+
         return {
           success: true,
           billingKey: res.billingKey,
           cardInfo: {
             cardName: res.card?.issuerCode ?? res.card?.company ?? '',
-            cardNumber: res.card?.number ?? '',
+            cardNumber: maskedNumber,
             cardType: res.card?.cardType ?? '',
           },
         };

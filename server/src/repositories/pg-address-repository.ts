@@ -64,6 +64,9 @@ export class PgAddressRepository implements AddressRepository {
       `UPDATE addresses SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
       values,
     );
+    if (result.rows.length === 0) {
+      throw new Error(`Address not found: ${id}`);
+    }
     return this.mapRow(result.rows[0]);
   }
 

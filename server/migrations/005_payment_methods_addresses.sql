@@ -4,7 +4,7 @@ CREATE TABLE payment_methods (
   user_id UUID NOT NULL REFERENCES "user"(id) ON DELETE CASCADE,
   pg_provider VARCHAR(30) NOT NULL DEFAULT 'portone',
   channel_type VARCHAR(30) NOT NULL,
-  billing_key_ref VARCHAR(200) NOT NULL,
+  encrypted_billing_key TEXT NOT NULL,  -- AES-256-GCM 암호화된 빌링키 (iv:authTag:ciphertext)
   card_name VARCHAR(100),
   card_last_four VARCHAR(4),
   is_default BOOLEAN NOT NULL DEFAULT FALSE,

@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import type { PaymentMethod } from '../types/index.js';
 import type { PaymentMethodRepository } from '../repositories/payment-method-repository.js';
 import { AppError } from '../errors/app-error.js';
+import { encryptBillingKey } from '../utils/crypto.js';
 
 export interface PaymentMethodService {
   register(userId: string, data: RegisterPaymentMethodInput): Promise<PaymentMethod>;
@@ -34,9 +35,9 @@ export function createPaymentMethodService(deps: PaymentMethodServiceDeps): Paym
       const pm: PaymentMethod = {
         id: crypto.randomUUID(),
         userId,
-        pgProvider: data.pgProvider ?? 'portone',
+        pgProvider: data.pgProvider ?? 'tosspayments',
         channelType: data.channelType,
-        billingKeyRef: data.billingKeyRef,
+        encryptedBillingKey: encryptBillingKey(data.billingKeyRef),
         cardName: data.cardName ?? null,
         cardLastFour: data.cardLastFour ?? null,
         isDefault: isFirst,

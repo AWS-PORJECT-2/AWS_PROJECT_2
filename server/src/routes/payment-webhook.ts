@@ -15,9 +15,13 @@ export function createPaymentWebhookHandler(paymentService: PaymentService, pgCl
     const signature = req.headers['tosspayments-webhook-signature'] as string | undefined;
     const transmissionTime = req.headers['tosspayments-webhook-transmission-time'] as string | undefined;
 
-    // req.body는 Buffer (express.raw 미들웨어에 의해)
-    const rawBuffer: Buffer = Buffer.isBuffer(req.body) ? req.body : Buffer.from(JSON.stringify(req.body));
-    const rawBody = rawBuffer.toString('utf8');
+    // req.body는 반드시 Buffer여야 함 (express.raw 미들웨어 필수)
+    if (!Buffer.isBuffer(req.body)) {
+      logger.error('Webhook: req.body가 Buffer가 아닙니다. express.raw() 미들웨어 설정을 확인하세요.');
+      res.status(500).json({ error: 'INTERNAL_ERROR', message: '서버 구성 오류: Raw body required' });
+      return;
+    }
+    const rawBody = req.body.toString('utf8');
 
     if (!signature) {
       logger.warn('Webhook: Toss Payments 웹훅 서명 헤더 누락');

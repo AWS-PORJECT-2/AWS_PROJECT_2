@@ -119,9 +119,9 @@ export function createAddressService(deps: AddressServiceDeps): AddressService {
 
       await addressRepository.delete(id);
 
-      // If deleted address was default, promote the next one
+      // If deleted address was default, promote the next one (no extra query)
       if (addr.isDefault) {
-        const remaining = await addressRepository.list(userId);
+        const remaining = allAddresses.filter(a => a.id !== id);
         if (remaining.length > 0) {
           await addressRepository.update(remaining[0].id, { isDefault: true });
         }

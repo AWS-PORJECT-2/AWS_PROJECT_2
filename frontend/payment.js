@@ -6,15 +6,37 @@
  */
 
 /* ===== 토스페이먼츠 SDK 초기화 ===== */
-const TOSS_CLIENT_KEY = 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq';
 let tossPayments = null;
 
-function initTossPayments() {
+async function initTossPayments() {
   if (typeof TossPayments === 'undefined') {
     console.warn('토스페이먼츠 SDK가 로드되지 않았습니다.');
     return;
   }
-  tossPayments = TossPayments(TOSS_CLIENT_KEY);
+
+  try {
+    // 1. window.__APP_CONFIG__에서 먼저 확인 (서버가 HTML에 주입한 경우)
+    let clientKey = window.__APP_CONFIG__?.TOSS_CLIENT_KEY;
+
+    // 2. 없으면 서버 API에서 동적으로 가져오기
+    if (!clientKey) {
+      const res = await fetch(API_BASE_URL + '/config/toss', { credentials: 'include' });
+      if (res.ok) {
+        const config = await res.json();
+        clientKey = config.clientKey;
+      }
+    }
+
+    if (!clientKey) {
+      console.error('Toss Payments 초기화 실패: 클라이언트 키를 불러올 수 없습니다.');
+      return;
+    }
+
+    tossPayments = TossPayments(clientKey);
+  } catch (err) {
+    console.error('Toss Payments 초기화 실패:', err);
+    // tossPayments가 null로 유지되어 결제 시도 시 사용자에게 안내됨
+  }
 }
 
 let selectedMethod = 'tosspay';
@@ -350,8 +372,8 @@ async function confirmPayment() {
     requestedAt: new Date().toISOString(),
   };
 
-  // 백엔드 전송 시도
-  sendPaymentToServer(paymentData)
+  // 백엔드 전송 시도 (카드/무통장/카카오/네이버 — 초기 주문 요청)
+  sendInitialPaymentToServer(paymentData)
     .then((serverResponse) => {
       // Mock 환경: 서버가 DB 가격으로 계산을 완료했다고 가정
       // 실제 환경: serverResponse.amount, serverResponse.status 등을 사용
@@ -375,12 +397,11 @@ async function confirmPayment() {
     });
 }
 
-/* ===== 백엔드 전송 (서버 승인 API) ===== */
-// ⚠️ 프로덕션 배포 시 USE_MOCK_API는 반드시 false로 설정할 것.
-// Mock 모드는 개발/테스트 환경에서만 사용. 실서비스에서 true면 결제 검증이 우회됨.
-async function sendPaymentToServer(data) {
-  if (USE_MOCK_API && process.env?.NODE_ENV !== 'production') {
-    // ⚠️ 개발 환경 전용 Mock. 프로덕션에서는 절대 이 분기를 타면 안 됨.
+/* ===== 백엔드 전송 — 토스 결제 승인 전용 ===== */
+// 토스 결제 성공 리다이렉트 후 서버에 최종 승인을 요청하는 함수.
+// { paymentKey, orderId, amount }만 전송. 서버가 토스 API로 최종 확인.
+async function sendPaymentConfirmationToServer(data) {
+  if (USE_MOCK_API && typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
     return new Promise((resolve) => {
       setTimeout(() => {
         console.warn('[Mock API] 결제 승인 시뮬레이션 — 프로덕션에서는 사용 금지');
@@ -389,7 +410,6 @@ async function sendPaymentToServer(data) {
     });
   }
 
-  // 실제 서버 승인 API 호출 (토스페이먼츠 서버 승인)
   const response = await fetch(API_BASE_URL + '/payments/confirm', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -404,6 +424,33 @@ async function sendPaymentToServer(data) {
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}));
     throw new Error(errorBody.message || '서버 결제 승인 실패 (HTTP ' + response.status + ')');
+  }
+
+  return response.json();
+}
+
+/* ===== 백엔드 전송 — 초기 주문/결제 요청 (카드/무통장/카카오/네이버) ===== */
+// 토스 외 결제 수단에서 사용. productId, method, size, quantity 등 전체 페이로드 전송.
+async function sendInitialPaymentToServer(data) {
+  if (USE_MOCK_API && typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production') {
+    return new Promise((resolve) => {
+      setTimeout(() => {
+        console.warn('[Mock API] 초기 결제 요청 시뮬레이션');
+        resolve({ success: true, orderId: 'MOCK-' + Date.now() });
+      }, 500);
+    });
+  }
+
+  const response = await fetch(API_BASE_URL + '/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(errorBody.message || '주문 요청 실패 (HTTP ' + response.status + ')');
   }
 
   return response.json();
@@ -523,7 +570,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // 서버 승인 API 호출 — 프론트 단독으로 결제 완료 처리하면 안 됨
     (async function() {
       try {
-        const serverResult = await sendPaymentToServer({
+        const serverResult = await sendPaymentConfirmationToServer({
           paymentKey: paymentKey,
           orderId: orderId,
           amount: Number(amount),

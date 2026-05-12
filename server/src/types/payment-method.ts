@@ -3,7 +3,7 @@ export interface PaymentMethod {
   userId: string;
   pgProvider: string;
   channelType: 'TOSSPAY' | 'KAKAOPAY' | 'NAVERPAY' | 'CARD_DIRECT';
-  billingKeyRef: string;
+  encryptedBillingKey: string; // AES-256-GCM 암호화된 빌링키
   cardName: string | null;
   cardLastFour: string | null;
   isDefault: boolean;
