@@ -1,7 +1,5 @@
 import 'dotenv/config';
 import express from 'express';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -145,24 +143,11 @@ export function createApp(
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
 
-  // frontend/ 정적 서빙: 백엔드와 동일 origin에서 페이지를 제공해
-  // CORS·쿠키 흐름을 단순화한다.
-  const __dirname = path.dirname(fileURLToPath(import.meta.url));
-  const frontendDir = path.resolve(__dirname, '../../frontend');
-
-  // / 진입 시 access token 쿠키 유무로 분기:
-  //  - 로그인 상태 → index.html (메인 화면)
-  //  - 비로그인   → landing.html (사이트 소개 + 로그인 진입)
-  app.get('/', (req, res) => {
-    const token = req.cookies?.accessToken;
-    if (token && tokenService.verifyAccessToken(token)) {
-      res.sendFile(path.join(frontendDir, 'index.html'));
-    } else {
-      res.sendFile(path.join(frontendDir, 'landing.html'));
-    }
+  // 정적 자산은 CloudFront(+ S3) 가 책임진다.
+  // EC2 는 API 전용. 루트 경로엔 health check 만 응답해서 ALB·CloudFront origin health check 에 대비.
+  app.get('/', (_req, res) => {
+    res.json({ service: 'doothing-api', ok: true });
   });
-
-  app.use(express.static(frontendDir, { index: false, extensions: ['html'] }));
 
   app.use(errorHandler);
   return app;
