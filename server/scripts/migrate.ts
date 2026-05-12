@@ -50,7 +50,12 @@ async function main() {
         appliedCount++;
         console.log(`  ✓ ${file}`);
       } catch (err) {
-        await client.query('ROLLBACK').catch(() => {});
+        try {
+          await client.query('ROLLBACK');
+        } catch (rbErr) {
+          // ROLLBACK 자체가 실패해도 원본 err 가 진짜 원인 — 둘 다 출력해서 디버깅 가능하게
+          console.error(`  ⚠ ROLLBACK 실패 (${file}):`, rbErr);
+        }
         console.error(`  ✗ ${file} 실패:`, err);
         throw err;
       }
