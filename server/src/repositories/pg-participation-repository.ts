@@ -1,12 +1,14 @@
 import type pg from 'pg';
+import type { PoolClient } from 'pg';
 import type { Participation, ParticipationStatus } from '../types/index.js';
 import type { ParticipationRepository } from './participation-repository.js';
 
 export class PgParticipationRepository implements ParticipationRepository {
   constructor(private readonly pool: pg.Pool) {}
 
-  async create(participation: Participation): Promise<Participation> {
-    const result = await this.pool.query(
+  async create(participation: Participation, client?: PoolClient | null): Promise<Participation> {
+    const queryable = client ?? this.pool;
+    const result = await queryable.query(
       `INSERT INTO participations (id, groupbuy_id, user_id, billing_key, selected_options, quantity, status, created_at, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
@@ -36,8 +38,9 @@ export class PgParticipationRepository implements ParticipationRepository {
     return result.rows.map(row => this.mapRow(row));
   }
 
-  async updateStatus(id: string, status: ParticipationStatus): Promise<void> {
-    await this.pool.query(
+  async updateStatus(id: string, status: ParticipationStatus, client?: PoolClient | null): Promise<void> {
+    const queryable = client ?? this.pool;
+    await queryable.query(
       'UPDATE participations SET status = $1, updated_at = NOW() WHERE id = $2',
       [status, id],
     );

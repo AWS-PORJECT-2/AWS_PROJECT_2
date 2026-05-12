@@ -1,4 +1,5 @@
 import type pg from 'pg';
+import type { PoolClient } from 'pg';
 import type { GroupBuy, GroupBuyStatus } from '../types/index.js';
 import type { GroupBuyRepository } from './groupbuy-repository.js';
 
@@ -41,15 +42,17 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
   }
 
-  async incrementQuantity(id: string, amount: number): Promise<void> {
-    await this.pool.query(
+  async incrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void> {
+    const queryable = client ?? this.pool;
+    await queryable.query(
       'UPDATE groupbuys SET current_quantity = current_quantity + $1, updated_at = NOW() WHERE id = $2',
       [amount, id],
     );
   }
 
-  async decrementQuantity(id: string, amount: number): Promise<void> {
-    await this.pool.query(
+  async decrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void> {
+    const queryable = client ?? this.pool;
+    await queryable.query(
       'UPDATE groupbuys SET current_quantity = current_quantity - $1, updated_at = NOW() WHERE id = $2',
       [amount, id],
     );

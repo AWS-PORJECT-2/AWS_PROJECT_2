@@ -25,8 +25,8 @@ export function createPaymentWebhookHandler(paymentService: PaymentService, pgCl
       return;
     }
 
-    // Step 1: 원본 바이트로 HMAC 검증 (JSON.stringify 사용 X)
-    const isValid = pgClient.verifyWebhookSignature(rawBody, signature, webhookSecret);
+    // Step 1: 원본 바이트로 HMAC 검증 (transmissionTime 결합)
+    const isValid = pgClient.verifyWebhookSignature(rawBody, signature, webhookSecret, transmissionTime ?? undefined);
     if (!isValid) {
       logger.warn({ signature, transmissionTime }, 'Webhook: Toss Payments 서명 검증 실패');
       res.status(400).json({ error: 'INVALID_WEBHOOK_SIGNATURE', message: '유효하지 않은 웹훅 서명입니다' });

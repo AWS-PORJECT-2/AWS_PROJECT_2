@@ -150,19 +150,55 @@ export class TossPaymentsClient implements PgClient {
   }
 
   /**
-   * Webhook 서명 검증.
-   * 토스페이먼츠 webhook은 시크릿 키 기반 HMAC-SHA256으로 서명.
+   * Webhook 서명 검증 — 토스페이먼츠 v2 공식 명세.
+   *
+   * 알고리즘:
+   * 1. HMAC 페이로드 = `${payload}:${transmissionTime}` (전송 시간 결합)
+   * 2. HMAC-SHA256(secret, 페이로드) → Buffer (raw bytes)
+   * 3. 수신 서명 헤더를 쉼표로 분리 → `v1:` 접두사 필터 → Base64 디코딩
+   * 4. timingSafeEqual로 비교 (하나라도 일치하면 true)
    */
-  verifyWebhookSignature(payload: string, signature: string, secret: string): boolean {
-    const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');
-    try {
-      return crypto.timingSafeEqual(
-        Buffer.from(signature, 'hex'),
-        Buffer.from(expected, 'hex'),
-      );
-    } catch {
-      return false;
+  verifyWebhookSignature(payload: string, signature: string, secret: string, transmissionTime?: string): boolean {
+    // HMAC 페이로드 생성 (transmissionTime이 있으면 결합)
+    const hmacPayload = transmissionTime ? `${payload}:${transmissionTime}` : payload;
+    const expectedBuffer = crypto.createHmac('sha256', secret).update(hmacPayload).digest();
+
+    // 수신 서명 파싱: 쉼표로 분리 → v1: 접두사 필터 → Base64 디코딩
+    const signatureParts = signature.split(',').map(s => s.trim());
+    const v1Signatures = signatureParts
+      .filter(s => s.startsWith('v1:'))
+      .map(s => {
+        try {
+          return Buffer.from(s.slice(3), 'base64');
+        } catch {
+          return null;
+        }
+      })
+      .filter((b): b is Buffer => b !== null);
+
+    // v1: 접두사가 없는 경우 — 레거시 hex 형식으로 fallback
+    if (v1Signatures.length === 0) {
+      try {
+        const sigBuffer = Buffer.from(signature, 'hex');
+        const expectedHex = crypto.createHmac('sha256', secret).update(payload).digest();
+        if (sigBuffer.length !== expectedHex.length) return false;
+        return crypto.timingSafeEqual(sigBuffer, expectedHex);
+      } catch {
+        return false;
+      }
     }
+
+    // v1 서명 중 하나라도 일치하면 true
+    for (const sigBuffer of v1Signatures) {
+      if (sigBuffer.length !== expectedBuffer.length) continue;
+      try {
+        if (crypto.timingSafeEqual(sigBuffer, expectedBuffer)) return true;
+      } catch {
+        continue;
+      }
+    }
+
+    return false;
   }
 
   private async request(method: string, path: string, body?: unknown): Promise<Record<string, any>> {

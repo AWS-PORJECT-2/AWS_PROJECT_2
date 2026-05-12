@@ -85,9 +85,9 @@ export class PaymentServiceImpl implements PaymentService {
 
     // Create participation + increment quantity in transaction with deadlock retry
     await this.withRetry(async () => {
-      await this.withTransaction(async () => {
-        await this.participationRepo.create(participation);
-        await this.groupBuyRepo.incrementQuantity(groupbuyId, request.quantity);
+      await this.withTransaction(async (client) => {
+        await this.participationRepo.create(participation, client);
+        await this.groupBuyRepo.incrementQuantity(groupbuyId, request.quantity, client);
       });
     });
 
@@ -109,9 +109,9 @@ export class PaymentServiceImpl implements PaymentService {
     if (groupbuy.status !== 'open') throw new AppError('GROUPBUY_NOT_AVAILABLE');
 
     await this.withRetry(async () => {
-      await this.withTransaction(async () => {
-        await this.participationRepo.updateStatus(participation.id, 'cancelled');
-        await this.groupBuyRepo.decrementQuantity(groupbuyId, participation.quantity);
+      await this.withTransaction(async (client) => {
+        await this.participationRepo.updateStatus(participation.id, 'cancelled', client);
+        await this.groupBuyRepo.decrementQuantity(groupbuyId, participation.quantity, client);
       });
     });
   }
@@ -233,16 +233,16 @@ export class PaymentServiceImpl implements PaymentService {
       case 'Transaction.Failed': {
         if (payment.status === 'failed') return; // idempotent
         await this.paymentRepo.updateStatus(payment.id, 'failed');
-        // Schedule retry
+        await this.orderRepo.updateStatus(payment.orderId, 'failed');
+
+        // 재시도 스케줄링 — DB에 물리적으로 저장
         const order = await this.orderRepo.findById(payment.orderId);
         if (order && order.retryCount < MAX_RETRY_COUNT) {
+          const newRetryCount = order.retryCount + 1;
           const nextRetryAt = new Date(Date.now() + RETRY_INTERVALS_MS[order.retryCount]!);
-          await this.orderRepo.updateStatus(payment.orderId, 'failed');
-          // Update retry scheduling via direct repo access
-          order.nextRetryAt = nextRetryAt;
-        } else {
-          await this.orderRepo.updateStatus(payment.orderId, 'failed');
+          await this.orderRepo.updateRetryMetadata(payment.orderId, newRetryCount, nextRetryAt);
         }
+
         await this.recordEvent(payment.id, 'status.failed', { source: 'webhook' });
         break;
       }
@@ -294,17 +294,21 @@ export class PaymentServiceImpl implements PaymentService {
     await this.paymentRepo.create(payment);
 
     if (paymentResult.success) {
+      // 성공: 재시도 메타데이터 정리 (nextRetryAt = null)
+      await this.orderRepo.updateRetryMetadata(order.id, order.retryCount + 1, null);
       await this.orderRepo.updateStatus(order.id, 'paid', paymentResult.pgPaymentId);
       await this.recordEvent(paymentId, 'payment.success', { retryCount: order.retryCount + 1 });
     } else {
       const newRetryCount = order.retryCount + 1;
       if (newRetryCount >= MAX_RETRY_COUNT) {
-        // Permanently failed
+        // 영구 실패: 재시도 횟수 기록, 다음 일정 비움
+        await this.orderRepo.updateRetryMetadata(order.id, newRetryCount, null);
         await this.orderRepo.updateStatus(order.id, 'failed');
         await this.recordEvent(paymentId, 'payment.permanently_failed', { retryCount: newRetryCount });
       } else {
+        // 재시도 예약: 다음 일정 DB에 저장
         const nextRetryAt = new Date(Date.now() + RETRY_INTERVALS_MS[newRetryCount]!);
-        // Update order with new retry info - we update status to keep it as 'failed' but with new retry metadata
+        await this.orderRepo.updateRetryMetadata(order.id, newRetryCount, nextRetryAt);
         await this.orderRepo.updateStatus(order.id, 'failed');
         await this.recordEvent(paymentId, 'payment.retry_scheduled', {
           retryCount: newRetryCount,
@@ -434,17 +438,17 @@ export class PaymentServiceImpl implements PaymentService {
     throw lastError;
   }
 
-  private async withTransaction(fn: () => Promise<void>): Promise<void> {
+  private async withTransaction<T>(fn: (client: PoolClient | null) => Promise<T>): Promise<T> {
     if (!this.pool) {
-      // InMemory mode - just execute without real transaction
-      await fn();
-      return;
+      // InMemory mode - just execute without real transaction, client = null
+      return fn(null);
     }
     const client: PoolClient = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      await fn();
+      const result = await fn(client);
       await client.query('COMMIT');
+      return result;
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;

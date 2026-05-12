@@ -64,6 +64,13 @@ export class PgOrderRepository implements OrderRepository {
     return result.rows.map(row => this.mapRow(row));
   }
 
+  async updateRetryMetadata(id: string, retryCount: number, nextRetryAt: Date | null): Promise<void> {
+    await this.pool.query(
+      'UPDATE orders SET retry_count = $1, next_retry_at = $2, updated_at = NOW() WHERE id = $3',
+      [retryCount, nextRetryAt, id],
+    );
+  }
+
   private mapRow(row: Record<string, unknown>): Order {
     return {
       id: row.id as string,

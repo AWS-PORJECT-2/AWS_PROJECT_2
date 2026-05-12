@@ -6,6 +6,7 @@ export interface OrderRepository {
   findByUserId(userId: string): Promise<Order[]>;
   findByPgPaymentId(pgPaymentId: string): Promise<Order | null>;
   updateStatus(id: string, status: OrderStatus, pgPaymentId?: string): Promise<void>;
+  updateRetryMetadata(id: string, retryCount: number, nextRetryAt: Date | null): Promise<void>;
   findFailedForRetry(maxAttempts: number): Promise<Order[]>;
 }
 
@@ -66,5 +67,14 @@ export class InMemoryOrderRepository implements OrderRepository {
       }
     }
     return results;
+  }
+
+  async updateRetryMetadata(id: string, retryCount: number, nextRetryAt: Date | null): Promise<void> {
+    const item = this.store.get(id);
+    if (item) {
+      item.retryCount = retryCount;
+      item.nextRetryAt = nextRetryAt;
+      item.updatedAt = new Date();
+    }
   }
 }

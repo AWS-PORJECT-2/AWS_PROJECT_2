@@ -42,7 +42,7 @@ export class InMemoryPgClient implements PgClient {
     return { billingKey, cardName: 'Test Card', cardNumber: '1234-****-****-5678', cardType: '신용' };
   }
 
-  verifyWebhookSignature(_payload: string, _signature: string, _secret: string): boolean {
+  verifyWebhookSignature(_payload: string, _signature: string, _secret: string, _transmissionTime?: string): boolean {
     return true; // 테스트 환경에서는 항상 통과
   }
 }

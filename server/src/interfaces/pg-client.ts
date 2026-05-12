@@ -44,5 +44,5 @@ export interface PgClient {
   payWithBillingKey(billingKey: string, orderId: string, amount: number, orderName: string): Promise<PaymentResult>;
   cancelPayment(pgPaymentId: string, reason: string, amount?: number): Promise<CancelResult>;
   getBillingKeyInfo(billingKey: string): Promise<BillingKeyInfo>;
-  verifyWebhookSignature(payload: string, signature: string, secret: string): boolean;
+  verifyWebhookSignature(payload: string, signature: string, secret: string, transmissionTime?: string): boolean;
 }

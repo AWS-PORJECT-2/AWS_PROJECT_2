@@ -1,17 +1,18 @@
 import type { Participation, ParticipationStatus } from '../types/index.js';
+import type { PoolClient } from 'pg';
 
 export interface ParticipationRepository {
-  create(participation: Participation): Promise<Participation>;
+  create(participation: Participation, client?: PoolClient | null): Promise<Participation>;
   findByUserAndGroupBuy(userId: string, groupbuyId: string): Promise<Participation | null>;
   findConfirmedByGroupBuy(groupbuyId: string): Promise<Participation[]>;
-  updateStatus(id: string, status: ParticipationStatus): Promise<void>;
+  updateStatus(id: string, status: ParticipationStatus, client?: PoolClient | null): Promise<void>;
   cancelAllByGroupBuy(groupbuyId: string): Promise<void>;
 }
 
 export class InMemoryParticipationRepository implements ParticipationRepository {
   private readonly store = new Map<string, Participation>();
 
-  async create(participation: Participation): Promise<Participation> {
+  async create(participation: Participation, _client?: unknown): Promise<Participation> {
     this.store.set(participation.id, { ...participation });
     return { ...participation };
   }
@@ -35,7 +36,7 @@ export class InMemoryParticipationRepository implements ParticipationRepository 
     return results;
   }
 
-  async updateStatus(id: string, status: ParticipationStatus): Promise<void> {
+  async updateStatus(id: string, status: ParticipationStatus, _client?: unknown): Promise<void> {
     const item = this.store.get(id);
     if (item) {
       item.status = status;
