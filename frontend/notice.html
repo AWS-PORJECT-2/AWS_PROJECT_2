@@ -34,7 +34,7 @@
 <body>
   <div class="notice-container">
     <div class="notice-header">
-      <button class="back-btn" onclick="if(history.length>1)history.back();else location.href='/index.html'">
+      <button class="back-btn" aria-label="뒤로가기" onclick="if(history.length>1)history.back();else location.href='/index.html'">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <h1>공지사항</h1>
@@ -73,11 +73,28 @@
     // Admin check: 서버 인증 API로 실제 권한 확인
     var isAdmin = false;
 
+    // 현재 로그인 사용자 정보 (작성자 자동 채움용). 관리자 인증 콜백 후 갱신.
+    var currentUser = null;
+
+    // Seed initial notices if empty — 렌더링 즉시 가능하도록 인증 응답 대기 전에 채움.
+    if (notices.length === 0) {
+      notices = [
+        { id: 1, title: '두띵 서비스 오픈 안내', body: '국민대학교 전용 공동구매 플랫폼 두띵이 정식 오픈했습니다! 많은 이용 부탁드립니다.', date: '2026-05-01', author: '관리자' },
+        { id: 2, title: '결제 시스템 업데이트', body: '토스페이먼츠 연동이 완료되어 카드 결제가 가능합니다. 테스트 기간 중 문제가 있으면 1:1 문의로 알려주세요.', date: '2026-05-10', author: '관리자' },
+      ];
+      localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(notices));
+    }
+
+    // 1) 공지 즉시 렌더 — 인증 API 응답 안 와도 사용자가 빠르게 본다.
+    renderNotices();
+
+    // 2) 인증 확인은 비동기로 — 결과 오면 관리자 버튼만 토글.
     async function checkAdminAndRender() {
       try {
         var res = await fetch('/api/auth/me', { credentials: 'include' });
         if (res.ok) {
           var user = await res.json();
+          currentUser = user;
           // 관리자 판별은 서버의 role claim 만 신뢰. mock 이메일 분기 금지 (mock OAuth 켜진 환경에서 권한 도용 가능).
           isAdmin = user.role === 'admin';
         }
@@ -90,21 +107,9 @@
       if (isAdmin) {
         document.getElementById('btnAddNotice').style.display = 'block';
       }
-
-      // 공지사항 렌더링
-      renderNotices();
     }
 
     checkAdminAndRender();
-
-    // Seed initial notices if empty
-    if (notices.length === 0) {
-      notices = [
-        { id: 1, title: '두띵 서비스 오픈 안내', body: '국민대학교 전용 공동구매 플랫폼 두띵이 정식 오픈했습니다! 많은 이용 부탁드립니다.', date: '2026-05-01', author: '관리자' },
-        { id: 2, title: '결제 시스템 업데이트', body: '토스페이먼츠 연동이 완료되어 카드 결제가 가능합니다. 테스트 기간 중 문제가 있으면 1:1 문의로 알려주세요.', date: '2026-05-10', author: '관리자' },
-      ];
-      localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(notices));
-    }
 
     function renderNotices() {
       var container = document.getElementById('noticeList');
@@ -145,7 +150,9 @@
 
       var now = new Date();
       var dateStr = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
-      var notice = { id: Date.now(), title: title, body: body, date: dateStr, author: '이로운' };
+      // 작성자: 로그인 사용자 이름 또는 이메일. 인증 정보 없으면 '관리자' fallback.
+      var authorName = (currentUser && (currentUser.name || currentUser.email)) || '관리자';
+      var notice = { id: Date.now(), title: title, body: body, date: dateStr, author: authorName };
       notices.unshift(notice);
       localStorage.setItem(NOTICE_STORAGE_KEY, JSON.stringify(notices));
       closeNoticeModal();

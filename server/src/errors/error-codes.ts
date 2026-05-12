@@ -28,6 +28,7 @@ export const ErrorCodes = {
   INVALID_REFUND_AMOUNT: { httpStatus: 400, code: 'INVALID_REFUND_AMOUNT', message: '환불 금액이 유효하지 않습니다' },
   ORDER_NOT_FOUND: { httpStatus: 404, code: 'ORDER_NOT_FOUND', message: '주문을 찾을 수 없습니다' },
   ORDER_NOT_REFUNDABLE: { httpStatus: 400, code: 'ORDER_NOT_REFUNDABLE', message: '환불할 수 없는 주문입니다' },
+  INVALID_ORDER_STATUS: { httpStatus: 400, code: 'INVALID_ORDER_STATUS', message: '주문 상태가 작업에 맞지 않습니다' },
   INVALID_WEBHOOK_SIGNATURE: { httpStatus: 400, code: 'INVALID_WEBHOOK_SIGNATURE', message: '유효하지 않은 웹훅 서명입니다' },
   PRICE_MISMATCH: { httpStatus: 400, code: 'PRICE_MISMATCH', message: '가격 정보가 일치하지 않습니다' },
 

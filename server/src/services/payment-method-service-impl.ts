@@ -28,9 +28,16 @@ export function createPaymentMethodService(deps: PaymentMethodServiceDeps): Paym
 
   return {
     async register(userId, data) {
+      // 빌링키는 PG 가 발급한 핵심 식별자 — 빈 값 / 공백만 검증.
+      if (!data.billingKeyRef || data.billingKeyRef.trim() === '') {
+        throw new AppError('MISSING_REQUIRED_FIELD', 'billingKeyRef 가 필요합니다');
+      }
+
       const existing = await paymentMethodRepository.list(userId);
       const isFirst = existing.length === 0;
 
+      // 동시 register race 방어: 둘 다 isDefault=true 로 INSERT 하면 partial unique index 충돌.
+      // 항상 false 로 INSERT 후 isFirst 면 setDefaultAtomic 으로 atomic 활성화.
       const now = new Date();
       const pm: PaymentMethod = {
         id: crypto.randomUUID(),
@@ -40,13 +47,18 @@ export function createPaymentMethodService(deps: PaymentMethodServiceDeps): Paym
         encryptedBillingKey: encryptBillingKey(data.billingKeyRef),
         cardName: data.cardName ?? null,
         cardLastFour: data.cardLastFour ?? null,
-        isDefault: isFirst,
+        isDefault: false,
         status: 'ACTIVE',
         createdAt: now,
         updatedAt: now,
       };
 
-      return paymentMethodRepository.create(pm);
+      const created = await paymentMethodRepository.create(pm);
+      if (isFirst) {
+        const result = await paymentMethodRepository.setDefaultAtomic(userId, created.id);
+        return result ?? created;
+      }
+      return created;
     },
 
     async list(userId) {
@@ -74,11 +86,12 @@ export function createPaymentMethodService(deps: PaymentMethodServiceDeps): Paym
 
       await paymentMethodRepository.update(id, { status: 'DELETED', isDefault: false });
 
-      // If deleted card was default, promote the next active card
+      // If deleted card was default, promote the next active card.
+      // setDefaultAtomic 사용 — 동시 다른 setDefault 호출과 race 시에도 partial unique index 안전.
       if (pm.isDefault) {
         const remaining = await paymentMethodRepository.list(userId);
         if (remaining.length > 0) {
-          await paymentMethodRepository.update(remaining[0].id, { isDefault: true });
+          await paymentMethodRepository.setDefaultAtomic(userId, remaining[0].id);
         }
       }
     },

@@ -38,9 +38,9 @@ export function createOrderConfirmHandler(orderRepo: OrderRepository, pgClient: 
         throw new AppError('FORBIDDEN', '해당 주문에 대한 권한이 없습니다');
       }
 
-      // Step 3: 상태 검증 — PENDING 상태인지
+      // Step 3: 상태 검증 — PENDING 상태인지. 환불 검증과 의미가 다르므로 INVALID_ORDER_STATUS 사용.
       if (order.status !== 'pending') {
-        throw new AppError('ORDER_NOT_REFUNDABLE', `주문 상태가 올바르지 않습니다 (현재: ${order.status})`);
+        throw new AppError('INVALID_ORDER_STATUS', `주문 상태가 올바르지 않습니다 (현재: ${order.status})`);
       }
 
       // Step 4: 금액 검증 — DB에 저장된 금액과 요청 금액이 일치하는지

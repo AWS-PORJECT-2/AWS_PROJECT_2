@@ -46,7 +46,7 @@
 <body>
   <div class="addr-container">
     <div class="addr-header">
-      <button class="back-btn" onclick="if(history.length>1)history.back();else location.href='/index.html'">
+      <button class="back-btn" aria-label="뒤로가기" onclick="if(history.length>1)history.back();else location.href='/index.html'">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
       <h1>배송지 관리</h1>
@@ -124,7 +124,11 @@
         listEl.innerHTML = '<div class="empty-state"><p>등록된 배송지가 없습니다.</p><p style="font-size:13px;margin-top:8px;">아래 버튼을 눌러 배송지를 추가하세요.</p></div>';
         return;
       }
-      var sorted = addresses.sort(function(a, b) { return a.isDefault ? -1 : 1; });
+      // 기본 배송지를 맨 위로. 비교 양쪽 모두 고려해서 stable 순서 보장.
+      var sorted = addresses.slice().sort(function(a, b) {
+        if (a.isDefault === b.isDefault) return 0;
+        return a.isDefault ? -1 : 1;
+      });
       listEl.innerHTML = sorted.map(function(addr) {
         return '<div class="addr-card ' + (addr.isDefault ? 'is-default' : '') + '">' +
           '<div class="card-head"><span class="label">' + esc(addr.label) + '</span>' +

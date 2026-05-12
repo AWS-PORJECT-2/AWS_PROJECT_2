@@ -44,6 +44,9 @@ export function createAddressService(deps: AddressServiceDeps): AddressService {
       const existing = await addressRepository.list(userId);
       const isFirst = existing.length === 0;
 
+      // 동시 create race 방어: 두 요청이 모두 list 결과 0 을 보고 isDefault=true 로
+      // INSERT 하면 partial unique index 충돌. 항상 false 로 INSERT 후 setDefaultAtomic
+      // 으로 단일 UPDATE 처리 (atomic) — race 시 마지막 호출만 default 가 됨.
       const now = new Date();
       const addr: Address = {
         id: crypto.randomUUID(),
@@ -55,12 +58,17 @@ export function createAddressService(deps: AddressServiceDeps): AddressService {
         roadAddress: data.roadAddress,
         jibunAddress: data.jibunAddress ?? null,
         detailAddress: data.detailAddress ?? null,
-        isDefault: isFirst,
+        isDefault: false,
         createdAt: now,
         updatedAt: now,
       };
 
-      return addressRepository.create(addr);
+      const created = await addressRepository.create(addr);
+      if (isFirst) {
+        const result = await addressRepository.setDefaultAtomic(userId, created.id);
+        return result ?? created;
+      }
+      return created;
     },
 
     async list(userId) {
