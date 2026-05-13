@@ -2,34 +2,33 @@ import 'dotenv/config';
 import { readFileSync, readdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { createPool } from './_shared.js';
+import mysql from 'mysql2/promise';
+import { pool } from '../src/db.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_DIR = join(__dirname, '../migrations');
 
 /**
- * 단순 마이그레이션 러너.
+ * 단순 마이그레이션 러너 (MySQL용).
  *
  * - schema_migrations 메타테이블로 적용 이력 추적 → 이미 적용된 마이그레이션 skip
  * - 각 마이그레이션은 트랜잭션 안에서 실행 → 중간 실패 시 ROLLBACK
  * - migrations/ 폴더의 *.sql 을 알파벳 순으로 적용 (001, 002, 003... 자연 정렬)
  */
 async function main() {
-  const pool = createPool();
-  const client = await pool.connect();
+  const connection = await pool.getConnection();
   try {
     // 1. 메타테이블 보장
-    await client.query(`
+    await connection.query(`
       CREATE TABLE IF NOT EXISTS schema_migrations (
-        name TEXT PRIMARY KEY,
-        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-      )
+        name VARCHAR(255) PRIMARY KEY,
+        applied_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     `);
 
     // 2. 이미 적용된 목록
-    const applied = new Set<string>(
-      (await client.query<{ name: string }>('SELECT name FROM schema_migrations')).rows.map((r) => r.name),
-    );
+    const [rows] = await connection.query<mysql.RowDataPacket[]>('SELECT name FROM schema_migrations');
+    const applied = new Set<string>(rows.map((r) => r.name));
 
     // 3. migrations/ 폴더의 .sql 정렬해서 순차 적용
     const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort();
@@ -43,17 +42,28 @@ async function main() {
       console.log(`APPLY ${file}`);
       const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf-8');
       try {
-        await client.query('BEGIN');
-        await client.query(sql);
-        await client.query('INSERT INTO schema_migrations(name) VALUES ($1)', [file]);
-        await client.query('COMMIT');
+        await connection.beginTransaction();
+        
+        // MySQL은 여러 문장을 한 번에 실행할 수 있지만, 세미콜론으로 분리해서 실행
+        const statements = sql
+          .split(';')
+          .map(s => s.trim())
+          .filter(s => s.length > 0 && !s.startsWith('--'));
+        
+        for (const statement of statements) {
+          if (statement) {
+            await connection.query(statement);
+          }
+        }
+        
+        await connection.query('INSERT INTO schema_migrations(name) VALUES (?)', [file]);
+        await connection.commit();
         appliedCount++;
         console.log(`  ✓ ${file}`);
       } catch (err) {
         try {
-          await client.query('ROLLBACK');
+          await connection.rollback();
         } catch (rbErr) {
-          // ROLLBACK 자체가 실패해도 원본 err 가 진짜 원인 — 둘 다 출력해서 디버깅 가능하게
           console.error(`  ⚠ ROLLBACK 실패 (${file}):`, rbErr);
         }
         console.error(`  ✗ ${file} 실패:`, err);
@@ -66,7 +76,7 @@ async function main() {
     console.error('마이그레이션 실패:', err);
     process.exitCode = 1;
   } finally {
-    client.release();
+    connection.release();
     await pool.end();
   }
 }

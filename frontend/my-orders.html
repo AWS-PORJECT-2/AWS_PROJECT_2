@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 주문 - 두띵</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fb; color: #1a1a1a; min-height: 100vh;
+    }
+    .topbar {
+      background: #fff; padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar a { color: #2563eb; text-decoration: none; font-size: 14px; }
+    .container { max-width: 720px; margin: 0 auto; padding: 24px 20px 80px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+    .card {
+      background: #fff; border-radius: 12px; padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 12px;
+    }
+    .card-head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-bottom: 12px; border-bottom: 1px solid #f3f4f6;
+    }
+    .order-num { font-size: 13px; font-weight: 700; }
+    .status-pill { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+    .item-row { display: flex; justify-content: space-between; padding: 10px 0; }
+    .item-name { font-size: 14px; font-weight: 600; }
+    .item-meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .item-price { font-size: 14px; font-weight: 700; }
+    .card-foot {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 10px; margin-top: 4px; border-top: 1px solid #e5e7eb;
+    }
+    .date { font-size: 12px; color: #6b7280; }
+    .total { font-size: 16px; font-weight: 800; color: #2563eb; }
+    .empty {
+      background: #fff; border: 1px dashed #d1d5db; border-radius: 12px; padding: 40px 20px;
+      text-align: center; color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="/feed.html">← 피드로</a>
+    <a href="#" id="logoutLink">로그아웃</a>
+  </div>
+  <div class="container">
+    <h1>내 주문</h1>
+    <p class="sub">최근 주문 내역을 확인하세요</p>
+    <div id="list"></div>
+  </div>
+  <script src="payment-api.js"></script>
+  <script src="my-orders.js"></script>
+</body>
+</html>

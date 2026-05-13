@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 - 주문 승인</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fb; color: #1a1a1a; min-height: 100vh;
+    }
+    .topbar {
+      background: #1f2937; color: #fff; padding: 14px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar a { color: #fbbf24; text-decoration: none; font-size: 14px; }
+    .topbar .title { font-weight: 800; font-size: 16px; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px 20px 80px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+
+    .grid-head {
+      background: #f9fafb; border-radius: 12px; padding: 12px 20px; margin-bottom: 8px;
+      display: grid; grid-template-columns: 1.2fr 1.4fr 1fr 0.9fr 110px; gap: 16px;
+      font-size: 11px; color: #6b7280; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    @media (max-width: 900px) { .grid-head { display: none; } }
+
+    .order-row {
+      background: #fff; border-radius: 12px; padding: 18px 20px; margin-bottom: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      display: grid; grid-template-columns: 1.2fr 1.4fr 1fr 0.9fr 110px;
+      gap: 16px; align-items: center;
+    }
+    @media (max-width: 900px) { .order-row { grid-template-columns: 1fr; } }
+
+    .col-label { font-size: 11px; color: #6b7280; font-weight: 700; margin-bottom: 4px; display: none; }
+    @media (max-width: 900px) { .col-label { display: block; } }
+
+    .order-num { font-size: 13px; font-weight: 700; }
+    .order-date { font-size: 11px; color: #6b7280; margin-top: 2px; }
+    .product { font-size: 14px; font-weight: 600; }
+    .product-meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .depositor {
+      font-size: 16px; font-weight: 800; color: #2563eb;
+      background: #eff6ff; padding: 8px 12px; border-radius: 8px; display: inline-block;
+    }
+    .amount {
+      font-size: 18px; font-weight: 800; color: #1a1a1a;
+    }
+    .btn-approve {
+      background: #10b981; color: #fff; border: none; padding: 10px 18px;
+      border-radius: 8px; font-weight: 700; cursor: pointer; font-size: 13px;
+      width: 100%;
+    }
+    .btn-approve:hover { background: #059669; }
+    .btn-approve:disabled { background: #9ca3af; cursor: not-allowed; }
+    .empty {
+      background: #fff; border: 1px dashed #d1d5db; border-radius: 12px; padding: 40px 20px;
+      text-align: center; color: #6b7280;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="title">🔧 doothing 관리자</span>
+    <a href="#" id="logoutLink">로그아웃</a>
+  </div>
+  <div class="container">
+    <h1>주문 승인</h1>
+    <p class="sub">입금자명과 총액을 대조하여 승인해주세요</p>
+
+    <div class="grid-head">
+      <div>주문</div>
+      <div>상품</div>
+      <div>입금자명</div>
+      <div>총액</div>
+      <div>액션</div>
+    </div>
+
+    <div id="list"></div>
+  </div>
+
+  <script src="payment-api.js"></script>
+  <script src="admin-orders.js"></script>
+</body>
+</html>
