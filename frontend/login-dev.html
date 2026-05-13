@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 - 두띵 (개발)</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(160deg, #dab2ff33 0%, #74d4ff33 50%, #5ee9b533 100%);
+      color: #1a1a1a;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 24px;
+      padding: 40px 32px;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .brand { font-size: 32px; font-weight: 800; color: #2B5F9E; letter-spacing: -0.5px; }
+    .tagline { font-size: 14px; color: #6b7280; margin-top: 8px; }
+    .dev-badge {
+      display: inline-block;
+      margin-top: 8px;
+      padding: 4px 10px;
+      background: #fef3c7;
+      color: #92400e;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .divider { height: 1px; background: #f0f0f0; margin: 28px 0 24px; }
+    .login-buttons { display: flex; flex-direction: column; gap: 12px; }
+    .login-btn {
+      width: 100%;
+      padding: 16px;
+      border: 1.5px solid #e5e7eb;
+      background: #fff;
+      border-radius: 14px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #1a1a1a;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      transition: all 0.15s;
+    }
+    .login-btn:hover { border-color: #2563eb; transform: translateY(-1px); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+    .login-btn .role {
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+    .login-btn.user .role { background: #dbeafe; color: #1d4ed8; }
+    .login-btn.admin .role { background: #fee2e2; color: #b91c1c; }
+    .error {
+      margin-top: 16px;
+      font-size: 13px;
+      color: #ef4444;
+      min-height: 18px;
+    }
+    .info-box {
+      margin-top: 24px;
+      padding: 12px 16px;
+      background: #f9fafb;
+      border-radius: 10px;
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.6;
+      text-align: left;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="brand">doothing</div>
+    <p class="tagline">공동구매 플랫폼</p>
+    <div class="dev-badge">개발용 로그인</div>
+
+    <div class="divider"></div>
+
+    <div class="login-buttons">
+      <button class="login-btn user" type="button" data-username="test_user">
+        <span>👤 테스트 유저로 로그인</span>
+        <span class="role">USER</span>
+      </button>
+      <button class="login-btn admin" type="button" data-username="admin">
+        <span>🔧 관리자로 로그인</span>
+        <span class="role">ADMIN</span>
+      </button>
+    </div>
+
+    <p id="errorMsg" class="error"></p>
+
+    <div class="info-box">
+      <strong>USER:</strong> 주문 / 배송지 관리 / 입금 확인증 업로드<br>
+      <strong>ADMIN:</strong> 주문 승인 + USER 모든 기능
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      const buttons = document.querySelectorAll('.login-btn');
+      const errorEl = document.getElementById('errorMsg');
+
+      buttons.forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const username = btn.getAttribute('data-username');
+          if (!username) return;
+
+          buttons.forEach((b) => (b.disabled = true));
+          errorEl.textContent = '';
+
+          try {
+            const res = await fetch('/api/dev-auth/login', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ username }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+              throw new Error(data.message || '로그인 실패');
+            }
+
+            // 역할별 랜딩
+            if (data.role === 'ADMIN') {
+              window.location.href = '/admin-orders.html';
+            } else {
+              window.location.href = '/feed.html';
+            }
+          } catch (e) {
+            errorEl.textContent = e.message || '로그인에 실패했습니다';
+            buttons.forEach((b) => (b.disabled = false));
+          }
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

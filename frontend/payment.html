@@ -3,183 +3,154 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>결제하기 - 국민대학교</title>
-  <link rel="stylesheet" href="style.css">
+  <title>결제 - 두띵</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fb; color: #1a1a1a; min-height: 100vh;
+    }
+    .topbar {
+      background: #fff; padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar a { color: #2563eb; text-decoration: none; font-size: 14px; }
+    .container { max-width: 640px; margin: 0 auto; padding: 24px 20px 100px; }
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+
+    .step {
+      display: inline-flex; align-items: center; gap: 6px; font-size: 12px;
+      color: #6b7280; margin-bottom: 16px;
+    }
+    .step .num {
+      display: inline-flex; align-items: center; justify-content: center;
+      width: 22px; height: 22px; border-radius: 999px; background: #2563eb; color: #fff;
+      font-weight: 700; font-size: 12px;
+    }
+
+    .panel {
+      background: #fff; border-radius: 14px; padding: 18px 20px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 14px;
+    }
+    .panel-title { font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+
+    /* Order summary */
+    .item-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 10px 0; border-bottom: 1px solid #f3f4f6;
+    }
+    .item-row:last-child { border-bottom: none; }
+    .item-name { font-size: 14px; font-weight: 600; }
+    .item-meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+    .item-price { font-size: 14px; font-weight: 700; }
+    .total-row {
+      display: flex; justify-content: space-between; align-items: center;
+      padding-top: 12px; margin-top: 8px; border-top: 2px solid #e5e7eb;
+    }
+    .total-label { font-weight: 700; }
+    .total-amount { font-size: 22px; font-weight: 800; color: #2563eb; }
+
+    /* Address selection */
+    .addr-option {
+      border: 1.5px solid #e5e7eb; border-radius: 10px; padding: 12px 14px;
+      margin-bottom: 8px; cursor: pointer; transition: all 0.15s;
+    }
+    .addr-option.selected { border-color: #2563eb; background: #eff6ff; }
+    .addr-option:hover { border-color: #93c5fd; }
+    .addr-option .label-line {
+      display: flex; align-items: center; gap: 6px; font-weight: 700; margin-bottom: 4px;
+    }
+    .addr-option .badge {
+      font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+      background: #2563eb; color: #fff;
+    }
+    .addr-option .addr-text { font-size: 13px; color: #4b5563; line-height: 1.5; }
+
+    .add-addr-link {
+      display: inline-block; font-size: 13px; color: #2563eb; text-decoration: none;
+      margin-top: 8px;
+    }
+    .empty-addr {
+      padding: 18px; background: #fef3c7; border-radius: 10px; color: #92400e;
+      font-size: 13px; line-height: 1.6; text-align: center;
+    }
+
+    /* Bank info */
+    .bank-card {
+      background: linear-gradient(135deg, #2563eb, #3b82f6); color: #fff;
+      border-radius: 12px; padding: 18px 20px;
+    }
+    .bank-line {
+      display: flex; justify-content: space-between; align-items: center; padding: 4px 0;
+    }
+    .bank-line .k { font-size: 12px; opacity: 0.9; }
+    .bank-line .v { font-size: 15px; font-weight: 700; }
+    .bank-line.amount .v { font-size: 22px; }
+    .bank-divider { height: 1px; background: rgba(255,255,255,0.3); margin: 8px 0; }
+
+    /* Toss button */
+    .btn-toss {
+      width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
+      background: #0064ff; color: #fff; border: none; padding: 14px;
+      border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer;
+      margin-top: 12px; text-decoration: none;
+    }
+    .btn-toss:hover { background: #0052d4; }
+    .btn-toss .toss-logo {
+      display: inline-flex; align-items: center; justify-content: center;
+      background: #fff; color: #0064ff; width: 22px; height: 22px; border-radius: 6px;
+      font-weight: 800; font-size: 12px;
+    }
+    .copy-btn {
+      background: rgba(255,255,255,0.25); color: #fff; border: none; padding: 4px 10px;
+      border-radius: 6px; font-size: 11px; font-weight: 600; cursor: pointer;
+    }
+    .copy-btn:hover { background: rgba(255,255,255,0.4); }
+
+    .notice {
+      background: #fef3c7; border-left: 3px solid #f59e0b; padding: 10px 14px;
+      border-radius: 6px; font-size: 12px; color: #92400e; line-height: 1.6;
+      margin-top: 12px;
+    }
+
+    /* Form */
+    .field { margin-bottom: 14px; }
+    .field label {
+      display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151;
+    }
+    .field input[type=text] {
+      width: 100%; padding: 11px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px;
+      font-size: 14px;
+    }
+    .field input:focus { outline: none; border-color: #2563eb; }
+
+    .btn-primary {
+      width: 100%; background: #2563eb; color: #fff; border: none; padding: 14px;
+      border-radius: 12px; font-size: 15px; font-weight: 700; cursor: pointer; margin-top: 12px;
+    }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    .info-line {
+      font-size: 12px; color: #6b7280; line-height: 1.6; margin-top: 6px;
+    }
+  </style>
 </head>
 <body>
-
-  <div style="display:flex;flex-direction:column;align-items:flex-start;padding:0;width:100%;min-height:100vh;flex:none;z-index:2;">
-
-  <main class="main-content" style="padding-bottom:110px;width:100%;">
-
-    <!-- 헤더 -->
-    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
-      <div class="header-left">
-        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">결제하기</span>
-      </div>
-    </header>
-
-    <!-- 주문 상품 정보 -->
-    <section id="orderSummary" style="padding:20px;border-bottom:1px solid #f0f0f0;"></section>
-
-    <!-- 사이즈 확인/수정 -->
-    <section id="sizeConfirm" style="padding:16px 20px;border-bottom:8px solid #f5f5f5;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <div>
-          <span style="font-size:14px;color:#6b7280;">예약 사이즈</span>
-          <span id="confirmedSize" style="font-size:16px;font-weight:700;color:#2563eb;margin-left:8px;">-</span>
-        </div>
-        <button id="changeSizeBtn" onclick="toggleSizeChange()" style="font-size:13px;color:#2563eb;font-weight:600;background:none;border:none;cursor:pointer;text-decoration:underline;">변경</button>
-      </div>
-      <div id="sizeChangePanel" style="display:none;margin-top:12px;">
-        <div style="display:flex;flex-wrap:wrap;gap:8px;">
-          <button type="button" class="pay-size-btn" data-size="XS" onclick="changePaySize('XS')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">XS</button>
-          <button type="button" class="pay-size-btn" data-size="S" onclick="changePaySize('S')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">S</button>
-          <button type="button" class="pay-size-btn" data-size="M" onclick="changePaySize('M')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">M</button>
-          <button type="button" class="pay-size-btn" data-size="L" onclick="changePaySize('L')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">L</button>
-          <button type="button" class="pay-size-btn" data-size="XL" onclick="changePaySize('XL')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">XL</button>
-          <button type="button" class="pay-size-btn" data-size="XXL" onclick="changePaySize('XXL')" style="padding:10px 16px;border:1.5px solid #e5e7eb;border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:#4b5563;cursor:pointer;">XXL</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- 수량 선택 -->
-    <section style="padding:20px;border-bottom:8px solid #f5f5f5;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:16px;font-weight:700;color:#1a1a1a;">수량</span>
-        <div style="display:flex;align-items:center;gap:12px;">
-          <button onclick="changeQuantity(-1)" style="width:32px;height:32px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6b7280;">−</button>
-          <span id="quantityDisplay" style="font-size:17px;font-weight:700;color:#1a1a1a;min-width:24px;text-align:center;">1</span>
-          <button onclick="changeQuantity(1)" style="width:32px;height:32px;border:1.5px solid #e5e7eb;border-radius:8px;background:#fff;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:18px;color:#6b7280;">+</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- 간편결제 -->
-    <section style="padding:20px;border-bottom:8px solid #f5f5f5;">
-      <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">간편결제</h3>
-      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
-        <button class="pay-option" data-method="tosspay" onclick="selectMethod('tosspay')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;transition:all 0.2s;">
-          <div style="width:44px;height:44px;border-radius:12px;background:#0064FF;display:flex;align-items:center;justify-content:center;">
-            <span style="color:#fff;font-size:14px;font-weight:800;">toss</span>
-          </div>
-          <span style="font-size:12px;font-weight:600;color:#1a1a1a;">토스페이</span>
-        </button>
-        <button class="pay-option" data-method="kakaopay" onclick="selectMethod('kakaopay')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;transition:all 0.2s;">
-          <div style="width:44px;height:44px;border-radius:12px;background:#FEE500;display:flex;align-items:center;justify-content:center;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="#3C1E1E"><path d="M12 3C6.48 3 2 6.58 2 11c0 2.83 1.86 5.32 4.68 6.73l-.96 3.56c-.07.26.22.47.44.32l4.13-2.74c.56.06 1.13.13 1.71.13 5.52 0 10-3.58 10-8s-4.48-8-10-8z"/></svg>
-          </div>
-          <span style="font-size:12px;font-weight:600;color:#1a1a1a;">카카오페이</span>
-        </button>
-        <button class="pay-option" data-method="naverpay" onclick="selectMethod('naverpay')" style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:16px 8px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;transition:all 0.2s;">
-          <div style="width:44px;height:44px;border-radius:12px;background:#03C75A;display:flex;align-items:center;justify-content:center;">
-            <span style="color:#fff;font-size:16px;font-weight:800;">N</span>
-          </div>
-          <span style="font-size:12px;font-weight:600;color:#1a1a1a;">네이버페이</span>
-        </button>
-      </div>
-    </section>
-
-    <!-- 일반결제 -->
-    <section style="padding:20px;border-bottom:8px solid #f5f5f5;">
-      <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">일반결제</h3>
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <button class="pay-option" data-method="card" onclick="selectMethod('card')" style="display:flex;align-items:center;gap:14px;padding:16px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;transition:all 0.2s;width:100%;">
-          <div style="width:40px;height:40px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><path d="M1 10h22"/></svg>
-          </div>
-          <div style="text-align:left;">
-            <div style="font-size:14px;font-weight:600;color:#1a1a1a;">카드 결제</div>
-            <div style="font-size:11px;color:#9ca3af;margin-top:2px;">신용/체크카드</div>
-          </div>
-        </button>
-        <button class="pay-option" data-method="bank" onclick="selectMethod('bank')" style="display:flex;align-items:center;gap:14px;padding:16px;border:1.5px solid #e5e7eb;border-radius:14px;background:#fff;cursor:pointer;transition:all 0.2s;width:100%;">
-          <div style="width:40px;height:40px;border-radius:10px;background:#f3f4f6;display:flex;align-items:center;justify-content:center;">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#6b7280" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18"/><path d="M3 10h18"/><path d="M5 6l7-3 7 3"/><path d="M4 10v11"/><path d="M20 10v11"/><path d="M8 14v3"/><path d="M12 14v3"/><path d="M16 14v3"/></svg>
-          </div>
-          <div style="text-align:left;">
-            <div style="font-size:14px;font-weight:600;color:#1a1a1a;">무통장 입금</div>
-            <div style="font-size:11px;color:#9ca3af;margin-top:2px;">가상계좌 발급</div>
-          </div>
-        </button>
-      </div>
-    </section>
-
-    <!-- 카드 결제 입력 폼 (숨김) -->
-    <section id="cardForm" style="display:none;padding:20px;border-bottom:8px solid #f5f5f5;">
-      <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">카드 정보 입력</h3>
-      <!-- 등록된 카드 -->
-      <div id="savedCards" style="margin-bottom:12px;"></div>
-      <!-- 새 카드 입력 -->
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <input id="cardNumber" type="text" placeholder="카드번호 (0000-0000-0000-0000)" maxlength="19" autocomplete="cc-number" style="padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:14px;outline:none;">
-        <div style="display:flex;gap:10px;">
-          <input id="cardExpiry" type="text" placeholder="유효기간 (MM/YY)" maxlength="5" autocomplete="cc-exp" style="flex:1;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:14px;outline:none;">
-          <input id="cardCvc" type="password" placeholder="CVC" maxlength="3" autocomplete="cc-csc" style="width:100px;padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:14px;outline:none;">
-        </div>
-        <p style="font-size:11px;color:#9ca3af;margin-top:4px;">* 카드 정보는 테스트 용도로만 사용되며 실제 저장되지 않습니다.</p>
-      </div>
-    </section>
-
-    <!-- 무통장 입금 폼 (숨김) -->
-    <section id="bankForm" style="display:none;padding:20px;border-bottom:8px solid #f5f5f5;">
-      <h3 style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">무통장 입금 정보</h3>
-      <!-- 등록된 계좌 -->
-      <div id="savedAccounts" style="margin-bottom:12px;"></div>
-      <!-- 실시간 입력 -->
-      <div style="display:flex;flex-direction:column;gap:10px;">
-        <select id="bankSelect" style="padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:14px;outline:none;background:#fff;color:#1a1a1a;">
-          <option value="">은행 선택</option>
-          <option value="kb">국민은행</option>
-          <option value="shinhan">신한은행</option>
-          <option value="woori">우리은행</option>
-          <option value="hana">하나은행</option>
-          <option value="nh">농협은행</option>
-          <option value="kakao">카카오뱅크</option>
-          <option value="toss">토스뱅크</option>
-        </select>
-        <input id="depositorName" type="text" placeholder="입금자명" style="padding:14px 16px;border:1px solid #e5e7eb;border-radius:10px;font-size:14px;outline:none;">
-        <div style="background:#eff6ff;border-radius:10px;padding:14px 16px;margin-top:4px;">
-          <p style="font-size:13px;color:#2563eb;font-weight:600;">입금 계좌 안내</p>
-          <p style="font-size:15px;font-weight:700;color:#1a1a1a;margin-top:6px;">경남은행 29837974</p>
-          <p style="font-size:12px;color:#6b7280;margin-top:2px;">예금주: 두띵(Doothing)</p>
-          <p style="font-size:12px;color:#4b5563;margin-top:8px;line-height:1.6;">입금 확인 전까지 '결제 대기' 상태로 유지됩니다.<br>24시간 내 미입금 시 주문이 자동 취소됩니다.</p>
-        </div>
-      </div>
-    </section>
-
-    <!-- 최종 결제 금액 -->
-    <section style="padding:20px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
-        <span style="font-size:14px;color:#6b7280;">상품 금액</span>
-        <span id="itemPrice" style="font-size:14px;color:#1a1a1a;">0원</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
-        <span style="font-size:14px;color:#6b7280;">배송비</span>
-        <span style="font-size:14px;color:#16a34a;font-weight:600;">무료</span>
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px;padding-top:16px;border-top:1px solid #f0f0f0;">
-        <span style="font-size:16px;font-weight:700;color:#1a1a1a;">총 결제 금액</span>
-        <span id="totalPrice" style="font-size:22px;font-weight:800;color:#2563eb;">0원</span>
-      </div>
-    </section>
-
-  </main>
-
-  <!-- 하단 결제 버튼 -->
-  <div style="position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:430px;padding:12px 20px 28px;background:#fff;border-top:1px solid #e5e7eb;z-index:200;">
-    <button id="btnPay" onclick="confirmPayment()" style="width:100%;padding:16px;border:none;border-radius:14px;background:#2563eb;color:#fff;font-size:17px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;">
-      <span id="btnPayText">결제하기</span>
-    </button>
+  <div class="topbar">
+    <a href="/feed.html">← 피드로</a>
+    <a href="#" id="logoutLink">로그아웃</a>
   </div>
 
-  </div><!-- 시안 컨테이너 닫기 -->
+  <div class="container">
+    <h1>결제하기</h1>
+    <p class="sub">무통장 입금 후 입금자명을 입력해주세요</p>
 
-  <script src="https://js.tosspayments.com/v2/standard"></script>
-  <script src="mock-data.js"></script>
+    <div id="content"></div>
+  </div>
+
+  <script src="payment-api.js"></script>
   <script src="payment.js"></script>
 </body>
 </html>
