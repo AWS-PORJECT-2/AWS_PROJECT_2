@@ -9,9 +9,6 @@
  *   mock-data.js 의 MOCK_PRODUCTS 에서 가격/이름 추출.
  */
 
-/* === 토스 송금 링크 (변수화 — 추후 실제 링크로 교체) === */
-const TOSS_PAY_URL = 'https://toss.me/kmu_doothing';
-
 let _selectedAddressId = null;
 let _addresses = [];
 let _orderItems = [];
@@ -189,7 +186,7 @@ function renderPayStep() {
   step.className = 'step';
   const num = document.createElement('span'); num.className = 'num'; num.textContent = '2';
   step.appendChild(num);
-  step.appendChild(document.createTextNode(' 토스로 송금 후 입금자명 입력'));
+  step.appendChild(document.createTextNode(' 입금 후 입금자명 입력'));
   root.appendChild(step);
 
   // 주문번호 안내
@@ -264,27 +261,6 @@ function renderPayStep() {
   card.appendChild(amountRow);
 
   bank.appendChild(card);
-
-  // 토스 송금 버튼 (딥링크)
-  const tossBtn = document.createElement('a');
-  tossBtn.className = 'btn-toss';
-  tossBtn.href = TOSS_PAY_URL;
-  tossBtn.target = '_blank';
-  tossBtn.rel = 'noopener noreferrer';
-  const logo = document.createElement('span');
-  logo.className = 'toss-logo';
-  logo.textContent = 'T';
-  const tossLabel = document.createElement('span');
-  tossLabel.textContent = '토스 앱으로 바로 송금하기';
-  tossBtn.appendChild(logo);
-  tossBtn.appendChild(tossLabel);
-  bank.appendChild(tossBtn);
-
-  // 안내 문구
-  const info2 = document.createElement('div');
-  info2.className = 'info-line';
-  info2.textContent = '버튼을 누르면 토스 앱이 실행됩니다. PC에서는 새 탭으로 열립니다.';
-  bank.appendChild(info2);
 
   // 주의
   const notice = document.createElement('div');
