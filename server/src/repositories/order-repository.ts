@@ -5,6 +5,8 @@ export interface OrderRepository {
   create(order: Omit<Order, 'id' | 'createdAt' | 'updatedAt'>, items: Omit<OrderItem, 'id' | 'orderId' | 'createdAt'>[]): Promise<Order>;
   findById(id: number): Promise<OrderDetailResponse | null>;
   findByUserId(userId: number): Promise<Order[]>;
+  /** 배치 조회 — N+1 방지 */
+  findDetailsByUserId(userId: number): Promise<OrderDetailResponse[]>;
   findPendingOrders(): Promise<OrderDetailResponse[]>;
   updateStatus(id: number, status: Order['status']): Promise<void>;
 }
@@ -107,6 +109,21 @@ export class MySQLOrderRepository implements OrderRepository {
     return rows.map(this.mapToOrder);
   }
 
+  /**
+   * 배치 조회: 한 유저의 모든 주문 + 관련 데이터(items/proof/confirmation/address)를
+   * 5개의 쿼리로 일괄 조회 후 메모리에서 조립한다 (N+1 방지).
+   */
+  async findDetailsByUserId(userId: number): Promise<OrderDetailResponse[]> {
+    const [orderRows] = await this.pool.query<RowDataPacket[]>(
+      'SELECT * FROM orders WHERE user_id = ? ORDER BY created_at DESC',
+      [userId]
+    );
+    const orders = orderRows.map(this.mapToOrder);
+    if (orders.length === 0) return [];
+
+    return this.assembleDetails(orders);
+  }
+
   async findPendingOrders(): Promise<OrderDetailResponse[]> {
     const [orderRows] = await this.pool.query<RowDataPacket[]>(
       `SELECT o.* FROM orders o
@@ -114,14 +131,93 @@ export class MySQLOrderRepository implements OrderRepository {
        WHERE o.status = 'WAITING_FOR_CONFIRM'
        ORDER BY o.created_at ASC`
     );
+    const orders = orderRows.map(this.mapToOrder);
+    if (orders.length === 0) return [];
 
-    const orders: OrderDetailResponse[] = [];
-    for (const row of orderRows) {
-      const detail = await this.findById(row.id);
-      if (detail) orders.push(detail);
+    return this.assembleDetails(orders);
+  }
+
+  /**
+   * 주문 배열을 받아 관련 부속 데이터를 IN 쿼리로 일괄 조회 후 OrderDetailResponse[] 로 조립.
+   * 쿼리 수: 주문 N개 → 4번 (items, proofs, confirmations, addresses) — 총 5번 고정.
+   */
+  private async assembleDetails(orders: Order[]): Promise<OrderDetailResponse[]> {
+    const orderIds = orders.map((o) => o.id);
+    const addressIds = orders
+      .map((o) => o.shippingAddressId)
+      .filter((v): v is number => v != null);
+
+    // 1) 주문 상세 (items)
+    const [itemRows] = orderIds.length === 0
+      ? [[] as RowDataPacket[]]
+      : await this.pool.query<RowDataPacket[]>(
+          'SELECT * FROM order_items WHERE order_id IN (?)',
+          [orderIds]
+        );
+
+    // 2) 입금 확인증 (각 주문의 최근 1건만 필요 → 일단 전부 가져와서 메모리 그룹화)
+    const [proofRows] = orderIds.length === 0
+      ? [[] as RowDataPacket[]]
+      : await this.pool.query<RowDataPacket[]>(
+          'SELECT * FROM payment_proofs WHERE order_id IN (?) ORDER BY uploaded_at DESC',
+          [orderIds]
+        );
+
+    // 3) 확인 이력 (각 주문의 최근 1건)
+    const [confirmRows] = orderIds.length === 0
+      ? [[] as RowDataPacket[]]
+      : await this.pool.query<RowDataPacket[]>(
+          'SELECT * FROM payment_confirmations WHERE order_id IN (?) ORDER BY confirmed_at DESC',
+          [orderIds]
+        );
+
+    // 4) 배송지 (참조하는 id 만)
+    const [addressRows] = addressIds.length === 0
+      ? [[] as RowDataPacket[]]
+      : await this.pool.query<RowDataPacket[]>(
+          'SELECT * FROM shipping_addresses WHERE id IN (?)',
+          [addressIds]
+        );
+
+    // === 메모리 그룹화 ===
+    const itemsByOrder = new Map<number, OrderItem[]>();
+    for (const r of itemRows) {
+      const item = this.mapToOrderItem(r);
+      const list = itemsByOrder.get(item.orderId) ?? [];
+      list.push(item);
+      itemsByOrder.set(item.orderId, list);
     }
 
-    return orders;
+    // proof / confirmation 은 첫 번째(가장 최근)만 사용
+    const proofByOrder = new Map<number, ReturnType<typeof this.mapToPaymentProof>>();
+    for (const r of proofRows) {
+      const p = this.mapToPaymentProof(r);
+      if (!proofByOrder.has(p.orderId)) proofByOrder.set(p.orderId, p);
+    }
+
+    const confirmByOrder = new Map<number, ReturnType<typeof this.mapToPaymentConfirmation>>();
+    for (const r of confirmRows) {
+      const c = this.mapToPaymentConfirmation(r);
+      if (!confirmByOrder.has(c.orderId)) confirmByOrder.set(c.orderId, c);
+    }
+
+    const addressById = new Map<number, ReturnType<typeof this.mapToShippingAddress>>();
+    for (const r of addressRows) {
+      const a = this.mapToShippingAddress(r);
+      addressById.set(a.id, a);
+    }
+
+    // === 조립 ===
+    return orders.map((order) => ({
+      ...order,
+      items: itemsByOrder.get(order.id) ?? [],
+      proof: proofByOrder.get(order.id) ?? null,
+      confirmation: confirmByOrder.get(order.id) ?? null,
+      shippingAddress:
+        order.shippingAddressId != null
+          ? (addressById.get(order.shippingAddressId) ?? null)
+          : null,
+    }));
   }
 
   async updateStatus(id: number, status: Order['status']): Promise<void> {
