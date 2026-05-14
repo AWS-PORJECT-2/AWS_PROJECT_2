@@ -308,6 +308,28 @@ function handlePolicyAgree() {
   alert('공구 참여가 완료되었습니다! (사이즈: ' + _selectedSize + ')');
 }
 
+// 참여 완료 버튼 클릭 → 참여 취소 confirm
+function handleCancelReservation() {
+  if (!currentProduct || !currentProduct.isReserved) return;
+
+  // 결제 진행 중/완료 상태에서는 취소 불가
+  const paymentState = localStorage.getItem('paid_' + currentProduct.id);
+  if (paymentState === 'pending' || paymentState === '1' || currentProduct.isPaid) {
+    alert('결제가 진행 중이거나 완료된 주문은 취소할 수 없습니다.');
+    return;
+  }
+
+  if (!confirm('참여를 취소하시겠습니까?\n선택한 사이즈 정보도 함께 삭제됩니다.')) {
+    return;
+  }
+
+  setReserved(currentProduct.id, false);
+  // 100% 달성 알림 플래그도 정리 (재참여 시 다시 받을 수 있도록)
+  localStorage.removeItem('notified_100_' + currentProduct.id);
+  renderDetail();
+  alert('참여가 취소되었습니다.');
+}
+
 /* ===== 메인 렌더링 ===== */
 async function renderDetail() {
   currentProduct = findProduct(getProductId());
@@ -378,8 +400,13 @@ async function renderDetail() {
     bottomBar.innerHTML = likeBtn + `
       <button class="btn-join" style="background:#f97316;" onclick="goToPayment()">결제하기</button>
     `;
+  } else if (currentProduct.isReserved) {
+    // D-1: 참여 완료 (달성률 미달) → 클릭 시 참여 취소 confirm
+    bottomBar.innerHTML = likeBtn + `
+      <button class="btn-join btn-joined" style="background:#9ca3af;" onclick="handleCancelReservation()">참여 완료</button>
+    `;
   } else {
-    // D: 기본 — 공구 참여하기
+    // D-2: 기본 — 공구 참여하기
     bottomBar.innerHTML = likeBtn + `
       <button class="btn-join" onclick="handleJoinClick()">공구 참여하기</button>
     `;
