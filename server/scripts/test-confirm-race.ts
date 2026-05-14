@@ -87,12 +87,35 @@ async function main() {
   );
 
   const successes = results.filter((r) => r.status === 200).length;
-  const failures = results.filter((r) => r.status === 400).length;
-  console.log(`  → 성공: ${successes}, 실패(INVALID_ORDER_STATUS): ${failures}`);
-  results.forEach((r, i) => console.log(`    [${i}] ${r.status}`));
+  const failures400 = results.filter((r) => r.status === 400);
 
+  // 디버깅 로그 — 각 응답의 status + error code 출력
+  results.forEach((r, i) => {
+    const code = (r.body as { error?: string }).error ?? '(없음)';
+    console.log(`    [${i}] status=${r.status} code=${code}`);
+  });
+  console.log(`  → 성공: ${successes}, 400 응답: ${failures400.length}`);
+
+  // 엄격한 단언 1: 성공은 정확히 1건
   if (successes !== 1) throw new Error(`성공이 정확히 1건이어야 함 (실제: ${successes})`);
-  if (failures !== 4) throw new Error(`실패가 4건이어야 함 (실제: ${failures})`);
+
+  // 엄격한 단언 2: 400 응답 중 INVALID_ORDER_STATUS 가 아닌 것이 있으면 즉시 실패
+  const wrongErrors = failures400.filter(
+    (r) => (r.body as { error?: string }).error !== 'INVALID_ORDER_STATUS'
+  );
+  if (wrongErrors.length > 0) {
+    const codes = wrongErrors.map((r) => (r.body as { error?: string }).error).join(', ');
+    throw new Error(
+      `예상치 못한 에러 코드가 포함되어 있습니다: [${codes}]\n` +
+      `동시성 방어가 아닌 다른 원인으로 실패한 요청이 있습니다.`
+    );
+  }
+
+  // 엄격한 단언 3: INVALID_ORDER_STATUS 실패가 정확히 4건
+  const raceFailures = failures400.length;
+  if (raceFailures !== 4) throw new Error(`INVALID_ORDER_STATUS 실패가 4건이어야 함 (실제: ${raceFailures})`);
+
+  console.log('  ✓ 실패 4건 모두 INVALID_ORDER_STATUS — 동시성 방어 로직이 정확히 작동');
 
   // 4) DB 확인 — current_amount 가 정확히 +1
   const conn2 = await mysql.createConnection(dbOpts);
