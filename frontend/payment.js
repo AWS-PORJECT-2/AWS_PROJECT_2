@@ -348,7 +348,14 @@ async function handleReportPayment() {
 
 /* ===== 초기화 ===== */
 async function init() {
-  try { await getCurrentUser(); } catch (_) { return; }
+  try {
+    await getCurrentUser();
+  } catch (error) {
+    console.error('[payment] 인증 확인 실패:', error);
+    alert('로그인이 필요합니다.');
+    location.href = '/login-dev.html';
+    return;
+  }
 
   const product = parseProduct();
   if (!product) {
