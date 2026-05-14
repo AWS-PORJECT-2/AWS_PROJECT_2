@@ -1,6 +1,6 @@
 /**
  * 공구 피드 페이지
- * - 카테고리 필터 (전체/의류/문구/잡화/기타)
+ * - 카테고리 필터 (전체/과잠/반팔티/에코백)
  * - 학과 필터
  * - 정렬 (인기순/최신순)
  *
@@ -32,7 +32,7 @@ function renderCategoryChips() {
   if (!container) return;
 
   const esc = window.escapeHTML;
-  const categories = ['전체', '의류', '문구', '잡화', '기타'];
+  const categories = ['전체', '과잠', '반팔티', '에코백'];
   container.innerHTML = categories
     .map((cat) => {
       const isActive = cat === currentCategory;
@@ -83,7 +83,7 @@ function getProcessedProducts() {
   // 1. 카테고리 필터
   let filtered = currentCategory === '전체'
     ? [...products]
-    : products.filter((p) => (p.category || '기타') === currentCategory);
+    : products.filter((p) => p.category === currentCategory);
 
   // 2. 학과 필터
   if (currentDept !== 'all') {
