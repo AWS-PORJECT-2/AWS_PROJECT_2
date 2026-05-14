@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
-import fs from 'fs';
+import { getRootConnectionOptions, getDbConnectionOptions } from './db-config.js';
 
 /**
  * MySQL 데이터베이스 및 테이블 생성 스크립트.
@@ -12,39 +12,24 @@ import fs from 'fs';
  * - payment_confirmations
  *
  * 모든 FK 관계를 명시적으로 설정.
+ * 자격증명은 .env 의 환경변수에서만 가져온다.
  */
 
 async function createDatabase() {
-  const sslConfig = fs.existsSync('./global-bundle.pem')
-    ? { ca: fs.readFileSync('./global-bundle.pem', 'utf8'), rejectUnauthorized: true }
-    : undefined;
-
   // 1) 데이터베이스 자체 생성 (database 미지정 연결)
-  const rootConn = await mysql.createConnection({
-    host: 'doothing-db.cj24wem202yj.us-east-1.rds.amazonaws.com',
-    user: 'admin',
-    password: 'fkdldjs22',
-    port: 3306,
-    ssl: sslConfig,
-  });
+  const rootConn = await mysql.createConnection(getRootConnectionOptions());
 
   try {
     console.log('MySQL 연결 성공');
-    await rootConn.query('CREATE DATABASE IF NOT EXISTS doothing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci');
-    console.log('✓ 데이터베이스 "doothing" 준비 완료');
+    const dbName = process.env.DB_NAME || 'doothing';
+    await rootConn.query(`CREATE DATABASE IF NOT EXISTS \`${dbName}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci`);
+    console.log(`✓ 데이터베이스 "${dbName}" 준비 완료`);
   } finally {
     await rootConn.end();
   }
 
   // 2) doothing DB로 연결해서 테이블 생성
-  const conn = await mysql.createConnection({
-    host: 'doothing-db.cj24wem202yj.us-east-1.rds.amazonaws.com',
-    user: 'admin',
-    password: 'fkdldjs22',
-    port: 3306,
-    database: 'doothing',
-    ssl: sslConfig,
-  });
+  const conn = await mysql.createConnection(getDbConnectionOptions());
 
   try {
     console.log('\n테이블 생성 중...');
