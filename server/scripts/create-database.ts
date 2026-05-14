@@ -5,38 +5,50 @@ import { getRootConnectionOptions, getDbConnectionOptions } from './db-config.js
 /**
  * MySQL 데이터베이스 및 테이블 생성 스크립트.
  *
- * 안전 정책:
- *  - production 환경에서는 절대 실행 불가 (process 즉시 종료)
- *  - 테이블 DROP 은 RESET_SCHEMA=true 일 때만 실행
- *  - 그 외에는 CREATE TABLE IF NOT EXISTS 만 수행하므로 기존 데이터를 보존
+ * 안전 정책 (다단계):
+ *   1) production 환경: 어떤 인자가 와도 즉시 차단 (process.exit(1))
+ *   2) 파괴적 DROP 블록: 다음 중 하나가 있어야만 실행
+ *        - 환경변수 ALLOW_SCHEMA_RESET=true
+ *        - CLI 플래그 --force-reset
+ *      둘 다 없으면 DROP 을 건너뛰고 CREATE TABLE IF NOT EXISTS 만 수행 → 기존 데이터 보존.
+ *   3) --dry-run 또는 DRY_RUN=true 가 있으면 DROP 쿼리를 실제 실행하지 않고 콘솔에만 출력.
  *
- * 사용법:
- *  - 최초 부트스트랩: NODE_ENV=development npx tsx scripts/create-database.ts
- *  - 스키마 초기화 (개발용):
- *      NODE_ENV=development RESET_SCHEMA=true npx tsx scripts/create-database.ts
+ * 사용 예:
+ *   - 안전 (데이터 보존):  npx tsx scripts/create-database.ts
+ *   - 스키마 초기화 (개발):
+ *       ALLOW_SCHEMA_RESET=true npx tsx scripts/create-database.ts
+ *       npx tsx scripts/create-database.ts --force-reset
+ *   - 어떤 SQL 이 나갈지 미리 확인:
+ *       npx tsx scripts/create-database.ts --force-reset --dry-run
  */
 
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-const SHOULD_RESET_SCHEMA = process.env.RESET_SCHEMA === 'true';
+const argv = process.argv.slice(2);
+const FLAG_FORCE_RESET = argv.includes('--force-reset');
+const FLAG_DRY_RUN = argv.includes('--dry-run');
 
-// === 운영 환경 원천 차단 ===
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const ENV_ALLOW_RESET = process.env.ALLOW_SCHEMA_RESET === 'true';
+const ENV_DRY_RUN = process.env.DRY_RUN === 'true';
+
+const SHOULD_RESET_SCHEMA = ENV_ALLOW_RESET || FLAG_FORCE_RESET;
+const IS_DRY_RUN = ENV_DRY_RUN || FLAG_DRY_RUN;
+
+// === [Guard 1] 운영 환경 원천 차단 ===
 if (IS_PRODUCTION) {
   console.error('❌ [SAFETY] NODE_ENV=production 에서는 create-database 스크립트를 실행할 수 없습니다.');
   console.error('   운영 DB 변경은 정식 마이그레이션(migrations/)을 사용해주세요.');
   process.exit(1);
 }
 
-// === RESET_SCHEMA 가드 ===
+// === [Guard 2] CLI 에서 --force-reset 만 줬는데 운영처럼 보이는 경우(이중 안전) ===
 if (SHOULD_RESET_SCHEMA && IS_PRODUCTION) {
-  // 위에서 이미 차단되지만 이중 안전장치
-  console.error('❌ [SAFETY] production 에서 RESET_SCHEMA 사용 불가');
+  console.error('❌ [SAFETY] production 에서 스키마 리셋 불가');
   process.exit(1);
 }
 
 async function createDatabase() {
   // 1) 데이터베이스 자체 생성 (database 미지정 연결)
   const rootConn = await mysql.createConnection(getRootConnectionOptions());
-
   try {
     console.log('MySQL 연결 성공');
     const dbName = process.env.DB_NAME || 'doothing';
@@ -52,7 +64,7 @@ async function createDatabase() {
   try {
     console.log('\n테이블 생성 중...');
 
-    // 1. users 테이블 (FK 참조의 시작점)
+    // users (FK 참조의 시작점)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS users (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -67,26 +79,40 @@ async function createDatabase() {
     `);
     console.log('✓ users 테이블');
 
-    // === 파괴적 작업: RESET_SCHEMA=true 일 때만 ===
+    // === 파괴적 작업: 가드를 통과한 경우만 ===
     if (SHOULD_RESET_SCHEMA) {
-      console.warn('⚠️  RESET_SCHEMA=true — 기존 테이블을 모두 DROP 합니다.');
-      try {
-        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-        await conn.query('DROP TABLE IF EXISTS payment_confirmations');
-        await conn.query('DROP TABLE IF EXISTS payment_proofs');
-        await conn.query('DROP TABLE IF EXISTS order_items');
-        await conn.query('DROP TABLE IF EXISTS orders');
-        await conn.query('DROP TABLE IF EXISTS shipping_addresses');
-        console.log('✓ 기존 테이블 DROP 완료');
-      } finally {
-        // 어떤 경우에도 외래키 검사 복구
-        await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+      const tablesToDrop = [
+        'payment_confirmations',
+        'payment_proofs',
+        'order_items',
+        'orders',
+        'shipping_addresses',
+      ];
+
+      if (IS_DRY_RUN) {
+        console.warn('🟡 [DRY RUN] 다음 SQL 이 실제 실행되지 않고 출력만 됩니다:');
+        console.warn('   SET FOREIGN_KEY_CHECKS = 0');
+        for (const t of tablesToDrop) console.warn(`   DROP TABLE IF EXISTS ${t}`);
+        console.warn('   SET FOREIGN_KEY_CHECKS = 1');
+      } else {
+        console.warn('⚠️  스키마 리셋 모드 — 기존 테이블을 모두 DROP 합니다.');
+        try {
+          await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+          for (const t of tablesToDrop) {
+            await conn.query(`DROP TABLE IF EXISTS ${t}`);
+          }
+          console.log('✓ 기존 테이블 DROP 완료');
+        } finally {
+          // 어떤 경우에도 외래키 검사 복구
+          await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+        }
       }
     } else {
-      console.log('• RESET_SCHEMA 미설정 — 기존 데이터 보존 (CREATE TABLE IF NOT EXISTS)');
+      console.log('• 가드 미충족 — DROP 건너뜀, 기존 데이터 보존 (CREATE TABLE IF NOT EXISTS).');
+      console.log('  (스키마 리셋이 필요하면 ALLOW_SCHEMA_RESET=true 또는 --force-reset 을 사용하세요)');
     }
 
-    // 2. shipping_addresses (users FK)
+    // shipping_addresses (users FK)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS shipping_addresses (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -108,7 +134,7 @@ async function createDatabase() {
     `);
     console.log('✓ shipping_addresses 테이블');
 
-    // 3. orders (users FK + shipping_addresses FK)
+    // orders (users FK + shipping_addresses FK)
     await conn.query(`
       CREATE TABLE IF NOT EXISTS orders (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -128,7 +154,7 @@ async function createDatabase() {
     `);
     console.log('✓ orders 테이블');
 
-    // 4. order_items (orders FK)
+    // order_items
     await conn.query(`
       CREATE TABLE IF NOT EXISTS order_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -144,7 +170,7 @@ async function createDatabase() {
     `);
     console.log('✓ order_items 테이블');
 
-    // 5. payment_proofs (orders FK)
+    // payment_proofs
     await conn.query(`
       CREATE TABLE IF NOT EXISTS payment_proofs (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -159,7 +185,7 @@ async function createDatabase() {
     `);
     console.log('✓ payment_proofs 테이블');
 
-    // 6. payment_confirmations (orders FK + users FK)
+    // payment_confirmations
     await conn.query(`
       CREATE TABLE IF NOT EXISTS payment_confirmations (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -175,7 +201,7 @@ async function createDatabase() {
     `);
     console.log('✓ payment_confirmations 테이블');
 
-    // 7. 기본 테스트 유저 시드 (UPSERT)
+    // 기본 테스트 유저 시드
     await conn.query(`
       INSERT INTO users (username, name, role) VALUES
         ('test_user', '테스트 유저', 'USER'),
