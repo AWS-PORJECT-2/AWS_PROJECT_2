@@ -20,6 +20,14 @@ export class InMemoryPgClient implements PgClient {
   }
 
   async payWithBillingKey(billingKey: string, orderId: string, amount: number, _orderName: string): Promise<PaymentResult> {
+    // 결제 금액 검증 (서버 측 방어): 0원·음수·NaN·Infinity 차단
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return {
+        success: false,
+        error: { code: 'INVALID_AMOUNT', message: '결제 금액이 유효하지 않습니다 (0보다 큰 유한 숫자여야 합니다)' },
+      };
+    }
+
     if (!this.billingKeys.has(billingKey)) {
       return { success: false, error: { code: 'INVALID_BILLING_KEY', message: 'Billing key not found' } };
     }
