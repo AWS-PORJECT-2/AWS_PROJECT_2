@@ -16,9 +16,9 @@ export function createPaymentOrdersRouter(service: PaymentOrderService): Router 
     }
   });
 
-  // POST /api/payment-orders/:orderId/confirm-request - 입금 확인 요청 (사진 없음)
+  // POST /api/payment-orders/:orderId/report - 입금 보고 (입금자명만)
   // 입금자명만 받아서 상태를 WAITING_FOR_CONFIRM 으로 변경
-  router.post('/:orderId/confirm-request', async (req: Request, res: Response, next: NextFunction) => {
+  router.post('/:orderId/report', async (req: Request, res: Response, next: NextFunction) => {
     try {
       const userId = parseInt(req.userId!, 10);
       const orderId = parseInt(req.params.orderId, 10);
@@ -29,7 +29,7 @@ export function createPaymentOrdersRouter(service: PaymentOrderService): Router 
         return;
       }
 
-      const result = await service.requestConfirm(userId, orderId, depositorName);
+      const result = await service.reportPayment(userId, orderId, depositorName);
       res.status(200).json(result);
     } catch (error) {
       next(error);
