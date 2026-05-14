@@ -12,7 +12,7 @@
 
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
-import fs from 'fs';
+import { getDbConnectionOptions } from './db-config.js';
 
 const BASE = 'http://localhost:3000';
 
@@ -35,14 +35,7 @@ async function call(path: string, options: RequestInit = {}, cookie = '') {
 
 async function main() {
   // DB 정리: fund 4 리셋
-  const sslConfig = fs.existsSync('./global-bundle.pem')
-    ? { ca: fs.readFileSync('./global-bundle.pem', 'utf8'), rejectUnauthorized: true }
-    : undefined;
-  const conn = await mysql.createConnection({
-    host: 'doothing-db.cj24wem202yj.us-east-1.rds.amazonaws.com',
-    user: 'admin', password: 'fkdldjs22', port: 3306,
-    database: 'doothing', ssl: sslConfig,
-  });
+  const conn = await mysql.createConnection(getDbConnectionOptions());
   try {
     await conn.query('DELETE FROM orders WHERE fund_id = 4');
     await conn.query(
@@ -126,11 +119,7 @@ async function main() {
   await new Promise((r) => setTimeout(r, 1500));
 
   // DB 검증
-  const conn2 = await mysql.createConnection({
-    host: 'doothing-db.cj24wem202yj.us-east-1.rds.amazonaws.com',
-    user: 'admin', password: 'fkdldjs22', port: 3306,
-    database: 'doothing', ssl: sslConfig,
-  });
+  const conn2 = await mysql.createConnection(getDbConnectionOptions());
   try {
     const [rows] = await conn2.query<mysql.RowDataPacket[]>(
       'SELECT id, current_amount, target_amount, is_notified, notified_at FROM funds WHERE id = 4'

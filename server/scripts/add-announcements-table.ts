@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import mysql from 'mysql2/promise';
-import fs from 'fs';
+import { getDbConnectionOptions } from './db-config.js';
 
 /**
  * announcements 테이블 추가 마이그레이션.
@@ -9,18 +9,7 @@ import fs from 'fs';
  */
 
 async function main() {
-  const sslConfig = fs.existsSync('./global-bundle.pem')
-    ? { ca: fs.readFileSync('./global-bundle.pem', 'utf8'), rejectUnauthorized: true }
-    : undefined;
-
-  const conn = await mysql.createConnection({
-    host: 'doothing-db.cj24wem202yj.us-east-1.rds.amazonaws.com',
-    user: 'admin',
-    password: 'fkdldjs22',
-    port: 3306,
-    database: 'doothing',
-    ssl: sslConfig,
-  });
+  const conn = await mysql.createConnection(getDbConnectionOptions());
 
   try {
     console.log('MySQL 연결 성공');
