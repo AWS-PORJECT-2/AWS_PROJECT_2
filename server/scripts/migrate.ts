@@ -43,19 +43,23 @@ async function main() {
       const sql = readFileSync(join(MIGRATIONS_DIR, file), 'utf-8');
       try {
         await connection.beginTransaction();
-        
-        // MySQL은 여러 문장을 한 번에 실행할 수 있지만, 세미콜론으로 분리해서 실행
+
+        // MySQL은 여러 문장을 한 번에 실행할 수 있지만, 세미콜론으로 분리해서 실행.
+        // 단순히 ;로 split 후 startsWith('--') 로 거르면 "-- 주석\nCREATE TABLE...;" 처럼
+        // 주석 다음 줄에 유효한 DDL 이 있는 청크가 통째로 버려진다 (실제 마이그레이션 누락).
+        // → 줄 단위로 주석 라인만 제거 → 다시 합쳐서 ; 로 split.
         const statements = sql
+          .split('\n')
+          .filter((line) => !line.trim().startsWith('--'))
+          .join('\n')
           .split(';')
-          .map(s => s.trim())
-          .filter(s => s.length > 0 && !s.startsWith('--'));
-        
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0);
+
         for (const statement of statements) {
-          if (statement) {
-            await connection.query(statement);
-          }
+          await connection.query(statement);
         }
-        
+
         await connection.query('INSERT INTO schema_migrations(name) VALUES (?)', [file]);
         await connection.commit();
         appliedCount++;
