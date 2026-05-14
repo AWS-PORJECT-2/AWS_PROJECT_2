@@ -1,4 +1,4 @@
-import type { Pool } from 'mysql2/promise';
+import type { Pool, ResultSetHeader } from 'mysql2/promise';
 import type { OrderRepository } from '../repositories/order-repository.js';
 import type { PaymentProofRepository } from '../repositories/payment-proof-repository.js';
 import type { PaymentConfirmationRepository } from '../repositories/payment-confirmation-repository.js';
@@ -186,20 +186,19 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
 
   /**
    * 관리자가 입금자명을 대조하고 승인.
-   * - WAITING_FOR_CONFIRM 상태에서만 허용.
-   * - orders.status=PAID + payment_proofs.is_confirmed=true + payment_confirmations 인서트를
-   *   하나의 트랜잭션으로 처리.
-   * - fund_id 가 있으면 funds.current_amount 증가. 100% 도달 시 알림 발송 트리거.
+   *
+   * 동시성 (TOCTOU 방지):
+   *  - 트랜잭션 외부에서 status 를 미리 체크해도 두 관리자가 동시에 누르면 둘 다 통과 가능 → race.
+   *  - 따라서 트랜잭션 안에서 조건부 UPDATE 로 원자적 상태 전이를 수행:
+   *      UPDATE orders SET status='PAID' WHERE id=? AND status='WAITING_FOR_CONFIRM'
+   *  - affectedRows === 0 이면 다른 요청이 이미 처리한 것 → INVALID_ORDER_STATUS 로 롤백.
+   *  - 이 가드 통과 후에만 incrementCurrentAmount, confirmRepo.create 등 후속 작업 실행 → 펀딩 이중 합산 차단.
    */
   async confirmPayment(adminId: number, orderId: number, request: ConfirmPaymentRequest): Promise<ConfirmPaymentResponse> {
-    const order = await this.orderRepo.findById(orderId);
-    if (!order) throw new AppError('ORDER_NOT_FOUND', '주문을 찾을 수 없습니다');
-    if (order.status !== 'WAITING_FOR_CONFIRM') {
-      throw new AppError('INVALID_ORDER_STATUS', '승인할 수 없는 주문 상태입니다');
-    }
-    if (!order.proof) {
-      throw new AppError('NO_PROOF_UPLOADED', '입금 보고가 되지 않은 주문입니다');
-    }
+    // 사전 read — 친절한 에러 메시지를 위한 prefetch (실제 정합성 보장은 트랜잭션 내부에서)
+    const initial = await this.orderRepo.findById(orderId);
+    if (!initial) throw new AppError('ORDER_NOT_FOUND', '주문을 찾을 수 없습니다');
+    if (!initial.proof) throw new AppError('NO_PROOF_UPLOADED', '입금 보고가 되지 않은 주문입니다');
 
     let fundIdToNotify: number | null = null;
     let fundTitleToNotify: string | null = null;
@@ -208,14 +207,20 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
     try {
       await conn.beginTransaction();
 
-      // 1) 주문 상태를 PAID로
-      await conn.query(
-        'UPDATE orders SET status = ?, updated_at = NOW() WHERE id = ?',
-        ['PAID', orderId]
+      // 1) 원자적 상태 전이 — WAITING_FOR_CONFIRM → PAID
+      const [updateResult] = await conn.query<ResultSetHeader>(
+        `UPDATE orders SET status = 'PAID', updated_at = NOW()
+         WHERE id = ? AND status = 'WAITING_FOR_CONFIRM'`,
+        [orderId]
       );
 
+      if (updateResult.affectedRows === 0) {
+        // 다른 요청이 이미 처리했거나 잘못된 상태 — 후속 작업 절대 실행 금지.
+        throw new AppError('INVALID_ORDER_STATUS', '승인할 수 없는 주문 상태입니다 (이미 처리되었거나 상태가 변경되었습니다)');
+      }
+
       // 2) 입금 확인증 is_confirmed=true
-      await this.proofRepo.updateConfirmStatus(order.proof.id, true, conn);
+      await this.proofRepo.updateConfirmStatus(initial.proof.id, true, conn);
 
       // 3) 확인 이력 추가
       const confirmation = await this.confirmRepo.create(
@@ -228,8 +233,9 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
       );
 
       // 4) fund 누적치 증가 + 100% 달성 검증
-      if (order.fundId && this.fundRepo) {
-        const updatedFund = await this.fundRepo.incrementCurrentAmount(order.fundId, 1, conn);
+      //    위 1) 단계가 한 번만 통과하므로 이 블록도 주문당 정확히 한 번만 실행됨 (이중 합산 방지).
+      if (initial.fundId && this.fundRepo) {
+        const updatedFund = await this.fundRepo.incrementCurrentAmount(initial.fundId, 1, conn);
         if (
           updatedFund &&
           !updatedFund.isNotified &&
@@ -237,7 +243,7 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
           updatedFund.currentAmount >= updatedFund.targetAmount
         ) {
           // 트랜잭션 안에서 is_notified=true 로 마킹 (중복 발송 방지)
-          await this.fundRepo.markAsNotified(order.fundId, conn);
+          await this.fundRepo.markAsNotified(initial.fundId, conn);
           fundIdToNotify = updatedFund.id;
           fundTitleToNotify = updatedFund.title;
         }
