@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 작성 - 두띵 관리자</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fb; color: #1a1a1a; min-height: 100vh;
+    }
+    .topbar {
+      background: #1f2937; color: #fff; padding: 14px 24px;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar a { color: #fbbf24; text-decoration: none; font-size: 14px; }
+    .topbar .title { font-weight: 800; font-size: 16px; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px 20px 80px; }
+
+    h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+
+    .panel {
+      background: #fff; border-radius: 12px; padding: 24px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 14px;
+    }
+    .field { margin-bottom: 18px; }
+    .field:last-child { margin-bottom: 0; }
+    .field label {
+      display: block; font-size: 13px; font-weight: 700;
+      margin-bottom: 6px; color: #374151;
+    }
+    .field input, .field textarea {
+      width: 100%; padding: 12px 14px; border: 1.5px solid #e5e7eb;
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+      line-height: 1.7; color: #1a1a1a;
+    }
+    .field input:focus, .field textarea:focus {
+      outline: none; border-color: #2563eb;
+    }
+    .field textarea {
+      min-height: 360px; resize: vertical;
+    }
+    .char-count {
+      font-size: 12px; color: #9ca3af; text-align: right; margin-top: 4px;
+    }
+    .actions {
+      display: flex; justify-content: space-between; gap: 8px;
+    }
+    .btn {
+      padding: 11px 22px; border-radius: 10px; font-weight: 700; cursor: pointer;
+      font-size: 14px; border: 1px solid transparent;
+    }
+    .btn-primary { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+    .btn-secondary { background: #fff; color: #1a1a1a; border-color: #e5e7eb; }
+    .btn-secondary:hover { background: #f9fafb; }
+
+    .forbidden, .loading {
+      background: #fff; border-radius: 12px; padding: 40px 20px;
+      text-align: center; color: #6b7280;
+    }
+    .forbidden { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="title">🔧 공지사항 작성</span>
+    <a href="/announcements.html">목록으로</a>
+  </div>
+
+  <div class="container">
+    <h1 id="pageTitle">공지사항 작성</h1>
+    <p class="sub">국민대학교 학생들에게 전달할 중요 안내를 작성하세요</p>
+
+    <div id="root">
+      <div class="loading">로딩 중...</div>
+    </div>
+  </div>
+
+  <script src="payment-api.js"></script>
+  <script src="announcement-edit.js"></script>
+</body>
+</html>

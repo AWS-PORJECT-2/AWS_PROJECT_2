@@ -15,6 +15,7 @@ import { MySQLShippingAddressRepository } from './repositories/shipping-address-
 import { MySQLOrderRepository } from './repositories/order-repository.js';
 import { MySQLPaymentProofRepository } from './repositories/payment-proof-repository.js';
 import { MySQLPaymentConfirmationRepository } from './repositories/payment-confirmation-repository.js';
+import { MySQLAnnouncementRepository } from './repositories/announcement-repository.js';
 
 import { ShippingAddressService } from './services/shipping-address-service.js';
 import { PaymentOrderServiceImpl } from './services/payment-order-service.js';
@@ -22,6 +23,7 @@ import { PaymentOrderServiceImpl } from './services/payment-order-service.js';
 import { createDevAuthRouter, createDevAuthRequired, requireAdmin } from './routes/dev-auth.js';
 import { createShippingAddressesRouter } from './routes/shipping-addresses.js';
 import { createPaymentOrdersRouter, createAdminPaymentOrdersRouter } from './routes/payment-orders.js';
+import { createAnnouncementsRouter, createAdminAnnouncementsRouter } from './routes/announcements.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
@@ -39,6 +41,7 @@ export async function createApp() {
   const orderRepo = new MySQLOrderRepository(pool);
   const proofRepo = new MySQLPaymentProofRepository(pool);
   const confirmRepo = new MySQLPaymentConfirmationRepository(pool);
+  const announcementRepo = new MySQLAnnouncementRepository(pool);
 
   // --- Services ---
   const addressService = new ShippingAddressService(pool, addressRepo);
@@ -47,6 +50,12 @@ export async function createApp() {
   // --- Auth (개발용 간이 인증) ---
   app.use('/api/dev-auth', createDevAuthRouter(userRepo));
   const authRequired = createDevAuthRequired(userRepo);
+
+  // --- Announcements (공지사항) ---
+  // 공용: 누구나 GET 가능 (인증 불필요)
+  app.use('/api/announcements', createAnnouncementsRouter(announcementRepo));
+  // 관리자 전용: POST / PUT / DELETE
+  app.use('/api/admin/announcements', authRequired, requireAdmin, createAdminAnnouncementsRouter(announcementRepo));
 
   // --- Shipping addresses (인증 필요) ---
   app.use('/api/shipping-addresses', authRequired, createShippingAddressesRouter(addressService));

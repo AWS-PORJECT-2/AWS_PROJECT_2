@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항 - 두띵</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fb; color: #1a1a1a; min-height: 100vh;
+    }
+    .topbar {
+      background: #fff; padding: 16px 20px; border-bottom: 1px solid #e5e7eb;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .topbar a { color: #2563eb; text-decoration: none; font-size: 14px; }
+    .container { max-width: 800px; margin: 0 auto; padding: 24px 20px 80px; }
+
+    .article {
+      background: #fff; border-radius: 12px; padding: 28px 32px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .article h1 {
+      font-size: 22px; font-weight: 800; color: #1a1a1a;
+      padding-bottom: 16px; border-bottom: 2px solid #1a1a1a; margin-bottom: 14px;
+      line-height: 1.45;
+    }
+    .meta {
+      display: flex; gap: 16px; font-size: 13px; color: #6b7280;
+      padding-bottom: 18px; border-bottom: 1px solid #e5e7eb;
+    }
+    .content {
+      padding: 24px 0;
+      font-size: 15px; line-height: 1.85; color: #374151;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .actions {
+      display: flex; justify-content: space-between; align-items: center;
+      gap: 8px; padding-top: 16px; border-top: 1px solid #e5e7eb;
+    }
+    .actions .left, .actions .right { display: flex; gap: 8px; }
+    .btn {
+      padding: 9px 16px; border-radius: 8px; font-weight: 700; cursor: pointer;
+      font-size: 13px; text-decoration: none; display: inline-block;
+      border: 1px solid transparent;
+    }
+    .btn-secondary {
+      background: #fff; color: #1a1a1a; border-color: #e5e7eb;
+    }
+    .btn-secondary:hover { background: #f9fafb; }
+    .btn-edit {
+      background: #2563eb; color: #fff;
+    }
+    .btn-edit:hover { background: #1d4ed8; }
+    .btn-delete {
+      background: #fff; color: #ef4444; border-color: #fecaca;
+    }
+    .btn-delete:hover { background: #fef2f2; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .loading, .error {
+      background: #fff; border-radius: 12px; padding: 40px 20px;
+      text-align: center; color: #6b7280;
+    }
+    .error { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <a href="/announcements.html">← 목록</a>
+    <a href="#" id="logoutLink" style="display:none;">로그아웃</a>
+  </div>
+
+  <div class="container">
+    <div id="content">
+      <div class="loading">로딩 중...</div>
+    </div>
+  </div>
+
+  <script src="payment-api.js"></script>
+  <script src="announcement-detail.js"></script>
+</body>
+</html>
