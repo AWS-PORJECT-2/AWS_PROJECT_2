@@ -40,7 +40,30 @@ export class InMemoryPgClient implements PgClient {
   async cancelPayment(pgPaymentId: string, _reason: string, amount?: number): Promise<CancelResult> {
     const payment = this.payments.get(pgPaymentId);
     if (!payment) return { success: false, error: { code: 'NOT_FOUND', message: 'Payment not found' } };
+
+    // 1) 기 취소건 차단 (Idempotency Guard)
+    if (payment.status === 'CANCELLED') {
+      return {
+        success: false,
+        error: { code: 'ALREADY_CANCELLED', message: '이미 취소된 결제입니다' },
+      };
+    }
+
+    // 2) 취소 금액 유효성 검증
     const cancelAmount = amount ?? payment.amount;
+    if (!Number.isFinite(cancelAmount) || cancelAmount <= 0 || cancelAmount > payment.amount) {
+      return {
+        success: false,
+        error: {
+          code: 'INVALID_CANCEL_AMOUNT',
+          message: '취소 금액이 유효하지 않습니다 (0 < 취소금액 ≤ 결제금액)',
+        },
+      };
+    }
+
+    // 3) 상태 갱신 및 저장
+    this.payments.set(pgPaymentId, { amount: payment.amount, status: 'CANCELLED' });
+
     return { success: true, pgRefundId: `ref_${randomUUID()}`, cancelledAmount: cancelAmount };
   }
 
