@@ -12,6 +12,8 @@
     "db:check-users": "tsx scripts/check-users.ts"
   },
   "dependencies": {
+    "@types/cookie": "^0.6.0",
+    "cookie": "^1.1.1",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
@@ -22,7 +24,8 @@
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.1",
     "mysql2": "^3.11.0",
-    "pino": "^10.3.1"
+    "pino": "^10.3.1",
+    "socket.io": "^4.8.3"
   },
   "devDependencies": {
     "@types/cookie-parser": "^1.4.10",
@@ -31,6 +34,7 @@
     "@types/jsonwebtoken": "^9.0.9",
     "@types/multer": "^1.4.12",
     "fast-check": "^4.1.1",
+    "socket.io-client": "^4.8.3",
     "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^3.2.1"
