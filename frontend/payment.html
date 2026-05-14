@@ -118,6 +118,17 @@
     }
     .btn-primary:hover { background: #1d4ed8; }
     .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    .consent-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 12px; background: #f9fafb; border-radius: 8px;
+      margin-bottom: 10px; font-size: 13px; color: #374151;
+    }
+    .consent-row input[type=checkbox] {
+      width: 16px; height: 16px; accent-color: #2563eb; cursor: pointer;
+    }
+    .consent-row label { cursor: pointer; user-select: none; }
+    .consent-row a { color: #2563eb; text-decoration: underline; }
   </style>
 </head>
 <body>
@@ -134,6 +145,7 @@
   </div>
 
   <script src="payment-api.js"></script>
+  <script src="privacy-modal.js"></script>
   <script src="payment.js"></script>
 </body>
 </html>

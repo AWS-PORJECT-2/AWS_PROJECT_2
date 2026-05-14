@@ -288,6 +288,28 @@ function renderPayStep() {
   f1.appendChild(l1); f1.appendChild(i1);
   proof.appendChild(f1);
 
+  // 개인정보 수집 동의 체크박스
+  const consent = document.createElement('div');
+  consent.className = 'consent-row';
+  const cb = document.createElement('input');
+  cb.type = 'checkbox'; cb.id = 'privacyAgree';
+  const cbLabel = document.createElement('label');
+  cbLabel.htmlFor = 'privacyAgree';
+  cbLabel.appendChild(document.createTextNode('(필수) '));
+  const link = document.createElement('a');
+  link.href = '#';
+  link.textContent = '개인정보 수집 및 이용';
+  link.addEventListener('click', (e) => {
+    e.preventDefault();
+    if (window.showPrivacyModal) window.showPrivacyModal();
+    else window.open('/privacy.html', '_blank', 'noopener');
+  });
+  cbLabel.appendChild(link);
+  cbLabel.appendChild(document.createTextNode('에 동의합니다'));
+  consent.appendChild(cb);
+  consent.appendChild(cbLabel);
+  proof.appendChild(consent);
+
   const btn = document.createElement('button');
   btn.className = 'btn-primary';
   btn.textContent = '입금 보고하기';
@@ -303,6 +325,12 @@ async function handleReportPayment() {
   const name = document.getElementById('depositorName').value.trim();
   if (!name) {
     alert('입금자명을 입력해주세요.');
+    return;
+  }
+
+  const agreed = document.getElementById('privacyAgree');
+  if (agreed && !agreed.checked) {
+    alert('개인정보 수집 및 이용에 동의해주세요.');
     return;
   }
 
