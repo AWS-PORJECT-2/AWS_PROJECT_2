@@ -4,6 +4,8 @@ export interface FundRow {
   id: number;
   title: string;
   category: string;
+  unitPrice: number;
+  status: 'ACTIVE' | 'CLOSED';
   targetAmount: number;
   currentAmount: number;
   isNotified: boolean;
@@ -85,6 +87,8 @@ export class MySQLFundRepository implements FundRepository {
       id: row.id,
       title: row.title,
       category: row.category,
+      unitPrice: row.unit_price ?? 0,
+      status: (row.status as 'ACTIVE' | 'CLOSED') ?? 'ACTIVE',
       targetAmount: row.target_amount,
       currentAmount: row.current_amount,
       isNotified: Boolean(row.is_notified),

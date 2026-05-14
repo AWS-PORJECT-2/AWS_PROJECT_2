@@ -38,6 +38,9 @@ export const ErrorCodes = {
   CANNOT_DELETE_LAST_ADDRESS: { httpStatus: 400, code: 'CANNOT_DELETE_LAST_ADDRESS', message: '마지막 배송지는 삭제할 수 없습니다' },
   FORBIDDEN: { httpStatus: 403, code: 'FORBIDDEN', message: '접근 권한이 없습니다' },
   NO_PROOF_UPLOADED: { httpStatus: 400, code: 'NO_PROOF_UPLOADED', message: '입금 확인증이 업로드되지 않았습니다' },
+  FUND_NOT_FOUND: { httpStatus: 404, code: 'FUND_NOT_FOUND', message: '해당 펀드를 찾을 수 없습니다' },
+  FUND_CLOSED: { httpStatus: 400, code: 'FUND_CLOSED', message: '판매 중지된 펀드입니다' },
+  INVALID_QUANTITY: { httpStatus: 400, code: 'INVALID_QUANTITY', message: '수량이 유효하지 않습니다' },
 } as const satisfies Record<string, ErrorCodeDefinition>;
 
 export type ErrorCode = keyof typeof ErrorCodes;
