@@ -108,12 +108,24 @@
       <strong>USER:</strong> 주문 / 배송지 관리 / 입금 확인증 업로드<br>
       <strong>ADMIN:</strong> 주문 승인 + USER 모든 기능
     </div>
+
+    <p style="margin-top:14px;font-size:11px;color:#9ca3af;">
+      로그인 시 <a href="#" id="privacyLink" style="color:#2563eb;text-decoration:underline;">개인정보 처리방침</a>에 동의한 것으로 간주됩니다.
+    </p>
   </div>
 
+  <script src="privacy-modal.js"></script>
   <script>
     (function () {
       const buttons = document.querySelectorAll('.login-btn');
       const errorEl = document.getElementById('errorMsg');
+      const privacyLink = document.getElementById('privacyLink');
+
+      privacyLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (window.showPrivacyModal) window.showPrivacyModal();
+        else window.open('/privacy.html', '_blank', 'noopener');
+      });
 
       buttons.forEach((btn) => {
         btn.addEventListener('click', async () => {
