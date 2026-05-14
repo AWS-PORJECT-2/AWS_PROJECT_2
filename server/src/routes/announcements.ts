@@ -69,7 +69,13 @@ export function createAdminAnnouncementsRouter(repo: AnnouncementRepository): Ro
   // POST /api/admin/announcements
   router.post('/', async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const authorId = parseInt(req.userId!, 10);
+      // req.userId 누락 / 비정수 방어 — NaN 이 그대로 INSERT 되면 mysql2 가 NULL 직렬화
+      const authorId = parseInt(req.userId ?? '', 10);
+      if (!Number.isInteger(authorId) || authorId <= 0) {
+        res.status(401).json({ error: 'NOT_AUTHENTICATED', message: '유효한 사용자 인증이 필요합니다' });
+        return;
+      }
+
       const { title, content } = parseTitleContent(req.body);
       if (typeof title !== 'string' || typeof content !== 'string') {
         res.status(400).json({ error: 'MISSING_REQUIRED_FIELD', message: '제목과 내용을 입력해주세요' });
