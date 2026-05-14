@@ -151,6 +151,8 @@ async function init() {
 
   if (_editId) {
     document.getElementById('pageTitle').textContent = '공지사항 수정';
+    const mt = document.getElementById('mobileTitle');
+    if (mt) mt.textContent = '공지사항 수정';
     try {
       const existing = await getAnnouncement(_editId);
       buildForm({ title: existing.title, content: existing.content });

@@ -201,7 +201,6 @@ function init() {
   document.getElementById('modalClose').addEventListener('click', closeModal);
   document.getElementById('modalCancel').addEventListener('click', closeModal);
   document.getElementById('modalSubmit').addEventListener('click', handleSubmit);
-  document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   document.getElementById('modal').addEventListener('click', (e) => {
     if (e.target.id === 'modal') closeModal();
   });

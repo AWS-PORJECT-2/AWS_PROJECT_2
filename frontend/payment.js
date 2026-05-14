@@ -349,8 +349,6 @@ async function handleReportPayment() {
 
 /* ===== 초기화 ===== */
 async function init() {
-  document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
-
   try { await getCurrentUser(); } catch (_) { return; }
 
   const product = parseProduct();

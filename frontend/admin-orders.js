@@ -113,7 +113,11 @@ async function loadList() {
 }
 
 function init() {
-  document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
+  document.getElementById('imgClose').addEventListener('click', closeImageModal);
+  document.getElementById('imgModal').addEventListener('click', (e) => {
+    if (e.target.id === 'imgModal') closeImageModal();
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeImageModal(); });
   loadList();
 }
 

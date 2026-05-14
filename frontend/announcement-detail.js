@@ -107,12 +107,6 @@ async function init() {
   }
 
   _currentUser = await getCurrentUserOptional();
-  if (_currentUser) {
-    document.getElementById('logoutLink').style.display = '';
-    document.getElementById('logoutLink').addEventListener('click', (e) => {
-      e.preventDefault(); logout();
-    });
-  }
 
   try {
     _announcement = await getAnnouncement(id);

@@ -80,7 +80,6 @@ async function loadOrders() {
 }
 
 function init() {
-  document.getElementById('logoutLink').addEventListener('click', (e) => { e.preventDefault(); logout(); });
   loadOrders();
 }
 

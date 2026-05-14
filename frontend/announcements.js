@@ -122,14 +122,8 @@ async function loadList() {
 async function init() {
   _currentUser = await getCurrentUserOptional();
 
-  if (_currentUser) {
-    document.getElementById('logoutLink').style.display = '';
-    document.getElementById('logoutLink').addEventListener('click', (e) => {
-      e.preventDefault(); logout();
-    });
-    if (_currentUser.role === 'ADMIN') {
-      document.getElementById('btnWrite').style.display = '';
-    }
+  if (_currentUser && _currentUser.role === 'ADMIN') {
+    document.getElementById('btnWrite').style.display = '';
   }
 
   loadList();
