@@ -13,6 +13,7 @@ let _selectedAddressId = null;
 let _addresses = [];
 let _orderItems = [];
 let _totalPrice = 0;
+let _fundId = null;
 let _createdOrder = null;
 
 /* ===== URL 파라미터에서 상품 정보 추출 ===== */
@@ -165,6 +166,7 @@ async function handleCreateOrder() {
 
   try {
     _createdOrder = await createOrder({
+      fundId: _fundId,
       shippingAddressId: _selectedAddressId,
       items: _orderItems,
     });
@@ -379,6 +381,7 @@ async function init() {
     location.href = '/feed.html';
     return;
   }
+  _fundId = product.id;
   _orderItems = [{
     productName: product.title,
     size: product.size,
