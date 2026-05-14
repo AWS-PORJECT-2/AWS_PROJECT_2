@@ -234,13 +234,8 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
   }
 
   async getUserOrders(userId: number): Promise<OrderDetailResponse[]> {
-    const orders = await this.orderRepo.findByUserId(userId);
-    const details: OrderDetailResponse[] = [];
-    for (const order of orders) {
-      const detail = await this.orderRepo.findById(order.id);
-      if (detail) details.push(detail);
-    }
-    return details;
+    // 배치 조회로 N+1 회피
+    return this.orderRepo.findDetailsByUserId(userId);
   }
 
   async getPendingOrders(): Promise<OrderDetailResponse[]> {
