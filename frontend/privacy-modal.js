@@ -149,7 +149,7 @@
       '<h3>8. 개인정보 보호책임자</h3>',
       '<table><tbody>',
       '<tr><th style="width:30%">담당</th><td>두띵(Doothing) 운영팀 (국민대학교 소프트웨어학부)</td></tr>',
-      '<tr><th>이메일</th><td>doothing@kookmin.ac.kr</td></tr>',
+      '<tr><th>이메일</th><td>cnrtnsms@kookmin.ac.kr</td></tr>',
       '</tbody></table>',
       '<p class="note">개인정보 침해 신고: 개인정보 침해신고센터 ☎ 118 / 개인정보 분쟁조정위원회 ☎ 1833-6972</p>',
 
