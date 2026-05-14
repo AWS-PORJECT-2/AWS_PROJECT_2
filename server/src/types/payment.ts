@@ -57,13 +57,16 @@ export interface ShippingAddress {
 
 // Request/Response DTOs
 export interface CreateOrderRequest {
-  fundId?: number;
+  fundId: number;
   shippingAddressId: number;
   items: {
     productName: string;
     size?: string;
     quantity: number;
-    price: number;
+    /** ⚠️ 클라이언트가 보내도 서버에서 무시하고 funds.unit_price 를 사용한다.
+     *  타입에서 제거하면 기존 프론트와 호환이 깨지므로 optional 로만 남기되,
+     *  서버 로직은 절대 신뢰하지 않음. */
+    price?: number;
   }[];
 }
 
