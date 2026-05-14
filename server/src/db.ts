@@ -11,13 +11,22 @@ import { logger } from './logger.js';
  */
 function buildSslConfig() {
   const caPath = process.env.DB_SSL_CA;
-  if (caPath && fs.existsSync(caPath)) {
-    return {
-      ca: fs.readFileSync(caPath, 'utf8'),
-      rejectUnauthorized: true,
-    };
+  // 환경변수 미설정 → SSL 없이 연결
+  if (!caPath) return undefined;
+
+  // 경로가 명시됐는데 파일이 없으면 Fail-Closed
+  if (!fs.existsSync(caPath)) {
+    throw new Error(
+      `[DB SSL] DB_SSL_CA 경로에 파일이 존재하지 않습니다: "${caPath}"\n` +
+      `  - 경로 오타 또는 파일 누락을 확인해주세요.\n` +
+      `  - SSL 없이 연결하려면 DB_SSL_CA 환경변수를 제거하세요.`
+    );
   }
-  return undefined;
+
+  return {
+    ca: fs.readFileSync(caPath, 'utf8'),
+    rejectUnauthorized: true,
+  };
 }
 
 function requireEnv(name: string): string {
