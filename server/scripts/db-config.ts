@@ -23,6 +23,18 @@ function buildSsl() {
 }
 
 /**
+ * 포트는 누락 시 3306 기본값. 잘못된 값(NaN/0/음수)은 즉시 throw.
+ */
+function getPort(): number {
+  const raw = process.env.DB_PORT;
+  const n = Number(raw ?? 3306);
+  if (!Number.isInteger(n) || n <= 0 || n > 65535) {
+    throw new Error(`환경변수 DB_PORT 값이 유효하지 않습니다: "${raw}"`);
+  }
+  return n;
+}
+
+/**
  * doothing 데이터베이스에 직접 연결하는 옵션.
  */
 export function getDbConnectionOptions(): ConnectionOptions {
@@ -30,7 +42,7 @@ export function getDbConnectionOptions(): ConnectionOptions {
     host: requireEnv('DB_HOST'),
     user: requireEnv('DB_USER'),
     password: requireEnv('DB_PASSWORD'),
-    port: parseInt(requireEnv('DB_PORT'), 10),
+    port: getPort(),
     database: requireEnv('DB_NAME'),
     ssl: buildSsl(),
   };
@@ -44,7 +56,7 @@ export function getRootConnectionOptions(): ConnectionOptions {
     host: requireEnv('DB_HOST'),
     user: requireEnv('DB_USER'),
     password: requireEnv('DB_PASSWORD'),
-    port: parseInt(requireEnv('DB_PORT'), 10),
+    port: getPort(),
     ssl: buildSsl(),
   };
 }
