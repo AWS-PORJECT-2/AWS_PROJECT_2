@@ -21,11 +21,10 @@ function parseProduct() {
   const id = Number(params.get('id'));
   const size = params.get('size') || 'Free';
   if (!id) return null;
-  if (typeof MOCK_PRODUCTS === 'undefined') {
-    return { id, title: '상품 #' + id, size, price: 1, quantity: 1 };
-  }
+
   const product = MOCK_PRODUCTS.find((p) => p.id === id);
   if (!product) return null;
+
   const price = parseInt(String(product.priceText || '').replace(/[^0-9]/g, ''), 10) || (product.price || 1);
   return {
     id: product.id,
