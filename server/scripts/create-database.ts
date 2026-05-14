@@ -4,16 +4,34 @@ import { getRootConnectionOptions, getDbConnectionOptions } from './db-config.js
 
 /**
  * MySQL 데이터베이스 및 테이블 생성 스크립트.
- * - users (FK 참조의 시작점)
- * - shipping_addresses
- * - orders
- * - order_items
- * - payment_proofs
- * - payment_confirmations
  *
- * 모든 FK 관계를 명시적으로 설정.
- * 자격증명은 .env 의 환경변수에서만 가져온다.
+ * 안전 정책:
+ *  - production 환경에서는 절대 실행 불가 (process 즉시 종료)
+ *  - 테이블 DROP 은 RESET_SCHEMA=true 일 때만 실행
+ *  - 그 외에는 CREATE TABLE IF NOT EXISTS 만 수행하므로 기존 데이터를 보존
+ *
+ * 사용법:
+ *  - 최초 부트스트랩: NODE_ENV=development npx tsx scripts/create-database.ts
+ *  - 스키마 초기화 (개발용):
+ *      NODE_ENV=development RESET_SCHEMA=true npx tsx scripts/create-database.ts
  */
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
+const SHOULD_RESET_SCHEMA = process.env.RESET_SCHEMA === 'true';
+
+// === 운영 환경 원천 차단 ===
+if (IS_PRODUCTION) {
+  console.error('❌ [SAFETY] NODE_ENV=production 에서는 create-database 스크립트를 실행할 수 없습니다.');
+  console.error('   운영 DB 변경은 정식 마이그레이션(migrations/)을 사용해주세요.');
+  process.exit(1);
+}
+
+// === RESET_SCHEMA 가드 ===
+if (SHOULD_RESET_SCHEMA && IS_PRODUCTION) {
+  // 위에서 이미 차단되지만 이중 안전장치
+  console.error('❌ [SAFETY] production 에서 RESET_SCHEMA 사용 불가');
+  process.exit(1);
+}
 
 async function createDatabase() {
   // 1) 데이터베이스 자체 생성 (database 미지정 연결)
@@ -49,19 +67,28 @@ async function createDatabase() {
     `);
     console.log('✓ users 테이블');
 
-    // 기존 테이블 삭제 후 재생성 (FK 관계 정리)
-    // 자식부터 부모 순으로 drop
-    await conn.query('SET FOREIGN_KEY_CHECKS = 0');
-    await conn.query('DROP TABLE IF EXISTS payment_confirmations');
-    await conn.query('DROP TABLE IF EXISTS payment_proofs');
-    await conn.query('DROP TABLE IF EXISTS order_items');
-    await conn.query('DROP TABLE IF EXISTS orders');
-    await conn.query('DROP TABLE IF EXISTS shipping_addresses');
-    await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+    // === 파괴적 작업: RESET_SCHEMA=true 일 때만 ===
+    if (SHOULD_RESET_SCHEMA) {
+      console.warn('⚠️  RESET_SCHEMA=true — 기존 테이블을 모두 DROP 합니다.');
+      try {
+        await conn.query('SET FOREIGN_KEY_CHECKS = 0');
+        await conn.query('DROP TABLE IF EXISTS payment_confirmations');
+        await conn.query('DROP TABLE IF EXISTS payment_proofs');
+        await conn.query('DROP TABLE IF EXISTS order_items');
+        await conn.query('DROP TABLE IF EXISTS orders');
+        await conn.query('DROP TABLE IF EXISTS shipping_addresses');
+        console.log('✓ 기존 테이블 DROP 완료');
+      } finally {
+        // 어떤 경우에도 외래키 검사 복구
+        await conn.query('SET FOREIGN_KEY_CHECKS = 1');
+      }
+    } else {
+      console.log('• RESET_SCHEMA 미설정 — 기존 데이터 보존 (CREATE TABLE IF NOT EXISTS)');
+    }
 
     // 2. shipping_addresses (users FK)
     await conn.query(`
-      CREATE TABLE shipping_addresses (
+      CREATE TABLE IF NOT EXISTS shipping_addresses (
         id INT AUTO_INCREMENT PRIMARY KEY,
         user_id INT NOT NULL,
         label VARCHAR(50) NOT NULL COMMENT '배송지 별칭',
@@ -83,7 +110,7 @@ async function createDatabase() {
 
     // 3. orders (users FK + shipping_addresses FK)
     await conn.query(`
-      CREATE TABLE orders (
+      CREATE TABLE IF NOT EXISTS orders (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_number VARCHAR(50) NOT NULL UNIQUE,
         user_id INT NOT NULL,
@@ -103,7 +130,7 @@ async function createDatabase() {
 
     // 4. order_items (orders FK)
     await conn.query(`
-      CREATE TABLE order_items (
+      CREATE TABLE IF NOT EXISTS order_items (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_id INT NOT NULL,
         product_name VARCHAR(200) NOT NULL,
@@ -119,7 +146,7 @@ async function createDatabase() {
 
     // 5. payment_proofs (orders FK)
     await conn.query(`
-      CREATE TABLE payment_proofs (
+      CREATE TABLE IF NOT EXISTS payment_proofs (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_id INT NOT NULL,
         depositor_name VARCHAR(100) NOT NULL,
@@ -134,7 +161,7 @@ async function createDatabase() {
 
     // 6. payment_confirmations (orders FK + users FK)
     await conn.query(`
-      CREATE TABLE payment_confirmations (
+      CREATE TABLE IF NOT EXISTS payment_confirmations (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_id INT NOT NULL,
         confirmed_by INT NOT NULL COMMENT '관리자 user.id',
