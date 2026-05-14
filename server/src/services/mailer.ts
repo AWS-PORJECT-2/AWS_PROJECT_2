@@ -39,7 +39,20 @@ function getTransporter(): Transporter | null {
     return null;
   }
 
-  const port = parseInt(portStr, 10);
+  // === 포트 정밀 검증 ===
+  // parseInt 가 NaN/0/음수/65535 초과 같은 비정상 값을 통과시키면
+  // nodemailer.createTransport 가 만들어는 지지만 실제 발송 시 모두 실패.
+  // 그래서 여기서 fail-safe 로 차단하고 DRY_RUN 으로 전환.
+  const port = Number.parseInt(portStr, 10);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    logger.warn(
+      { portStr },
+      'Mailer: SMTP_PORT 값이 유효하지 않습니다 (1~65535 정수 필요) — DRY_RUN 모드로 전환됨'
+    );
+    _isDryRun = true;
+    return null;
+  }
+
   const secure = process.env.SMTP_SECURE === 'true' || port === 465;
 
   _transporter = nodemailer.createTransport({
