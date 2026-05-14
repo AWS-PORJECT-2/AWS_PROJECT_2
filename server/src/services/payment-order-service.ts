@@ -1,4 +1,5 @@
 import type { Pool, ResultSetHeader } from 'mysql2/promise';
+import { randomBytes } from 'node:crypto';
 import type { OrderRepository } from '../repositories/order-repository.js';
 import type { PaymentProofRepository } from '../repositories/payment-proof-repository.js';
 import type { PaymentConfirmationRepository } from '../repositories/payment-confirmation-repository.js';
@@ -103,23 +104,44 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
       throw new AppError('INTERNAL_ERROR', '주문 총액이 유효하지 않습니다');
     }
 
-    // 주문번호: ORD-YYYYMMDD-XXXXX
+    // === 주문번호 생성 + 재시도 (CSPRNG 기반) ===
+    // 형식: ORD-YYYYMMDD-XXXXXXXXXX (날짜 + Base36 10자리, 대문자)
+    // 엔트로피: 36^10 ≈ 3.65 × 10^15 — 일일 충돌 확률 사실상 0.
+    // UNIQUE 제약 위반(ER_DUP_ENTRY) 발생 시 최대 5회 재시도.
     const now = new Date();
     const dateStr = now.toISOString().slice(0, 10).replace(/-/g, '');
-    const randomSuffix = Math.floor(Math.random() * 100000).toString().padStart(5, '0');
-    const orderNumber = `ORD-${dateStr}-${randomSuffix}`;
 
-    const order = await this.orderRepo.create(
-      {
-        orderNumber,
-        userId,
-        fundId,
-        shippingAddressId: request.shippingAddressId,
-        totalPrice, // 서버 계산값
-        status: 'PENDING',
-      },
-      safeItems
-    );
+    const MAX_ATTEMPTS = 5;
+    let order;
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const orderNumber = `ORD-${dateStr}-${generateOrderSuffix()}`;
+      try {
+        order = await this.orderRepo.create(
+          {
+            orderNumber,
+            userId,
+            fundId,
+            shippingAddressId: request.shippingAddressId,
+            totalPrice, // 서버 계산값
+            status: 'PENDING',
+          },
+          safeItems
+        );
+        break; // 성공
+      } catch (err: unknown) {
+        const e = err as { code?: string; errno?: number };
+        const isDup = e.code === 'ER_DUP_ENTRY' || e.errno === 1062;
+        if (!isDup) throw err;
+        lastError = err;
+        // 충돌 — 다음 시도
+        logger.warn({ attempt, orderNumber }, '주문번호 충돌 — 재시도');
+      }
+    }
+    if (!order) {
+      logger.error({ err: lastError, attempts: MAX_ATTEMPTS }, '주문번호 충돌이 반복되어 생성 실패');
+      throw new AppError('INTERNAL_ERROR', '주문번호 생성에 일시적 문제가 발생했습니다. 잠시 후 다시 시도해주세요');
+    }
 
     return {
       orderId: order.id,
@@ -307,4 +329,17 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
   async getPendingOrders(): Promise<OrderDetailResponse[]> {
     return this.orderRepo.findPendingOrders();
   }
+}
+
+/**
+ * 암호학적으로 안전한 주문번호 접미사.
+ *  - randomBytes(8) → BigInt → Base36 (대문자) → 좌측 0 패딩 10자리
+ *  - 엔트로피: 36^10 ≈ 3.65 × 10^15
+ */
+function generateOrderSuffix(): string {
+  const buf = randomBytes(8);
+  const big = buf.readBigUInt64BE(0);
+  const max = 36n ** 10n;
+  const v = big % max;
+  return v.toString(36).toUpperCase().padStart(10, '0');
 }
