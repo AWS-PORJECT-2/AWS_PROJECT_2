@@ -209,6 +209,13 @@ function renderPayStep() {
 
   const info = _createdOrder.bankInfo;
 
+  // bankInfo 방어 — 누락 시 주문 내역으로 이동
+  if (!info || !info.bankName || !info.accountNumber) {
+    alert('입금 계좌 정보를 불러오지 못했습니다. 주문 내역에서 다시 시도해 주세요.');
+    location.href = '/my-orders.html';
+    return;
+  }
+
   // 은행
   const r1 = document.createElement('div');
   r1.className = 'bank-line';
@@ -228,10 +235,19 @@ function renderPayStep() {
   copyBtn.className = 'copy-btn';
   copyBtn.textContent = '복사';
   copyBtn.addEventListener('click', () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(info.accountNumber.replace(/-/g, ''))
-        .then(() => { copyBtn.textContent = '✓ 복사됨'; setTimeout(() => (copyBtn.textContent = '복사'), 1500); })
-        .catch(() => alert('복사에 실패했습니다.'));
+    const raw = info.accountNumber.replace(/-/g, '');
+
+    // Clipboard API 지원 여부 확인 (HTTPS/localhost 보안 컨텍스트 필요)
+    if (window.isSecureContext && navigator.clipboard) {
+      navigator.clipboard.writeText(raw)
+        .then(() => {
+          copyBtn.textContent = '✓ 복사됨';
+          setTimeout(() => (copyBtn.textContent = '복사'), 1500);
+        })
+        .catch(() => fallbackCopy(raw, copyBtn));
+    } else {
+      // 폴백: execCommand 방식 (구형 브라우저 / HTTP 환경)
+      fallbackCopy(raw, copyBtn);
     }
   });
   wrap2.appendChild(v2); wrap2.appendChild(copyBtn);
@@ -389,4 +405,30 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
+}
+
+/**
+ * 클립보드 API 미지원 환경 폴백.
+ * 1) document.execCommand('copy') 시도 (구형 브라우저)
+ * 2) 실패 시 alert 으로 수동 복사 안내
+ */
+function fallbackCopy(text, btn) {
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    const ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (ok) {
+      btn.textContent = '✓ 복사됨';
+      setTimeout(() => (btn.textContent = '복사'), 1500);
+    } else {
+      throw new Error('execCommand 실패');
+    }
+  } catch (_) {
+    alert('자동 복사를 지원하지 않는 환경입니다.\n계좌번호를 직접 선택해 복사해 주세요: ' + text);
+  }
 }
