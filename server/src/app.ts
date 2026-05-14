@@ -16,6 +16,7 @@ import { MySQLPaymentProofRepository } from './repositories/payment-proof-reposi
 import { MySQLPaymentConfirmationRepository } from './repositories/payment-confirmation-repository.js';
 import { MySQLAnnouncementRepository } from './repositories/announcement-repository.js';
 import { MySQLChatRepository } from './repositories/chat-repository.js';
+import { MySQLFundRepository } from './repositories/fund-repository.js';
 
 import { ShippingAddressService } from './services/shipping-address-service.js';
 import { PaymentOrderServiceImpl } from './services/payment-order-service.js';
@@ -51,10 +52,11 @@ export async function createApp(): Promise<AppContext> {
   const confirmRepo = new MySQLPaymentConfirmationRepository(pool);
   const announcementRepo = new MySQLAnnouncementRepository(pool);
   const chatRepo = new MySQLChatRepository(pool);
+  const fundRepo = new MySQLFundRepository(pool);
 
   // --- Services ---
   const addressService = new ShippingAddressService(pool, addressRepo);
-  const paymentOrderService = new PaymentOrderServiceImpl(pool, orderRepo, proofRepo, confirmRepo);
+  const paymentOrderService = new PaymentOrderServiceImpl(pool, orderRepo, proofRepo, confirmRepo, fundRepo);
 
   // --- Auth ---
   app.use('/api/dev-auth', createDevAuthRouter(userRepo));

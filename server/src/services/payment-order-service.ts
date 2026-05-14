@@ -2,6 +2,7 @@ import type { Pool } from 'mysql2/promise';
 import type { OrderRepository } from '../repositories/order-repository.js';
 import type { PaymentProofRepository } from '../repositories/payment-proof-repository.js';
 import type { PaymentConfirmationRepository } from '../repositories/payment-confirmation-repository.js';
+import type { FundRepository } from '../repositories/fund-repository.js';
 import type {
   CreateOrderRequest,
   CreateOrderResponse,
@@ -11,6 +12,8 @@ import type {
   OrderDetailResponse,
 } from '../types/payment.js';
 import { AppError } from '../errors/app-error.js';
+import { sendMailBatch, buildFundCompletedMail } from './mailer.js';
+import { logger } from '../logger.js';
 
 export interface PaymentOrderService {
   createOrder(userId: number, request: CreateOrderRequest): Promise<CreateOrderResponse>;
@@ -26,7 +29,8 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
     private pool: Pool,
     private orderRepo: OrderRepository,
     private proofRepo: PaymentProofRepository,
-    private confirmRepo: PaymentConfirmationRepository
+    private confirmRepo: PaymentConfirmationRepository,
+    private fundRepo?: FundRepository
   ) {}
 
   async createOrder(userId: number, request: CreateOrderRequest): Promise<CreateOrderResponse> {
@@ -125,6 +129,7 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
    * - WAITING_FOR_CONFIRM 상태에서만 허용.
    * - orders.status=PAID + payment_proofs.is_confirmed=true + payment_confirmations 인서트를
    *   하나의 트랜잭션으로 처리.
+   * - fund_id 가 있으면 funds.current_amount 증가. 100% 도달 시 알림 발송 트리거.
    */
   async confirmPayment(adminId: number, orderId: number, request: ConfirmPaymentRequest): Promise<ConfirmPaymentResponse> {
     const order = await this.orderRepo.findById(orderId);
@@ -135,6 +140,9 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
     if (!order.proof) {
       throw new AppError('NO_PROOF_UPLOADED', '입금 보고가 되지 않은 주문입니다');
     }
+
+    let fundIdToNotify: number | null = null;
+    let fundTitleToNotify: string | null = null;
 
     const conn = await this.pool.getConnection();
     try {
@@ -159,7 +167,30 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
         conn
       );
 
+      // 4) fund 누적치 증가 + 100% 달성 검증
+      if (order.fundId && this.fundRepo) {
+        const updatedFund = await this.fundRepo.incrementCurrentAmount(order.fundId, 1, conn);
+        if (
+          updatedFund &&
+          !updatedFund.isNotified &&
+          updatedFund.targetAmount > 0 &&
+          updatedFund.currentAmount >= updatedFund.targetAmount
+        ) {
+          // 트랜잭션 안에서 is_notified=true 로 마킹 (중복 발송 방지)
+          await this.fundRepo.markAsNotified(order.fundId, conn);
+          fundIdToNotify = updatedFund.id;
+          fundTitleToNotify = updatedFund.title;
+        }
+      }
+
       await conn.commit();
+
+      // 트랜잭션 커밋 후 비동기 메일 발송 (응답 차단하지 않음)
+      if (fundIdToNotify !== null && fundTitleToNotify !== null && this.fundRepo) {
+        this.sendFundCompletedNotification(fundIdToNotify, fundTitleToNotify).catch((err) => {
+          logger.error({ err, fundId: fundIdToNotify }, '펀딩 달성 알림 메일 발송 실패');
+        });
+      }
 
       return {
         orderId,
@@ -173,6 +204,26 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
     } finally {
       conn.release();
     }
+  }
+
+  /**
+   * 100% 달성 알림 - 해당 fund 에 주문을 넣은 모든 유저의 학교 이메일로 발송.
+   * Promise.all 로 병렬 처리, 실패는 로그로만 남김.
+   */
+  private async sendFundCompletedNotification(fundId: number, fundTitle: string): Promise<void> {
+    if (!this.fundRepo) return;
+    const recipients = await this.fundRepo.getOrderUserEmails(fundId);
+    if (recipients.length === 0) {
+      logger.info({ fundId, fundTitle }, '펀딩 100% 달성 — 발송 대상자 없음');
+      return;
+    }
+
+    const messages = recipients.map((r) => buildFundCompletedMail(r.email, fundTitle));
+    const result = await sendMailBatch(messages);
+    logger.info(
+      { fundId, fundTitle, recipients: recipients.length, ...result },
+      '펀딩 100% 달성 알림 발송'
+    );
   }
 
   async getOrderDetail(userId: number, orderId: number): Promise<OrderDetailResponse> {
