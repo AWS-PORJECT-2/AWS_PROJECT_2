@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>관리자 1:1 상담 - 두띵</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      background: #f6f8fb; color: #1a1a1a; min-height: 100vh;
+      overflow: hidden;
+    }
+    .topbar {
+      background: #1f2937; color: #fff; padding: 12px 20px;
+      display: flex; justify-content: space-between; align-items: center;
+      height: 52px;
+    }
+    .topbar a { color: #fbbf24; text-decoration: none; font-size: 13px; }
+    .topbar .title { font-weight: 800; font-size: 15px; }
+    .topbar .conn {
+      font-size: 11px; padding: 3px 8px; border-radius: 999px;
+      background: #fef3c7; color: #92400e;
+    }
+    .topbar .conn.online { background: #dcfce7; color: #166534; }
+
+    .layout {
+      display: flex;
+      height: calc(100vh - 52px);
+      height: calc(100dvh - 52px);
+    }
+
+    /* 좌측: 방 목록 */
+    .room-list {
+      width: 320px;
+      flex-shrink: 0;
+      background: #fff;
+      border-right: 1px solid #e5e7eb;
+      overflow-y: auto;
+    }
+    .room-list-head {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      font-size: 14px; font-weight: 700;
+      color: #1a1a1a;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .room-list-head .count {
+      font-size: 11px; padding: 2px 8px; border-radius: 999px;
+      background: #eff6ff; color: #2563eb; font-weight: 700;
+    }
+    .room-item {
+      padding: 14px 20px;
+      border-bottom: 1px solid #f3f4f6;
+      cursor: pointer;
+      display: flex; gap: 12px;
+      transition: background 0.1s;
+    }
+    .room-item:hover { background: #f9fafb; }
+    .room-item.active { background: #eff6ff; }
+    .room-avatar {
+      width: 42px; height: 42px; border-radius: 50%;
+      background: #2563eb; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 14px;
+      flex-shrink: 0;
+    }
+    .room-info { flex: 1; min-width: 0; }
+    .room-name-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 4px;
+    }
+    .room-name {
+      font-size: 14px; font-weight: 700; color: #1a1a1a;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .room-time {
+      font-size: 11px; color: #9ca3af; flex-shrink: 0;
+    }
+    .room-last-row {
+      display: flex; justify-content: space-between; align-items: center; gap: 8px;
+    }
+    .room-last {
+      flex: 1; font-size: 13px; color: #6b7280;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .unread-badge {
+      background: #ef4444; color: #fff;
+      font-size: 11px; font-weight: 700;
+      min-width: 18px; height: 18px; border-radius: 999px;
+      padding: 0 6px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .room-empty {
+      padding: 40px 20px; text-align: center; color: #9ca3af; font-size: 13px;
+    }
+
+    /* 우측: 채팅창 */
+    .chat-pane {
+      flex: 1;
+      display: flex; flex-direction: column;
+      background: #b2c7d9;
+    }
+    .chat-pane-head {
+      background: #fff;
+      padding: 14px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      font-weight: 700;
+    }
+    .chat-pane-empty {
+      flex: 1; display: flex; align-items: center; justify-content: center;
+      color: #6b7280; font-size: 14px;
+      flex-direction: column; gap: 12px;
+    }
+    .chat-pane-messages {
+      flex: 1; overflow-y: auto; padding: 16px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .msg-row { display: flex; align-items: flex-end; gap: 6px; }
+    .msg-row.me { flex-direction: row-reverse; }
+    .msg-bubble {
+      max-width: 70%; padding: 10px 14px; border-radius: 16px;
+      font-size: 14px; line-height: 1.5; word-break: break-word;
+      white-space: pre-wrap;
+    }
+    .msg-row.user .msg-bubble {
+      background: #fff; color: #1a1a1a; border-bottom-left-radius: 4px;
+    }
+    .msg-row.me .msg-bubble {
+      background: #2563eb; color: #fff; border-bottom-right-radius: 4px;
+    }
+    .msg-time { font-size: 10px; color: #6b7280; white-space: nowrap; }
+    .user-avatar {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: #6b7280; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700;
+      flex-shrink: 0; align-self: flex-start;
+    }
+
+    .day-divider { text-align: center; font-size: 11px; color: #6b7280; padding: 10px 0; }
+
+    .chat-pane-input {
+      display: flex; gap: 8px;
+      padding: 12px 16px; background: #fff; border-top: 1px solid #e5e7eb;
+    }
+    .chat-pane-input input {
+      flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px;
+      font-size: 14px; outline: none;
+    }
+    .chat-pane-input input:focus { border-color: #2563eb; }
+    .chat-pane-input button {
+      padding: 0 20px; background: #2563eb; color: #fff;
+      border: none; border-radius: 20px; font-weight: 700; cursor: pointer;
+    }
+    .chat-pane-input button:hover { background: #1d4ed8; }
+    .chat-pane-input button:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    @media (max-width: 768px) {
+      .room-list { width: 100%; }
+      .layout.has-active .room-list { display: none; }
+      .layout:not(.has-active) .chat-pane { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <span class="title">🔧 doothing 관리자 — 1:1 상담</span>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <span id="connStatus" class="conn">연결 중...</span>
+      <a href="/admin-orders.html">주문 관리</a>
+      <a href="/settings.html">설정</a>
+    </div>
+  </div>
+
+  <div class="layout" id="layout">
+    <!-- 좌측: 방 목록 -->
+    <aside class="room-list">
+      <div class="room-list-head">
+        <span>대화 목록</span>
+        <span class="count" id="roomCount">0</span>
+      </div>
+      <div id="roomItems"></div>
+    </aside>
+
+    <!-- 우측: 채팅창 -->
+    <section class="chat-pane">
+      <div class="chat-pane-head" id="chatHead">대화방을 선택하세요</div>
+      <div id="chatBody" class="chat-pane-empty">
+        <svg width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5">
+          <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+        </svg>
+        <div>왼쪽에서 대화를 선택하세요</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="payment-api.js"></script>
+  <script src="admin-chat.js"></script>
+</body>
+</html>
