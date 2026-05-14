@@ -28,8 +28,8 @@ async function main() {
   const list1 = await call('/api/announcements');
   console.log('  →', list1.status, list1.body);
 
-  // 2) USER 로 글쓰기 시도 (403 기대)
-  console.log('\n2) USER - 글쓰기 (401 기대 - admin 라우트는 인증 우선 검사)');
+  // 2) USER 로 글쓰기 시도 — 인증된 일반 유저가 관리자 라우트 호출 → 403 FORBIDDEN
+  console.log('\n2) USER - 글쓰기 (403 기대 - 인증되었으나 ADMIN 권한 없음)');
   cookieHeader = '';
   await call('/api/dev-auth/login', { method: 'POST', body: JSON.stringify({ username: 'test_user' }) });
   const userPost = await call('/api/admin/announcements', {
