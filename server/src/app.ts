@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import express from 'express';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -15,6 +16,8 @@ import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
 import { PgRefreshTokenRepository } from './repositories/pg-refresh-token-repository.js';
+import { PgAddressRepository } from './repositories/pg-address-repository.js';
+import { createAddressRouter } from './routes/address.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
@@ -44,6 +47,7 @@ export function createApp(
 ) {
   const app = express();
   app.use(helmet());
+  app.use(compression());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
   app.use(express.json());
   app.use(cookieParser());
@@ -64,6 +68,10 @@ export function createApp(
   app.use('/api/auth/login', authRateLimit);
   app.use('/api/auth/refresh', authRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService));
+
+  const addressRepository = new PgAddressRepository(pool);
+  app.use('/api/addresses', createAddressRouter(addressRepository, tokenService));
+
   app.use(errorHandler);
   return app;
 }

@@ -9,3 +9,5 @@ export { InMemoryRefreshTokenRepository } from './refresh-token-repository.js';
 export { PgRefreshTokenRepository } from './pg-refresh-token-repository.js';
 export type { AllowedDomainRepository } from './allowed-domain-repository.js';
 export { InMemoryAllowedDomainRepository } from './allowed-domain-repository.js';
+export type { AddressRepository } from './address-repository.js';
+export { PgAddressRepository } from './pg-address-repository.js';
