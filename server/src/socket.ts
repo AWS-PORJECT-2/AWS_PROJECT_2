@@ -1,6 +1,6 @@
 import type { Server as HttpServer } from 'node:http';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
-import cookie from 'cookie';
+import * as cookie from 'cookie';
 import type { ChatRepository } from './repositories/chat-repository.js';
 import type { MySQLUserRepository, AppUser } from './repositories/mysql-user-repository.js';
 import { logger } from './logger.js';
