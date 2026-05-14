@@ -97,6 +97,34 @@ async function confirmPayment(orderId, memo) {
   });
 }
 
+/* ===== Announcements ===== */
+async function listAnnouncements(page = 1, pageSize = 20) {
+  return apiFetch('/announcements?page=' + page + '&pageSize=' + pageSize);
+}
+async function getAnnouncement(id) {
+  return apiFetch('/announcements/' + encodeURIComponent(id));
+}
+async function createAnnouncement(payload) {
+  return apiFetch('/admin/announcements', { method: 'POST', body: payload });
+}
+async function updateAnnouncement(id, payload) {
+  return apiFetch('/admin/announcements/' + encodeURIComponent(id), { method: 'PUT', body: payload });
+}
+async function deleteAnnouncement(id) {
+  return apiFetch('/admin/announcements/' + encodeURIComponent(id), { method: 'DELETE' });
+}
+
+/* ===== Optional auth (no redirect on 401) ===== */
+async function getCurrentUserOptional() {
+  try {
+    const res = await fetch(API_BASE_URL + '/dev-auth/me', { credentials: 'include' });
+    if (!res.ok) return null;
+    return await res.json();
+  } catch (_) {
+    return null;
+  }
+}
+
 /* ===== Helpers ===== */
 function formatPrice(n) {
   return Number(n || 0).toLocaleString('ko-KR') + '원';
