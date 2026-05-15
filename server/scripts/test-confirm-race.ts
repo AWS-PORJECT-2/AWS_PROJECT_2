@@ -42,10 +42,12 @@ async function main() {
 
   // 2) test_user 주문 + 입금보고
   const userLogin = await call('/api/dev-auth/login', { method: 'POST', body: JSON.stringify({ username: 'test_user' }) });
+  if (userLogin.status !== 200) throw new Error(`[Setup] test_user 로그인 실패: ${userLogin.status} ${JSON.stringify(userLogin.body)}`);
   const userCookie = userLogin.cookie;
 
   // 배송지
   const addrList = await call('/api/shipping-addresses', {}, userCookie);
+  if (addrList.status !== 200) throw new Error(`[Setup] 배송지 목록 조회 실패: ${addrList.status}`);
   let addressId = (addrList.body as { id: number }[])[0]?.id;
   if (!addressId) {
     const c = await call('/api/shipping-addresses', {
@@ -55,6 +57,7 @@ async function main() {
         postalCode: '0', roadAddress: 'X',
       }),
     }, userCookie);
+    if (c.status !== 201) throw new Error(`[Setup] 배송지 생성 실패: ${c.status} ${JSON.stringify(c.body)}`);
     addressId = (c.body as { id: number }).id;
   }
 
@@ -66,15 +69,19 @@ async function main() {
       items: [{ productName: '에코백', size: 'Free', quantity: 1 }],
     }),
   }, userCookie);
+  if (order.status !== 201) throw new Error(`[Setup] 주문 생성 실패: ${order.status} ${JSON.stringify(order.body)}`);
   const orderId = (order.body as { orderId: number }).orderId;
-  await call('/api/payment-orders/' + orderId + '/report', {
+
+  const report = await call('/api/payment-orders/' + orderId + '/report', {
     method: 'POST',
     body: JSON.stringify({ depositorName: '테스트' }),
   }, userCookie);
+  if (report.status !== 200) throw new Error(`[Setup] 입금 보고 실패: ${report.status} ${JSON.stringify(report.body)}`);
   console.log(`✓ 주문 생성 + 입금 보고: orderId=${orderId}`);
 
   // 3) admin 으로 동시 5회 승인 시도
   const adminLogin = await call('/api/dev-auth/login', { method: 'POST', body: JSON.stringify({ username: 'admin' }) });
+  if (adminLogin.status !== 200) throw new Error(`[Setup] admin 로그인 실패: ${adminLogin.status}`);
   const adminCookie = adminLogin.cookie;
 
   console.log('\n동시 승인 5회 시도...');
