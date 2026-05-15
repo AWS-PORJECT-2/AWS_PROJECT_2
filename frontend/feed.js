@@ -1,6 +1,6 @@
 /**
  * 공구 피드 페이지
- * - 카테고리 필터 (전체/의류/문구/잡화/기타)
+ * - 카테고리 필터 (전체/과잠/반팔티/에코백)
  * - 학과 필터
  * - 정렬 (인기순/최신순)
  *
@@ -32,7 +32,7 @@ function renderCategoryChips() {
   if (!container) return;
 
   const esc = window.escapeHTML;
-  const categories = ['전체', '의류', '문구', '잡화', '기타'];
+  const categories = ['전체', '과잠', '반팔티', '에코백'];
   container.innerHTML = categories
     .map((cat) => {
       const isActive = cat === currentCategory;
@@ -83,7 +83,7 @@ function getProcessedProducts() {
   // 1. 카테고리 필터
   let filtered = currentCategory === '전체'
     ? [...products]
-    : products.filter((p) => (p.category || '기타') === currentCategory);
+    : products.filter((p) => p.category === currentCategory);
 
   // 2. 학과 필터
   if (currentDept !== 'all') {
@@ -126,7 +126,6 @@ function renderFeedList() {
       const meta = esc(item.meta);
       const priceText = esc(item.priceText);
       const imageUrl = esc(item.imageUrl);
-      const comments = esc(item.comments);
       const likeCount = esc(item.likeCount);
       return `
     <article class="feed-item" onclick="location.href='detail.html?id=${id}'">
@@ -143,10 +142,6 @@ function renderFeedList() {
           <span class="feed-progress">${rate}% 달성</span>
         </div>
         <div class="feed-stats">
-          <span class="feed-stat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-            ${comments}
-          </span>
           <span class="feed-stat">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
             ${likeCount}

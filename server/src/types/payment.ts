@@ -1,120 +1,110 @@
-export type GroupBuyStatus = 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
-export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
-export type OrderStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled';
-export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
-export type RefundStatus = 'requested' | 'completed' | 'failed';
+// 무통장 입금 결제 시스템 타입 정의
 
-export interface ProductOption {
-  size: string;
-  color: string;
-  stock?: number;
-}
-
-export interface GroupBuy {
-  id: string;
-  creatorId: string;
-  fundId: string | null;
-  title: string;
-  description: string;
-  productOptions: ProductOption[];
-  basePrice: number;
-  designFee: number;
-  platformFee: number;
-  finalPrice: number;
-  targetQuantity: number;
-  currentQuantity: number;
-  deadline: Date;
-  status: GroupBuyStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export interface Participation {
-  id: string;
-  groupbuyId: string;
-  userId: string;
-  billingKey: string;
-  selectedOptions: Record<string, string>;
-  quantity: number;
-  status: ParticipationStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-export type OrderKind = 'groupbuy' | 'one_off';
+export type OrderStatus = 'PENDING' | 'WAITING_FOR_CONFIRM' | 'PAID' | 'CANCELLED' | 'REFUNDED';
 
 export interface Order {
-  id: string;
-  /** 결제 경로 구분. groupbuy=공동구매(participation 보유), one_off=단건결제(orders-prepare). */
-  kind: OrderKind;
-  /** groupbuy 일 때만 유효. one_off 면 null. */
-  participationId: string | null;
-  userId: string;
-  /** groupbuy 일 때만 UUID. one_off 는 productId 문자열을 보관 (참조무결성 없음). */
-  groupbuyId: string | null;
-  /** one_off 일 때만 의미있음 (productId 문자열). groupbuy 는 null. */
-  productRef: string | null;
-  amount: number;
+  id: number;
+  orderNumber: string;
+  userId: number;
+  fundId: number | null;
+  shippingAddressId: number | null;
+  totalPrice: number;
   status: OrderStatus;
-  pgPaymentId: string | null;
-  retryCount: number;
-  nextRetryAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface Payment {
-  id: string;
-  orderId: string;
-  billingKey: string;
-  amount: number;
-  status: PaymentStatus;
-  pgTransactionId: string | null;
-  pgResponse: Record<string, unknown> | null;
-  attemptedAt: Date;
-  completedAt: Date | null;
-}
-
-export interface PaymentEvent {
-  id: string;
-  paymentId: string;
-  eventType: string;
-  payload: Record<string, unknown>;
-  createdAt: Date;
-}
-
-export interface Refund {
-  id: string;
-  paymentId: string;
-  orderId: string;
-  amount: number;
-  reason: string;
-  status: RefundStatus;
-  pgRefundId: string | null;
-  createdAt: Date;
-  completedAt: Date | null;
-}
-
-// Request/Response types
-export interface ParticipateRequest {
-  cardInfo: import('../interfaces/pg-client.js').CardAuthInfo;
-  selectedOptions: Record<string, string>;
+export interface OrderItem {
+  id: number;
+  orderId: number;
+  productName: string;
+  size: string | null;
   quantity: number;
+  price: number;
+  createdAt: Date;
 }
 
-export interface ParticipateResult {
-  participationId: string;
-  billingKeyInfo: { cardName: string; cardNumber: string; cardType: string };
-  status: 'confirmed';
+export interface PaymentProof {
+  id: number;
+  orderId: number;
+  depositorName: string;
+  isConfirmed: boolean;
+  uploadedAt: Date;
 }
 
-export interface RefundRequest {
-  reason: string;
-  amount?: number;
+export interface PaymentConfirmation {
+  id: number;
+  orderId: number;
+  confirmedBy: number;
+  confirmedAt: Date;
+  memo: string | null;
 }
 
-export interface RefundResult {
-  refundId: string;
-  status: RefundStatus;
-  amount: number;
+export interface ShippingAddress {
+  id: number;
+  userId: number;
+  label: string;
+  recipientName: string;
+  recipientPhone: string;
+  postalCode: string;
+  roadAddress: string;
+  jibunAddress: string | null;
+  detailAddress: string | null;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// Request/Response DTOs
+export interface CreateOrderRequest {
+  fundId: number;
+  shippingAddressId: number;
+  items: {
+    productName: string;
+    size?: string;
+    quantity: number;
+    /** ⚠️ 클라이언트가 보내도 서버에서 무시하고 funds.unit_price 를 사용한다.
+     *  타입에서 제거하면 기존 프론트와 호환이 깨지므로 optional 로만 남기되,
+     *  서버 로직은 절대 신뢰하지 않음. */
+    price?: number;
+  }[];
+}
+
+export interface CreateOrderResponse {
+  orderId: number;
+  orderNumber: string;
+  totalPrice: number;
+  bankInfo: {
+    bankName: string;
+    accountNumber: string;
+    accountHolder: string;
+  };
+  status: OrderStatus;
+}
+
+export interface UploadProofRequest {
+  depositorName: string;
+}
+
+export interface UploadProofResponse {
+  proofId: number;
+  uploadedAt: Date;
+}
+
+export interface ConfirmPaymentRequest {
+  memo?: string;
+}
+
+export interface ConfirmPaymentResponse {
+  orderId: number;
+  status: OrderStatus;
+  confirmedBy: number;
+  confirmedAt: Date;
+}
+
+export interface OrderDetailResponse extends Order {
+  items: OrderItem[];
+  proof: PaymentProof | null;
+  confirmation: PaymentConfirmation | null;
+  shippingAddress: ShippingAddress | null;
 }

@@ -1,5 +1,6 @@
 # OS
 .DS_Store
+Thumbs.db
 
 # Editor / IDE
 .vscode/
@@ -13,7 +14,21 @@ project_overview.md.pdf
 # Node
 node_modules/
 *.log
+npm-debug.log*
 
-# Env
+# Build output
+dist/
+
+# Env (실제 비밀번호 / 자격증명 포함 — 절대 커밋 금지)
 .env
 .env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# 업로드된 파일 (사용자 데이터)
+uploads/
+
+# 인증서 (개별 다운로드 후 사용)
+*.pem
+!global-bundle.pem
