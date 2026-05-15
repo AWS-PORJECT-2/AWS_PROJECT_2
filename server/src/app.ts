@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
 import express from 'express';
+import compression from 'compression';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -128,6 +129,7 @@ export function createApp(
   // 안 하면 express-rate-limit 가 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR 던지며 거절.
   app.set('trust proxy', 1);
   app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(compression());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
   // 웹훅은 raw body가 필요하므로 전역 JSON 파서보다 먼저 등록 (아래에서 등록)

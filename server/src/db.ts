@@ -35,10 +35,18 @@ function buildSslConfig(): pg.PoolConfig['ssl'] {
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: buildSslConfig(),
+  max: 20,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
 });
 
 pool.on('error', (err) => {
   logger.error({ err }, 'PostgreSQL 연결 풀 에러');
+});
+
+// 부팅 시 워밍업 — 첫 요청 지연 감소
+pool.query('SELECT 1').catch((err) => {
+  logger.warn({ err }, 'DB 워밍업 실패 (서버는 계속 실행)');
 });
 
 export { pool };
