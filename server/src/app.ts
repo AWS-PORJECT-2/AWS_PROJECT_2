@@ -87,7 +87,7 @@ export async function createApp(): Promise<AppContext> {
   const frontendDir = path.resolve(__dirname, '../../frontend');
 
   app.get('/', (_req, res) => {
-    res.sendFile(path.join(frontendDir, 'login-dev.html'));
+    res.sendFile(path.join(frontendDir, 'main.html'));
   });
 
   app.use(express.static(frontendDir, { index: false, extensions: ['html'] }));
