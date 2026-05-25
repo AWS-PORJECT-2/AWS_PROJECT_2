@@ -3,7 +3,8 @@ import pg from 'pg';
 
 /**
  * 스크립트 공용 SSL 설정 — server/src/db.ts 의 buildSslConfig 와 동일 정책.
- * rejectUnauthorized:false 하드코딩 금지 (MITM 방어).
+ * 프로덕션에서는 DATABASE_SSL_CA 를 설정하여 정식 인증서 검증 권장.
+ * CA 미지정 시 rejectUnauthorized:false 로 연결 (자체 서명 인증서 호환).
  */
 function buildSslConfig(): pg.PoolConfig['ssl'] {
   const mode = process.env.DATABASE_SSL;

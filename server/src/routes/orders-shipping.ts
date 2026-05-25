@@ -17,6 +17,12 @@ const VALID_SHIPPING_TRANSITIONS: Record<string, OrderStatus[]> = {
  */
 export function createOrderShippingHandler(orderRepo: OrderRepository) {
   return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED')));
+      return;
+    }
+
     const { id } = req.params;
     const { status } = req.body as { status?: string };
 
@@ -32,7 +38,6 @@ export function createOrderShippingHandler(orderRepo: OrderRepository) {
     }
 
     // 권한 검증: 주문 소유자만 상태 변경 가능
-    const userId = req.userId;
     if (order.userId !== userId) {
       res.status(403).json({ error: 'FORBIDDEN', message: '해당 주문에 대한 권한이 없습니다' });
       return;
