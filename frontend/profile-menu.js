@@ -7,9 +7,7 @@
   var topbarRight = document.querySelector('.topbar-right');
   if (!topbarRight) return;
 
-  // 기존 설정 버튼과 프로필 링크 제거
-  var settingsBtn = topbarRight.querySelector('[aria-label="설정"]');
-  if (settingsBtn) settingsBtn.remove();
+  // 기존 프로필 링크 제거 (설정 버튼은 유지)
   var profileLink = topbarRight.querySelector('a.topbar-profile');
   if (profileLink) profileLink.remove();
   // 이미 드롭다운이 있으면 중복 생성 방지

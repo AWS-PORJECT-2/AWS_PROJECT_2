@@ -57,6 +57,10 @@ export interface Order {
   amount: number;
   status: OrderStatus;
   pgPaymentId: string | null;
+  /** 택배사 코드 (예: 'kr.cjlogistics', 'kr.logen') */
+  carrierId: string | null;
+  /** 운송장 번호 */
+  trackingNumber: string | null;
   retryCount: number;
   nextRetryAt: Date | null;
   createdAt: Date;

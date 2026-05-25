@@ -52,6 +52,7 @@ import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { createOrderConfirmHandler } from './routes/orders-confirm.js';
 import { createOrderShippingHandler, createOrderStatusCountsHandler } from './routes/orders-shipping.js';
+import { createOrderTrackingHandler, createOrderTrackingUpdateHandler } from './routes/orders-tracking.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -228,6 +229,10 @@ export function createApp(
   // --- 배송 상태 관리 ---
   app.patch('/api/orders/:id/shipping', authRequired, createOrderShippingHandler(orderRepository));
   app.get('/api/orders/status-counts', authRequired, createOrderStatusCountsHandler(orderRepository));
+
+  // --- 택배 추적 ---
+  app.get('/api/orders/:id/tracking', authRequired, createOrderTrackingHandler(orderRepository));
+  app.patch('/api/orders/:id/tracking', authRequired, createOrderTrackingUpdateHandler(orderRepository));
 
   // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
   app.get('/api/config/toss', (_req, res) => {
