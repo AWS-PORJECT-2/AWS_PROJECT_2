@@ -19,7 +19,7 @@
 
   function processQueue(success) {
     refreshQueue.forEach(function(item) {
-      if (success) item.resolve();
+      if (success) item.resolve(true);
       else item.reject();
     });
     refreshQueue = [];

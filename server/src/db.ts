@@ -12,8 +12,8 @@ const { Pool } = pg;
  * - DATABASE_SSL_CA 가 지정되어 있으면 해당 인증서로 정식 검증 (권장).
  *   AWS RDS region 별 번들: https://truststore.pki.rds.amazonaws.com/
  * - DATABASE_SSL=disabled 면 SSL 자체를 끈다 (로컬 dev 에서 비-RDS Postgres 사용 시).
- * - 그 외엔 rejectUnauthorized:false 로 SSL 연결 (CA 미지정 시 검증 생략).
- *   프로덕션에서는 반드시 DATABASE_SSL_CA 를 설정하여 MITM 방어 권장.
+ * - 프로덕션(NODE_ENV=production)에서 DATABASE_SSL_CA 미설정 시 에러로 부팅 차단.
+ * - 개발 환경에서만 rejectUnauthorized:false 허용 (자체 서명 인증서 호환).
  */
 function buildSslConfig(): pg.PoolConfig['ssl'] {
   const mode = process.env.DATABASE_SSL;
@@ -25,9 +25,11 @@ function buildSslConfig(): pg.PoolConfig['ssl'] {
   }
 
   // DATABASE_URL 이 있으면 SSL 시도.
-  // CA 인증서 미지정 시 rejectUnauthorized:false 로 연결 (AWS RDS 기본 인증서 호환).
-  // 프로덕션에서는 DATABASE_SSL_CA 를 설정하여 정식 검증 권장.
+  // 프로덕션에서는 DATABASE_SSL_CA 필수. 개발 환경에서만 rejectUnauthorized:false 허용.
   if (process.env.DATABASE_URL) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('프로덕션에서는 DATABASE_SSL_CA 설정이 필수입니다.');
+    }
     return { rejectUnauthorized: false };
   }
 
