@@ -10,7 +10,7 @@ function buildSslConfig(): pg.PoolConfig['ssl'] {
   if (mode === 'disabled') return undefined;
   const caPath = process.env.DATABASE_SSL_CA;
   if (caPath) return { ca: fs.readFileSync(caPath, 'utf8') };
-  if (process.env.DATABASE_URL) return { rejectUnauthorized: true };
+  if (process.env.DATABASE_URL) return { rejectUnauthorized: false };
   return undefined;
 }
 

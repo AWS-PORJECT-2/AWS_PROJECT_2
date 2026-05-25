@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
@@ -49,6 +51,7 @@ import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { createOrderConfirmHandler } from './routes/orders-confirm.js';
+import { createOrderShippingHandler, createOrderStatusCountsHandler } from './routes/orders-shipping.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -222,6 +225,10 @@ export function createApp(
   app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler(orderRepository));
   app.post('/api/payments/confirm', authRequired, createOrderConfirmHandler(orderRepository, pgClient));
 
+  // --- 배송 상태 관리 ---
+  app.patch('/api/orders/:id/shipping', authRequired, createOrderShippingHandler(orderRepository));
+  app.get('/api/orders/status-counts', authRequired, createOrderStatusCountsHandler(orderRepository));
+
   // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
   app.get('/api/config/toss', (_req, res) => {
     res.json({
@@ -248,10 +255,20 @@ export function createApp(
   }
 
   // 정적 자산은 CloudFront(+ S3) 가 책임진다. EC2 는 API 전용.
-  // 루트 경로엔 health check 만 — CloudFront origin health check 대비.
-  app.get('/', (_req, res) => {
-    res.json({ service: 'doothing-api', ok: true });
-  });
+  // 로컬 개발 시에는 frontend/ 폴더를 직접 서빙.
+  if (!IS_PRODUCTION) {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const frontendPath = resolve(__dirname, '../../frontend');
+    app.use(express.static(frontendPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(join(frontendPath, 'index.html'));
+    });
+  } else {
+    app.get('/', (_req, res) => {
+      res.json({ service: 'doothing-api', ok: true });
+    });
+  }
 
   app.use(errorHandler);
   return app;

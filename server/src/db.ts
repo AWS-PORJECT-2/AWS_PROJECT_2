@@ -24,9 +24,11 @@ function buildSslConfig(): pg.PoolConfig['ssl'] {
     return { ca: fs.readFileSync(caPath, 'utf8') };
   }
 
-  // DATABASE_URL 이 있으면 SSL 시도. NODE_ENV 분기 제거 — dev 모드의 EC2 도 RDS 에 붙어야 함.
+  // DATABASE_URL 이 있으면 SSL 시도.
+  // CA 인증서 미지정 시 rejectUnauthorized:false 로 연결 (AWS RDS 기본 인증서 호환).
+  // 프로덕션에서는 DATABASE_SSL_CA 를 설정하여 정식 검증 권장.
   if (process.env.DATABASE_URL) {
-    return { rejectUnauthorized: true };
+    return { rejectUnauthorized: false };
   }
 
   return undefined;
