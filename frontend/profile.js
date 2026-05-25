@@ -15,7 +15,12 @@ if (typeof window.escapeHTML !== 'function') {
 
 /* ===== 로그아웃 ===== */
 async function handleLogout() {
-  try { await window.api.post('/auth/logout'); } catch (e) {}
+  try {
+    await window.api.post('/auth/logout');
+  } catch (e) {
+    console.warn('로그아웃 API 실패:', e);
+    // 서버 세션 정리 실패해도 클라이언트 쿠키는 만료되므로 진행
+  }
   window.location.href = '/login.html';
 }
 
@@ -68,6 +73,7 @@ function previewProfileImage(input) {
 }
 
 function closeProfileEdit() {
+  _pendingProfilePicture = null;
   var modal = document.getElementById('profileEditModal');
   if (modal) modal.remove();
 }
@@ -190,8 +196,9 @@ async function loadCurrentUser() {
     currentUser.loaded = true;
     return true;
   } catch (err) {
-    if (err && (err.code === 'NOT_AUTHENTICATED' || err.status === 401)) {
-      // api.js가 refresh 시도 후에도 실패하면 여기로 옴 → 이미 login.html로 이동 중
+    if (err && (err.code === 'NOT_AUTHENTICATED' || err.status === 401 || err.status === 410)) {
+      // api.js가 refresh 시도 후에도 실패하거나 유저 삭제(410)면 로그인으로
+      window.location.href = '/login.html';
       return false;
     }
     console.error('[profile] failed to load user', err);

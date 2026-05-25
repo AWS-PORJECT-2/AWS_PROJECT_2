@@ -31,6 +31,13 @@ export function createOrderShippingHandler(orderRepo: OrderRepository) {
       return;
     }
 
+    // 권한 검증: 주문 소유자만 상태 변경 가능
+    const userId = req.userId;
+    if (order.userId !== userId) {
+      res.status(403).json({ error: 'FORBIDDEN', message: '해당 주문에 대한 권한이 없습니다' });
+      return;
+    }
+
     const allowed = VALID_SHIPPING_TRANSITIONS[order.status];
     if (!allowed || !allowed.includes(status as OrderStatus)) {
       res.status(400).json({ error: 'INVALID_TRANSITION', message: `현재 상태(${order.status})에서 ${status}로 변경할 수 없습니다` });

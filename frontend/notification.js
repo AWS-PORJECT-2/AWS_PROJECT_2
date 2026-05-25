@@ -159,7 +159,10 @@ function getUnreadCount() {
   var products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
     ? MOCK_PRODUCTS : [];
   var reserved = products.filter(function(p) { return p.isReserved === true; });
-  var readIds = JSON.parse(localStorage.getItem('readNotifications') || '[]');
+  var readIds;
+  try { readIds = JSON.parse(localStorage.getItem('readNotifications') || '[]'); }
+  catch (e) { readIds = []; }
+  if (!Array.isArray(readIds)) readIds = [];
   return reserved.filter(function(p) { return readIds.indexOf(p.id) === -1; }).length;
 }
 
