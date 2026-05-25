@@ -8,12 +8,12 @@ const { Pool } = pg;
  * SSL 설정.
  *
  * AWS RDS 는 SSL 필수라 NODE_ENV 와 무관하게 켜준다.
- * 다만 TLS 검증은 끄지 않는다 (rejectUnauthorized:false 는 MITM 위험).
  *
  * - DATABASE_SSL_CA 가 지정되어 있으면 해당 인증서로 정식 검증 (권장).
  *   AWS RDS region 별 번들: https://truststore.pki.rds.amazonaws.com/
  * - DATABASE_SSL=disabled 면 SSL 자체를 끈다 (로컬 dev 에서 비-RDS Postgres 사용 시).
- * - 그 외엔 검증 활성 상태로 SSL 사용 (시스템 신뢰 체인 의존).
+ * - 그 외엔 rejectUnauthorized:false 로 SSL 연결 (CA 미지정 시 검증 생략).
+ *   프로덕션에서는 반드시 DATABASE_SSL_CA 를 설정하여 MITM 방어 권장.
  */
 function buildSslConfig(): pg.PoolConfig['ssl'] {
   const mode = process.env.DATABASE_SSL;

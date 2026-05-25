@@ -14,8 +14,8 @@
  */
 (function () {
   const API_BASE = window.location.origin + '/api';
-  var isRefreshing = false;
-  var refreshQueue = [];
+  let isRefreshing = false;
+  let refreshQueue = [];
 
   function processQueue(success) {
     refreshQueue.forEach(function(item) {
@@ -36,7 +36,6 @@
       var res = await fetch(API_BASE + '/auth/refresh', {
         method: 'POST',
         credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
       });
       if (res.ok) {
         processQueue(true);
