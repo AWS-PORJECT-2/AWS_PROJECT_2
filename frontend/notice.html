@@ -30,8 +30,10 @@
     .modal-actions .btn-submit { background:#2563eb; color:#fff; }
     .empty-notice { text-align:center; padding:60px 20px; color:#9ca3af; font-size:14px; }
   </style>
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
   <div class="notice-container">
     <div class="notice-header">
       <button class="back-btn" aria-label="뒤로가기" onclick="if(history.length>1)history.back();else location.href='/index.html'">
@@ -166,5 +168,7 @@
 
     // renderNotices()는 checkAdminAndRender()에서 비동기로 호출됨
   </script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

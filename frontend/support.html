@@ -79,8 +79,10 @@
       margin: 4px 20px;
     }
   </style>
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
   <div class="chat-container">
     <div class="chat-topbar">
       <button class="back-btn" aria-label="뒤로가기"
@@ -104,5 +106,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="payment-api.js"></script>
   <script src="chat-user.js"></script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

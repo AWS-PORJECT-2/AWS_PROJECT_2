@@ -25,22 +25,16 @@
       flex-grow: 0;
     }
   </style>
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
 
   <div style="display:flex;flex-direction:column;align-items:flex-start;padding:0;width:100%;min-height:100vh;flex:none;z-index:2;">
 
   <main class="main-content" style="padding-bottom:80px;width:100%;">
 
     <!-- 헤더 -->
-    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
-      <div class="header-left">
-        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">굿즈 펀딩</span>
-      </div>
-    </header>
 
     <!-- 제품 선택 컨테이너 -->
     <div class="product-select-container">
@@ -92,20 +86,9 @@
 
   </main>
 
-  <!-- 하단 네비게이션 -->
-  <nav class="bottom-nav mobile-only">
-    <a href="feed.html" class="nav-item" aria-label="공동구매">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
-    </a>
-    <a href="index.html" class="nav-item" aria-label="홈">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 21v-8a1 1 0 00-1-1h-4a1 1 0 00-1 1v8"/><path d="M3 10a2 2 0 01.709-1.528l7-5.999a2 2 0 012.582 0l7 5.999A2 2 0 0121 10v9a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
-    </a>
-    <a href="/profile.html" class="nav-item" aria-label="마이페이지">
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 00-4-4H9a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-    </a>
-  </nav>
-
   </div>
 
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>
