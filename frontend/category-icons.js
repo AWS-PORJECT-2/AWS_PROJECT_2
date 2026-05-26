@@ -1,0 +1,75 @@
+/**
+ * 카테고리 아이콘 + doothing 브랜드 마크 헬퍼.
+ *
+ * 카테고리: /assets/jacket.png, tshirt.png, ecobag.png (개별 PNG, 중앙 정렬 정사각)
+ * 브랜드:   /assets/right text renew.png (두띵 일러스트)
+ *
+ * PNG 로드 실패 시 인라인 SVG fallback.
+ */
+
+/* ===== 카테고리 아이콘 ===== */
+const CATEGORY_ASSETS = {
+  jacket: '/assets/jacket.png',
+  tshirt: '/assets/tshirt.png',
+  ecobag: '/assets/ecobag.png',
+};
+
+function categoryIconSvg(key) {
+  var src = CATEGORY_ASSETS[key];
+  if (!src) return categoryFallbackSvg(key);
+  var fb = categoryFallbackSvg(key);
+  return (
+    '<img src="' + src + '" alt="' + key + '" ' +
+    'style="width:100%;height:100%;object-fit:contain;display:block;" ' +
+    'onerror="this.outerHTML=this.dataset.fb;" ' +
+    'data-fb="' + escapeHtmlAttr(fb) + '">'
+  );
+}
+
+function categoryFallbackSvg(key) {
+  if (key === 'jacket') {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="jg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#c9a8eb"/><stop offset="100%" stop-color="#9d8be0"/></linearGradient></defs><path d="M28 48Q22 50 19 60L13 96Q12 104 20 106L34 108Q38 108 40 102L44 60Q43 50 36 47Z" fill="#fff" stroke="#c9a8eb" stroke-width="1.2"/><path d="M92 48Q98 50 101 60L107 96Q108 104 100 106L86 108Q82 108 80 102L76 60Q77 50 84 47Z" fill="#fff" stroke="#9d8be0" stroke-width="1.2"/><path d="M44 56Q44 50 50 48Q60 46 70 48Q76 50 76 56L78 102Q78 107 73 108L47 108Q42 107 42 102Z" fill="url(#jg)"/><path d="M52 38L60 48L68 38" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round"/></svg>';
+  }
+  if (key === 'tshirt') {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="tg" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#B88AE0"/><stop offset="50%" stop-color="#70B9F2"/><stop offset="100%" stop-color="#86D9A6"/></linearGradient></defs><path fill="url(#tg)" d="M40 42L52 36Q60 42 68 36L80 42L96 56L86 64Q84 65 84 67L84 96Q84 100 80 100L40 100Q36 100 36 96L36 67Q36 65 34 64L24 56Z"/></svg>';
+  }
+  if (key === 'ecobag') {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="eg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5fb8d9"/><stop offset="100%" stop-color="#5fc9d9"/></linearGradient></defs><path d="M44 48Q44 26 60 26Q76 26 76 48" fill="none" stroke="url(#eg)" stroke-width="6.5" stroke-linecap="round"/><rect x="32" y="48" width="56" height="58" rx="3" fill="url(#eg)"/></svg>';
+  }
+  return '';
+}
+
+/* ===== doothing 브랜드 마크 ===== */
+var BRAND_IMAGE_SRC = '/assets/' + encodeURIComponent('right text renew') + '.png';
+
+function brandMarkSvg() {
+  var fb = brandFallbackSvg();
+  return (
+    '<img src="' + BRAND_IMAGE_SRC + '" alt="doothing" ' +
+    'style="width:100%;height:100%;object-fit:contain;display:block;" ' +
+    'onerror="this.outerHTML=this.dataset.fb;" ' +
+    'data-fb="' + escapeHtmlAttr(fb) + '">'
+  );
+}
+
+function brandFallbackSvg() {
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 420 180" aria-hidden="true"><defs><linearGradient id="bg" x1="0%" y1="50%" x2="100%" y2="50%"><stop offset="0%" stop-color="#B88AE0"/><stop offset="50%" stop-color="#70B9F2"/><stop offset="100%" stop-color="#86D9A6"/></linearGradient></defs><text x="50" y="120" font-family="Pretendard,system-ui,sans-serif" font-size="86" font-weight="800" fill="url(#bg)" letter-spacing="-3">doothing</text></svg>';
+}
+
+/* ===== 유틸 ===== */
+function escapeHtmlAttr(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function createCategoryIcon(key, options) {
+  options = options || {};
+  var card = document.createElement('div');
+  card.className = 'category-icon-card';
+  if (options.size) { card.style.width = options.size; card.style.height = options.size; }
+  card.innerHTML = categoryIconSvg(key);
+  return card;
+}
+
+window.categoryIconSvg = categoryIconSvg;
+window.brandMarkSvg = brandMarkSvg;
+window.createCategoryIcon = createCategoryIcon;

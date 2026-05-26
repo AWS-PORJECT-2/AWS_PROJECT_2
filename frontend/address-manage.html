@@ -42,8 +42,10 @@
     .modal-actions .btn-cancel { background:#f3f4f6; color:#6b7280; }
     .modal-actions .btn-submit { background:#2563eb; color:#fff; }
   </style>
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
   <div class="addr-container">
     <div class="addr-header">
       <button class="back-btn" aria-label="뒤로가기" onclick="if(history.length>1)history.back();else location.href='/index.html'">
@@ -241,5 +243,7 @@
 
     document.addEventListener('DOMContentLoaded', loadAddresses);
   </script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

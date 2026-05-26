@@ -163,8 +163,10 @@
       .layout:not(.has-active) .chat-pane { display: none; }
     }
   </style>
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
   <div class="topbar">
     <span class="title">🔧 doothing 관리자 — 1:1 상담</span>
     <div style="display:flex;gap:12px;align-items:center;">
@@ -199,5 +201,7 @@
   <script src="/socket.io/socket.io.js"></script>
   <script src="payment-api.js"></script>
   <script src="admin-chat.js"></script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

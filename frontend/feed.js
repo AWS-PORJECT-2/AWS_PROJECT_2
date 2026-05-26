@@ -18,6 +18,23 @@ if (typeof window.escapeHTML !== 'function') {
 let currentCategory = '전체';
 let currentSort = 'popular';
 let currentDept = 'all';
+let currentKeyword = '';
+
+/* ===== URL 파라미터에서 초기 카테고리/검색어 추출 (메인 페이지에서 진입 시) ===== */
+(function applyInitialCategoryFromUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const c = params.get('category');
+    const allowed = ['전체', '과잠', '반팔티', '에코백'];
+    if (c && allowed.includes(c)) currentCategory = c;
+
+    const q = params.get('q') || params.get('search');
+    if (q) currentKeyword = String(q).trim();
+
+    const s = params.get('sort');
+    if (s === 'latest' || s === 'popular') currentSort = s;
+  } catch (_) { /* ignore */ }
+})();
 
 /* ===== 초기화 ===== */
 document.addEventListener('DOMContentLoaded', () => {
@@ -90,6 +107,17 @@ function getProcessedProducts() {
     filtered = filtered.filter((p) => p.department === currentDept);
   }
 
+  // 3. 키워드 검색 (제목/설명/카테고리 부분일치)
+  if (currentKeyword) {
+    const k = currentKeyword.toLowerCase();
+    filtered = filtered.filter((p) => {
+      const title = (p.title || '').toLowerCase();
+      const desc = (p.description || '').toLowerCase();
+      const cat = (p.category || '').toLowerCase();
+      return title.includes(k) || desc.includes(k) || cat.includes(k);
+    });
+  }
+
   // 3. 정렬
   if (currentSort === 'latest') {
     filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
@@ -100,7 +128,7 @@ function getProcessedProducts() {
   return filtered;
 }
 
-/* ===== 피드 리스트 렌더링 ===== */
+/* ===== 피드 리스트 렌더링 (4-col 그리드: 사진 → 소개글 → 달성률) ===== */
 function renderFeedList() {
   const container = document.getElementById('feedList');
   if (!container) return;
@@ -110,9 +138,9 @@ function renderFeedList() {
 
   if (items.length === 0) {
     container.innerHTML = `
-      <div style="text-align:center;padding:60px 20px;color:#9ca3af;">
-        <p style="font-size:15px;font-weight:600;color:#6b7280;">해당 조건의 상품이 없습니다</p>
-        <p style="font-size:13px;margin-top:6px;">다른 필터를 선택해 보세요</p>
+      <div class="feed-empty">
+        <p class="empty-title">해당 조건의 상품이 없습니다</p>
+        <p class="empty-sub">다른 필터를 선택해 보세요</p>
       </div>
     `;
     return;
@@ -123,29 +151,21 @@ function renderFeedList() {
       const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(item) : 0;
       const id = encodeURIComponent(item.id);
       const title = esc(item.title);
-      const meta = esc(item.meta);
-      const priceText = esc(item.priceText);
+      const desc = esc(item.description ? item.description.split('.')[0] : '');
       const imageUrl = esc(item.imageUrl);
-      const likeCount = esc(item.likeCount);
+      const author = esc(item.author);
       return `
-    <article class="feed-item" onclick="location.href='detail.html?id=${id}'">
-      <div class="feed-thumb">
-        <img src="${imageUrl}" alt="${title}">
+    <article class="feed-card" onclick="location.href='detail.html?id=${id}'">
+      <div class="feed-card__thumb">
+        <img src="${imageUrl}" alt="${title}" loading="lazy">
       </div>
-      <div class="feed-info">
-        <div>
-          <div class="feed-title">${title}</div>
-          <div class="feed-meta">${meta}</div>
-        </div>
-        <div class="feed-price-row">
-          <span class="feed-price">${priceText}</span>
-          <span class="feed-progress">${rate}% 달성</span>
-        </div>
-        <div class="feed-stats">
-          <span class="feed-stat">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>
-            ${likeCount}
-          </span>
+      <div class="feed-card__body">
+        <p class="feed-card__author">${author}</p>
+        <h3 class="feed-card__title">${title}</h3>
+        <p class="feed-card__desc">${desc}</p>
+        <div class="feed-card__progress">
+          <span class="feed-card__rate">${rate}%</span>
+          <span class="feed-card__rate-label">달성</span>
         </div>
       </div>
     </article>
@@ -153,3 +173,24 @@ function renderFeedList() {
     })
     .join('');
 }
+
+/* ===== 추천 카테고리 칩 클릭 핸들러 ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  const recRow = document.getElementById('recommendRow');
+  if (!recRow) return;
+  recRow.addEventListener('click', (e) => {
+    const btn = e.target.closest('.rec-chip');
+    if (!btn) return;
+    recRow.querySelectorAll('.rec-chip').forEach((c) => c.classList.remove('rec-active'));
+    btn.classList.add('rec-active');
+    // 추천 키워드는 검색 키워드로 위임 (mock-data 에 없는 태그라 전체 노출)
+    // 실제 백엔드 연결 시 GET /api/products?recommend=화사한 같은 식으로 확장 가능
+    const rec = btn.getAttribute('data-rec');
+    if (rec === 'all') {
+      currentKeyword = '';
+    } else {
+      currentKeyword = rec;
+    }
+    renderFeedList();
+  });
+});
