@@ -53,9 +53,13 @@ export function createOrderTrackingHandler(orderRepo: OrderRepository) {
 
     try {
       const trackingUrl = `${TRACKER_API_BASE}/${encodeURIComponent(order.carrierId)}/tracks/${encodeURIComponent(order.trackingNumber)}`;
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(trackingUrl, {
         headers: { 'Accept': 'application/json' },
+        signal: controller.signal,
       });
+      clearTimeout(timeout);
 
       if (!response.ok) {
         logger.warn({ carrierId: order.carrierId, trackingNumber: order.trackingNumber, status: response.status }, '택배 추적 API 실패');

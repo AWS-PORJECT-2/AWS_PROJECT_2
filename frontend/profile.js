@@ -36,6 +36,7 @@ async function openTrackingModal() {
   try {
     var orders = await window.api.get('/me/orders', { silentAuthFail: true });
     var container = document.getElementById('trackingContent');
+    if (!container) return; // 모달이 이미 닫힘
     if (!orders || orders.length === 0) {
       container.innerHTML = '<p style="color:#9ca3af;">주문 내역이 없습니다</p>';
       return;
@@ -50,22 +51,49 @@ async function openTrackingModal() {
       return;
     }
 
-    container.innerHTML = shippingOrders.map(function(order) {
+    container.innerHTML = '';
+    shippingOrders.forEach(function(order) {
       var statusText = { shipping_ready: '배송 준비', shipping: '배송 중', delivered: '배송 완료' };
       var statusColor = { shipping_ready: '#f97316', shipping: '#2563eb', delivered: '#16a34a' };
-      return '<div style="padding:12px;border:1px solid #f0f0f0;border-radius:10px;margin-bottom:8px;text-align:left;">' +
-        '<div style="display:flex;justify-content:space-between;align-items:center;">' +
-          '<span style="font-size:13px;font-weight:600;color:#1a1a1a;">주문 #' + window.escapeHTML(order.id.slice(0, 8)) + '</span>' +
-          '<span style="font-size:12px;font-weight:600;color:' + (statusColor[order.status] || '#6b7280') + ';">' + (statusText[order.status] || order.status) + '</span>' +
-        '</div>' +
-        '<div style="font-size:12px;color:#9ca3af;margin-top:4px;">' + window.escapeHTML(order.amount.toLocaleString()) + '원</div>' +
-        (order.trackingNumber
-          ? '<button onclick="viewTracking(\'' + window.escapeHTML(order.id) + '\')" style="margin-top:8px;width:100%;padding:8px;border:1px solid #2563eb;border-radius:8px;background:#fff;color:#2563eb;font-size:13px;font-weight:600;cursor:pointer;">택배 추적</button>'
-          : '<div style="margin-top:8px;font-size:12px;color:#9ca3af;">운송장 미등록</div>') +
-      '</div>';
-    }).join('');
+
+      var card = document.createElement('div');
+      card.style.cssText = 'padding:12px;border:1px solid #f0f0f0;border-radius:10px;margin-bottom:8px;text-align:left;';
+
+      var header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+      var idSpan = document.createElement('span');
+      idSpan.style.cssText = 'font-size:13px;font-weight:600;color:#1a1a1a;';
+      idSpan.textContent = '주문 #' + order.id.slice(0, 8);
+      var statusSpan = document.createElement('span');
+      statusSpan.style.cssText = 'font-size:12px;font-weight:600;color:' + (statusColor[order.status] || '#6b7280') + ';';
+      statusSpan.textContent = statusText[order.status] || order.status;
+      header.appendChild(idSpan);
+      header.appendChild(statusSpan);
+      card.appendChild(header);
+
+      var amountDiv = document.createElement('div');
+      amountDiv.style.cssText = 'font-size:12px;color:#9ca3af;margin-top:4px;';
+      amountDiv.textContent = order.amount.toLocaleString() + '원';
+      card.appendChild(amountDiv);
+
+      if (order.trackingNumber) {
+        var btn = document.createElement('button');
+        btn.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:1px solid #2563eb;border-radius:8px;background:#fff;color:#2563eb;font-size:13px;font-weight:600;cursor:pointer;';
+        btn.textContent = '택배 추적';
+        btn.addEventListener('click', function() { viewTracking(order.id); });
+        card.appendChild(btn);
+      } else {
+        var noTrack = document.createElement('div');
+        noTrack.style.cssText = 'margin-top:8px;font-size:12px;color:#9ca3af;';
+        noTrack.textContent = '운송장 미등록';
+        card.appendChild(noTrack);
+      }
+
+      container.appendChild(card);
+    });
   } catch (e) {
-    document.getElementById('trackingContent').innerHTML = '<p style="color:#ef4444;">주문 정보를 불러올 수 없습니다</p>';
+    var errContainer = document.getElementById('trackingContent');
+    if (errContainer) errContainer.innerHTML = '<p style="color:#ef4444;">주문 정보를 불러올 수 없습니다</p>';
   }
 }
 
@@ -78,6 +106,7 @@ async function viewTracking(orderId) {
   try {
     var data = await window.api.get('/orders/' + orderId + '/tracking');
     var container = document.getElementById('trackingContent');
+    if (!container) return; // 모달이 이미 닫힘
     var html = '<div style="text-align:left;">' +
       '<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;">' +
         '<div style="font-size:14px;font-weight:600;color:#1a1a1a;">현재 상태: ' + window.escapeHTML(data.status) + '</div>' +
