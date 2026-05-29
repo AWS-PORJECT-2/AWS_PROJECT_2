@@ -38,6 +38,16 @@ function approxBytes(base64: string): number {
   return Math.floor((base64.length * 3) / 4);
 }
 
+// 생성 옵션. 도면=고정 seed(일관성), 가상피팅=랜덤 seed(매번 다른 사람/자세).
+interface GenConfig {
+  seed?: number;        // 미지정 시 모델이 매 호출 무작위 → 결과 다양
+  temperature: number;  // 낮으면 일관, 높으면 다양
+}
+
+function randomSeed(): number {
+  return Math.floor(Math.random() * 2_000_000_000) + 1;
+}
+
 function hashImages(images: ImageInput[]): string {
   const h = createHash('sha256');
   for (const img of images) h.update(img.base64);
@@ -138,7 +148,11 @@ export class GeminiImageService {
     if (clothing.length > 5) {
       throw new AppError('MISSING_REQUIRED_FIELD', '도면 생성용 이미지는 최대 5장까지 첨부 가능합니다');
     }
-    return this.callOnce(BLUEPRINT_PROMPT, clothing, ctx);
+    // 도면은 매번 같은 결과가 바람직 — seed 고정 + 낮은 temperature
+    return this.callOnce(BLUEPRINT_PROMPT, clothing, ctx, {
+      seed: parsePositiveInt(process.env.GEMINI_SEED, 12345),
+      temperature: 0.2,
+    });
   }
 
   // 업로드한 디자인(옷) 이미지(1~5장)를 모델에게 입힌 사진 생성. 모델타입/배경은 LOUN 디자인의 select 값.
@@ -153,11 +167,15 @@ export class GeminiImageService {
     if (garments.length > 5) {
       throw new AppError('MISSING_REQUIRED_FIELD', '이미지는 최대 5장까지 첨부 가능합니다');
     }
-    return this.callOnce(buildTryOnPrompt(opts.modelType, opts.background, opts.category || 'top'), garments, ctx);
+    // 가상피팅은 생성할 때마다 사람·자세가 달라지도록 — 랜덤 seed + 높은 temperature
+    return this.callOnce(buildTryOnPrompt(opts.modelType, opts.background, opts.category || 'top'), garments, ctx, {
+      seed: randomSeed(),
+      temperature: 1.0,
+    });
   }
 
   // 단일 Gemini 호출. 재시도 없음. 안전장치 다섯 겹.
-  private async callOnce(prompt: string, images: ImageInput[], ctx: BilledCallContext): Promise<ImageInput> {
+  private async callOnce(prompt: string, images: ImageInput[], ctx: BilledCallContext, gen: GenConfig): Promise<ImageInput> {
     // [1/5] 입력 크기 캡 — 8MB 초과 입력은 토큰 비용 폭발 방지
     for (const img of images) {
       if (approxBytes(img.base64) > MAX_INPUT_BYTES) {
@@ -166,7 +184,8 @@ export class GeminiImageService {
     }
 
     // [2/5] 60초 dedup — 더블 클릭이나 동일 입력 재시도 시 캐시 응답 (Gemini 호출 0)
-    const cacheKey = `${ctx.route}:${hashImages(images)}`;
+    // seed 를 캐시키에 포함 — 고정 seed(도면)는 dedup 유지, 랜덤 seed(가상피팅)는 매 호출 새 결과.
+    const cacheKey = `${ctx.route}:${hashImages(images)}:${gen.seed ?? 'auto'}`;
     const now = Date.now();
     for (const [k, v] of this.dedupCache) {
       if (now - v.ts > DEDUP_WINDOW_MS) this.dedupCache.delete(k);
@@ -224,11 +243,11 @@ export class GeminiImageService {
         ],
         // 이미지 출력 모델은 responseModalities 에 IMAGE 를 명시해야 실제 이미지를 반환한다.
         // 미지정 시 텍스트만 반환되어 'AI 응답에서 이미지를 찾지 못했습니다' 로 떨어진다.
-        // seed 고정 + 낮은 temperature 로 생성 일관성을 최대한 확보 (실행마다 결과가 덜 달라짐).
+        // seed/temperature 는 호출별(GenConfig)로 다름 — 도면=고정·일관, 가상피팅=랜덤·다양.
         config: {
           responseModalities: ['IMAGE', 'TEXT'],
-          seed: parsePositiveInt(process.env.GEMINI_SEED, 12345),
-          temperature: 0.2,
+          ...(gen.seed !== undefined ? { seed: gen.seed } : {}),
+          temperature: gen.temperature,
         },
       });
     } catch (err) {
