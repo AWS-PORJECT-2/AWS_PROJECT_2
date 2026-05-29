@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
+import { resolve, dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import express from 'express';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
@@ -51,6 +53,8 @@ import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { createOrderConfirmHandler } from './routes/orders-confirm.js';
 import { createGroupBuysListHandler } from './routes/groupbuys-list.js';
+import { createOrderShippingHandler, createOrderStatusCountsHandler } from './routes/orders-shipping.js';
+import { createOrderTrackingHandler, createOrderTrackingUpdateHandler } from './routes/orders-tracking.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -242,6 +246,15 @@ export function createApp(
   app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler(orderRepository));
   app.post('/api/payments/confirm', authRequired, createOrderConfirmHandler(orderRepository, pgClient));
 
+  // --- 배송 상태 관리 ---
+  app.patch('/api/orders/:id/shipping', authRequired, createOrderShippingHandler(orderRepository));
+  app.get('/api/orders/status-counts', authRequired, createOrderStatusCountsHandler(orderRepository));
+
+  // --- 택배 추적 ---
+  app.get('/api/orders/:id/tracking', authRequired, createOrderTrackingHandler(orderRepository));
+  // 운송장 등록 — 현재 admin 역할 미구현으로 주문 소유자만 허용. 추후 admin 미들웨어 추가 시 교체.
+  app.patch('/api/orders/:id/tracking', authRequired, createOrderTrackingUpdateHandler(orderRepository));
+
   // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
   app.get('/api/config/toss', (_req, res) => {
     res.json({
@@ -280,10 +293,21 @@ export function createApp(
     logger.info('결제 스케줄러가 시작되었습니다');
   }
 
-  // 프론트엔드 정적 파일 서빙 — EC2 단일 포트 운영용
+  // 프론트엔드 정적 서빙:
+  //  - FRONTEND_DIR 지정 시 그 경로 서빙 (EC2 단일 포트 운영)
+  //  - 아니면 개발 환경에서 ../../frontend 직접 서빙
+  //  - 운영에서 FRONTEND_DIR 미지정이면 API 전용 (CloudFront+S3 가 정적 담당)
   const frontendDir = process.env.FRONTEND_DIR;
   if (frontendDir) {
     app.use(express.static(frontendDir, { extensions: ['html'] }));
+  } else if (!IS_PRODUCTION) {
+    const __dirname = dirname(fileURLToPath(import.meta.url));
+    const frontendPath = resolve(__dirname, '../../frontend');
+    app.use(express.static(frontendPath));
+    app.get('*', (req, res, next) => {
+      if (req.path.startsWith('/api')) return next();
+      res.sendFile(join(frontendPath, 'index.html'));
+    });
   } else {
     app.get('/', (_req, res) => {
       res.json({ service: 'doothing-api', ok: true });

@@ -49,6 +49,25 @@ export class PgUserRepository implements UserRepository {
     );
   }
 
+  async updateProfile(userId: string, data: { name?: string; picture?: string }): Promise<User | null> {
+    const fields: string[] = [];
+    const values: unknown[] = [];
+    let idx = 1;
+
+    if (data.name !== undefined) { fields.push('name = $' + idx++); values.push(data.name); }
+    if (data.picture !== undefined) { fields.push('picture = $' + idx++); values.push(data.picture); }
+
+    if (fields.length === 0) return this.findById(userId);
+
+    values.push(userId);
+    const result = await this.pool.query(
+      'UPDATE "user" SET ' + fields.join(', ') + ' WHERE id = $' + idx + ' RETURNING *',
+      values,
+    );
+    if (result.rows.length === 0) return null;
+    return this.mapRow(result.rows[0]);
+  }
+
   private mapRow(row: Record<string, unknown>): User {
     return {
       id: row.id as string,
