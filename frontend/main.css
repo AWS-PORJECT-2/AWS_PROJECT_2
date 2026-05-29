@@ -1,0 +1,939 @@
+/* doothing 메인 페이지 — Pretendard + NanumSquareRound */
+
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+
+@font-face {
+  font-family: "NanumSquareRound";
+  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/NanumSquareRoundEB.woff") format("woff");
+  font-weight: 800;
+  font-display: swap;
+}
+
+:root {
+  --font-pretendard: "Pretendard", -apple-system, BlinkMacSystemFont,
+    system-ui, Roboto, "Helvetica Neue", "Segoe UI", sans-serif;
+  --font-round: "NanumSquareRound", var(--font-pretendard);
+
+  --grad-soft: linear-gradient(135deg, #c9b8f0 0%, #a8c5e8 50%, #9fd6e0 100%);
+  --grad-soft-2: linear-gradient(135deg, #e8d8f5 0%, #cfdef3 50%, #d5ecf2 100%);
+
+  --bg-page: #FAFBFC;
+  --card-bg: #ffffff;
+  --text-default: #1a1a1a;
+  --text-muted: #6b7280;
+  --border-subtle: #e2e2e8;
+
+  --brand: #5b6ee1;
+  /* 과잠 색상 — category-icons.js jacket 그라데이션과 동일 */
+  --jacket-grad: linear-gradient(135deg, #b899e8 0%, #7d8be0 100%);
+}
+
+.main-page * {
+  font-family: var(--font-pretendard);
+  box-sizing: border-box;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.main-page {
+  margin: 0;
+  background: var(--bg-page);
+  color: var(--text-default);
+  min-height: 100vh;
+}
+/* 데스크톱: 헤더는 풀폭, 콘텐츠는 각 페이지에서 중앙 정렬 */
+.main-page #app {
+  width: 100%;
+}
+.main-page a { color: inherit; text-decoration: none; }
+.main-page a:hover { color: #4b5563; }
+
+/* ===== Header ===== */
+.dt-header {
+  display: flex; justify-content: space-between; align-items: center;
+  width: 100%; padding: 16px 32px; font-size: 15px;
+  background: var(--jacket-grad);
+  border-bottom: none;
+  position: sticky; top: 0; z-index: 100;
+  color: #fff;
+}
+.dt-header a { color: #fff; }
+.dt-header a:hover { color: rgba(255, 255, 255, 0.85); }
+.dt-header .nav-group { display: flex; align-items: center; gap: 22px; }
+.dt-header .menu-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 18px; padding: 4px; color: #fff;
+}
+.dt-header .brand { font-weight: 800; font-size: 18px; letter-spacing: -0.3px; color: #fff; }
+
+/* 우측 상단 텍스트 버튼 (알림/설정/마이프로필) — 흰색 텍스트 */
+.dt-header .nav-text-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 4px;
+  color: #fff;
+  font: inherit;
+  font-family: var(--font-pretendard);
+  font-size: 15px;
+  letter-spacing: -0.2px;
+  text-decoration: none;
+  border-radius: 6px;
+  transition: opacity 0.15s ease;
+  position: relative;
+  white-space: nowrap;
+}
+.dt-header .nav-text-btn:hover { opacity: 0.8; color: #fff; }
+
+/* 마이프로필 우측 상단 알림 점 */
+.dt-header .nav-profile { padding-right: 12px; }
+.dt-header .profile-dot {
+  position: absolute;
+  top: 4px; right: 0;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #2563eb;
+  border: 1.5px solid #fff;
+}
+
+/* 모바일에선 텍스트 메뉴 일부 축약 */
+.dt-header .nav-text { white-space: nowrap; }
+
+/* 뒤로가기 버튼 — 데스크톱에서는 항상 숨김, 모바일에서만 서브 페이지에서 노출 */
+.dt-header .back-btn-mobile {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  color: #fff;
+  border-radius: 50%;
+  align-items: center;
+  justify-content: center;
+}
+.dt-header .back-btn-mobile:hover { background: rgba(255,255,255,0.15); }
+
+/* 상품 상세 헤더: 좌측 그룹 안에 박히는 동그란 아이콘 버튼 (검색 / 마이프로필 아바타) */
+.dt-header .icon-btn-round {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid rgba(255, 255, 255, 0.45);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.12s ease;
+  text-decoration: none;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+/* 데스크톱(901px 이상)에서는 숨김 — 텍스트 메뉴로 대체 */
+@media (min-width: 901px) {
+  .dt-header .icon-btn-round { display: none; }
+}
+.dt-header .icon-btn-round:hover {
+  background: rgba(255, 255, 255, 0.22);
+  transform: translateY(-1px);
+}
+.dt-header .icon-btn-round svg { display: block; }
+.dt-header .icon-btn-round.avatar-btn {
+  background: transparent;
+  padding: 0;
+}
+.dt-header .icon-btn-round .avatar-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  border-radius: 50%;
+}
+
+/* ===== Search ===== */
+.dt-search-wrap {
+  padding: 16px 32px;
+  width: 100%;
+  background: #fff;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.dt-search-input {
+  width: 100%; font-size: 16px; padding: 14px 18px;
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  outline: none; background: #fff; font-family: var(--font-pretendard);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.dt-search-input:focus {
+  border-color: #a8c5e8;
+  box-shadow: 0 2px 10px rgba(125, 139, 224, 0.12);
+}
+
+/* =====================================================================
+ * Popular Section
+ *   좌측 컬럼: 메인 카드 + 카테고리 아이콘 + 슬로건
+ *   우측 컬럼: "실시간 순위" + 1~5위 (좌측 전체 높이까지 늘어남)
+ * ===================================================================== */
+.dt-popular {
+  display: flex;
+  gap: 20px;
+  padding: 24px 32px;
+  align-items: stretch; /* 좌·우 컬럼 동일 높이 */
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.dt-popular .left-col {
+  flex: 1.6;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* 메인 1위 카드 */
+.dt-popular .main-card {
+  position: relative;
+  border-radius: 0;
+  overflow: hidden;
+  min-height: 360px;
+  background-color: #6a7bd6;
+}
+.dt-popular .main-card .main-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  position: absolute; inset: 0;
+  transition: opacity 0.6s ease;
+}
+.dt-popular .main-card .main-img.fade-out { opacity: 0; }
+.dt-popular .main-card .scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 50%);
+  pointer-events: none;
+}
+.dt-popular .main-card .seller-overlay {
+  position: absolute; left: 28px; bottom: 28px;
+  margin: 0; color: #fff;
+  font-family: var(--font-round);
+  font-size: 18px; font-weight: 800;
+  line-height: 1.3;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, 0.35);
+  transition: opacity 0.6s ease;
+  max-width: calc(100% - 56px);
+}
+.dt-popular .main-card .seller-overlay.fade-out { opacity: 0; }
+.dt-popular .main-card .rank-badge {
+  position: absolute; top: 16px; right: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1a1a1a;
+  font-weight: 800; font-size: 13px;
+  padding: 6px 12px; border-radius: 0;
+}
+
+/* =====================================================================
+ * 좋아요 하트 버튼 — 게시물 이미지 좌측 상단, 매우 투명한 배경
+ * ===================================================================== */
+.heart-btn {
+  position: absolute;
+  top: 12px; left: 12px;
+  width: 32px; height: 32px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.55);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 3;
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.25));
+  transition: transform 0.12s ease, color 0.12s ease;
+}
+.heart-btn:hover { transform: scale(1.08); color: rgba(255, 255, 255, 0.85); }
+.heart-btn:active { transform: scale(0.94); }
+.heart-btn svg {
+  width: 100%; height: 100%;
+  display: block;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.heart-btn.liked {
+  color: #ef4444;
+  filter: drop-shadow(0 1px 5px rgba(239, 68, 68, 0.4));
+}
+.heart-btn.liked svg { opacity: 1; }
+
+/* 메인 1위 카드: 좌측 상단 하트, 살짝 큼 */
+.dt-popular .main-card .heart-btn {
+  top: 14px;
+  left: 14px;
+  right: auto;
+  width: 34px; height: 34px;
+}
+
+/* 신규픽 카드: 좌측 상단 작은 하트 */
+.dt-new-picks .img-wrap .heart-btn {
+  top: 8px; left: 8px;
+  width: 24px; height: 24px;
+}
+
+/* 카테고리 아이콘 행 (메인 카드와 슬로건 사이) — 작게 좌측 정렬 */
+.dt-popular .category-row {
+  display: flex;
+  gap: 14px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* createCategoryIcon() 헬퍼가 만드는 1:1 정사각형 아이콘 카드 (재사용 가능) */
+.category-icon-card {
+  width: 88px;
+  height: 88px;
+  aspect-ratio: 1 / 1;
+  border-radius: 22%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+.category-icon-card svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.dt-popular .category-card {
+  width: 88px;
+  background: #fff;
+  border-radius: 22%;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  text-decoration: none;
+  color: inherit;
+  background: transparent;
+  box-shadow: none;
+}
+.dt-popular .category-card:hover {
+  transform: translateY(-2px);
+}
+.dt-popular .category-card:hover .icon {
+  box-shadow: 0 6px 16px rgba(91, 110, 225, 0.18);
+}
+.dt-popular .category-card .icon {
+  width: 88px;
+  height: 88px;
+  aspect-ratio: 1 / 1;
+  border-radius: 22%;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  transition: box-shadow 0.15s ease;
+}
+.dt-popular .category-card .icon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.dt-popular .category-card .label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+/* 슬로건 — 좌측 텍스트 이미지 (left text renew.png), 36pt 텍스트 시각 크기로 노출 */
+.dt-popular .slogan-text.slogan-img {
+  display: block;
+  width: auto;
+  max-width: 360px;
+  max-height: 160px;
+  height: auto;
+  object-fit: contain;
+  margin: 8px 0 0;
+  filter: brightness(1.25);
+}
+/* 구버전 .slogan / .slogan-text 텍스트 스타일은 호환용으로만 유지 (현재는 사용 안함) */
+.dt-popular .slogan {
+  display: none;
+}
+
+/* 좌측 행 컨테이너 — 데스크톱: [카테고리+슬로건 묶음] [brand mark] 가로 배치 */
+.dt-popular .left-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 32px;
+}
+.dt-popular .left-row .slogan-text {
+  flex: 0 0 auto;
+}
+.dt-popular .left-row .text-group {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* =====================================================================
+ * doothing 브랜드 마크 — 데스크톱: 카테고리+슬로건 우측 빈 공간 채움
+ * ===================================================================== */
+.brand-mark {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  pointer-events: none;
+  user-select: none;
+}
+/* 우측 두띵 일러스트 — 카드 프레임/그림자 없이 배경에 직접 노출 */
+.brand-mark.brand-side {
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  justify-content: center;
+  pointer-events: auto;
+}
+.brand-mark svg,
+.brand-mark img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* 카테고리 + 슬로건 두 행 높이를 모두 덮는 큰 brand mark */
+.brand-mark.brand-side svg {
+  max-width: 620px;
+  max-height: 240px;
+  filter: brightness(1.25);
+}
+
+/* 우측 - 실시간 순위 박스 */
+.dt-popular .right-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+.dt-popular .right-col .ranking-label {
+  font-size: 18px; font-weight: 700;
+  margin-bottom: 14px; color: #1a1a1a;
+}
+.dt-popular .ranking-list {
+  flex: 1;
+  display: flex; flex-direction: column;
+  gap: 18px;
+}
+.dt-popular .ranking-list .rank-item {
+  flex: 1;
+  display: flex; align-items: center; gap: 16px;
+  background: transparent;
+  border-radius: 0;
+  padding: 0;
+  box-shadow: none;
+  min-height: 0;
+}
+
+/* 큰 정사각 썸네일 (96x96) — 각진 사각, 이미지 없으면 컬러 fallback */
+.dt-popular .ranking-list .thumb-square {
+  position: relative;
+  width: 96px; height: 96px;
+  flex-shrink: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: var(--grad-soft-2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+.dt-popular .ranking-list .thumb-img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  display: block;
+  position: absolute; inset: 0;
+}
+.dt-popular .ranking-list .thumb-svg-inner {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 12px;
+  box-sizing: border-box;
+}
+.dt-popular .ranking-list .thumb-svg-inner svg {
+  width: 100%; height: 100%;
+}
+
+/* 좌상단 각진 사각 순위 배지 */
+.dt-popular .ranking-list .rank-badge-mini {
+  position: absolute;
+  top: 0; left: 0;
+  width: 28px; height: 28px;
+  border-radius: 0;
+  background: var(--brand);
+  color: #fff;
+  font-weight: 800;
+  font-size: 16px;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(91, 110, 225, 0.35);
+}
+
+/* 우측 정보: 창작자 → 제목 → 달성률 (각 폰트 +3pt) */
+.dt-popular .ranking-list .rank-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.dt-popular .ranking-list .rank-info .maker {
+  font-size: 16px;
+  color: #888;
+  font-weight: 500;
+}
+.dt-popular .ranking-list .rank-info .title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.dt-popular .ranking-list .rank-info .achieve {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--brand);
+  margin-top: 2px;
+}
+
+/* =====================================================================
+ * New Picks — 카드 안 박스 제거: 달성률은 카드 밖 밑에 그냥 텍스트
+ * ===================================================================== */
+.dt-new-picks {
+  padding: 24px 32px 60px;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+.dt-new-picks h2 {
+  font-family: var(--font-round);
+  font-size: 22px; font-weight: 800;
+  margin-bottom: 16px; color: #1a1a1a;
+}
+.dt-new-picks .grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 16px;
+}
+/* 각 슬롯: 이미지 카드 + 그 아래 메타 (배경 없음) */
+.dt-new-picks .slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  cursor: pointer;
+}
+.dt-new-picks .slot:hover .img-wrap {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.08);
+}
+.dt-new-picks .slot .img-wrap {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 0;
+  overflow: hidden;
+  background-color: #6a7bd6;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.dt-new-picks .slot .img-wrap img {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  position: absolute; inset: 0;
+}
+.dt-new-picks .slot .img-wrap .scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0) 55%);
+  pointer-events: none;
+}
+.dt-new-picks .slot .desc-overlay {
+  position: absolute;
+  left: 12px; bottom: 12px;
+  margin: 0; color: #fff;
+  font-family: var(--font-round);
+  font-size: 14px; font-weight: 800;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.35);
+}
+/* 카드 밖 달성률 — 흰 박스 없음, 단순 텍스트 */
+.dt-new-picks .slot .progress-text {
+  color: var(--brand);
+  font-weight: 800;
+  font-size: 14px;
+  padding: 0 2px;
+}
+
+/* =====================================================================
+ * Responsive
+ *  - 한글이 한 글자씩 떨어지지 않도록 word-break: keep-all (전역) +
+ *    제목/슬로건/실시간 순위는 white-space: nowrap 또는 충분한 min-width 보장
+ *  - 좁은 화면에서 우측 컬럼이 좌측 아래로 떨어져도 가로 흐름 유지
+ * ===================================================================== */
+@media (max-width: 900px) {
+  /* ===== 모바일 헤더 =====
+     좌측: 뒤로가기(←)  |  중앙: doothing 로고  |  우측: 검색 돋보기 + 마이프로필 아바타
+     메인 페이지에서는 뒤로가기 숨기고 디자인하기 텍스트 보임 */
+  .dt-header {
+    padding: 16px 16px;
+    font-size: 15px;
+    position: relative;
+  }
+  /* 좌측: 뒤로가기만 보이고 나머지(☰, 인기, 신규) 숨김 */
+  .dt-header .nav-group:first-child > * { display: none; }
+  .dt-header .nav-group:first-child .back-btn-mobile { display: inline-flex; }
+  .dt-header .nav-group:first-child .brand {
+    display: inline;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 18px;
+  }
+  /* 우측: 텍스트 메뉴 숨기고 아이콘만 */
+  .dt-header .nav-group:last-child .nav-text { display: none; }
+  .dt-header .nav-group:last-child .nav-text-btn { display: none; }
+  .dt-header .nav-group:last-child .nav-profile { display: none; }
+  .dt-header .nav-group:last-child .icon-btn-round { display: inline-flex; width: 30px; height: 30px; }
+  .dt-header .nav-group:last-child {
+    position: absolute;
+    right: 14px;
+    gap: 10px;
+  }
+  /* 메인 페이지: 뒤로가기 숨김 + 디자인하기 보임 + 검색 아이콘 숨김 + 헤더 높이 통일 */
+  body:not([data-page]) .dt-header .nav-group:first-child .back-btn-mobile { display: none; }
+  /* 메인 모바일: 좌측에 인기/신규 링크 보이게 */
+  body:not([data-page]) .dt-header .nav-group:first-child > a:not(.brand) {
+    display: inline;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,1);
+    letter-spacing: -0.2px;
+  }
+  body:not([data-page]) .dt-header .nav-group:first-child .menu-btn {
+    display: inline-flex;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  /* 메인 모바일: 좌측에 알림 벨 아이콘도 보이게 */
+  body:not([data-page]) .dt-header .nav-group:first-child .bell-icon-btn {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+  }
+  body:not([data-page]) .dt-header .nav-group:last-child .nav-text {
+    display: inline;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,1);
+    letter-spacing: -0.2px;
+  }
+  body:not([data-page]) .dt-header {
+    padding: 18px 20px;
+    min-height: 56px;
+  }
+  body:not([data-page]) .dt-header .nav-group:first-child .brand {
+    font-size: 20px;
+  }
+  body:not([data-page]) .dt-header .nav-group:last-child .avatar-btn {
+    width: 36px;
+    height: 36px;
+  }
+
+  .dt-search-wrap { padding: 12px 16px; }
+
+  .dt-popular {
+    flex-direction: column;
+    padding: 16px;
+    gap: 16px;
+    align-items: stretch;
+  }
+  .dt-popular .left-col { gap: 16px; }
+  .dt-popular .main-card { min-height: 220px; }
+
+  .dt-popular .category-row {
+    gap: 0;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .dt-popular .category-card {
+    flex: 1;
+    max-width: 100px;
+  }
+  .dt-popular .category-card .icon,
+  .category-icon-card {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  /* 모바일: 텍스트 그룹과 두띵 마크를 가로로 묶고 여백 0 으로 바짝 붙임 */
+  .dt-popular .left-row {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 8px;
+    align-items: flex-end;
+  }
+  .dt-popular .left-row .text-group {
+    flex: 1 1 auto;
+    width: 100%;
+    gap: 12px;
+  }
+  .brand-mark {
+    display: none;
+  }
+
+  /* 모바일 텍스트 슬로건 */
+  .dt-popular .slogan-mobile {
+    display: block;
+    font-family: var(--font-round);
+    font-size: 24px;
+    font-weight: 800;
+    color: #1a1a1a;
+    line-height: 1.4;
+    margin: 8px 0 0;
+    word-break: keep-all;
+  }
+  .dt-popular .slogan-mobile .slogan-sub {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 6px;
+    line-height: 1.5;
+  }
+
+  .dt-popular .slogan,
+  .dt-popular .slogan-text {
+    font-size: 28px;
+    line-height: 1.25;
+    white-space: nowrap;
+    word-break: keep-all;
+  }
+  /* 슬로건 이미지: 너비 90%, 중앙 정렬 */
+  .dt-popular .slogan-text.slogan-img {
+    display: block;
+    width: 90%;
+    max-width: 90%;
+    height: auto;
+    max-height: none;
+    margin: 12px auto 0;
+  }
+
+  .dt-popular .ranking-list { gap: 14px; }
+  .dt-popular .ranking-list .rank-item { gap: 12px; }
+  .dt-popular .ranking-list .thumb-square {
+    width: 76px; height: 76px;
+  }
+  .dt-popular .ranking-list .rank-info .maker  { font-size: 13px; }
+  .dt-popular .ranking-list .rank-info .title  {
+    font-size: 15px;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+  }
+  .dt-popular .ranking-list .rank-info .achieve { font-size: 16px; }
+  .dt-popular .right-col .ranking-label { font-size: 16px; }
+
+  .dt-new-picks { padding: 16px 16px 40px; }
+  .dt-new-picks h2 { font-size: 20px; }
+  .dt-new-picks .grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+  }
+  .dt-new-picks .slot .progress-text { font-size: 13px; }
+  .dt-new-picks .slot .desc-overlay {
+    font-size: 13px;
+    word-break: keep-all;
+  }
+}
+
+/* 더 좁은 화면 (480px 이하) */
+@media (max-width: 480px) {
+  .dt-header { font-size: 13px; padding: 10px 12px; }
+  .dt-header .nav-group { gap: 8px; }
+  .dt-header .brand { font-size: 16px; }
+  .dt-header .nav-text { font-size: 12px; }
+  .dt-header .nav-text-btn { font-size: 12px; }
+
+  .dt-popular { padding: 12px; }
+  .dt-popular .slogan,
+  .dt-popular .slogan-text { font-size: 22px; }
+  .dt-popular .slogan-text.slogan-img { max-width: 90%; max-height: none; width: 90%; margin: 10px auto 0; }
+
+  .dt-popular .category-card,
+  .dt-popular .category-card .icon,
+  .category-icon-card {
+    width: auto;
+    height: auto;
+  }
+  .dt-popular .category-card .label { font-size: 12px; }
+
+  .dt-popular .ranking-list .thumb-square { width: 68px; height: 68px; }
+  .dt-popular .ranking-list .rank-badge-mini { width: 24px; height: 24px; font-size: 14px; }
+
+  /* 작은 화면: 브랜드 마크 숨김 */
+  .dt-popular .left-row { gap: 6px; }
+  .brand-mark {
+    display: none;
+  }
+
+  .dt-new-picks .grid { gap: 10px; }
+}
+
+
+/* =====================================================================
+ * 햄버거 사이드 메뉴 (좌측 슬라이드)
+ * ===================================================================== */
+.simple-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 800;
+  animation: dt-fade-in 0.2s ease-out;
+}
+.simple-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 280px;
+  max-width: 80vw;
+  height: 100%;
+  background: #fff;
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.12);
+  z-index: 900;
+  transform: translateX(-100%);
+  transition: transform 0.22s ease-out;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 0;
+}
+.simple-menu.open { transform: translateX(0); }
+
+.simple-menu-close {
+  align-self: flex-end;
+  margin: 0 16px 8px 0;
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #f4f5f7;
+  color: #1a1a1a;
+  font-size: 16px;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.simple-menu-close:hover { background: #e5e7eb; }
+
+.simple-menu-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+.simple-menu-list li { margin: 0; }
+.simple-menu-list a {
+  display: block;
+  padding: 14px 22px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-decoration: none;
+  transition: background 0.12s ease;
+  border-left: 3px solid transparent;
+}
+.simple-menu-list a:hover {
+  background: #f8f9fc;
+  color: var(--brand);
+  border-left-color: var(--brand);
+}
+.simple-menu-list a.menu-emphasis {
+  font-family: var(--font-round);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--brand);
+  border-left-color: var(--brand);
+  background: #f4f6ff;
+  margin-bottom: 8px;
+}
+
+@keyframes dt-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+
+/* =====================================================================
+ * 메인 페이지 등장 애니메이션 — 헤더 제외, 콘텐츠 순차적 페이드업
+ * (메인 페이지는 body[data-page] 가 없는 상태)
+ * ===================================================================== */
+@keyframes mp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body:not([data-page]) .dt-search-wrap,
+body:not([data-page]) .dt-popular,
+body:not([data-page]) .dt-new-picks {
+  opacity: 0;
+  animation: mp-fade-up 0.6s ease forwards;
+}
+body:not([data-page]) .dt-search-wrap { animation-delay: 0.05s; }
+body:not([data-page]) .dt-popular     { animation-delay: 0.18s; }
+body:not([data-page]) .dt-new-picks   { animation-delay: 0.32s; }
+
+/* 인기 섹션 내부 컴포넌트도 살짝 시차 */
+body:not([data-page]) .dt-popular .main-card,
+body:not([data-page]) .dt-popular .left-row,
+body:not([data-page]) .dt-popular .right-col {
+  opacity: 0;
+  animation: mp-fade-up 0.55s ease forwards;
+}
+body:not([data-page]) .dt-popular .main-card { animation-delay: 0.25s; }
+body:not([data-page]) .dt-popular .left-row  { animation-delay: 0.35s; }
+body:not([data-page]) .dt-popular .right-col { animation-delay: 0.4s; }
+
+/* 신규픽 카드 순차 등장 */
+body:not([data-page]) .dt-new-picks .grid > .slot {
+  opacity: 0;
+  animation: mp-fade-up 0.5s ease forwards;
+}
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(1) { animation-delay: 0.45s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(2) { animation-delay: 0.55s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(3) { animation-delay: 0.65s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(4) { animation-delay: 0.75s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay: 0.85s; }
+
+/* 모션 줄임 모드 사용자에게는 애니메이션 비활성 (접근성) */
+@media (prefers-reduced-motion: reduce) {
+  body:not([data-page]) .dt-search-wrap,
+  body:not([data-page]) .dt-popular,
+  body:not([data-page]) .dt-new-picks,
+  body:not([data-page]) .dt-popular .main-card,
+  body:not([data-page]) .dt-popular .left-row,
+  body:not([data-page]) .dt-popular .right-col,
+  body:not([data-page]) .dt-new-picks .grid > .slot {
+    opacity: 1;
+    animation: none;
+  }
+}

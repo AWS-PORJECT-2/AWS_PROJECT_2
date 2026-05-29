@@ -1,5 +1,5 @@
 import type pg from 'pg';
-import type { User } from '../types/index.js';
+import type { User, UserRole } from '../types/index.js';
 import type { UserRepository } from './user-repository.js';
 
 export class PgUserRepository implements UserRepository {
@@ -7,10 +7,19 @@ export class PgUserRepository implements UserRepository {
 
   async create(user: User): Promise<User> {
     const result = await this.pool.query(
-      `INSERT INTO "user" (id, email, name, school_domain, picture, created_at, last_login_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO "user" (id, email, name, school_domain, picture, role, created_at, last_login_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [user.id, user.email.toLowerCase(), user.name, user.schoolDomain, user.picture ?? null, user.createdAt, user.lastLoginAt],
+      [
+        user.id,
+        user.email.toLowerCase(),
+        user.name,
+        user.schoolDomain,
+        user.picture ?? null,
+        user.role ?? 'USER',
+        user.createdAt,
+        user.lastLoginAt,
+      ],
     );
     return this.mapRow(result.rows[0]);
   }
@@ -66,6 +75,7 @@ export class PgUserRepository implements UserRepository {
       name: row.name as string,
       schoolDomain: row.school_domain as string,
       picture: row.picture as string | undefined,
+      role: (row.role as UserRole | undefined) ?? 'USER',
       createdAt: new Date(row.created_at as string),
       lastLoginAt: new Date(row.last_login_at as string),
     };

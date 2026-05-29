@@ -30,8 +30,10 @@
     .modal-actions .btn-submit { background:#2563eb; color:#fff; }
     .empty-notice { text-align:center; padding:60px 20px; color:#9ca3af; font-size:14px; }
   </style>
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
   <div class="notice-container">
     <div class="notice-header">
       <button class="back-btn" aria-label="뒤로가기" onclick="if(history.length>1)history.back();else location.href='/index.html'">
@@ -96,7 +98,7 @@
           var user = await res.json();
           currentUser = user;
           // 관리자 판별은 서버의 role claim 만 신뢰. mock 이메일 분기 금지 (mock OAuth 켜진 환경에서 권한 도용 가능).
-          isAdmin = user.role === 'admin';
+          isAdmin = user.role === 'ADMIN';
         }
       } catch (e) {
         // API 호출 실패 또는 미로그인 → 기본값 false 유지
@@ -166,5 +168,7 @@
 
     // renderNotices()는 checkAdminAndRender()에서 비동기로 호출됨
   </script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

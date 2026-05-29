@@ -9,10 +9,22 @@
  * isReserved: 현재 사용자의 공구 참여/예약 여부
  */
 
-const MOCK_PRODUCTS = [
+const _JACKET_DIR = '/' + encodeURIComponent('과잠 이미지') + '/';
+const _JACKET_IMGS = [
+  _JACKET_DIR + encodeURIComponent('다운로드.jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (1).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (2).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (3).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (4).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (5).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (6).jpg'),
+];
+
+// 백엔드 API에서 가져온 실제 상품 데이터 (없으면 아래 mock 사용)
+var MOCK_PRODUCTS = [
   {
     id: 1,
-    imageUrl: 'https://picsum.photos/seed/feed1/600/600',
+    imageUrl: _JACKET_IMGS[0],
     author: '김민수',
     authorAvatar: 'https://picsum.photos/seed/avatar1/48/48',
     department: '소프트웨어학부',
@@ -23,42 +35,40 @@ const MOCK_PRODUCTS = [
     targetQuantity: 50,
     currentQuantity: 60,
     likeCount: 142,
-    comments: 34,
     meta: '캠퍼스 내 직수령 · 1시간 전',
     deadline: '2026-05-15',
     isLiked: true,
     isReserved: true,
     isPaid: false,
     sizeType: 'multiple',
-    category: '의류',
+    category: '과잠',
     createdAt: '2026-04-29T09:00:00Z',
   },
   {
     id: 2,
-    imageUrl: 'https://picsum.photos/seed/feed2/600/600',
+    imageUrl: _JACKET_IMGS[1],
     author: '이서연',
     authorAvatar: 'https://picsum.photos/seed/avatar2/48/48',
     department: '경영학부',
-    title: '국민대학교 블랙 크롭탑 공구',
+    title: '국민대학교 블랙 반팔티 공구',
     price: 1,
     priceText: '1원',
-    description: '깔끔한 블랙 크롭탑에 국민대 로고가 미니멀하게 들어간 디자인입니다. 면 100% 소재로 편안한 착용감을 제공합니다.',
+    description: '깔끔한 블랙 반팔티에 국민대 로고가 미니멀하게 들어간 디자인입니다. 면 100% 소재로 편안한 착용감을 제공합니다.',
     targetQuantity: 30,
     currentQuantity: 24,
     likeCount: 85,
-    comments: 12,
     meta: '캠퍼스 내 직수령 · 3시간 전',
     deadline: '2026-05-20',
     isLiked: true,
     isReserved: false,
     isPaid: false,
     sizeType: 'multiple',
-    category: '의류',
+    category: '반팔티',
     createdAt: '2026-04-29T06:00:00Z',
   },
   {
     id: 3,
-    imageUrl: 'https://picsum.photos/seed/feed3/600/600',
+    imageUrl: _JACKET_IMGS[2],
     author: '박지훈',
     authorAvatar: 'https://picsum.photos/seed/avatar3/48/48',
     department: '디자인학부',
@@ -69,37 +79,35 @@ const MOCK_PRODUCTS = [
     targetQuantity: 40,
     currentQuantity: 80,
     likeCount: 210,
-    comments: 56,
     meta: '캠퍼스 내 직수령 · 5시간 전',
     deadline: '2026-05-10',
     isLiked: false,
     isReserved: true,
     isPaid: false,
     sizeType: 'multiple',
-    category: '의류',
+    category: '과잠',
     createdAt: '2026-04-29T04:00:00Z',
   },
   {
     id: 4,
-    imageUrl: 'https://picsum.photos/seed/feed4/600/600',
+    imageUrl: _JACKET_IMGS[3],
     author: '최유진',
     authorAvatar: 'https://picsum.photos/seed/avatar4/48/48',
     department: '체육학부',
-    title: '국민대학교 미니멀 베이직 후드',
+    title: '국민대학교 미니멀 에코백',
     price: 1,
     priceText: '1원',
-    description: '데일리로 입기 좋은 미니멀 후드입니다. 국민대 심볼이 가슴에 작게 자수 처리되어 있어 깔끔합니다. 기모 안감으로 따뜻해요.',
+    description: '데일리로 메기 좋은 미니멀 에코백입니다. 국민대 심볼이 한쪽에 작게 자수 처리되어 있어 깔끔합니다. 두꺼운 캔버스 원단으로 튼튼해요.',
     targetQuantity: 60,
     currentQuantity: 27,
     likeCount: 45,
-    comments: 8,
     meta: '캠퍼스 내 직수령 · 1일 전',
     deadline: '2026-05-25',
     isLiked: false,
     isReserved: false,
     isPaid: false,
     sizeType: 'free',
-    category: '잡화',
+    category: '에코백',
     createdAt: '2026-04-28T12:00:00Z',
   },
 ];
@@ -230,3 +238,66 @@ function syncUserState() {
 
 // 초기화
 syncUserState();
+
+
+/**
+ * 백엔드(/api/groupbuys)에서 상품 목록을 가져와 MOCK_PRODUCTS 를 덮어씀.
+ * 실패 시 기존 mock 데이터 유지 (페이지 동작 보장).
+ */
+async function loadProductsFromBackend() {
+  try {
+    const base = window.API_BASE_URL || (window.location.origin + '/api');
+    const res = await fetch(base + '/groupbuys?sort=popular&limit=20', {
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      console.warn('백엔드 상품 조회 실패:', res.status);
+      return false;
+    }
+    const data = await res.json();
+    if (!data || !Array.isArray(data.items) || data.items.length === 0) return false;
+
+    MOCK_PRODUCTS = data.items.map(function (p) {
+      return {
+        id: p.id,
+        imageUrl: p.imageUrl || _JACKET_IMGS[0],
+        author: p.author || '익명',
+        authorAvatar: p.authorAvatar || ('https://picsum.photos/seed/avatar-' + encodeURIComponent(p.id) + '/48/48'),
+        department: p.department || '',
+        title: p.title,
+        price: p.price ?? 0,
+        priceText: p.priceText || (p.price ? p.price.toLocaleString('ko-KR') + '원' : ''),
+        description: p.description || '',
+        targetQuantity: p.targetQuantity || 0,
+        currentQuantity: p.currentQuantity || 0,
+        likeCount: p.likeCount || 0,
+        meta: p.meta || '',
+        deadline: p.deadline || '',
+        isLiked: false,
+        isReserved: false,
+        isPaid: false,
+        sizeType: p.sizeType || 'multiple',
+        category: p.category || '',
+        createdAt: p.createdAt || '',
+      };
+    });
+    window.MOCK_PRODUCTS = MOCK_PRODUCTS;
+
+    // 외부 리스너에 데이터 갱신 알림
+    window.dispatchEvent(new CustomEvent('mockproducts:updated', { detail: { items: MOCK_PRODUCTS } }));
+    return true;
+  } catch (err) {
+    console.warn('백엔드 상품 조회 에러:', err);
+    return false;
+  }
+}
+
+window.MOCK_PRODUCTS = MOCK_PRODUCTS;
+window.loadProductsFromBackend = loadProductsFromBackend;
+
+// 페이지 로드 후 자동 실행
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadProductsFromBackend);
+} else {
+  loadProductsFromBackend();
+}

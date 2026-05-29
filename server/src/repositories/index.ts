@@ -27,3 +27,9 @@ export { PgPaymentMethodRepository } from './pg-payment-method-repository.js';
 // Address repositories
 export type { AddressRepository } from './address-repository.js';
 export { PgAddressRepository } from './pg-address-repository.js';
+
+// Chat & Announcement repositories — 인터페이스는 <entity>-repository, 구현은 pg-<entity>-repository
+export type { AnnouncementRepository } from './announcement-repository.js';
+export { PgAnnouncementRepository } from './pg-announcement-repository.js';
+export type { ChatRepository } from './chat-repository.js';
+export { PgChatRepository } from './pg-chat-repository.js';
