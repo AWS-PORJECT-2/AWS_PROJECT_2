@@ -47,6 +47,8 @@ export function createOrderPrepareHandler(orderRepo: OrderRepository) {
         amount,
         status: 'pending',
         pgPaymentId: null,
+        carrierId: null,
+        trackingNumber: null,
         retryCount: 0,
         nextRetryAt: null,
         createdAt: now,

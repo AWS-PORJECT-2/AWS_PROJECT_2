@@ -14,7 +14,7 @@ export function createLogoutHandler(authService: AuthService, tokenService: Toke
       }
     }
     res.clearCookie('accessToken', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' });
-    res.clearCookie('refreshToken', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'strict', path: '/api/auth' });
+    res.clearCookie('refreshToken', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth' });
     res.json({ success: true });
   };
 }

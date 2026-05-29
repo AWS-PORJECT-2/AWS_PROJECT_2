@@ -10,6 +10,7 @@ export function createRefreshHandler(authService: AuthService) {
   return async (req: Request, res: Response): Promise<void> => {
     const refreshToken = req.cookies?.refreshToken;
     if (!refreshToken || typeof refreshToken !== 'string') {
+      logger.warn({ ip: req.ip, hasCookies: !!req.cookies, cookieKeys: Object.keys(req.cookies || {}) }, '리프레시 토큰 쿠키 없음');
       res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD')));
       return;
     }
@@ -22,7 +23,7 @@ export function createRefreshHandler(authService: AuthService) {
         httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 15 * 60 * 1000,
       });
       res.cookie('refreshToken', result.refreshToken, {
-        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'strict', path: '/api/auth', maxAge: 30 * 24 * 60 * 60 * 1000,
+        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth', maxAge: 30 * 24 * 60 * 60 * 1000,
       });
       logger.info({ ip: req.ip }, '토큰 갱신 성공');
       res.json({ success: true });

@@ -19,7 +19,7 @@ export function createCallbackHandler(authService: AuthService) {
         httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 15 * 60 * 1000,
       });
       res.cookie('refreshToken', result.refreshToken, {
-        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'strict', path: '/api/auth', maxAge: refreshMaxAge,
+        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth', maxAge: refreshMaxAge,
       });
       logger.info({ email: result.user.email }, '인증 성공');
       // 로그인 성공 후 메인 홈 (index.html) 으로 보냄.
