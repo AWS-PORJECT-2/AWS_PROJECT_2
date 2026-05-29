@@ -30,7 +30,10 @@ export function createFundsCreateHandler() {
     }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
+    // designId 는 기존 시안 라이브러리 흐름용. Gemini 도면 flow 에서는 designImageDataUrl 이 그 자리를 대신함.
+    // 둘 중 하나만 있으면 통과 — 다음 단계(B 담당)에서 design 레코드를 어떻게 만들지 결정.
     const designId = stringField(body.designId);
+    const designImageDataUrl = stringField(body.designImageDataUrl);
     const title = stringField(body.title);
     const description = stringField(body.description, '');
     const department = stringField(body.department);
@@ -39,7 +42,7 @@ export function createFundsCreateHandler() {
     const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX);
 
     const errors: string[] = [];
-    if (!designId) errors.push('designId');
+    if (!designId && !designImageDataUrl) errors.push('design (designId 또는 designImageDataUrl 필요)');
     if (!title || title.length > TITLE_MAX) errors.push('title');
     if (description && description.length > DESCRIPTION_MAX) errors.push('description');
     if (!department || department.length > DEPARTMENT_MAX) errors.push('department');
