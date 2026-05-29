@@ -153,3 +153,65 @@ function renderNotificationList() {
     })
     .join('');
 }
+
+/* ===== 읽지 않은 알림 배지 ===== */
+function getUnreadCount() {
+  var products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  var reserved = products.filter(function(p) { return p.isReserved === true; });
+  var readIds;
+  try { readIds = JSON.parse(localStorage.getItem('readNotifications') || '[]'); }
+  catch (e) { readIds = []; }
+  if (!Array.isArray(readIds)) readIds = [];
+  return reserved.filter(function(p) { return readIds.indexOf(p.id) === -1; }).length;
+}
+
+function markAllAsRead() {
+  var products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
+    ? MOCK_PRODUCTS : [];
+  var reserved = products.filter(function(p) { return p.isReserved === true; });
+  var ids = reserved.map(function(p) { return p.id; });
+  localStorage.setItem('readNotifications', JSON.stringify(ids));
+  updateNotificationBadges();
+}
+
+function updateNotificationBadges() {
+  var count = getUnreadCount();
+  var badges = document.querySelectorAll('.notif-badge');
+  badges.forEach(function(badge) {
+    if (count > 0) {
+      badge.textContent = count > 99 ? '99+' : String(count);
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  });
+}
+
+function injectNotificationBadges() {
+  // 알림 버튼들에 배지 추가
+  var bellButtons = document.querySelectorAll('[aria-label="알림"]');
+  bellButtons.forEach(function(btn) {
+    if (btn.querySelector('.notif-badge')) return;
+    btn.style.position = 'relative';
+    var badge = document.createElement('span');
+    badge.className = 'notif-badge';
+    badge.style.cssText = 'display:none;position:absolute;top:2px;right:2px;min-width:16px;height:16px;border-radius:8px;background:#ef4444;color:#fff;font-size:10px;font-weight:700;align-items:center;justify-content:center;padding:0 4px;line-height:16px;';
+    btn.appendChild(badge);
+  });
+  updateNotificationBadges();
+}
+
+// openNotification 을 래핑해서 읽음 처리 추가
+var _originalOpenNotification = openNotification;
+openNotification = function() {
+  _originalOpenNotification();
+  markAllAsRead();
+};
+
+// 페이지 로드 시 배지 주입
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', injectNotificationBadges);
+} else {
+  injectNotificationBadges();
+}

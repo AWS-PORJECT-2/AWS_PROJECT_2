@@ -47,25 +47,25 @@ export class PgAddressRepository implements AddressRepository {
     const values: unknown[] = [];
     let idx = 1;
 
-    if (patch.label !== undefined) { fields.push(`label = $${idx++}`); values.push(patch.label); }
-    if (patch.recipientName !== undefined) { fields.push(`recipient_name = $${idx++}`); values.push(patch.recipientName); }
-    if (patch.recipientPhone !== undefined) { fields.push(`recipient_phone = $${idx++}`); values.push(patch.recipientPhone); }
-    if (patch.postalCode !== undefined) { fields.push(`postal_code = $${idx++}`); values.push(patch.postalCode); }
-    if (patch.roadAddress !== undefined) { fields.push(`road_address = $${idx++}`); values.push(patch.roadAddress); }
-    if (patch.jibunAddress !== undefined) { fields.push(`jibun_address = $${idx++}`); values.push(patch.jibunAddress); }
-    if (patch.detailAddress !== undefined) { fields.push(`detail_address = $${idx++}`); values.push(patch.detailAddress); }
-    if (patch.isDefault !== undefined) { fields.push(`is_default = $${idx++}`); values.push(patch.isDefault); }
+    if (patch.label !== undefined) { fields.push('label = $' + idx++); values.push(patch.label); }
+    if (patch.recipientName !== undefined) { fields.push('recipient_name = $' + idx++); values.push(patch.recipientName); }
+    if (patch.recipientPhone !== undefined) { fields.push('recipient_phone = $' + idx++); values.push(patch.recipientPhone); }
+    if (patch.postalCode !== undefined) { fields.push('postal_code = $' + idx++); values.push(patch.postalCode); }
+    if (patch.roadAddress !== undefined) { fields.push('road_address = $' + idx++); values.push(patch.roadAddress); }
+    if (patch.jibunAddress !== undefined) { fields.push('jibun_address = $' + idx++); values.push(patch.jibunAddress); }
+    if (patch.detailAddress !== undefined) { fields.push('detail_address = $' + idx++); values.push(patch.detailAddress); }
+    if (patch.isDefault !== undefined) { fields.push('is_default = $' + idx++); values.push(patch.isDefault); }
 
-    fields.push(`updated_at = $${idx++}`);
+    fields.push('updated_at = $' + idx++);
     values.push(new Date());
     values.push(id);
 
     const result = await this.pool.query(
-      `UPDATE addresses SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`,
+      'UPDATE addresses SET ' + fields.join(', ') + ' WHERE id = $' + idx + ' RETURNING *',
       values,
     );
     if (result.rows.length === 0) {
-      throw new Error(`Address not found: ${id}`);
+      throw new Error('Address not found: ' + id);
     }
     return this.mapRow(result.rows[0]);
   }
@@ -82,21 +82,32 @@ export class PgAddressRepository implements AddressRepository {
   }
 
   async setDefaultAtomic(userId: string, id: string): Promise<Address | null> {
-    // 단일 UPDATE — partial unique index 의 race 충돌 없이 atomic 전환.
-    const result = await this.pool.query(
-      `UPDATE addresses
-       SET is_default = (id = $2), updated_at = NOW()
-       WHERE user_id = $1
-       RETURNING *`,
-      [userId, id],
-    );
-    const target = result.rows.find((r: Record<string, unknown>) => r.id === id);
-    return target ? this.mapRow(target) : null;
+    // partial unique index (user_id WHERE is_default = TRUE) 때문에
+    // 단일 UPDATE로 처리하면 중간 상태에서 제약 위반 발생.
+    // 트랜잭션으로 2단계 처리: 모두 해제 → 대상만 설정.
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'UPDATE addresses SET is_default = FALSE, updated_at = NOW() WHERE user_id = $1 AND is_default = TRUE',
+        [userId],
+      );
+      const result = await client.query(
+        'UPDATE addresses SET is_default = TRUE, updated_at = NOW() WHERE id = $1 AND user_id = $2 RETURNING *',
+        [id, userId],
+      );
+      await client.query('COMMIT');
+      if (result.rows.length === 0) return null;
+      return this.mapRow(result.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async deleteWithGuard(userId: string, id: string): Promise<DeleteResult> {
-    // 한 SQL — "user 의 주소 개수 > 1" 조건이 DELETE 의 WHERE 절 안에서 검증되어 race 없음.
-    // 동시 두 삭제 요청이 들어와도 PG 가 row lock + WHERE 절 재평가로 직렬화.
     const result = await this.pool.query(
       `DELETE FROM addresses
        WHERE id = $1 AND user_id = $2
@@ -105,7 +116,6 @@ export class PgAddressRepository implements AddressRepository {
       [id, userId],
     );
     if (result.rowCount === 0) {
-      // 삭제 안 됨 — 존재하지 않거나 마지막 1개. 원인 구분.
       const existsResult = await this.pool.query(
         'SELECT 1 FROM addresses WHERE id = $1 AND user_id = $2',
         [id, userId],

@@ -1,6 +1,6 @@
 export type GroupBuyStatus = 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
-export type OrderStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled';
+export type OrderStatus = 'pending' | 'paid' | 'shipping_ready' | 'shipping' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
 export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
 export type RefundStatus = 'requested' | 'completed' | 'failed';
 
@@ -57,6 +57,10 @@ export interface Order {
   amount: number;
   status: OrderStatus;
   pgPaymentId: string | null;
+  /** 택배사 코드 (예: 'kr.cjlogistics', 'kr.logen') */
+  carrierId: string | null;
+  /** 운송장 번호 */
+  trackingNumber: string | null;
   retryCount: number;
   nextRetryAt: Date | null;
   createdAt: Date;

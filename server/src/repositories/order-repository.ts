@@ -6,6 +6,7 @@ export interface OrderRepository {
   findByUserId(userId: string): Promise<Order[]>;
   findByPgPaymentId(pgPaymentId: string): Promise<Order | null>;
   updateStatus(id: string, status: OrderStatus, pgPaymentId?: string): Promise<void>;
+  updateTracking(id: string, carrierId: string, trackingNumber: string): Promise<void>;
   updateRetryMetadata(id: string, retryCount: number, nextRetryAt: Date | null): Promise<void>;
   findFailedForRetry(maxAttempts: number): Promise<Order[]>;
 }
