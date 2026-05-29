@@ -32,13 +32,8 @@ const JACKET_IMAGES = [
   JACKET_IMG_DIR + encodeURIComponent('다운로드 (6).jpg'),
 ];
 
-const POPULAR_RANKING = [
-  { rank: 1, productId: 1, maker: '레인웍스', name: '감각적인 오버핏 과잠, 지금 1위', seller: '감각적인 오버핏 과잠, 지금 1위', achieve: 4454, img: JACKET_IMAGES[0], bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)', emoji: 'jacket', model: JACKET_IMAGES[0] },
-  { rank: 2, productId: 2, maker: '딜라이트', name: '데일리로 딱 좋은 베이직 반팔',     seller: '데일리로 딱 좋은 베이직 반팔',     achieve: 1052, img: JACKET_IMAGES[1], bg: 'linear-gradient(135deg,#5fb8c9,#7aa8e0)', emoji: 'tshirt', model: JACKET_IMAGES[1] },
-  { rank: 3, productId: 4, maker: '하이센스', name: '가볍게 메는 데일리 에코백',         seller: '가볍게 메는 데일리 에코백',         achieve: 88,   img: JACKET_IMAGES[2], bg: 'linear-gradient(135deg,#7ec4a8,#6aa9d6)', emoji: 'ecobag', model: JACKET_IMAGES[2] },
-  { rank: 4, productId: 3, maker: '스트릿랩', name: '스트릿 무드 오버핏 과잠',           seller: '',                                  achieve: 62,   img: JACKET_IMAGES[3], bg: 'linear-gradient(135deg,#c08bd6,#8e7cc3)', emoji: 'jacket', model: JACKET_IMAGES[3] },
-  { rank: 5, productId: 2, maker: '베이직코', name: '오버사이즈 데일리 반팔',             seller: '',                                  achieve: 40,   img: JACKET_IMAGES[4], bg: 'linear-gradient(135deg,#5fb8c9,#9fd6e0)', emoji: 'tshirt', model: JACKET_IMAGES[4] },
-];
+// 더미 제거 — 실시간 순위는 /api/groupbuys 실데이터로만 채움(buildSectionsFromMockProducts). 데이터 없으면 빈 상태.
+const POPULAR_RANKING = [];
 
 const CATEGORIES = [
   { key: 'jacket', label: '과잠',   slug: '과잠' },
@@ -46,13 +41,8 @@ const CATEGORIES = [
   { key: 'ecobag', label: '에코백', slug: '에코백' },
 ];
 
-const NEW_PICKS = [
-  { id: 1, productId: 1, name: '신규 과잠',     desc: '방금 올라온 신상 과잠', img: JACKET_IMAGES[2], bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)', progress: 72 },
-  { id: 2, productId: 2, name: '신규 반팔',     desc: '따끈한 신규 반팔티',    img: JACKET_IMAGES[3], bg: 'linear-gradient(135deg,#5fb8c9,#7aa8e0)', progress: 45 },
-  { id: 3, productId: 4, name: '신규 에코백',   desc: '새로 나온 에코백',      img: JACKET_IMAGES[4], bg: 'linear-gradient(135deg,#7ec4a8,#6aa9d6)', progress: 88 },
-  { id: 4, productId: 3, name: '신규 과잠 2',   desc: '또 다른 신상 과잠',     img: JACKET_IMAGES[5], bg: 'linear-gradient(135deg,#c08bd6,#8e7cc3)', progress: 30 },
-  { id: 5, productId: 2, name: '신규 반팔 2',   desc: '신규 반팔 컬렉션',      img: JACKET_IMAGES[6], bg: 'linear-gradient(135deg,#5fb8c9,#9fd6e0)', progress: 60 },
-];
+// 더미 제거 — 신규픽도 실데이터(최신순)로만 채움. 없으면 빈 상태.
+const NEW_PICKS = [];
 
 /* ===== DOM 헬퍼 ===== */
 function el(tag, props = {}, ...children) {
@@ -442,71 +432,81 @@ function CategoryRow({ items = CATEGORIES } = {}) {
  * PopularSection
  * ===================================================================== */
 function PopularSection({ ranking = POPULAR_RANKING, rotateMs = 2000 } = {}) {
+  const hasRanking = Array.isArray(ranking) && ranking.length > 0;
   // 메인 카드
   const mainCard = el('div', { class: 'main-card' });
-  applyBg(mainCard, ranking[0].bg);
-  mainCard.style.cursor = 'pointer';
 
-  let mainImg = imgOrNull(ranking[0].img, ranking[0].name, 'main-img');
-  if (mainImg) mainCard.appendChild(mainImg);
+  if (hasRanking) {
+    applyBg(mainCard, ranking[0].bg);
+    mainCard.style.cursor = 'pointer';
 
-  mainCard.appendChild(el('div', { class: 'scrim' }));
+    let mainImg = imgOrNull(ranking[0].img, ranking[0].name, 'main-img');
+    if (mainImg) mainCard.appendChild(mainImg);
 
-  const rankBadge = el('span', { class: 'rank-badge' }, '실시간 ' + ranking[0].rank + '위');
-  mainCard.appendChild(rankBadge);
+    mainCard.appendChild(el('div', { class: 'scrim' }));
 
-  // 좌측 상단 좋아요 하트 — 회전 시 productId 갱신
-  let heartBtn = LikeHeartButton(ranking[0].productId);
-  mainCard.appendChild(heartBtn);
+    const rankBadge = el('span', { class: 'rank-badge' }, '실시간 ' + ranking[0].rank + '위');
+    mainCard.appendChild(rankBadge);
 
-  const sellerOverlay = el('p', { class: 'seller-overlay' }, ranking[0].seller || ranking[0].name);
-  mainCard.appendChild(sellerOverlay);
+    // 좌측 상단 좋아요 하트 — 회전 시 productId 갱신
+    let heartBtn = LikeHeartButton(ranking[0].productId);
+    mainCard.appendChild(heartBtn);
 
-  // 1→2→3 fade 순환
-  let idx = 0;
+    const sellerOverlay = el('p', { class: 'seller-overlay' }, ranking[0].seller || ranking[0].name);
+    mainCard.appendChild(sellerOverlay);
 
-  // 메인 카드 클릭 → 현재 표시중 1위 상품 상세로 이동
-  mainCard.addEventListener('click', (e) => {
-    if (e.target.closest('.heart-btn')) return; // 하트는 자체 처리
-    const cur = ranking[idx] || ranking[0];
-    if (cur && cur.productId != null) {
-      location.href = '/detail.html?id=' + encodeURIComponent(cur.productId);
-    }
-  });
+    // 1→2→3 fade 순환
+    let idx = 0;
 
-  setInterval(() => {
-    if (mainImg) mainImg.classList.add('fade-out');
-    sellerOverlay.classList.add('fade-out');
-    setTimeout(() => {
-      idx = (idx + 1) % Math.min(3, ranking.length);
-      const item = ranking[idx];
-
-      if (item.img) {
-        if (!mainImg) {
-          mainImg = imgOrNull(item.img, item.name, 'main-img');
-          if (mainImg) mainCard.insertBefore(mainImg, mainCard.firstChild);
-        } else {
-          mainImg.setAttribute('src', item.img);
-          mainImg.style.display = '';
-        }
-      } else if (mainImg) {
-        mainImg.style.display = 'none';
+    // 메인 카드 클릭 → 현재 표시중 1위 상품 상세로 이동
+    mainCard.addEventListener('click', (e) => {
+      if (e.target.closest('.heart-btn')) return; // 하트는 자체 처리
+      const cur = ranking[idx] || ranking[0];
+      if (cur && cur.productId != null) {
+        location.href = '/detail.html?id=' + encodeURIComponent(cur.productId);
       }
-      mainCard.style.background = '';
-      applyBg(mainCard, item.bg);
+    });
 
-      rankBadge.textContent = '실시간 ' + item.rank + '위';
-      sellerOverlay.textContent = item.seller || item.name;
+    if (ranking.length > 1) {
+      setInterval(() => {
+        if (mainImg) mainImg.classList.add('fade-out');
+        sellerOverlay.classList.add('fade-out');
+        setTimeout(() => {
+          idx = (idx + 1) % Math.min(3, ranking.length);
+          const item = ranking[idx];
 
-      // 하트 버튼 productId 갱신 (재생성)
-      const newHeart = LikeHeartButton(item.productId);
-      mainCard.replaceChild(newHeart, heartBtn);
-      heartBtn = newHeart;
+          if (item.img) {
+            if (!mainImg) {
+              mainImg = imgOrNull(item.img, item.name, 'main-img');
+              if (mainImg) mainCard.insertBefore(mainImg, mainCard.firstChild);
+            } else {
+              mainImg.setAttribute('src', item.img);
+              mainImg.style.display = '';
+            }
+          } else if (mainImg) {
+            mainImg.style.display = 'none';
+          }
+          mainCard.style.background = '';
+          applyBg(mainCard, item.bg);
 
-      if (mainImg) mainImg.classList.remove('fade-out');
-      sellerOverlay.classList.remove('fade-out');
-    }, 300);
-  }, rotateMs);
+          rankBadge.textContent = '실시간 ' + item.rank + '위';
+          sellerOverlay.textContent = item.seller || item.name;
+
+          // 하트 버튼 productId 갱신 (재생성)
+          const newHeart = LikeHeartButton(item.productId);
+          mainCard.replaceChild(newHeart, heartBtn);
+          heartBtn = newHeart;
+
+          if (mainImg) mainImg.classList.remove('fade-out');
+          sellerOverlay.classList.remove('fade-out');
+        }, 300);
+      }, rotateMs);
+    }
+  } else {
+    // 등록된 펀딩이 없을 때 — 더미 대신 안내(프로모 카드 자리)
+    mainCard.appendChild(el('div', { class: 'scrim' }));
+    mainCard.appendChild(el('p', { class: 'seller-overlay' }, '아직 등록된 펀딩이 없어요 — 첫 펀딩을 만들어보세요!'));
+  }
 
   // 좌측 컬럼: [메인 홍보 카드] → [카테고리] → [슬로건] 세로 스택.
   // (기존 우측 두띵 브랜드 두들 이미지는 제거) / 우측 컬럼: 실시간 순위.
@@ -521,6 +521,9 @@ function PopularSection({ ranking = POPULAR_RANKING, rotateMs = 2000 } = {}) {
 
   // 우측 컬럼 — 텀블벅 스타일 (큰 정사각 썸네일 + 좌상단 순위 배지 + 창작자/제목/달성률)
   const list = el('div', { class: 'ranking-list' });
+  if (!hasRanking) {
+    list.appendChild(el('p', { class: 'ranking-empty', style: 'color:#9ca3af;font-size:14px;padding:24px 4px;' }, '실시간 순위가 아직 없어요'));
+  }
   ranking.slice(0, 5).forEach((item) => {
     // 썸네일 (정사각)
     const thumb = el('div', { class: 'thumb-square' });
