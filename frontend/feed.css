@@ -115,7 +115,7 @@
   gap: 18px 14px;
 }
 
-/* 첫 번째 카드: 2x2 크기로 강조 */
+/* 첫 번째 카드: 2x2 크기로 강조 — 3:4 원본 비율 유지 */
 .feed-grid .feed-card:first-child {
   grid-column: span 2;
   grid-row: span 2;
@@ -123,19 +123,38 @@
 .feed-grid .feed-card:first-child .feed-card__thumb {
   aspect-ratio: 3 / 4;
 }
+.feed-grid .feed-card:first-child .feed-card__author {
+  font-size: 13px;
+}
 .feed-grid .feed-card:first-child .feed-card__title {
-  font-size: 16px;
+  font-size: 17px;
+  -webkit-line-clamp: 2;
+  line-height: 1.4;
+}
+.feed-grid .feed-card:first-child .feed-card__desc {
+  font-size: 14px;
+  -webkit-line-clamp: 2;
 }
 .feed-grid .feed-card:first-child .feed-card__rate {
-  font-size: 18px;
+  font-size: 20px;
+}
+.feed-grid .feed-card:first-child .feed-card__rate-label {
+  font-size: 14px;
+}
+.feed-grid .feed-card:first-child .feed-card__body {
+  gap: 6px;
+  padding: 14px 4px 0;
 }
 
 /* 나머지 카드: 썸네일 작게 */
 .feed-grid .feed-card:not(:first-child) .feed-card__thumb {
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 1 / 1;
 }
 .feed-grid .feed-card:not(:first-child) .feed-card__title {
-  font-size: 12.5px;
+  font-size: 13px;
+}
+.feed-grid .feed-card:not(:first-child) .feed-card__desc {
+  font-size: 12px;
 }
 .feed-grid .feed-card:not(:first-child) .feed-card__rate {
   font-size: 14px;
@@ -253,11 +272,20 @@
   .feed-toolbar { padding: 6px 0 12px; }
   .feed-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; }
   .feed-grid .feed-card:first-child {
-    grid-column: span 1;
+    grid-column: span 2;
     grid-row: span 1;
   }
   .feed-grid .feed-card:first-child .feed-card__thumb {
     aspect-ratio: 3 / 4;
+  }
+  .feed-grid .feed-card:first-child .feed-card__title {
+    font-size: 16px;
+  }
+  .feed-grid .feed-card:first-child .feed-card__desc {
+    font-size: 13px;
+  }
+  .feed-grid .feed-card:first-child .feed-card__rate {
+    font-size: 18px;
   }
   .feed-card__title { font-size: 13.5px; }
   .feed-card__desc { font-size: 12px; }
