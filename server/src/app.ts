@@ -18,6 +18,7 @@ import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { createDevAuthRouter } from './routes/dev-auth.js';
 import { ComfyUiDesignGenerator } from './services/ai/comfyui-design-generator.js';
 import { CatVtonVirtualTryOn } from './services/ai/catvton-virtual-try-on.js';
 import { NullAiDesignGenerator, NullAiVirtualTryOn } from './services/ai/null-ai-providers.js';
@@ -49,6 +50,7 @@ import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { createOrderConfirmHandler } from './routes/orders-confirm.js';
+import { createGroupBuysListHandler } from './routes/groupbuys-list.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -60,6 +62,15 @@ import { createPaymentMethodService } from './services/payment-method-service-im
 import { createAddressService } from './services/address-service-impl.js';
 import { createPaymentMethodsHandlers } from './routes/payment-methods-routes.js';
 import { createAddressesHandlers } from './routes/addresses-routes.js';
+
+// Announcement, Chat, Admin imports
+import { PgAnnouncementRepository } from './repositories/announcement-repository.js';
+import { PgChatRepository } from './repositories/chat-repository.js';
+import { createAnnouncementsRouter } from './routes/announcements.js';
+import { createChatRouter } from './routes/chat.js';
+import { createRequireAdmin } from './middleware/require-admin.js';
+import { createEmailService } from './services/email-notification.js';
+export type { EmailNotificationService } from './services/email-notification.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
@@ -128,7 +139,7 @@ export function createApp(
   // CloudFront / ALB 같은 프록시가 X-Forwarded-For 를 보내므로 한 단계 신뢰.
   // 안 하면 express-rate-limit 가 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR 던지며 거절.
   app.set('trust proxy', 1);
-  app.use(helmet({ contentSecurityPolicy: false }));
+  app.use(helmet({ contentSecurityPolicy: false, crossOriginOpenerPolicy: false, crossOriginEmbedderPolicy: false, originAgentCluster: false }));
   app.use(compression());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
@@ -172,6 +183,12 @@ export function createApp(
 
   const authRequired = createAuthRequired(tokenService, userRepository);
 
+  // ─── 개발 전용 인증 (운영 환경에서는 절대 노출 안 됨) ───
+  if (process.env.NODE_ENV !== 'production') {
+    app.use('/api/dev-auth', createDevAuthRouter(userRepository, tokenService));
+    logger.info('⚠️  개발 전용 /api/dev-auth 라우트 활성화 (운영 환경에서는 비활성)');
+  }
+
   // AI 라우터 (사장님 영역) — 인증 필요. AI 서버 미연결 시 라우트 자체는 떠 있고 503 응답
   const designGenerator = buildDesignGenerator();
   const virtualTryOn = buildVirtualTryOn();
@@ -214,6 +231,9 @@ export function createApp(
   app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService));
   app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
   app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
+
+  // 공용: 공동구매 목록 (인증 불필요)
+  app.get('/api/groupbuys', createGroupBuysListHandler(groupBuyRepository));
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
@@ -239,6 +259,19 @@ export function createApp(
   app.use('/api/payment-methods', authRequired, createPaymentMethodsHandlers(paymentMethodService));
   app.use('/api/addresses', authRequired, createAddressesHandlers(addressService));
 
+  // --- Announcements & Chat ---
+  const announcementRepository = new PgAnnouncementRepository(pool);
+  const chatRepository = new PgChatRepository(pool);
+  const requireAdmin = createRequireAdmin(userRepository);
+
+  app.use('/api/announcements', createAnnouncementsRouter(announcementRepository, authRequired, requireAdmin));
+  app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin));
+
+  // --- Email Notification Service (export for socket/scheduler use) ---
+  const emailService = createEmailService();
+  (app as any).emailService = emailService;
+  (app as any).chatRepository = chatRepository;
+
   // Start scheduler (only in non-test environments)
   if (process.env.NODE_ENV !== 'test') {
     const lockProvider = new PgDistributedLockProvider(pool);
@@ -247,11 +280,15 @@ export function createApp(
     logger.info('결제 스케줄러가 시작되었습니다');
   }
 
-  // 정적 자산은 CloudFront(+ S3) 가 책임진다. EC2 는 API 전용.
-  // 루트 경로엔 health check 만 — CloudFront origin health check 대비.
-  app.get('/', (_req, res) => {
-    res.json({ service: 'doothing-api', ok: true });
-  });
+  // 프론트엔드 정적 파일 서빙 — EC2 단일 포트 운영용
+  const frontendDir = process.env.FRONTEND_DIR;
+  if (frontendDir) {
+    app.use(express.static(frontendDir, { extensions: ['html'] }));
+  } else {
+    app.get('/', (_req, res) => {
+      res.json({ service: 'doothing-api', ok: true });
+    });
+  }
 
   app.use(errorHandler);
   return app;

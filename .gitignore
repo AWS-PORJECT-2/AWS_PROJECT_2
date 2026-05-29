@@ -31,4 +31,9 @@ uploads/
 
 # 인증서 (개별 다운로드 후 사용)
 *.pem
-!global-bundle.pem
+!server/certs/rds-global-bundle.pem
+
+# 배포 아티팩트
+deploy.tar.gz
+deploy-start.sh
+deploy-restart.sh

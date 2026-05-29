@@ -1,4 +1,4 @@
-export type { User } from './user.js';
+export type { User, UserRole } from './user.js';
 export type { OAuthState } from './oauth-state.js';
 export type { RefreshToken } from './refresh-token.js';
 export type { AllowedDomain } from './allowed-domain.js';
@@ -14,3 +14,5 @@ export type {
 } from './payment.js';
 export type { PaymentMethod } from './payment-method.js';
 export type { Address } from './address.js';
+export type { Announcement, AnnouncementListItem } from './announcement.js';
+export type { ChatRoom, ChatMessage } from './chat.js';

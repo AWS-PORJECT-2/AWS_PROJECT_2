@@ -136,11 +136,19 @@
           errorEl.textContent = '';
 
           try {
-            const res = await fetch('/api/dev-auth/login', {
+            // API 베이스 URL 결정 (api.js 미로드 시 인라인 계산)
+            const apiBase = window.API_BASE_URL || (function() {
+              var p = window.location.port;
+              if (['3000','8000','5173','4321'].indexOf(p) >= 0) {
+                return window.location.protocol + '//' + window.location.hostname + ':' + (p === '3000' ? '8000' : p) + '/api';
+              }
+              return window.location.origin + '/api';
+            })();
+            const res = await fetch(apiBase + '/dev-auth/login', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               credentials: 'include',
-              body: JSON.stringify({ username }),
+              body: JSON.stringify({ email: username }),
             });
             const data = await res.json();
             if (!res.ok) {

@@ -124,7 +124,7 @@ export class AuthServiceImpl implements AuthService {
     }
     const domain = email.split('@')[1] ?? '';
     const now = new Date();
-    const user: User = { id: randomUUID(), email: email.toLowerCase(), name, schoolDomain: domain.toLowerCase(), picture, createdAt: now, lastLoginAt: now };
+    const user: User = { id: randomUUID(), email: email.toLowerCase(), name, schoolDomain: domain.toLowerCase(), picture, role: 'USER', createdAt: now, lastLoginAt: now };
     return this.userRepo.create(user);
   }
 }
