@@ -253,7 +253,7 @@
   .feed-toolbar { padding: 6px 0 12px; }
   .feed-grid { grid-template-columns: repeat(2, 1fr); gap: 14px 10px; }
   .feed-grid .feed-card:first-child {
-    grid-column: span 2;
+    grid-column: span 1;
     grid-row: span 1;
   }
   .feed-grid .feed-card:first-child .feed-card__thumb {
