@@ -1,28 +1,47 @@
 import { Router } from 'express';
-import type { AiDesignGenerator } from '../interfaces/ai-design-generator.js';
-import type { AiVirtualTryOn } from '../interfaces/ai-virtual-try-on.js';
-import { createAiGenerateDesignHandler } from './ai-generate-design.js';
+import rateLimit from 'express-rate-limit';
+import type { GeminiImageService } from '../services/ai/gemini-image-service.js';
+import { createAiBlueprintHandler } from './ai-blueprint.js';
 import { createAiTryOnHandler } from './ai-try-on.js';
 import { createAiGarmentsExtractHandler } from './ai-garments-extract.js';
 
 /**
- * AI 라우터 — POST /api/ai/* 의 합본.
+ * AI 라우터 — POST /api/ai/* 의 합본 (Gemini nano-banana 기반).
  *
- * createApp 에서 인증 미들웨어와 함께 마운트:
- *   app.use('/api/ai', authRequired, createAiRouter(designGen, tryOn, AI_TIMEOUT_MS));
+ * - /blueprint: 옷 사진 → 앞·뒤·옆 3-view 도면 (Gemini 1콜 ≈ $0.04)
+ * - /try-on:   도면 → 모델 착용 사진 (Gemini 1콜 ≈ $0.04)
+ * - /garments/extract: 옷 판매 사이트 URL 추출 (Gemini 비호출, 추후 구현)
  *
- * timeoutMs 는 어댑터 호출 무한 대기 방지용. 라우트 레이어에서 한 번 더 보장한다
- * (어댑터 자체에도 fetchWithTimeout 가 있지만 조건부 폴링·재시도가 들어가면
- * 그쪽 타임아웃만으론 부족할 수 있음).
+ * 비용 통제:
+ *  - 모든 호출은 인증 필수
+ *  - 사용자 단위 시간당 5회 rate-limit
+ *  - Gemini 서비스 내부에 일일 한도 + 60초 dedup + 단일 이미지 강제
  */
-export function createAiRouter(
-  designGenerator: AiDesignGenerator,
-  virtualTryOn: AiVirtualTryOn,
-  timeoutMs: number,
-): Router {
+function buildAiRateLimit() {
+  // 사용자당 시간당 한도. 환경변수로 조절 가능 (기본 100). dev 에서 테스트할 땐 충분히 큰 값.
+  const limit = parsePositiveInt(process.env.AI_HOURLY_LIMIT, 100);
+  return rateLimit({
+    windowMs: 60 * 60 * 1000,
+    limit,
+    standardHeaders: true,
+    // authRequired 가 먼저 실행되므로 userId 는 항상 있음. IPv6 fallback 은 express-rate-limit v8 에서 별도 헬퍼 필요해서 제외.
+    keyGenerator: (req) => req.userId ?? 'anonymous',
+    message: { error: 'AI_RATE_LIMIT', message: `시간당 AI 호출 한도(${limit}회)에 도달했습니다` },
+  });
+}
+
+function parsePositiveInt(raw: string | undefined, fallback: number): number {
+  if (!raw) return fallback;
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return fallback;
+  return Math.floor(n);
+}
+
+export function createAiRouter(gemini: GeminiImageService, timeoutMs: number): Router {
   const router = Router();
-  router.post('/designs/generate', createAiGenerateDesignHandler(designGenerator, timeoutMs));
-  router.post('/try-on', createAiTryOnHandler(virtualTryOn, timeoutMs));
+  const aiRateLimit = buildAiRateLimit();
+  router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs));
+  router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs));
   router.post('/garments/extract', createAiGarmentsExtractHandler());
   return router;
 }
