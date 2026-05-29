@@ -155,8 +155,8 @@
               throw new Error(data.message || '로그인 실패');
             }
 
-            // 역할별 랜딩
-            if (data.role === 'ADMIN') {
+            // 역할별 랜딩 — dev-auth 응답은 { user: { role } } 형태
+            if (data.user && data.user.role === 'ADMIN') {
               window.location.href = '/admin-orders.html';
             } else {
               window.location.href = '/feed.html';

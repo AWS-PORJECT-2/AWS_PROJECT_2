@@ -2,6 +2,16 @@ import nodemailer from 'nodemailer';
 import type { Transporter } from 'nodemailer';
 import { logger } from '../logger.js';
 
+// 이메일 본문(HTML)에 사용자 입력(펀딩 제목·이름)을 넣기 전 이스케이프 — HTML 인젝션/피싱 방지
+function escapeHtml(s: string): string {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 /**
  * 이메일 알림 서비스.
  * 펀딩 100% 달성 시 학교 메일로 알림 발송.
@@ -83,13 +93,13 @@ export class NodemailerEmailService implements EmailNotificationService {
         html,
       });
       logger.info(
-        { to: params.recipientEmail, fundId: params.fundId },
+        { fundId: params.fundId },
         '펀딩 달성 알림 이메일 발송 완료',
       );
       return true;
     } catch (err) {
       logger.error(
-        { err, to: params.recipientEmail, fundId: params.fundId },
+        { err, fundId: params.fundId },
         '펀딩 달성 알림 이메일 발송 실패',
       );
       return false;
@@ -104,6 +114,8 @@ export class NodemailerEmailService implements EmailNotificationService {
     participantCount: number;
   }): string {
     const formattedAmount = params.totalAmount.toLocaleString('ko-KR');
+    const safeTitle = escapeHtml(params.fundTitle);
+    const safeName = escapeHtml(params.recipientName);
     return `
 <!DOCTYPE html>
 <html lang="ko">
@@ -111,11 +123,11 @@ export class NodemailerEmailService implements EmailNotificationService {
 <body style="font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
   <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 12px; color: white; text-align: center;">
     <h1 style="margin: 0 0 10px;">🎉 펀딩 100% 달성!</h1>
-    <p style="margin: 0; font-size: 18px;">${params.fundTitle}</p>
+    <p style="margin: 0; font-size: 18px;">${safeTitle}</p>
   </div>
   <div style="padding: 30px 20px;">
-    <p>${params.recipientName}님, 안녕하세요!</p>
-    <p>참여하신 펀딩 <strong>"${params.fundTitle}"</strong>이(가) 목표 금액을 달성했습니다.</p>
+    <p>${safeName}님, 안녕하세요!</p>
+    <p>참여하신 펀딩 <strong>"${safeTitle}"</strong>이(가) 목표 금액을 달성했습니다.</p>
     <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
       <tr style="border-bottom: 1px solid #eee;">
         <td style="padding: 12px 0; color: #666;">총 모금액</td>

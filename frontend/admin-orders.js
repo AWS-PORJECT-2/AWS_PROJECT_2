@@ -113,11 +113,8 @@ async function loadList() {
 }
 
 function init() {
-  document.getElementById('imgClose').addEventListener('click', closeImageModal);
-  document.getElementById('imgModal').addEventListener('click', (e) => {
-    if (e.target.id === 'imgModal') closeImageModal();
-  });
-  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeImageModal(); });
+  // 이미지 모달(#imgClose/#imgModal/closeImageModal)은 제거된 기능이라 참조 코드도 삭제.
+  // 남겨두면 init() 에서 null.addEventListener 로 즉시 예외가 나 loadList() 까지 막힘.
   loadList();
 }
 
