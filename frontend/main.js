@@ -18,15 +18,26 @@
 
 /* ===== 더미 데이터 ===== */
 /* productId: mock-data.js MOCK_PRODUCTS 와 매핑 (좋아요 토글 연동)
- * img: 메인 카드 + 신규픽 카드의 모델 사진 (picsum 임시 → 실제 사진 준비되면 교체)
+ * img: 메인 카드 + 신규픽 카드의 모델 사진 — frontend/과잠 이미지/ 폴더 사용
  * model: 우측 순위 1~5위 썸네일용 모델 사진
  */
+const JACKET_IMG_DIR = '/' + encodeURIComponent('과잠 이미지') + '/';
+const JACKET_IMAGES = [
+  JACKET_IMG_DIR + encodeURIComponent('다운로드.jpg'),
+  JACKET_IMG_DIR + encodeURIComponent('다운로드 (1).jpg'),
+  JACKET_IMG_DIR + encodeURIComponent('다운로드 (2).jpg'),
+  JACKET_IMG_DIR + encodeURIComponent('다운로드 (3).jpg'),
+  JACKET_IMG_DIR + encodeURIComponent('다운로드 (4).jpg'),
+  JACKET_IMG_DIR + encodeURIComponent('다운로드 (5).jpg'),
+  JACKET_IMG_DIR + encodeURIComponent('다운로드 (6).jpg'),
+];
+
 const POPULAR_RANKING = [
-  { rank: 1, productId: 1, maker: '레인웍스', name: '감각적인 오버핏 과잠, 지금 1위', seller: '감각적인 오버핏 과잠, 지금 1위', achieve: 4454, img: 'https://picsum.photos/seed/doothing-jacket-model-1/900/600', bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)', emoji: 'jacket', model: 'https://picsum.photos/seed/doothing-jacket-model-1/200/200' },
-  { rank: 2, productId: 2, maker: '딜라이트', name: '데일리로 딱 좋은 베이직 반팔',     seller: '데일리로 딱 좋은 베이직 반팔',     achieve: 1052, img: 'https://picsum.photos/seed/doothing-tshirt-model-1/900/600', bg: 'linear-gradient(135deg,#5fb8c9,#7aa8e0)', emoji: 'tshirt', model: 'https://picsum.photos/seed/doothing-tshirt-model-1/200/200' },
-  { rank: 3, productId: 4, maker: '하이센스', name: '가볍게 메는 데일리 에코백',         seller: '가볍게 메는 데일리 에코백',         achieve: 88,   img: 'https://picsum.photos/seed/doothing-ecobag-model-1/900/600', bg: 'linear-gradient(135deg,#7ec4a8,#6aa9d6)', emoji: 'ecobag', model: 'https://picsum.photos/seed/doothing-ecobag-model-1/200/200' },
-  { rank: 4, productId: 3, maker: '스트릿랩', name: '스트릿 무드 오버핏 과잠',           seller: '',                                  achieve: 62,   img: 'https://picsum.photos/seed/doothing-jacket-model-2/900/600', bg: 'linear-gradient(135deg,#c08bd6,#8e7cc3)', emoji: 'jacket', model: 'https://picsum.photos/seed/doothing-jacket-model-2/200/200' },
-  { rank: 5, productId: 2, maker: '베이직코', name: '오버사이즈 데일리 반팔',             seller: '',                                  achieve: 40,   img: 'https://picsum.photos/seed/doothing-tshirt-model-2/900/600', bg: 'linear-gradient(135deg,#5fb8c9,#9fd6e0)', emoji: 'tshirt', model: 'https://picsum.photos/seed/doothing-tshirt-model-2/200/200' },
+  { rank: 1, productId: 1, maker: '레인웍스', name: '감각적인 오버핏 과잠, 지금 1위', seller: '감각적인 오버핏 과잠, 지금 1위', achieve: 4454, img: JACKET_IMAGES[0], bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)', emoji: 'jacket', model: JACKET_IMAGES[0] },
+  { rank: 2, productId: 2, maker: '딜라이트', name: '데일리로 딱 좋은 베이직 반팔',     seller: '데일리로 딱 좋은 베이직 반팔',     achieve: 1052, img: JACKET_IMAGES[1], bg: 'linear-gradient(135deg,#5fb8c9,#7aa8e0)', emoji: 'tshirt', model: JACKET_IMAGES[1] },
+  { rank: 3, productId: 4, maker: '하이센스', name: '가볍게 메는 데일리 에코백',         seller: '가볍게 메는 데일리 에코백',         achieve: 88,   img: JACKET_IMAGES[2], bg: 'linear-gradient(135deg,#7ec4a8,#6aa9d6)', emoji: 'ecobag', model: JACKET_IMAGES[2] },
+  { rank: 4, productId: 3, maker: '스트릿랩', name: '스트릿 무드 오버핏 과잠',           seller: '',                                  achieve: 62,   img: JACKET_IMAGES[3], bg: 'linear-gradient(135deg,#c08bd6,#8e7cc3)', emoji: 'jacket', model: JACKET_IMAGES[3] },
+  { rank: 5, productId: 2, maker: '베이직코', name: '오버사이즈 데일리 반팔',             seller: '',                                  achieve: 40,   img: JACKET_IMAGES[4], bg: 'linear-gradient(135deg,#5fb8c9,#9fd6e0)', emoji: 'tshirt', model: JACKET_IMAGES[4] },
 ];
 
 const CATEGORIES = [
@@ -36,11 +47,11 @@ const CATEGORIES = [
 ];
 
 const NEW_PICKS = [
-  { id: 1, productId: 1, name: '신규 과잠',     desc: '방금 올라온 신상 과잠', img: 'https://picsum.photos/seed/doothing-new-jacket-1/600/600', bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)', progress: 72 },
-  { id: 2, productId: 2, name: '신규 반팔',     desc: '따끈한 신규 반팔티',    img: 'https://picsum.photos/seed/doothing-new-tshirt-1/600/600', bg: 'linear-gradient(135deg,#5fb8c9,#7aa8e0)', progress: 45 },
-  { id: 3, productId: 4, name: '신규 에코백',   desc: '새로 나온 에코백',      img: 'https://picsum.photos/seed/doothing-new-ecobag-1/600/600', bg: 'linear-gradient(135deg,#7ec4a8,#6aa9d6)', progress: 88 },
-  { id: 4, productId: 3, name: '신규 과잠 2',   desc: '또 다른 신상 과잠',     img: 'https://picsum.photos/seed/doothing-new-jacket-2/600/600', bg: 'linear-gradient(135deg,#c08bd6,#8e7cc3)', progress: 30 },
-  { id: 5, productId: 2, name: '신규 반팔 2',   desc: '신규 반팔 컬렉션',      img: 'https://picsum.photos/seed/doothing-new-tshirt-2/600/600', bg: 'linear-gradient(135deg,#5fb8c9,#9fd6e0)', progress: 60 },
+  { id: 1, productId: 1, name: '신규 과잠',     desc: '방금 올라온 신상 과잠', img: JACKET_IMAGES[2], bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)', progress: 72 },
+  { id: 2, productId: 2, name: '신규 반팔',     desc: '따끈한 신규 반팔티',    img: JACKET_IMAGES[3], bg: 'linear-gradient(135deg,#5fb8c9,#7aa8e0)', progress: 45 },
+  { id: 3, productId: 4, name: '신규 에코백',   desc: '새로 나온 에코백',      img: JACKET_IMAGES[4], bg: 'linear-gradient(135deg,#7ec4a8,#6aa9d6)', progress: 88 },
+  { id: 4, productId: 3, name: '신규 과잠 2',   desc: '또 다른 신상 과잠',     img: JACKET_IMAGES[5], bg: 'linear-gradient(135deg,#c08bd6,#8e7cc3)', progress: 30 },
+  { id: 5, productId: 2, name: '신규 반팔 2',   desc: '신규 반팔 컬렉션',      img: JACKET_IMAGES[6], bg: 'linear-gradient(135deg,#5fb8c9,#9fd6e0)', progress: 60 },
 ];
 
 /* ===== DOM 헬퍼 ===== */
@@ -150,35 +161,56 @@ function Header({ variant = 'main' } = {}) {
     }
   });
 
+  // 모바일용 알림 벨 아이콘 (좌측 인기/신규 옆에 배치)
+  const bellIconBtn = el('button', {
+    class: 'icon-btn-round bell-icon-btn', type: 'button', 'aria-label': '알림',
+  });
+  bellIconBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>';
+  bellIconBtn.addEventListener('click', () => {
+    if (typeof window.openNotification === 'function') window.openNotification();
+    else location.href = '/notice.html';
+  });
+
   const left = el('nav', { class: 'nav-group' },
     backBtn,
     el('button', { class: 'menu-btn', 'aria-label': '메뉴', type: 'button' }, '☰'),
     el('a', { class: 'brand', href: '/main.html' }, 'doothing'),
-    el('a', { href: '/feed.html?sort=popular' }, '인기'),
-    el('a', { href: '/feed.html?sort=latest' }, '신규'),
+    el('a', { class: 'nav-all-btn', href: '/feed.html' }, '전체'),
+    bellIconBtn,
   );
 
-  // 우측 — 검색 돋보기 + 마이프로필 아바타 (모바일에서 보임) + 텍스트 메뉴 (데스크톱에서 보임)
-  const searchBtn = el('button', {
-    class: 'icon-btn-round', type: 'button', 'aria-label': '검색',
-  });
-  searchBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>';
-  searchBtn.addEventListener('click', () => {
-    if (typeof window.openSearch === 'function') window.openSearch();
-    else location.href = '/feed.html';
-  });
+  // 우측 — 마이프로필 아이콘 (모바일) + 텍스트 메뉴 (데스크톱)
 
-  const avatarLink = el('a', {
-    class: 'icon-btn-round avatar-btn', href: '/profile.html', 'aria-label': '마이프로필',
+  // 모바일용 마이프로필 아이콘 (profile 페이지에서는 설정 아이콘으로 대체)
+  const isProfilePage = /profile/i.test(location.pathname) || /profile/i.test(location.href);
+  const profileIconBtn = el('a', {
+    class: 'icon-btn-round avatar-btn',
+    href: isProfilePage ? '/settings.html' : '/profile.html',
+    'aria-label': isProfilePage ? '설정' : '마이프로필',
   });
-  avatarLink.innerHTML = '<img src="https://picsum.photos/seed/profile1/40/40" alt="프로필" class="avatar-img">';
+  if (isProfilePage) {
+    profileIconBtn.classList.remove('avatar-btn');
+    profileIconBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09a1.65 1.65 0 00-1-1.51 1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09a1.65 1.65 0 001.51-1 1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>';
+  } else {
+    profileIconBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+  }
 
   let right;
 
   if (variant === 'detail') {
-    right = el('nav', { class: 'nav-group' }, searchBtn, avatarLink);
+    // sub/detail 페이지 우측: 알림 + 마이프로필(또는 설정)
+    // bellIconBtn 은 좌측에서 이미 사용 중 → 별도 인스턴스 생성
+    const bellIconBtnRight = el('button', {
+      class: 'icon-btn-round bell-icon-btn', type: 'button', 'aria-label': '알림',
+    });
+    bellIconBtnRight.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>';
+    bellIconBtnRight.addEventListener('click', () => {
+      if (typeof window.openNotification === 'function') window.openNotification();
+      else location.href = '/notice.html';
+    });
+    right = el('nav', { class: 'nav-group' }, bellIconBtnRight, profileIconBtn);
   } else {
-    // 메인: 디자인하기 + 알림 / 설정 / 마이프로필 (텍스트 — 데스크톱) + 검색/아바타 아이콘 (모바일)
+    // 메인: 디자인하기 + 알림 / 설정 / 마이프로필 (텍스트 — 데스크톱)
     const designLink = el('a', { href: '/design-select.html', class: 'nav-text' }, '디자인하기');
 
     const bellBtn = el('button', {
@@ -201,13 +233,26 @@ function Header({ variant = 'main' } = {}) {
     }, '마이프로필');
     profileLink.appendChild(el('span', { class: 'profile-dot', 'aria-hidden': 'true' }));
 
+    // profile 페이지: 우측 헤더에 알림 아이콘 추가
+    let profilePageBellBtn = null;
+    if (isProfilePage) {
+      profilePageBellBtn = el('button', {
+        class: 'icon-btn-round bell-icon-btn', type: 'button', 'aria-label': '알림',
+      });
+      profilePageBellBtn.innerHTML = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>';
+      profilePageBellBtn.addEventListener('click', () => {
+        if (typeof window.openNotification === 'function') window.openNotification();
+        else location.href = '/notice.html';
+      });
+    }
+
     right = el('nav', { class: 'nav-group' },
-      searchBtn,
-      avatarLink,
-      designLink,
+      profilePageBellBtn,
+      profileIconBtn,
+      profileLink,
       bellBtn,
       settingsBtn,
-      profileLink,
+      designLink,
     );
   }
 
@@ -604,8 +649,70 @@ function App() {
   // 메인 페이지
   root.appendChild(Header({ variant: 'main' }));
   root.appendChild(SearchBar());
-  root.appendChild(PopularSection());
-  root.appendChild(NewPicks());
+
+  // PopularSection / NewPicks 컨테이너 — 백엔드 데이터 도착 시 다시 렌더
+  const popularWrap = el('div', { class: 'popular-wrap' });
+  const newPicksWrap = el('div', { class: 'new-picks-wrap' });
+  root.appendChild(popularWrap);
+  root.appendChild(newPicksWrap);
+
+  function buildSectionsFromMockProducts() {
+    // MOCK_PRODUCTS (백엔드에서 가져왔거나 mock) 기반으로 ranking/newpicks 생성
+    const products = (typeof window.MOCK_PRODUCTS !== 'undefined' && Array.isArray(window.MOCK_PRODUCTS))
+      ? window.MOCK_PRODUCTS : [];
+
+    let rankingData = POPULAR_RANKING;
+    let newPicksData = NEW_PICKS;
+
+    if (products.length > 0) {
+      // 인기순 5개 → POPULAR_RANKING 형식
+      const sortedByLikes = [...products]
+        .sort((a, b) => {
+          const aRate = a.targetQuantity > 0 ? a.currentQuantity / a.targetQuantity : 0;
+          const bRate = b.targetQuantity > 0 ? b.currentQuantity / b.targetQuantity : 0;
+          return bRate - aRate;
+        })
+        .slice(0, 5);
+
+      rankingData = sortedByLikes.map((p, idx) => ({
+        rank: idx + 1,
+        productId: p.id,
+        maker: p.author || '익명',
+        name: p.title,
+        seller: p.title,
+        achieve: p.targetQuantity > 0
+          ? Math.round((p.currentQuantity / p.targetQuantity) * 100)
+          : 0,
+        img: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
+        bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)',
+        emoji: 'jacket',
+        model: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
+      }));
+
+      // 최신순 5개 → NEW_PICKS 형식
+      const sortedByCreated = [...products]
+        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
+        .slice(0, 5);
+
+      newPicksData = sortedByCreated.map((p, idx) => ({
+        id: p.id,
+        productId: p.id,
+        name: p.title,
+        desc: p.description?.slice(0, 30) || p.title,
+        img: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
+        bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)',
+        progress: p.targetQuantity > 0
+          ? Math.round((p.currentQuantity / p.targetQuantity) * 100)
+          : 0,
+      }));
+    }
+
+    popularWrap.replaceChildren(PopularSection({ ranking: rankingData }));
+    newPicksWrap.replaceChildren(NewPicks({ items: newPicksData }));
+  }
+
+  buildSectionsFromMockProducts();
+  window.addEventListener('mockproducts:updated', buildSectionsFromMockProducts);
 
   // index.html?search=<keyword> 로 진입 시 feed.html?q= 로 자동 위임
   try {

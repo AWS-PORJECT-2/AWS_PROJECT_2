@@ -43,14 +43,17 @@ function goBack() {
 
 function getProductId() {
   const params = new URLSearchParams(window.location.search);
-  const id = Number(params.get('id'));
-  if (isNaN(id) || id <= 0) return null;
-  return id;
+  const raw = params.get('id');
+  if (!raw) return null;
+  // UUID(문자열) 또는 숫자 둘 다 지원
+  const num = Number(raw);
+  if (!isNaN(num) && num > 0) return num;
+  return raw; // UUID 문자열
 }
 
 function findProduct(id) {
   if (id === null || id === undefined) return null;
-  return MOCK_PRODUCTS.find((p) => p.id === id) || null;
+  return MOCK_PRODUCTS.find((p) => String(p.id) === String(id)) || null;
 }
 
 function getAchievement(product) {
@@ -359,17 +362,10 @@ function renderDetail() {
     <!-- 데스크톱: 좌측(사진 + 스토리) | 우측 fixed 패널 (CSS 가 padding-right 으로 우측 영역 비움) -->
     <section class="detail-layout">
 
-      <!-- 1) 메인 이미지 + 썸네일 -->
+      <!-- 1) 메인 이미지 (풀사이즈) -->
       <div class="detail-hero__media">
-        <div class="hero-img-wrap" id="heroImgWrap">
+        <div class="hero-img-wrap hero-img-full" id="heroImgWrap">
           <img src="${escapeHTML(currentProduct.imageUrl)}" alt="${escapeHTML(currentProduct.title)}" class="hero-img" id="heroImg">
-        </div>
-        <div class="hero-thumbs" id="heroThumbs">
-          ${[currentProduct.imageUrl, ...gallery.slice(0, 3)].map((src, idx) => `
-            <button class="hero-thumb${idx === 0 ? ' active' : ''}" type="button" data-src="${escapeHTML(src)}" aria-label="썸네일 ${idx + 1}">
-              <img src="${escapeHTML(src)}" alt="">
-            </button>
-          `).join('')}
         </div>
       </div>
 
@@ -490,17 +486,7 @@ function renderDetail() {
     </div>
   `;
 
-  // 썸네일 클릭 → 메인 사진 교체
-  const heroImg = document.getElementById('heroImg');
-  const thumbs = document.querySelectorAll('.hero-thumb');
-  thumbs.forEach((t) => {
-    t.addEventListener('click', () => {
-      const src = t.getAttribute('data-src');
-      if (src && heroImg) heroImg.setAttribute('src', src);
-      thumbs.forEach((x) => x.classList.remove('active'));
-      t.classList.add('active');
-    });
-  });
+  // 썸네일 제거됨 — 메인 이미지만 표시
 
   // 메인 이미지 높이를 우측 정보 패널(결제하기 버튼까지)의 높이에 동기화 — 데스크톱만
   syncHeroToInfoHeight();
@@ -519,9 +505,27 @@ function renderDetail() {
   document.title = currentProduct.title + ' - doothing';
 }
 
-/* main.js 의 App() 가 헤더를 먼저 그린 후에 실행되도록 DOMContentLoaded 사용 */
+/* main.js 의 App() 가 헤더를 먼저 그린 후에 실행되도록 DOMContentLoaded 사용
+   백엔드 fetch 가 완료된 후에 렌더 — mockproducts:updated 이벤트 + 1초 timeout fallback */
+function renderDetailWhenReady() {
+  let rendered = false;
+  function doRender() {
+    if (rendered) return;
+    rendered = true;
+    renderDetail();
+  }
+  // 백엔드 데이터 로드되면 즉시 렌더
+  window.addEventListener('mockproducts:updated', doRender, { once: true });
+  // 백엔드 응답이 없거나 실패하면 1초 후 mock으로 렌더
+  setTimeout(doRender, 1200);
+  // 이미 데이터가 채워져 있으면 즉시
+  if (typeof MOCK_PRODUCTS !== 'undefined' && MOCK_PRODUCTS.length > 0 && findProduct(getProductId())) {
+    doRender();
+  }
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', renderDetail);
+  document.addEventListener('DOMContentLoaded', renderDetailWhenReady);
 } else {
-  renderDetail();
+  renderDetailWhenReady();
 }

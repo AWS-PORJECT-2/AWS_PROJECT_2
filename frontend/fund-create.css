@@ -1,6 +1,13 @@
 /* ===== 펀드 개설 화면 (옷 가져오기 → 편집 → 피팅 → 펀드 정보) ===== */
 
-.fund-create-main { padding-bottom: 60px; }
+.fund-create-main {
+  padding-bottom: 60px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-left: 32px;
+  padding-right: 32px;
+  box-sizing: border-box;
+}
 
 /* 진행 상태 */
 .step-indicator {

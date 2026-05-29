@@ -43,6 +43,12 @@ document.addEventListener('DOMContentLoaded', () => {
   renderFeedList();
 });
 
+// 백엔드 상품 데이터 도착하면 다시 렌더
+window.addEventListener('mockproducts:updated', () => {
+  renderDeptFilter();
+  renderFeedList();
+});
+
 /* ===== 카테고리 칩 렌더링 ===== */
 function renderCategoryChips() {
   const container = document.getElementById('categoryChips');

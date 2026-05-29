@@ -1,7 +1,7 @@
 import type pg from 'pg';
 import type { PoolClient } from 'pg';
 import type { GroupBuy, GroupBuyStatus } from '../types/index.js';
-import type { GroupBuyRepository } from './groupbuy-repository.js';
+import type { GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions } from './groupbuy-repository.js';
 
 export class PgGroupBuyRepository implements GroupBuyRepository {
   constructor(private readonly pool: pg.Pool) {}
@@ -56,6 +56,65 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       'UPDATE groupbuys SET current_quantity = current_quantity - $1, updated_at = NOW() WHERE id = $2',
       [amount, id],
     );
+  }
+
+  async list(options: GroupBuyListOptions): Promise<{ items: GroupBuyListItem[]; total: number }> {
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const where: string[] = [];
+    const params: unknown[] = [];
+
+    if (options.category && options.category !== 'all') {
+      params.push(options.category);
+      where.push(`(g.product_options->>'category' = $${params.length})`);
+    }
+    if (options.q) {
+      params.push(`%${options.q}%`);
+      where.push(`g.title ILIKE $${params.length}`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const orderSql = options.sort === 'latest'
+      ? 'ORDER BY g.created_at DESC'
+      : 'ORDER BY g.current_quantity DESC, g.created_at DESC';
+
+    params.push(limit);
+    params.push(offset);
+
+    const listQuery = `
+      SELECT g.*, u.name AS author_name, u.school_domain AS author_department
+        FROM groupbuys g
+        LEFT JOIN "user" u ON u.id = g.creator_id
+        ${whereSql}
+        ${orderSql}
+        LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+
+    const countQuery = `SELECT COUNT(*)::int AS cnt FROM groupbuys g ${whereSql}`;
+    const countParams = params.slice(0, params.length - 2);
+
+    const [listRes, countRes] = await Promise.all([
+      this.pool.query(listQuery, params),
+      this.pool.query(countQuery, countParams),
+    ]);
+
+    const items = listRes.rows.map((row) => {
+      const base = this.mapRow(row);
+      return {
+        ...base,
+        imageUrl: (row.product_options && typeof row.product_options === 'object'
+          ? (row.product_options as Record<string, unknown>).imageUrl as string | null
+          : null) ?? null,
+        authorName: (row.author_name as string | null) ?? null,
+        authorDepartment: (row.author_department as string | null) ?? null,
+        category: (row.product_options && typeof row.product_options === 'object'
+          ? (row.product_options as Record<string, unknown>).category as string | null
+          : null) ?? null,
+      } as GroupBuyListItem;
+    });
+
+    return { items, total: Number(countRes.rows[0].cnt) };
   }
 
   private mapRow(row: Record<string, unknown>): GroupBuy {

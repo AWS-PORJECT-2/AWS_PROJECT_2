@@ -4,7 +4,7 @@
 
 @font-face {
   font-family: "NanumSquareRound";
-  src: url("https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/NanumSquareRoundEB.woff") format("woff");
+  src: url("https://fastly.jsdelivr.net/gh/projectnoonnu/noonfonts_two@1.0/NanumSquareRoundEB.woff") format("woff");
   font-weight: 800;
   font-display: swap;
 }
@@ -39,6 +39,10 @@
   background: var(--bg-page);
   color: var(--text-default);
   min-height: 100vh;
+}
+/* 데스크톱: 헤더는 풀폭, 콘텐츠는 각 페이지에서 중앙 정렬 */
+.main-page #app {
+  width: 100%;
 }
 .main-page a { color: inherit; text-decoration: none; }
 .main-page a:hover { color: #4b5563; }
@@ -126,6 +130,10 @@
   flex-shrink: 0;
   overflow: hidden;
 }
+/* 데스크톱(901px 이상)에서는 숨김 — 텍스트 메뉴로 대체 */
+@media (min-width: 901px) {
+  .dt-header .icon-btn-round { display: none; }
+}
 .dt-header .icon-btn-round:hover {
   background: rgba(255, 255, 255, 0.22);
   transform: translateY(-1px);
@@ -143,7 +151,14 @@
 }
 
 /* ===== Search ===== */
-.dt-search-wrap { padding: 16px 32px; width: 100%; background: #fff; }
+.dt-search-wrap {
+  padding: 16px 32px;
+  width: 100%;
+  background: #fff;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
 .dt-search-input {
   width: 100%; font-size: 16px; padding: 14px 18px;
   border-radius: 14px;
@@ -166,6 +181,9 @@
   gap: 20px;
   padding: 24px 32px;
   align-items: stretch; /* 좌·우 컬럼 동일 높이 */
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
 }
 
 .dt-popular .left-col {
@@ -341,6 +359,7 @@
   height: auto;
   object-fit: contain;
   margin: 8px 0 0;
+  filter: brightness(1.25);
 }
 /* 구버전 .slogan / .slogan-text 텍스트 스타일은 호환용으로만 유지 (현재는 사용 안함) */
 .dt-popular .slogan {
@@ -399,6 +418,7 @@
 .brand-mark.brand-side svg {
   max-width: 620px;
   max-height: 240px;
+  filter: brightness(1.25);
 }
 
 /* 우측 - 실시간 순위 박스 */
@@ -500,7 +520,12 @@
 /* =====================================================================
  * New Picks — 카드 안 박스 제거: 달성률은 카드 밖 밑에 그냥 텍스트
  * ===================================================================== */
-.dt-new-picks { padding: 24px 32px 60px; }
+.dt-new-picks {
+  padding: 24px 32px 60px;
+  max-width: 1280px;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
 .dt-new-picks h2 {
   font-family: var(--font-round);
   font-size: 22px; font-weight: 800;
@@ -596,12 +621,31 @@
   /* 메인 모바일: 좌측에 인기/신규 링크 보이게 */
   body:not([data-page]) .dt-header .nav-group:first-child > a:not(.brand) {
     display: inline;
-    font-size: 13px;
-    color: rgba(255,255,255,0.9);
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,1);
+    letter-spacing: -0.2px;
   }
-  body:not([data-page]) .dt-header .nav-group:first-child .menu-btn { display: none; }
-  body:not([data-page]) .dt-header .nav-group:last-child .nav-text { display: inline; font-size: 13px; }
-  body:not([data-page]) .dt-header .nav-group:last-child .icon-btn-round:not(.avatar-btn) { display: none; }
+  body:not([data-page]) .dt-header .nav-group:first-child .menu-btn {
+    display: inline-flex;
+    font-size: 24px;
+    font-weight: 700;
+  }
+  /* 메인 모바일: 좌측에 알림 벨 아이콘도 보이게 */
+  body:not([data-page]) .dt-header .nav-group:first-child .bell-icon-btn {
+    display: inline-flex;
+    width: 28px;
+    height: 28px;
+    border: none;
+    background: rgba(255,255,255,0.15);
+  }
+  body:not([data-page]) .dt-header .nav-group:last-child .nav-text {
+    display: inline;
+    font-size: 14px;
+    font-weight: 700;
+    color: rgba(255,255,255,1);
+    letter-spacing: -0.2px;
+  }
   body:not([data-page]) .dt-header {
     padding: 18px 20px;
     min-height: 56px;
@@ -625,12 +669,20 @@
   .dt-popular .left-col { gap: 16px; }
   .dt-popular .main-card { min-height: 220px; }
 
-  .dt-popular .category-row { gap: 12px; }
-  .dt-popular .category-card,
+  .dt-popular .category-row {
+    gap: 0;
+    justify-content: space-between;
+    width: 100%;
+  }
+  .dt-popular .category-card {
+    flex: 1;
+    max-width: 100px;
+  }
   .dt-popular .category-card .icon,
   .category-icon-card {
-    width: 76px;
-    height: 76px;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
   }
 
   /* 모바일: 텍스트 그룹과 두띵 마크를 가로로 묶고 여백 0 으로 바짝 붙임 */
@@ -641,16 +693,32 @@
     align-items: flex-end;
   }
   .dt-popular .left-row .text-group {
-    flex: 0 0 auto;
+    flex: 1 1 auto;
+    width: 100%;
     gap: 12px;
   }
   .brand-mark {
-    flex: 0 1 auto;
-    justify-content: flex-start;
+    display: none;
   }
-  .brand-mark.brand-side svg {
-    max-width: 220px;
-    max-height: 100px;
+
+  /* 모바일 텍스트 슬로건 */
+  .dt-popular .slogan-mobile {
+    display: block;
+    font-family: var(--font-round);
+    font-size: 24px;
+    font-weight: 800;
+    color: #1a1a1a;
+    line-height: 1.4;
+    margin: 8px 0 0;
+    word-break: keep-all;
+  }
+  .dt-popular .slogan-mobile .slogan-sub {
+    display: block;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 6px;
+    line-height: 1.5;
   }
 
   .dt-popular .slogan,
@@ -660,9 +728,14 @@
     white-space: nowrap;
     word-break: keep-all;
   }
+  /* 슬로건 이미지: 너비 90%, 중앙 정렬 */
   .dt-popular .slogan-text.slogan-img {
-    max-width: 360px;
-    max-height: 110px;
+    display: block;
+    width: 90%;
+    max-width: 90%;
+    height: auto;
+    max-height: none;
+    margin: 12px auto 0;
   }
 
   .dt-popular .ranking-list { gap: 14px; }
@@ -703,24 +776,23 @@
   .dt-popular { padding: 12px; }
   .dt-popular .slogan,
   .dt-popular .slogan-text { font-size: 22px; }
-  .dt-popular .slogan-text.slogan-img { max-width: 280px; max-height: 86px; }
+  .dt-popular .slogan-text.slogan-img { max-width: 90%; max-height: none; width: 90%; margin: 10px auto 0; }
 
   .dt-popular .category-card,
   .dt-popular .category-card .icon,
   .category-icon-card {
-    width: 64px;
-    height: 64px;
+    width: auto;
+    height: auto;
   }
   .dt-popular .category-card .label { font-size: 12px; }
 
   .dt-popular .ranking-list .thumb-square { width: 68px; height: 68px; }
   .dt-popular .ranking-list .rank-badge-mini { width: 24px; height: 24px; font-size: 14px; }
 
-  /* 작은 화면: 두띵 마크 더 작게, 슬로건 옆에 여백 없이 */
+  /* 작은 화면: 브랜드 마크 숨김 */
   .dt-popular .left-row { gap: 6px; }
-  .brand-mark.brand-side svg {
-    max-width: 160px;
-    max-height: 80px;
+  .brand-mark {
+    display: none;
   }
 
   .dt-new-picks .grid { gap: 10px; }
@@ -805,4 +877,66 @@
 @keyframes dt-fade-in {
   from { opacity: 0; }
   to   { opacity: 1; }
+}
+
+
+/* =====================================================================
+ * 메인 페이지 등장 애니메이션 — 헤더 제외, 콘텐츠 순차적 페이드업
+ * (메인 페이지는 body[data-page] 가 없는 상태)
+ * ===================================================================== */
+@keyframes mp-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+body:not([data-page]) .dt-search-wrap,
+body:not([data-page]) .dt-popular,
+body:not([data-page]) .dt-new-picks {
+  opacity: 0;
+  animation: mp-fade-up 0.6s ease forwards;
+}
+body:not([data-page]) .dt-search-wrap { animation-delay: 0.05s; }
+body:not([data-page]) .dt-popular     { animation-delay: 0.18s; }
+body:not([data-page]) .dt-new-picks   { animation-delay: 0.32s; }
+
+/* 인기 섹션 내부 컴포넌트도 살짝 시차 */
+body:not([data-page]) .dt-popular .main-card,
+body:not([data-page]) .dt-popular .left-row,
+body:not([data-page]) .dt-popular .right-col {
+  opacity: 0;
+  animation: mp-fade-up 0.55s ease forwards;
+}
+body:not([data-page]) .dt-popular .main-card { animation-delay: 0.25s; }
+body:not([data-page]) .dt-popular .left-row  { animation-delay: 0.35s; }
+body:not([data-page]) .dt-popular .right-col { animation-delay: 0.4s; }
+
+/* 신규픽 카드 순차 등장 */
+body:not([data-page]) .dt-new-picks .grid > .slot {
+  opacity: 0;
+  animation: mp-fade-up 0.5s ease forwards;
+}
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(1) { animation-delay: 0.45s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(2) { animation-delay: 0.55s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(3) { animation-delay: 0.65s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(4) { animation-delay: 0.75s; }
+body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay: 0.85s; }
+
+/* 모션 줄임 모드 사용자에게는 애니메이션 비활성 (접근성) */
+@media (prefers-reduced-motion: reduce) {
+  body:not([data-page]) .dt-search-wrap,
+  body:not([data-page]) .dt-popular,
+  body:not([data-page]) .dt-new-picks,
+  body:not([data-page]) .dt-popular .main-card,
+  body:not([data-page]) .dt-popular .left-row,
+  body:not([data-page]) .dt-popular .right-col,
+  body:not([data-page]) .dt-new-picks .grid > .slot {
+    opacity: 1;
+    animation: none;
+  }
 }

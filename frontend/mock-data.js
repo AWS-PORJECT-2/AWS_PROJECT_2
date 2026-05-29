@@ -9,10 +9,22 @@
  * isReserved: 현재 사용자의 공구 참여/예약 여부
  */
 
-const MOCK_PRODUCTS = [
+const _JACKET_DIR = '/' + encodeURIComponent('과잠 이미지') + '/';
+const _JACKET_IMGS = [
+  _JACKET_DIR + encodeURIComponent('다운로드.jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (1).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (2).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (3).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (4).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (5).jpg'),
+  _JACKET_DIR + encodeURIComponent('다운로드 (6).jpg'),
+];
+
+// 백엔드 API에서 가져온 실제 상품 데이터 (없으면 아래 mock 사용)
+var MOCK_PRODUCTS = [
   {
     id: 1,
-    imageUrl: 'https://picsum.photos/seed/feed1/600/600',
+    imageUrl: _JACKET_IMGS[0],
     author: '김민수',
     authorAvatar: 'https://picsum.photos/seed/avatar1/48/48',
     department: '소프트웨어학부',
@@ -34,7 +46,7 @@ const MOCK_PRODUCTS = [
   },
   {
     id: 2,
-    imageUrl: 'https://picsum.photos/seed/feed2/600/600',
+    imageUrl: _JACKET_IMGS[1],
     author: '이서연',
     authorAvatar: 'https://picsum.photos/seed/avatar2/48/48',
     department: '경영학부',
@@ -56,7 +68,7 @@ const MOCK_PRODUCTS = [
   },
   {
     id: 3,
-    imageUrl: 'https://picsum.photos/seed/feed3/600/600',
+    imageUrl: _JACKET_IMGS[2],
     author: '박지훈',
     authorAvatar: 'https://picsum.photos/seed/avatar3/48/48',
     department: '디자인학부',
@@ -78,7 +90,7 @@ const MOCK_PRODUCTS = [
   },
   {
     id: 4,
-    imageUrl: 'https://picsum.photos/seed/feed4/600/600',
+    imageUrl: _JACKET_IMGS[3],
     author: '최유진',
     authorAvatar: 'https://picsum.photos/seed/avatar4/48/48',
     department: '체육학부',
@@ -226,3 +238,66 @@ function syncUserState() {
 
 // 초기화
 syncUserState();
+
+
+/**
+ * 백엔드(/api/groupbuys)에서 상품 목록을 가져와 MOCK_PRODUCTS 를 덮어씀.
+ * 실패 시 기존 mock 데이터 유지 (페이지 동작 보장).
+ */
+async function loadProductsFromBackend() {
+  try {
+    const base = window.API_BASE_URL || (window.location.origin + '/api');
+    const res = await fetch(base + '/groupbuys?sort=popular&limit=20', {
+      credentials: 'include',
+    });
+    if (!res.ok) {
+      console.warn('백엔드 상품 조회 실패:', res.status);
+      return false;
+    }
+    const data = await res.json();
+    if (!data || !Array.isArray(data.items) || data.items.length === 0) return false;
+
+    MOCK_PRODUCTS = data.items.map(function (p) {
+      return {
+        id: p.id,
+        imageUrl: p.imageUrl || _JACKET_IMGS[0],
+        author: p.author || '익명',
+        authorAvatar: p.authorAvatar || ('https://picsum.photos/seed/avatar-' + encodeURIComponent(p.id) + '/48/48'),
+        department: p.department || '',
+        title: p.title,
+        price: p.price ?? 0,
+        priceText: p.priceText || (p.price ? p.price.toLocaleString('ko-KR') + '원' : ''),
+        description: p.description || '',
+        targetQuantity: p.targetQuantity || 0,
+        currentQuantity: p.currentQuantity || 0,
+        likeCount: p.likeCount || 0,
+        meta: p.meta || '',
+        deadline: p.deadline || '',
+        isLiked: false,
+        isReserved: false,
+        isPaid: false,
+        sizeType: p.sizeType || 'multiple',
+        category: p.category || '',
+        createdAt: p.createdAt || '',
+      };
+    });
+    window.MOCK_PRODUCTS = MOCK_PRODUCTS;
+
+    // 외부 리스너에 데이터 갱신 알림
+    window.dispatchEvent(new CustomEvent('mockproducts:updated', { detail: { items: MOCK_PRODUCTS } }));
+    return true;
+  } catch (err) {
+    console.warn('백엔드 상품 조회 에러:', err);
+    return false;
+  }
+}
+
+window.MOCK_PRODUCTS = MOCK_PRODUCTS;
+window.loadProductsFromBackend = loadProductsFromBackend;
+
+// 페이지 로드 후 자동 실행
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', loadProductsFromBackend);
+} else {
+  loadProductsFromBackend();
+}
