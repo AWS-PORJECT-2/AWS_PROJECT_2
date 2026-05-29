@@ -28,6 +28,113 @@ function cancelReservation(productId) {
   switchProfileTab('joined');
 }
 
+/* ===== 배송조회 모달 (PR#19) ===== */
+async function openTrackingModal() {
+  var existing = document.getElementById('trackingModal');
+  if (existing) existing.remove();
+
+  var modal = document.createElement('div');
+  modal.id = 'trackingModal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:700;display:flex;align-items:center;justify-content:center;';
+  modal.innerHTML =
+    '<div onclick="closeTrackingModal()" style="position:absolute;inset:0;background:rgba(0,0,0,0.4);"></div>' +
+    '<div style="position:relative;background:#fff;border-radius:16px;padding:24px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">' +
+      '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
+        '<h3 style="font-size:17px;font-weight:700;color:#1a1a1a;">배송조회</h3>' +
+        '<button onclick="closeTrackingModal()" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:20px;">✕</button>' +
+      '</div>' +
+      '<div id="trackingContent" style="color:#6b7280;font-size:14px;text-align:center;padding:20px;">불러오는 중...</div>' +
+    '</div>';
+  document.body.appendChild(modal);
+
+  try {
+    var orders = await window.api.get('/me/orders', { silentAuthFail: true });
+    var container = document.getElementById('trackingContent');
+    if (!container) return;
+    if (!orders || orders.length === 0) {
+      container.innerHTML = '<p style="color:#9ca3af;">주문 내역이 없습니다</p>';
+      return;
+    }
+    var shippingOrders = orders.filter(function (o) {
+      return o.status === 'shipping' || o.status === 'shipping_ready' || o.status === 'delivered';
+    });
+    if (shippingOrders.length === 0) {
+      container.innerHTML = '<p style="color:#9ca3af;">배송 중인 주문이 없습니다</p>';
+      return;
+    }
+    container.innerHTML = '';
+    shippingOrders.forEach(function (order) {
+      var statusText = { shipping_ready: '배송 준비', shipping: '배송 중', delivered: '배송 완료' };
+      var statusColor = { shipping_ready: '#f97316', shipping: '#2563eb', delivered: '#16a34a' };
+      var card = document.createElement('div');
+      card.style.cssText = 'padding:12px;border:1px solid #f0f0f0;border-radius:10px;margin-bottom:8px;text-align:left;';
+      var header = document.createElement('div');
+      header.style.cssText = 'display:flex;justify-content:space-between;align-items:center;';
+      var idSpan = document.createElement('span');
+      idSpan.style.cssText = 'font-size:13px;font-weight:600;color:#1a1a1a;';
+      idSpan.textContent = '주문 #' + String(order.id).slice(0, 8);
+      var statusSpan = document.createElement('span');
+      statusSpan.style.cssText = 'font-size:12px;font-weight:600;color:' + (statusColor[order.status] || '#6b7280') + ';';
+      statusSpan.textContent = statusText[order.status] || order.status;
+      header.appendChild(idSpan);
+      header.appendChild(statusSpan);
+      card.appendChild(header);
+      var amountDiv = document.createElement('div');
+      amountDiv.style.cssText = 'font-size:12px;color:#9ca3af;margin-top:4px;';
+      amountDiv.textContent = (order.amount != null ? order.amount.toLocaleString() : '0') + '원';
+      card.appendChild(amountDiv);
+      if (order.trackingNumber) {
+        var btn = document.createElement('button');
+        btn.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:1px solid #2563eb;border-radius:8px;background:#fff;color:#2563eb;font-size:13px;font-weight:600;cursor:pointer;';
+        btn.textContent = '택배 추적';
+        btn.addEventListener('click', function () { viewTracking(order.id); });
+        card.appendChild(btn);
+      } else {
+        var noTrack = document.createElement('div');
+        noTrack.style.cssText = 'margin-top:8px;font-size:12px;color:#9ca3af;';
+        noTrack.textContent = '운송장 미등록';
+        card.appendChild(noTrack);
+      }
+      container.appendChild(card);
+    });
+  } catch (e) {
+    var errContainer = document.getElementById('trackingContent');
+    if (errContainer) errContainer.innerHTML = '<p style="color:#ef4444;">주문 정보를 불러올 수 없습니다</p>';
+  }
+}
+
+function closeTrackingModal() {
+  var modal = document.getElementById('trackingModal');
+  if (modal) modal.remove();
+}
+
+async function viewTracking(orderId) {
+  try {
+    var data = await window.api.get('/orders/' + orderId + '/tracking');
+    var container = document.getElementById('trackingContent');
+    if (!container) return;
+    var html = '<div style="text-align:left;">' +
+      '<div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid #f0f0f0;">' +
+        '<div style="font-size:14px;font-weight:600;color:#1a1a1a;">현재 상태: ' + window.escapeHTML(data.status) + '</div>' +
+        '<div style="font-size:12px;color:#9ca3af;margin-top:2px;">운송장: ' + window.escapeHTML(data.trackingNumber) + '</div>' +
+      '</div>';
+    if (data.events && data.events.length > 0) {
+      html += data.events.map(function (ev) {
+        return '<div style="padding:8px 0;border-bottom:1px solid #f9fafb;">' +
+          '<div style="font-size:13px;font-weight:500;color:#1a1a1a;">' + window.escapeHTML(ev.description || ev.status) + '</div>' +
+          '<div style="font-size:11px;color:#9ca3af;margin-top:2px;">' + window.escapeHTML(ev.location) + ' · ' + window.escapeHTML(ev.time) + '</div>' +
+        '</div>';
+      }).join('');
+    } else {
+      html += '<p style="color:#9ca3af;font-size:13px;">추적 정보가 아직 없습니다</p>';
+    }
+    html += '</div>';
+    container.innerHTML = html;
+  } catch (e) {
+    alert('배송 추적 실패: ' + (e.message || ''));
+  }
+}
+
 /* 사용자 정보 — /api/auth/me 로 채워짐.
  * loadError 가 채워지면 renderProfile 이 "정보를 불러오지 못했습니다" 배너를 띄운다.
  * 절대로 "게스트" 같은 가짜 신원을 사용자에게 노출하지 않는다.
@@ -72,13 +179,20 @@ async function loadCurrentUser() {
 /* 탭 상태 */
 let profileTab = 'liked'; // 'liked' | 'joined' | 'created'
 
-/* 배송/결제 현황 카운트 (임시) */
-const MOCK_ORDER_STATUS = {
+/* 배송/결제 현황 카운트 — /api/orders/status-counts 에서 채움 (PR#19 방식) */
+let MOCK_ORDER_STATUS = {
   paymentPending: 0,
-  paymentDone: 0,
-  shippingReady: 0,
-  shippingDone: 0,
+  paidReady: 0,
+  shipping: 0,
+  delivered: 0,
 };
+
+async function loadOrderStatusCounts() {
+  try {
+    const data = await window.api.get('/orders/status-counts', { silentAuthFail: true });
+    if (data) MOCK_ORDER_STATUS = data;
+  } catch (e) { /* 실패 시 0 유지 */ }
+}
 
 function switchProfileTab(tab) {
   profileTab = tab;
@@ -222,22 +336,25 @@ function renderProfile() {
   orderSection.style.cssText = 'padding:20px;border-bottom:8px solid #f5f5f5;';
   // 카운트는 number 라 escape 불필요하지만 일관성을 위해 거친다.
   orderSection.innerHTML = `
-    <div style="font-size:16px;font-weight:700;color:#1a1a1a;margin-bottom:16px;">배송/결제 현황</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">배송/결제 현황</div>
+      <button onclick="openTrackingModal()" style="font-size:13px;color:#2563eb;font-weight:600;background:none;border:none;cursor:pointer;">배송조회 →</button>
+    </div>
     <div style="display:flex;justify-content:space-around;text-align:center;">
       <div style="flex:1;">
         <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paymentPending)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 대기</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paymentDone)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 완료</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paidReady)}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 완료<br>배송 준비</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.shippingReady)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 준비</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.shipping)}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 중</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.shippingDone)}</div>
+        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.delivered)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 완료</div>
       </div>
     </div>
@@ -282,5 +399,8 @@ function renderProfile() {
 (async function init() {
   // loadCurrentUser 가 false 면 401/410 으로 인한 redirect 진행 중 — 깜빡임 방지를 위해 렌더 스킵
   const shouldRender = await loadCurrentUser();
-  if (shouldRender) renderProfile();
+  if (shouldRender) {
+    await loadOrderStatusCounts(); // 배송/결제 현황 카운트 채운 뒤 렌더 (PR#19)
+    renderProfile();
+  }
 })();
