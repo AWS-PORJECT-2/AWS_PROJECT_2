@@ -410,9 +410,6 @@
   height: auto;
   display: block;
 }
-  display: block;
-  opacity: 1;
-}
 
 /* 카테고리 + 슬로건 두 행 높이를 모두 덮는 큰 brand mark */
 .brand-mark.brand-side svg {

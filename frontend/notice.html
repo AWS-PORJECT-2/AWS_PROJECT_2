@@ -98,7 +98,7 @@
           var user = await res.json();
           currentUser = user;
           // 관리자 판별은 서버의 role claim 만 신뢰. mock 이메일 분기 금지 (mock OAuth 켜진 환경에서 권한 도용 가능).
-          isAdmin = user.role === 'admin';
+          isAdmin = user.role === 'ADMIN';
         }
       } catch (e) {
         // API 호출 실패 또는 미로그인 → 기본값 false 유지

@@ -68,8 +68,8 @@ import { createPaymentMethodsHandlers } from './routes/payment-methods-routes.js
 import { createAddressesHandlers } from './routes/addresses-routes.js';
 
 // Announcement, Chat, Admin imports
-import { PgAnnouncementRepository } from './repositories/announcement-repository.js';
-import { PgChatRepository } from './repositories/chat-repository.js';
+import { PgAnnouncementRepository } from './repositories/pg-announcement-repository.js';
+import { PgChatRepository } from './repositories/pg-chat-repository.js';
 import { createAnnouncementsRouter } from './routes/announcements.js';
 import { createChatRouter } from './routes/chat.js';
 import { createRequireAdmin } from './middleware/require-admin.js';
