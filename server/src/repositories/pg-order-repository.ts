@@ -56,6 +56,13 @@ export class PgOrderRepository implements OrderRepository {
     }
   }
 
+  async updateTracking(id: string, carrierId: string, trackingNumber: string): Promise<void> {
+    await this.pool.query(
+      'UPDATE orders SET carrier_id = $1, tracking_number = $2, updated_at = NOW() WHERE id = $3',
+      [carrierId, trackingNumber, id],
+    );
+  }
+
   async findFailedForRetry(maxAttempts: number): Promise<Order[]> {
     // 단건결제(one_off) 는 현재 자동 재시도 로직이 구현돼 있지 않아 명시적으로 제외.
     // 누군가 후속 PR 에서 one_off retry 를 추가한다면 이 필터를 조정해야 한다.
@@ -89,6 +96,8 @@ export class PgOrderRepository implements OrderRepository {
       amount: row.amount as number,
       status: row.status as OrderStatus,
       pgPaymentId: (row.pg_payment_id as string) ?? null,
+      carrierId: (row.carrier_id as string) ?? null,
+      trackingNumber: (row.tracking_number as string) ?? null,
       retryCount: row.retry_count as number,
       nextRetryAt: row.next_retry_at ? new Date(row.next_retry_at as string) : null,
       createdAt: new Date(row.created_at as string),
