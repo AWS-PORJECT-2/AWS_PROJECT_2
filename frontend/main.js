@@ -134,14 +134,6 @@ function LikeHeartButton(productId) {
  * SVG 정적 콘텐츠 → innerHTML 안전.
  *   - extra: 추가 클래스 (배치별 크기 조절)
  */
-function brandMark(extra) {
-  const wrap = el('div', { class: 'brand-mark' + (extra ? ' ' + extra : '') });
-  if (typeof window.brandMarkSvg === 'function') {
-    wrap.innerHTML = window.brandMarkSvg();
-  }
-  return wrap;
-}
-
 /* =====================================================================
  * Header
  *   variant: 'main' (기본 — 디자인하기/알림/설정/마이프로필 텍스트 메뉴 + 검색바 별도)
@@ -516,18 +508,16 @@ function PopularSection({ ranking = POPULAR_RANKING, rotateMs = 2000 } = {}) {
     }, 300);
   }, rotateMs);
 
-  // 좌측: 카테고리 + 슬로건 텍스트  /  우측: 두띵 브랜드 이미지(PNG)
+  // 좌측 컬럼: [메인 홍보 카드] → [카테고리] → [슬로건] 세로 스택.
+  // (기존 우측 두띵 브랜드 두들 이미지는 제거) / 우측 컬럼: 실시간 순위.
   const categoryRow = CategoryRow();
   const sloganText = el('img', {
     class: 'slogan-text slogan-img',
     src: '/assets/' + encodeURIComponent('left text renew') + '.png',
     alt: '우리의 상상을 현실로',
   });
-  const textGroup = el('div', { class: 'text-group' }, categoryRow, sloganText);
-  const brandSide = brandMark('brand-side');
-  const sideRow = el('div', { class: 'left-row side-row' }, textGroup, brandSide);
 
-  const leftCol = el('div', { class: 'left-col' }, mainCard, sideRow);
+  const leftCol = el('div', { class: 'left-col' }, mainCard, categoryRow, sloganText);
 
   // 우측 컬럼 — 텀블벅 스타일 (큰 정사각 썸네일 + 좌상단 순위 배지 + 창작자/제목/달성률)
   const list = el('div', { class: 'ranking-list' });
@@ -577,7 +567,7 @@ function PopularSection({ ranking = POPULAR_RANKING, rotateMs = 2000 } = {}) {
     })());
   });
   const rightCol = el('div', { class: 'right-col' },
-    el('span', { class: 'ranking-label' }, '실시간 순위'),
+    el('h2', { class: 'ranking-label' }, '실시간 순위'),
     list,
   );
 

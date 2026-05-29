@@ -1,21 +1,37 @@
 import type pg from 'pg';
 import type { PoolClient } from 'pg';
-import type { GroupBuy, GroupBuyStatus } from '../types/index.js';
+import type { GroupBuy, GroupBuyStatus, ContentBlock } from '../types/index.js';
 import type { GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions } from './groupbuy-repository.js';
+
+// content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱
+function parseContentBlocks(raw: unknown): ContentBlock[] | null {
+  if (raw == null) return null;
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) return null;
+    return arr
+      .filter((b) => b && (b.type === 'text' || b.type === 'image') && typeof b.value === 'string')
+      .map((b) => ({ type: b.type, value: b.value }));
+  } catch {
+    return null;
+  }
+}
 
 export class PgGroupBuyRepository implements GroupBuyRepository {
   constructor(private readonly pool: pg.Pool) {}
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
         JSON.stringify(groupbuy.productOptions), groupbuy.basePrice, groupbuy.designFee,
         groupbuy.platformFee, groupbuy.finalPrice, groupbuy.targetQuantity, groupbuy.currentQuantity,
-        groupbuy.deadline, groupbuy.status, groupbuy.createdAt, groupbuy.updatedAt,
+        groupbuy.deadline, groupbuy.status, groupbuy.designImageUrl ?? null, groupbuy.tryonImageUrl ?? null,
+        groupbuy.contentBlocks ? JSON.stringify(groupbuy.contentBlocks) : null,
+        groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
     return this.mapRow(result.rows[0]);
@@ -82,8 +98,15 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     params.push(limit);
     params.push(offset);
 
+    // 목록은 가볍게: 큰 base64 컬럼(design_image_url/tryon_image_url)은 통째로 안 가져오고
+    // 썸네일 한 장만 COALESCE 로 뽑는다. (상세 페이지는 findById 에서 전체 컬럼 조회)
     const listQuery = `
-      SELECT g.*, u.name AS author_name, u.school_domain AS author_department
+      SELECT g.id, g.creator_id, g.fund_id, g.title, g.description, g.product_options,
+             g.base_price, g.design_fee, g.platform_fee, g.final_price,
+             g.target_quantity, g.current_quantity, g.deadline, g.status,
+             g.created_at, g.updated_at,
+             COALESCE(g.tryon_image_url, g.design_image_url) AS image_url,
+             u.name AS author_name, u.school_domain AS author_department
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
         ${whereSql}
@@ -103,9 +126,12 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       const base = this.mapRow(row);
       return {
         ...base,
-        imageUrl: (row.product_options && typeof row.product_options === 'object'
-          ? (row.product_options as Record<string, unknown>).imageUrl as string | null
-          : null) ?? null,
+        // 썸네일: 모델 피팅 우선, 없으면 디자인 사진 (list SELECT 의 COALESCE image_url),
+        // 그래도 없으면 product_options.imageUrl (구 mock/외부 URL 호환)
+        imageUrl: (row.image_url as string | null)
+          ?? ((row.product_options && typeof row.product_options === 'object'
+            ? (row.product_options as Record<string, unknown>).imageUrl as string | null
+            : null) ?? null),
         authorName: (row.author_name as string | null) ?? null,
         authorDepartment: (row.author_department as string | null) ?? null,
         category: (row.product_options && typeof row.product_options === 'object'
@@ -135,6 +161,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       currentQuantity: row.current_quantity as number,
       deadline: new Date(row.deadline as string),
       status: row.status as GroupBuyStatus,
+      designImageUrl: (row.design_image_url as string | null) ?? null,
+      tryonImageUrl: (row.tryon_image_url as string | null) ?? null,
+      contentBlocks: parseContentBlocks(row.content_blocks),
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };

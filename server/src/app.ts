@@ -18,6 +18,7 @@ import { createAuthRouter } from './routes/index.js';
 import { createAiRouter } from './routes/ai.js';
 import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
+import { createGroupBuyGetHandler } from './routes/groupbuy-get.js';
 import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
@@ -182,14 +183,16 @@ export function createApp(
     app.use('/api/ai', authRequired, createAiRouter(gemini, AI_TIMEOUT_MS));
   }
 
-  // 펀드 개설 (placeholder — 담당 B(B-5) 가 fund Repository 연결 후 활성화)
-  app.post('/api/funds', authRequired, createFundsCreateHandler());
+  // --- 공동구매(=펀드) 저장소 ---
+  const groupBuyRepository = new PgGroupBuyRepository(pool);
+
+  // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
+  app.post('/api/funds', authRequired, createFundsCreateHandler(groupBuyRepository));
 
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
 
   // --- Payment System ---
-  const groupBuyRepository = new PgGroupBuyRepository(pool);
   const participationRepository = new PgParticipationRepository(pool);
   const orderRepository = new PgOrderRepository(pool);
   const paymentRepository = new PgPaymentRepository(pool);
@@ -220,8 +223,9 @@ export function createApp(
   app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
   app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
 
-  // 공용: 공동구매 목록 (인증 불필요)
+  // 공용: 공동구매 목록 + 단일 상세 (인증 불필요)
   app.get('/api/groupbuys', createGroupBuysListHandler(groupBuyRepository));
+  app.get('/api/groupbuys/:id', createGroupBuyGetHandler(groupBuyRepository));
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));

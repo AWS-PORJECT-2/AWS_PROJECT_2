@@ -6,91 +6,70 @@
   <title>펀드 개설 - 두띵(Doothing)</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="fund-create.css">
+  <link rel="stylesheet" href="main.css">
 </head>
-<body>
-
-  <aside class="sidebar">
-    <div class="sidebar-logo">
-      <a href="index.html" class="logo-link">
-        <span class="logo-mark"></span>
-        <span class="logo-text">doothing</span>
-      </a>
-    </div>
-    <nav class="sidebar-nav">
-      <a href="index.html" class="sidebar-item">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M3 13h1v7c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2v-7h1a1 1 0 00.7-1.7l-9-9a1 1 0 00-1.4 0l-9 9A1 1 0 003 13z"/></svg>
-        <span>홈</span>
-      </a>
-      <a href="feed.html" class="sidebar-item">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
-        <span>공동구매</span>
-      </a>
-      <a href="javascript:void(0);" onclick="openNotification && openNotification();" class="sidebar-item">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
-        <span>알림</span>
-      </a>
-    </nav>
-    <div class="sidebar-bottom">
-      <a href="/profile.html" class="sidebar-item">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-        <span>마이페이지</span>
-      </a>
-    </div>
-  </aside>
+<body class="main-page" data-page="sub">
+  <div id="app"></div>
 
   <main class="main-content fund-create-main">
 
-    <header class="header mobile-only" style="border-bottom:1px solid #f0f0f0;">
-      <div class="header-left">
-        <button class="icon-btn" onclick="history.back()" aria-label="뒤로가기">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-        </button>
-        <span style="font-size:17px;font-weight:700;color:#1a1a1a;margin-left:4px;">펀드 개설</span>
-      </div>
-    </header>
-
-    <header class="desktop-topbar desktop-only">
-      <h1 style="font-size:22px;font-weight:700;color:#1a1a1a;">새 공동구매 펀드 개설</h1>
-    </header>
-
     <!-- 진행 상태 -->
     <div class="step-indicator">
-      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">옷 도면</span></div>
+      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">AI 모델 피팅</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">가상 피팅</span></div>
+      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">펀드 정보</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">펀드 정보</span></div>
-      <div class="step-line"></div>
-      <div class="step" data-step="4"><span class="step-num">4</span><span class="step-label">검토</span></div>
+      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">검토</span></div>
     </div>
 
-    <!-- ===== Step 1: 옷 도면 생성 ===== -->
+    <!-- ===== Step 1: AI 모델 피팅 ===== -->
     <section class="step-panel" data-step-panel="1">
-      <h2 class="panel-title">옷 도면 생성</h2>
-      <p class="panel-desc">옷 사진을 최대 5장까지 첨부할 수 있습니다. 첨부한 사진을 합쳐 앞·뒤 도면 한 장을 만듭니다.</p>
+      <h2 class="panel-title">AI 모델 피팅</h2>
+      <p class="panel-desc">굿즈 디자인 이미지를 업로드하면 AI가 모델에 입혀 미리보기를 생성합니다.</p>
 
       <div style="padding:20px;">
-        <!-- 이미지 업로드 (multiple) -->
-        <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;">
+        <!-- 이미지 업로드 (최대 5장) -->
+        <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;transition:all 0.2s;">
           <input id="tryonGarmentFile" type="file" accept="image/*" multiple hidden>
-          <p style="font-size:15px;font-weight:600;color:#4b5563;">옷 사진 업로드</p>
-          <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG / PNG / WEBP · 한 장당 최대 10MB · 최대 5장</p>
+          <p style="font-size:15px;font-weight:600;color:#4b5563;">굿즈 디자인 이미지 업로드</p>
+          <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG, PNG, WEBP · 한 장당 최대 10MB · 최대 5장</p>
         </label>
 
-        <!-- 썸네일 (최대 5장) -->
+        <!-- 업로드된 이미지 썸네일 (최대 5장) -->
         <div id="tryonUploadPreview" style="display:none;margin-top:16px;">
           <p id="tryonUploadCount" style="font-size:12px;color:#6b7280;margin:0 0 8px;"></p>
           <div id="tryonThumbs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         </div>
 
-        <!-- 도면 생성 -->
-        <button type="button" id="btnAiBlueprint" onclick="requestAiBlueprint()" style="width:100%;margin-top:24px;padding:16px;border:none;border-radius:14px;background:#2563eb;color:#fff;font-size:16px;font-weight:700;cursor:pointer;" disabled>
-          도면 생성 (앞·뒤)
-        </button>
+        <!-- 모델 옵션 -->
+        <div style="margin-top:24px;display:flex;gap:12px;">
+          <div class="field" style="flex:1;">
+            <label for="tryonModelSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">모델 타입</label>
+            <select id="tryonModelSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+              <option value="female">여성</option>
+              <option value="male">남성</option>
+            </select>
+          </div>
+          <div class="field" style="flex:1;">
+            <label for="tryonBgSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">배경</label>
+            <select id="tryonBgSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+              <option value="studio">스튜디오</option>
+              <option value="campus">캠퍼스</option>
+              <option value="outdoor">야외</option>
+            </select>
+          </div>
+        </div>
 
-        <!-- 도면 결과 -->
-        <div id="blueprintResultArea" style="display:none;margin-top:16px;text-align:center;">
-          <img id="blueprintResultImg" alt="옷 도면" style="max-width:100%;max-height:340px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;">
+        <!-- AI 피팅 버튼 -->
+        <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;margin-top:20px;padding:14px;border:none;border-radius:12px;background:#a78bfa;color:#fff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;" disabled>
+          AI 모델 피팅 생성
+        </button>
+        <p style="font-size:12px;color:#9ca3af;margin-top:8px;text-align:center;">업로드한 디자인을 선택한 모델·배경에 입혀 앞/뒤 모습을 생성합니다.</p>
+
+        <!-- 피팅 결과 -->
+        <div id="tryonResultArea" style="display:none;margin-top:20px;padding:20px;background:#f0fdf4;border-radius:14px;text-align:center;">
+          <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">피팅 이미지가 준비되었습니다</p>
+          <img id="tryonResultImg" alt="AI 피팅 결과" style="max-width:100%;max-height:300px;border-radius:12px;">
         </div>
       </div>
 
@@ -100,35 +79,8 @@
       </div>
     </section>
 
-    <!-- ===== Step 2: 가상 피팅 ===== -->
+    <!-- ===== Step 2: 펀드 정보 ===== -->
     <section class="step-panel" data-step-panel="2" hidden>
-      <h2 class="panel-title">가상 피팅</h2>
-      <p class="panel-desc">1단계에서 만든 도면으로 모델 착용 사진을 생성합니다. 한 장에 모델의 앞/뒤 모습이 절반씩 들어갑니다.</p>
-
-      <div style="padding:20px;">
-        <!-- 참고용: 이전 단계 도면 -->
-        <div id="tryonBlueprintRef" style="margin-bottom:20px;text-align:center;">
-          <p style="font-size:13px;color:#6b7280;margin:0 0 8px;">사용할 도면</p>
-          <img id="tryonBlueprintImg" alt="" style="max-width:100%;max-height:200px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;">
-        </div>
-
-        <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;padding:16px;border:none;border-radius:14px;background:#7c3aed;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">
-          가상 피팅 생성
-        </button>
-
-        <div id="tryonResultArea" style="display:none;margin-top:16px;text-align:center;">
-          <img id="tryonResultImg" alt="가상 피팅 (앞/뒤)" style="max-width:100%;max-height:380px;border-radius:12px;border:1px solid #e5e7eb;">
-        </div>
-      </div>
-
-      <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="1">← 이전</button>
-        <button type="button" class="btn-next" id="step2Next" disabled>다음 →</button>
-      </div>
-    </section>
-
-    <!-- ===== Step 3: 펀드 정보 ===== -->
-    <section class="step-panel" data-step-panel="3" hidden>
       <h2 class="panel-title">펀드 정보 입력</h2>
 
       <form id="fundForm" novalidate>
@@ -139,9 +91,20 @@
         </div>
 
         <div class="field">
-          <label for="fundDescription">상세 설명</label>
-          <textarea id="fundDescription" name="description" rows="5" maxlength="2000"
-                    placeholder="디자인 컨셉, 사이즈 가이드, 수령 방법 등을 안내해 주세요."></textarea>
+          <label for="fundDescription">한 줄 소개</label>
+          <textarea id="fundDescription" name="description" rows="2" maxlength="2000"
+                    placeholder="목록 카드에 보일 짧은 소개를 적어주세요."></textarea>
+        </div>
+
+        <!-- 게시글 본문 작성기 — 텍스트/사진 블록을 원하는 순서로 -->
+        <div class="field" role="group" aria-label="게시글 본문">
+          <span class="field-label">게시글 본문 <span class="field-hint" style="font-weight:400;">글과 사진을 원하는 순서로 추가하세요</span></span>
+          <div id="contentBlocks" style="display:flex;flex-direction:column;gap:10px;"></div>
+          <div style="display:flex;gap:8px;margin-top:10px;">
+            <button type="button" id="addTextBlock" style="flex:1;padding:10px;border:1.5px dashed #c7d2fe;border-radius:10px;background:#f5f6ff;color:#4f46e5;font-size:14px;font-weight:600;cursor:pointer;">+ 글 추가</button>
+            <button type="button" id="addImageBlock" style="flex:1;padding:10px;border:1.5px dashed #c7d2fe;border-radius:10px;background:#f5f6ff;color:#4f46e5;font-size:14px;font-weight:600;cursor:pointer;">+ 사진 추가</button>
+          </div>
+          <input id="contentImageInput" type="file" accept="image/*" hidden>
         </div>
 
         <div class="field">
@@ -183,19 +146,19 @@
       </form>
 
       <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="2">← 이전</button>
-        <button type="button" class="btn-next" id="step3Next">다음 →</button>
+        <button type="button" class="btn-prev" data-go="1">← 이전</button>
+        <button type="button" class="btn-next" id="step2Next">다음 →</button>
       </div>
     </section>
 
-    <!-- ===== Step 4: 검토 + 등록 ===== -->
-    <section class="step-panel" data-step-panel="4" hidden>
+    <!-- ===== Step 3: 검토 + 등록 ===== -->
+    <section class="step-panel" data-step-panel="3" hidden>
       <h2 class="panel-title">최종 확인</h2>
 
       <div class="review-images">
         <div>
-          <h4>최종 설계도 (도면 + 가상 피팅)</h4>
-          <img id="reviewDesignImg" alt="최종 설계도" style="max-width:100%;border-radius:12px;border:1px solid #e5e7eb;background:#fff;">
+          <h4>설계도</h4>
+          <img id="reviewDesignImg" alt="펀드 설계도 미리보기">
         </div>
       </div>
 
@@ -204,7 +167,7 @@
       </div>
 
       <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="3">← 이전</button>
+        <button type="button" class="btn-prev" data-go="2">← 이전</button>
         <button type="submit" class="btn-submit" id="btnSubmit">펀드 개설하기</button>
       </div>
     </section>
@@ -214,5 +177,7 @@
   <script src="api.js"></script>
   <script src="motion.js"></script>
   <script src="fund-create.js"></script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
 </body>
 </html>

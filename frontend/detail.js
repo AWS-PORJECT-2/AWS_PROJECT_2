@@ -79,20 +79,6 @@ function calcRaisedAmount(p) {
   return total.toLocaleString() + '원';
 }
 
-/* ===== AI 모델 착용 사진 시드 ===== */
-function getModelGallery(p) {
-  const seedBase = 'doothing-model-' + p.id;
-  // 8개의 다른 모델 이미지를 picsum 시드로 생성
-  return [
-    'https://picsum.photos/seed/' + seedBase + '-a/600/800',
-    'https://picsum.photos/seed/' + seedBase + '-b/600/800',
-    'https://picsum.photos/seed/' + seedBase + '-c/600/800',
-    'https://picsum.photos/seed/' + seedBase + '-d/600/800',
-    'https://picsum.photos/seed/' + seedBase + '-e/600/800',
-    'https://picsum.photos/seed/' + seedBase + '-f/600/800',
-  ];
-}
-
 /* ===== 좋아요 버튼 ===== */
 function updateLikeButton() {
   const btn = document.getElementById('btnWish');
@@ -286,13 +272,6 @@ function goToPayment() {
  * (이전 버전의 동기화 로직은 폐기 — 우측 패널이 좌측 이미지보다 짧을 때
  *  좌측 이미지가 늘어나면 sticky 효과 자체가 줄어드는 문제가 있었음)
  */
-function syncHeroToInfoHeight() {
-  const heroWrap = document.getElementById('heroImgWrap');
-  if (!heroWrap) return;
-  // 동기화 해제 — CSS aspect-ratio 가 모든 모드에서 자연스럽게 적용
-  heroWrap.style.height = '';
-}
-
 /* ===== 메인 렌더링 ===== */
 function renderDetail() {
   currentProduct = findProduct(getProductId());
@@ -305,7 +284,6 @@ function renderDetail() {
   const rate = getAchievement(currentProduct);
   const days = daysUntil(currentProduct.deadline);
   const raised = calcRaisedAmount(currentProduct);
-  const gallery = getModelGallery(currentProduct);
   const container = document.getElementById('detailContainer');
 
   // 액션 버튼 (4단계 분기) — 모든 활성 버튼은 시그니처 색
@@ -444,32 +422,9 @@ function renderDetail() {
           <span class="story-author">by ${escapeHTML(currentProduct.author)} · ${escapeHTML(currentProduct.department)}</span>
         </div>
 
-        <div class="story-flow">
-          <p>${escapeHTML(currentProduct.description)}</p>
-
-          <figure class="story-figure">
-            <img src="${escapeHTML(gallery[0])}" alt="모델 착용 컷 1" loading="lazy">
-          </figure>
-
-          <p>이 디자인은 ${escapeHTML(currentProduct.department)} 학생이 직접 기획하고 제작한 한정판입니다. 매 시즌마다 새로운 디자인으로 찾아오며, 학교 안에서만 만나볼 수 있는 시그니처 굿즈로 자리잡고 있습니다.</p>
-
-          <figure class="story-figure story-figure-grid">
-            <img src="${escapeHTML(gallery[1])}" alt="모델 착용 컷 2" loading="lazy">
-            <img src="${escapeHTML(gallery[2])}" alt="모델 착용 컷 3" loading="lazy">
-          </figure>
-
-          <p>주문 수량에 따라 단가가 달라지므로, 많은 친구들이 함께 참여할수록 더 좋은 퀄리티로 제작됩니다. 마감일 이후 약 2~3주 내에 캠퍼스 내 직수령으로 픽업이 시작됩니다.</p>
-
-          <figure class="story-figure">
-            <img src="${escapeHTML(gallery[3])}" alt="모델 착용 컷 4" loading="lazy">
-          </figure>
-
-          <p>매 시즌의 한정판답게 수량이 정해져 있고, 제작 후에는 추가 발주가 어렵습니다. 친구들과 함께 참여하면 캠퍼스에서 같은 굿즈로 더 즐거운 추억을 만들 수 있어요.</p>
-
-          <figure class="story-figure story-figure-grid">
-            <img src="${escapeHTML(gallery[4])}" alt="모델 착용 컷 5" loading="lazy">
-            <img src="${escapeHTML(gallery[5])}" alt="모델 착용 컷 6" loading="lazy">
-          </figure>
+        <!-- 본문: 작성자가 등록한 글/사진 블록 (renderStoryBody 가 채움). 초기엔 한 줄 소개. -->
+        <div class="story-flow" id="storyFlow">
+          <p>${escapeHTML(currentProduct.description || '')}</p>
         </div>
       </section>
     </section>
@@ -486,11 +441,7 @@ function renderDetail() {
     </div>
   `;
 
-  // 썸네일 제거됨 — 메인 이미지만 표시
-
-  // 메인 이미지 높이를 우측 정보 패널(결제하기 버튼까지)의 높이에 동기화 — 데스크톱만
-  syncHeroToInfoHeight();
-  window.addEventListener('resize', syncHeroToInfoHeight);
+  // 썸네일 제거됨 — 메인 이미지만 표시 (높이는 CSS aspect-ratio 가 처리)
 
   // 100% 달성 알림 (참여자 한정, 최초 1회)
   if (currentProduct.isReserved && isAchieved && !currentProduct.isPaid && paymentState !== 'pending') {
@@ -503,6 +454,60 @@ function renderDetail() {
 
   updateLikeButton();
   document.title = currentProduct.title + ' - doothing';
+
+  // 게시글 본문: 서버에서 작성자가 등록한 블록(글/사진)을 가져와 렌더 (없으면 한 줄 소개 유지)
+  renderStoryBody(currentProduct.id);
+}
+
+/* 게시글 본문 렌더 — GET /api/groupbuys/:id 의 contentBlocks(글/사진) 를 순서대로 표시.
+   실패하거나 블록이 없으면 한 줄 소개(description)만 남긴다. 가짜 문단/이미지는 생성하지 않음. */
+async function renderStoryBody(id) {
+  const flow = document.getElementById('storyFlow');
+  if (!flow || !window.api) return;
+  try {
+    const fund = await window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true });
+    const blocks = fund && Array.isArray(fund.contentBlocks) ? fund.contentBlocks : [];
+    const desc = (fund && fund.description) || currentProduct.description || '';
+
+    if (blocks.length === 0) {
+      flow.innerHTML = '';
+      if (desc) {
+        const p = document.createElement('p');
+        p.textContent = desc; // textContent — XSS 방어
+        flow.appendChild(p);
+      }
+      return;
+    }
+
+    flow.innerHTML = '';
+    blocks.forEach((b) => {
+      if (b.type === 'text') {
+        // 줄바꿈 보존: 문단마다 p, \n 은 <br> 대신 white-space 로 처리
+        const p = document.createElement('p');
+        p.textContent = b.value;
+        p.style.whiteSpace = 'pre-wrap';
+        flow.appendChild(p);
+      } else if (b.type === 'image' && typeof b.value === 'string') {
+        const fig = document.createElement('figure');
+        fig.className = 'story-figure';
+        const img = document.createElement('img');
+        img.src = b.value; // 작성자 본인이 올린 이미지
+        img.alt = '게시글 이미지';
+        img.loading = 'lazy';
+        fig.appendChild(img);
+        flow.appendChild(fig);
+      }
+    });
+  } catch (e) {
+    // 상세 조회 실패(목 시드 등) → 한 줄 소개만 유지
+    const desc = currentProduct.description || '';
+    flow.innerHTML = '';
+    if (desc) {
+      const p = document.createElement('p');
+      p.textContent = desc;
+      flow.appendChild(p);
+    }
+  }
 }
 
 /* main.js 의 App() 가 헤더를 먼저 그린 후에 실행되도록 DOMContentLoaded 사용

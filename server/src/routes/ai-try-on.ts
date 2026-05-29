@@ -5,7 +5,8 @@ import { createErrorResponse } from '../errors/error-response.js';
 import { withTimeout } from '../utils/fetch-with-timeout.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
-const MAX_REFERENCES = 5;
+const ALLOWED_MODELS = new Set(['female', 'male', 'female_athletic', 'male_athletic']);
+const ALLOWED_BG = new Set(['studio', 'campus', 'classroom', 'outdoor']);
 
 function parseDataUrl(dataUrl: unknown): { mimeType: string; base64: string } | null {
   if (typeof dataUrl !== 'string') return null;
@@ -17,14 +18,17 @@ function parseDataUrl(dataUrl: unknown): { mimeType: string; base64: string } | 
 /**
  * POST /api/ai/try-on
  * body: {
- *   blueprintDataUrl: 'data:image/png;base64,...',     // 필수 (1단계 도면)
- *   referenceDataUrls?: ['data:image/jpeg;base64,...']  // 선택 — 원본 옷 사진 최대 5장.
- *                                                       //        도면만으론 디테일 부족하므로 같이 보내면 색·로고·패치 보존 향상.
+ *   imageDataUrls: ['data:image/...;base64,...', ...],  // 디자인(옷) 이미지 1~5장
+ *   imageDataUrl?: 'data:image/...;base64,...',          // (구버전 단수 호환)
+ *   modelType?: 'female' | 'male' | ...,                  // 모델 타입 (기본 female)
+ *   background?: 'studio' | 'campus' | ...                 // 배경 (기본 studio)
  * }
  * response: { tryOnDataUrl: 'data:image/png;base64,...' }
  *
- * 도면(+선택 원본) → 모델 앞·뒤 착용 사진 (한 장 좌우 50:50). Gemini 호출 1회.
+ * 디자인 이미지(1~5장) → 모델 앞·뒤 착용 사진 (한 장 좌우 50:50). Gemini 호출 1회.
  */
+const MAX_IMAGES = 5;
+
 export function createAiTryOnHandler(gemini: GeminiImageService, timeoutMs: number) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
@@ -34,41 +38,48 @@ export function createAiTryOnHandler(gemini: GeminiImageService, timeoutMs: numb
     }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
+    // imageDataUrls(배열) 우선, 없으면 단수 imageDataUrl/blueprintDataUrl 호환
+    const rawList = Array.isArray(body.imageDataUrls)
+      ? body.imageDataUrls
+      : [body.imageDataUrl ?? body.blueprintDataUrl];
 
-    const blueprint = parseDataUrl(body.blueprintDataUrl);
-    if (!blueprint) {
+    if (rawList.length === 0) {
       res.status(400).json(createErrorResponse(
-        new AppError('MISSING_REQUIRED_FIELD', 'blueprintDataUrl 가 유효한 dataURL 이 아닙니다'),
+        new AppError('MISSING_REQUIRED_FIELD', '이미지가 없습니다 (1~5장 필요)'),
       ));
       return;
     }
-    if (!ALLOWED_MIME.has(blueprint.mimeType.toLowerCase())) {
+    if (rawList.length > MAX_IMAGES) {
       res.status(400).json(createErrorResponse(
-        new AppError('MISSING_REQUIRED_FIELD', '지원 이미지 형식: jpeg / png / webp'),
+        new AppError('MISSING_REQUIRED_FIELD', `이미지는 최대 ${MAX_IMAGES}장까지 첨부 가능합니다`),
       ));
       return;
     }
 
-    const rawRefs = Array.isArray(body.referenceDataUrls) ? body.referenceDataUrls : [];
-    if (rawRefs.length > MAX_REFERENCES) {
-      res.status(400).json(createErrorResponse(
-        new AppError('MISSING_REQUIRED_FIELD', `referenceDataUrls 는 최대 ${MAX_REFERENCES}장`),
-      ));
-      return;
-    }
-    const references: { mimeType: string; base64: string }[] = [];
-    for (const item of rawRefs) {
+    const garments: { mimeType: string; base64: string }[] = [];
+    for (const item of rawList) {
       const parsed = parseDataUrl(item);
-      if (!parsed || !ALLOWED_MIME.has(parsed.mimeType.toLowerCase())) {
-        // reference 는 옵션이므로 잘못된 항목은 조용히 스킵 (블루프린트만 있어도 동작)
-        continue;
+      if (!parsed) {
+        res.status(400).json(createErrorResponse(
+          new AppError('MISSING_REQUIRED_FIELD', '유효하지 않은 dataURL 이 포함돼 있습니다'),
+        ));
+        return;
       }
-      references.push(parsed);
+      if (!ALLOWED_MIME.has(parsed.mimeType.toLowerCase())) {
+        res.status(400).json(createErrorResponse(
+          new AppError('MISSING_REQUIRED_FIELD', '지원 이미지 형식: jpeg / png / webp'),
+        ));
+        return;
+      }
+      garments.push(parsed);
     }
+
+    const modelType = ALLOWED_MODELS.has(String(body.modelType)) ? String(body.modelType) : 'female';
+    const background = ALLOWED_BG.has(String(body.background)) ? String(body.background) : 'studio';
 
     try {
       const result = await withTimeout(
-        gemini.generateTryOn(blueprint, references, { route: 'try-on', userId }),
+        gemini.generateTryOn(garments, { modelType, background }, { route: 'try-on', userId }),
         timeoutMs,
       );
       res.json({ tryOnDataUrl: `data:${result.mimeType};base64,${result.base64}` });

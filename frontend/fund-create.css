@@ -333,7 +333,8 @@
 
 /* 폼 필드 (Step 4) */
 .field { margin-bottom: 20px; }
-.field label {
+.field label,
+.field .field-label {
   display: block;
   font-size: 13px;
   font-weight: 600;

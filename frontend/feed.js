@@ -128,7 +128,7 @@ function getProcessedProducts() {
   if (currentSort === 'latest') {
     filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
   } else {
-    filtered.sort((a, b) => b.likeCount - a.likeCount);
+    filtered.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
   }
 
   return filtered;

@@ -1,43 +1,39 @@
 /**
- * 펀드 개설 화면 — 4단계 마법사
+ * 펀드 개설 화면 — 3단계 마법사
  *
  * 흐름:
- *  1. 옷 도면 생성  (옷 사진 1~5장 → Gemini → 앞·뒤·옆 도면 1장)
- *  2. 가상 피팅    (도면 → Gemini → 모델 앞/뒤 착용 사진 1장 좌우 50:50)
- *  3. 펀드 정보 입력 (제목·설명·학과·가격·마감일)
- *  4. 검토 + 등록 (최종 설계도 = 도면 + 피팅 합본 캔버스 → POST /api/funds)
+ *  1. AI 모델 피팅 (이미지 업로드 → Amazon Try-On placeholder)
+ *  2. 펀드 정보 입력 (제목·설명·학과·가격·마감일)
+ *  3. 검토 + 등록 (POST /api/funds)
  *
  * 기술:
  *  - api.js 의 전역 window.api 사용 (credentials, 401 자동 redirect)
- *  - 도면 / 피팅은 별도 step. 사용자가 단계별로 호출 시점을 명확히 인지하도록 분리
  */
 
 (function () {
   // ========== 상수 ==========
-  const PLATFORM_FEE = 5000;
+  const PLATFORM_FEE = 5000; // 인쇄/중개 통합 수수료
   const BASE_PRICE_DEFAULT = 20000;
   const MIN_DEADLINE_DAYS = 7;
   const RECOMMEND_DEADLINE_DAYS = 14;
-  const MAX_GARMENT_IMAGES = 5;
-  const MAX_BYTES = 10 * 1024 * 1024;
 
   // ========== 상태 ==========
   const state = {
     currentStep: 1,
     me: null,
-    designImages: [],       // 사용자가 업로드한 옷 사진 (dataURL 배열, 최대 5장)
-    blueprintImage: null,   // Gemini 생성 도면 (dataURL)
-    tryOnImage: null,       // Gemini 생성 가상 피팅 (dataURL)
-    finalDesignImage: null, // 도면 + 피팅 캔버스 합본 (dataURL, step 4 에서 생성)
+    designImages: [],   // 업로드한 디자인 이미지 (dataURL 배열, 최대 5장)
+    tryOnImage: null,
+    contentBlocks: [],  // 게시글 본문 블록 [{type:'text'|'image', value}]
     formValues: null,
   };
+  const MAX_IMAGES = 5;
 
   // ========== 초기화 ==========
   document.addEventListener('DOMContentLoaded', init);
 
   async function init() {
     bindStep1();
-    bindStep3();
+    bindStep2();
     bindNavigation();
     setDefaultDeadline();
 
@@ -53,8 +49,7 @@
   // ========== Step 네비게이션 ==========
   function bindNavigation() {
     document.getElementById('step1Next').addEventListener('click', function () { goToStep(2); });
-    document.getElementById('step2Next').addEventListener('click', function () { goToStep(3); });
-    document.getElementById('step3Next').addEventListener('click', onStep3Next);
+    document.getElementById('step2Next').addEventListener('click', onStep2Next);
     document.querySelectorAll('.btn-prev').forEach(function (btn) {
       btn.addEventListener('click', function () { goToStep(Number(btn.dataset.go)); });
     });
@@ -72,97 +67,85 @@
       s.classList.toggle('done', num < step);
     });
 
-    if (step === 2) syncBlueprintRef();
-    if (step === 4) renderReview();
+    if (step === 3) renderReview();
 
     window.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
-  // ========== Step 1: 옷 사진 업로드 + 도면 생성 ==========
+  // ========== Step 1: AI 모델 피팅 ==========
   function bindStep1() {
     var fileInput = document.getElementById('tryonGarmentFile');
     fileInput.addEventListener('change', function (e) {
       onGarmentFilesSelected(e.target.files);
-      // 같은 파일 재선택 가능하게 value 비우기
-      e.target.value = '';
+      e.target.value = ''; // 같은 파일 재선택 허용
     });
   }
 
   function onGarmentFilesSelected(fileList) {
     if (!fileList || !fileList.length) return;
-    var files = Array.from(fileList);
-    var slotsLeft = MAX_GARMENT_IMAGES - state.designImages.length;
+    var files = Array.prototype.slice.call(fileList);
+    var slotsLeft = MAX_IMAGES - state.designImages.length;
     if (slotsLeft <= 0) {
-      alert('최대 ' + MAX_GARMENT_IMAGES + '장까지만 첨부할 수 있습니다. 기존 사진을 삭제한 뒤 다시 시도해 주세요.');
+      alert('최대 ' + MAX_IMAGES + '장까지만 첨부할 수 있습니다.');
       return;
     }
     if (files.length > slotsLeft) {
-      alert('남은 슬롯 ' + slotsLeft + '장만 추가됩니다. (선택한 ' + files.length + '장 중 ' + slotsLeft + '장)');
+      alert('남은 ' + slotsLeft + '장만 추가됩니다.');
       files = files.slice(0, slotsLeft);
     }
-
-    var loaded = 0;
-    var errors = 0;
+    var loaded = 0, errors = 0;
     files.forEach(function (file) {
-      if (!file.type.startsWith('image/')) { errors++; loaded++; return; }
-      if (file.size > MAX_BYTES) { errors++; loaded++; return; }
+      if (!file.type.startsWith('image/') || file.size > 10 * 1024 * 1024) {
+        errors++; loaded++;
+        if (loaded === files.length) afterGarmentLoad(errors);
+        return;
+      }
       var reader = new FileReader();
       reader.onload = function () {
         state.designImages.push(reader.result);
         loaded++;
-        if (loaded === files.length) afterLoad(errors);
+        if (loaded === files.length) afterGarmentLoad(errors);
       };
-      reader.onerror = function () { errors++; loaded++; if (loaded === files.length) afterLoad(errors); };
+      reader.onerror = function () { errors++; loaded++; if (loaded === files.length) afterGarmentLoad(errors); };
       reader.readAsDataURL(file);
     });
   }
 
-  function afterLoad(errors) {
-    if (errors > 0) {
-      alert(errors + '장은 형식/용량 문제로 추가되지 못했습니다. (이미지 · 10MB 이하)');
-    }
-    // 새 사진을 추가하면 이전 도면·피팅 결과 모두 무효화 (다른 입력 → 다른 결과)
-    invalidateDownstream();
-    renderThumbs();
+  function afterGarmentLoad(errors) {
+    if (errors > 0) alert(errors + '장은 형식/용량(이미지·10MB 이하) 문제로 제외됐습니다.');
+    // 디자인이 바뀌면 이전 피팅 결과 무효화
+    state.tryOnImage = null;
+    var tryonArea = document.getElementById('tryonResultArea');
+    if (tryonArea) tryonArea.style.display = 'none';
+    renderGarmentThumbs();
   }
 
   function removeGarmentImage(idx) {
     state.designImages.splice(idx, 1);
-    invalidateDownstream();
-    renderThumbs();
+    state.tryOnImage = null;
+    var tryonArea = document.getElementById('tryonResultArea');
+    if (tryonArea) tryonArea.style.display = 'none';
+    renderGarmentThumbs();
   }
   window.removeGarmentImage = removeGarmentImage;
 
-  function invalidateDownstream() {
-    state.blueprintImage = null;
-    state.tryOnImage = null;
-    state.finalDesignImage = null;
-    var blueprintArea = document.getElementById('blueprintResultArea');
-    var tryonArea = document.getElementById('tryonResultArea');
-    if (blueprintArea) blueprintArea.style.display = 'none';
-    if (tryonArea) tryonArea.style.display = 'none';
-    document.getElementById('step1Next').disabled = true;
-    document.getElementById('step2Next').disabled = true;
-  }
-
-  function renderThumbs() {
+  function renderGarmentThumbs() {
     var preview = document.getElementById('tryonUploadPreview');
     var thumbs = document.getElementById('tryonThumbs');
     var count = document.getElementById('tryonUploadCount');
-    thumbs.innerHTML = '';
-    if (state.designImages.length === 0) {
-      preview.style.display = 'none';
-      document.getElementById('btnAiBlueprint').disabled = true;
-      return;
-    }
+    var hasImages = state.designImages.length > 0;
+    document.getElementById('btnAiTryOn').disabled = !hasImages;
+    document.getElementById('step1Next').disabled = !hasImages;
+    if (!hasImages) { preview.style.display = 'none'; thumbs.innerHTML = ''; return; }
     preview.style.display = 'block';
-    count.textContent = '첨부 ' + state.designImages.length + ' / ' + MAX_GARMENT_IMAGES + '장';
+    count.textContent = '첨부 ' + state.designImages.length + ' / ' + MAX_IMAGES + '장';
+    thumbs.innerHTML = '';
     state.designImages.forEach(function (dataUrl, idx) {
       var wrap = document.createElement('div');
       wrap.style.cssText = 'position:relative;width:90px;height:90px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;background:#fff;';
       var img = document.createElement('img');
       img.src = dataUrl;
-      img.alt = '옷 사진 ' + (idx + 1);
+      img.alt = '디자인 ' + (idx + 1);
       img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
       var del = document.createElement('button');
       del.type = 'button';
@@ -174,89 +157,121 @@
       wrap.appendChild(del);
       thumbs.appendChild(wrap);
     });
-    document.getElementById('btnAiBlueprint').disabled = false;
   }
 
-  // 도면 생성: 1~5장 → 1장
-  window.requestAiBlueprint = function () {
-    if (state.designImages.length === 0) {
-      alert('먼저 옷 사진을 1장 이상 업로드해 주세요.');
-      return;
+  // 생성 중 로딩 스피너 (가짜 % 대신). 버튼 아래에 표시, 완료 시 제거.
+  function startAiLoading(btn) {
+    if (!document.getElementById('ai-spin-style')) {
+      var st = document.createElement('style');
+      st.id = 'ai-spin-style';
+      st.textContent = '@keyframes aiSpin{to{transform:rotate(360deg)}}';
+      document.head.appendChild(st);
     }
-    var btn = document.getElementById('btnAiBlueprint');
-    var original = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '도면 생성 중... (최대 60초)';
-    api.post('/ai/blueprint', { imageDataUrls: state.designImages })
-      .then(function (res) {
-        if (!res || !res.blueprintDataUrl) throw new Error('NO_BLUEPRINT');
-        return trimVerticalWhitespace(res.blueprintDataUrl);
-      })
-      .then(function (trimmed) {
-        state.blueprintImage = trimmed;
-        state.tryOnImage = null;
-        state.finalDesignImage = null;
-        document.getElementById('blueprintResultImg').src = trimmed;
-        document.getElementById('blueprintResultArea').style.display = 'block';
-        document.getElementById('step1Next').disabled = false;
-      })
-      .catch(function (err) {
-        console.error('blueprint error', err);
-        alert('도면 생성 실패: ' + ((err && err.message) || '알 수 없는 오류'));
-      })
-      .finally(function () {
-        btn.disabled = false;
-        btn.innerHTML = original;
-      });
-  };
-
-  // ========== Step 2: 가상 피팅 ==========
-  function syncBlueprintRef() {
-    if (state.blueprintImage) {
-      document.getElementById('tryonBlueprintImg').src = state.blueprintImage;
-      document.getElementById('tryonBlueprintRef').style.display = 'block';
-    } else {
-      document.getElementById('tryonBlueprintRef').style.display = 'none';
-    }
+    var prev = btn.parentNode.querySelector('.ai-loading');
+    if (prev) prev.remove();
+    var box = document.createElement('div');
+    box.className = 'ai-loading';
+    box.style.cssText = 'margin-top:14px;display:flex;flex-direction:column;align-items:center;gap:10px;color:#6b7280;font-size:14px;';
+    box.innerHTML =
+      '<div style="width:36px;height:36px;border:3px solid #ede9fe;border-top-color:#7c3aed;border-radius:50%;animation:aiSpin 0.8s linear infinite;"></div>' +
+      '<span>AI가 모델에 입히는 중… 잠시만 기다려 주세요</span>';
+    btn.insertAdjacentElement('afterend', box);
+    return function () { box.remove(); };
   }
 
+  // AI 모델 피팅 — 업로드한 디자인 + 모델타입/배경 → Gemini 가 모델 착용 사진 생성
   window.requestAiTryOn = function () {
-    if (!state.blueprintImage) {
-      alert('먼저 1단계에서 도면을 생성해 주세요.');
+    if (!state.designImages.length) {
+      alert('먼저 이미지를 업로드해 주세요.');
       return;
     }
     var btn = document.getElementById('btnAiTryOn');
-    var original = btn.innerHTML;
+    var modelSel = document.getElementById('tryonModelSelect');
+    var bgSel = document.getElementById('tryonBgSelect');
+    var modelType = (modelSel && modelSel.value) || 'female';
+    var background = (bgSel && bgSel.value) || 'studio';
     btn.disabled = true;
-    btn.innerHTML = '피팅 생성 중... (최대 60초)';
-    api.post('/ai/try-on', {
-      blueprintDataUrl: state.blueprintImage,
-      referenceDataUrls: state.designImages, // 원본 옷 사진(1~5장) 함께 전송 — 색·로고·패치 디테일 보존
-    })
+    var stop = startAiLoading(btn);
+    api.post('/ai/try-on', { imageDataUrls: state.designImages, modelType: modelType, background: background })
       .then(function (res) {
         if (!res || !res.tryOnDataUrl) throw new Error('NO_TRYON');
-        return trimVerticalWhitespace(res.tryOnDataUrl);
-      })
-      .then(function (trimmed) {
-        state.tryOnImage = trimmed;
-        state.finalDesignImage = null;
-        document.getElementById('tryonResultImg').src = trimmed;
+        state.tryOnImage = res.tryOnDataUrl;
+        document.getElementById('tryonResultImg').src = res.tryOnDataUrl;
         document.getElementById('tryonResultArea').style.display = 'block';
-        document.getElementById('step2Next').disabled = false;
       })
       .catch(function (err) {
         console.error('try-on error', err);
-        alert('가상 피팅 실패: ' + ((err && err.message) || '알 수 없는 오류'));
+        alert('AI 모델 피팅 실패: ' + ((err && err.message) || '알 수 없는 오류'));
       })
       .finally(function () {
         btn.disabled = false;
-        btn.innerHTML = original;
+        stop();
       });
   };
 
-  // ========== Step 3: 펀드 정보 ==========
-  function bindStep3() {
+  // ========== Step 2: 펀드 정보 ==========
+  function bindStep2() {
     document.getElementById('fundDesignFee').addEventListener('input', updatePricePreview);
+    bindContentComposer();
+  }
+
+  // 게시글 본문 작성기 — 텍스트/사진 블록을 원하는 순서로 추가
+  function bindContentComposer() {
+    document.getElementById('addTextBlock').addEventListener('click', function () {
+      state.contentBlocks.push({ type: 'text', value: '' });
+      renderContentBlocks();
+    });
+    document.getElementById('addImageBlock').addEventListener('click', function () {
+      document.getElementById('contentImageInput').click();
+    });
+    document.getElementById('contentImageInput').addEventListener('change', function (e) {
+      var file = e.target.files[0];
+      e.target.value = '';
+      if (!file) return;
+      if (!file.type.startsWith('image/') || file.size > 10 * 1024 * 1024) {
+        alert('이미지 파일(10MB 이하)만 추가할 수 있습니다.');
+        return;
+      }
+      var reader = new FileReader();
+      reader.onload = function () {
+        state.contentBlocks.push({ type: 'image', value: reader.result });
+        renderContentBlocks();
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function renderContentBlocks() {
+    var wrap = document.getElementById('contentBlocks');
+    wrap.innerHTML = '';
+    state.contentBlocks.forEach(function (block, idx) {
+      var row = document.createElement('div');
+      row.style.cssText = 'position:relative;border:1px solid #e5e7eb;border-radius:10px;padding:10px;background:#fff;';
+      if (block.type === 'text') {
+        var ta = document.createElement('textarea');
+        ta.rows = 3;
+        ta.value = block.value;
+        ta.placeholder = '본문 내용을 입력하세요';
+        ta.style.cssText = 'width:100%;border:none;resize:vertical;font-size:14px;line-height:1.6;outline:none;background:transparent;box-sizing:border-box;';
+        // 재렌더 없이 값만 갱신 (포커스 유지)
+        ta.addEventListener('input', function () { state.contentBlocks[idx].value = ta.value; });
+        row.appendChild(ta);
+      } else {
+        var img = document.createElement('img');
+        img.src = block.value;
+        img.alt = '본문 이미지';
+        img.style.cssText = 'max-width:100%;max-height:240px;border-radius:8px;display:block;margin:0 auto;';
+        row.appendChild(img);
+      }
+      var del = document.createElement('button');
+      del.type = 'button';
+      del.textContent = '×';
+      del.title = '삭제';
+      del.style.cssText = 'position:absolute;top:6px;right:6px;width:24px;height:24px;border:none;border-radius:50%;background:rgba(0,0,0,0.55);color:#fff;font-size:15px;line-height:1;cursor:pointer;padding:0;';
+      del.onclick = function () { state.contentBlocks.splice(idx, 1); renderContentBlocks(); };
+      row.appendChild(del);
+      wrap.appendChild(row);
+    });
   }
 
   function updatePricePreview() {
@@ -285,7 +300,7 @@
     return y + '-' + m + '-' + day;
   }
 
-  function onStep3Next() {
+  function onStep2Next() {
     var form = document.getElementById('fundForm');
     if (!form.reportValidity()) return;
     state.formValues = {
@@ -297,19 +312,15 @@
       deadline: document.getElementById('fundDeadline').value,
     };
     if (!state.formValues.title || !state.formValues.department) return;
-    goToStep(4);
+    goToStep(3);
   }
 
-  // ========== Step 4: 검토 (최종 설계도 = 도면 + 피팅 합본) ==========
+  // ========== Step 3: 검토 + 등록 ==========
   function renderReview() {
-    // 도면 / 피팅 모두 있어야 최종 설계도 합본 가능
-    if (state.blueprintImage && state.tryOnImage) {
-      combineImages(state.blueprintImage, state.tryOnImage).then(function (combined) {
-        state.finalDesignImage = combined;
-        document.getElementById('reviewDesignImg').src = combined;
-      });
-    } else if (state.blueprintImage) {
-      document.getElementById('reviewDesignImg').src = state.blueprintImage;
+    // 생성된 모델 피팅이 있으면 그걸, 없으면 첫 업로드 디자인을 보여줌
+    var reviewSrc = state.tryOnImage || state.designImages[0];
+    if (reviewSrc) {
+      document.getElementById('reviewDesignImg').src = reviewSrc;
     }
 
     var summary = document.getElementById('finalSummary');
@@ -337,51 +348,13 @@
     });
   }
 
-  // 도면(위) + 피팅(아래) 을 같은 너비로 정규화해 한 장의 PNG dataURL 로 합치기
-  function combineImages(topDataUrl, bottomDataUrl) {
-    return new Promise(function (resolve) {
-      var top = new Image();
-      var bot = new Image();
-      var loaded = 0;
-      function done() {
-        loaded += 1;
-        if (loaded < 2) return;
-        var W = Math.max(top.naturalWidth, bot.naturalWidth) || 1024;
-        var hTop = Math.round(top.naturalHeight * (W / top.naturalWidth));
-        var hBot = Math.round(bot.naturalHeight * (W / bot.naturalWidth));
-        var canvas = document.createElement('canvas');
-        canvas.width = W;
-        canvas.height = hTop + hBot;
-        var ctx = canvas.getContext('2d');
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(0, 0, W, hTop + hBot);
-        ctx.drawImage(top, 0, 0, W, hTop);
-        ctx.drawImage(bot, 0, hTop, W, hBot);
-        resolve(canvas.toDataURL('image/png'));
-      }
-      top.onload = done;
-      bot.onload = done;
-      top.onerror = done;
-      bot.onerror = done;
-      top.src = topDataUrl;
-      bot.src = bottomDataUrl;
-    });
-  }
-
   async function onSubmit() {
-    if (state.designImages.length === 0) { goToStep(1); return; }
-    if (!state.blueprintImage) { goToStep(1); return; }
-    if (!state.tryOnImage) { goToStep(2); return; }
-    if (!state.formValues) { goToStep(3); return; }
+    if (!state.designImages.length) { goToStep(1); return; }
+    if (!state.formValues) { goToStep(2); return; }
 
     var btn = document.getElementById('btnSubmit');
     btn.disabled = true;
     btn.textContent = '등록 중...';
-
-    // 최종 설계도가 아직 합쳐지지 않았다면 여기서 보장
-    if (!state.finalDesignImage) {
-      state.finalDesignImage = await combineImages(state.blueprintImage, state.tryOnImage);
-    }
 
     try {
       var res = await api.post('/funds', {
@@ -391,9 +364,10 @@
         designFee: state.formValues.designFee,
         targetQuantity: state.formValues.targetQuantity,
         deadline: state.formValues.deadline,
-        designImageDataUrl: state.finalDesignImage, // 도면+피팅 합본을 최종 설계도로 전송
-        blueprintDataUrl: state.blueprintImage,
-        tryOnDataUrl: state.tryOnImage,
+        designImageDataUrl: state.designImages[0],            // 옷 디자인 사진
+        tryOnImages: state.tryOnImage ? [state.tryOnImage] : [], // AI 모델 피팅 사진
+        contentBlocks: state.contentBlocks                       // 게시글 본문 (글/사진 블록)
+          .filter(function (b) { return b.type === 'image' || (b.value && b.value.trim()); }),
       });
       window.location.href = '/detail.html?id=' + encodeURIComponent(res.id);
     } catch (err) {
@@ -411,69 +385,5 @@
     var n = typeof v === 'number' ? Math.floor(v) : Number(v);
     if (!Number.isFinite(n)) return min;
     return Math.min(Math.max(n, min), max);
-  }
-
-  // Gemini 결과 이미지에 보통 위/아래 흰 여백이 남아서 캔버스로 trim.
-  // 좌우는 3-view / 좌우 50:50 레이아웃 비례 보존 위해 자르지 않음.
-  function trimVerticalWhitespace(dataUrl) {
-    return new Promise(function (resolve) {
-      var img = new Image();
-      img.onload = function () {
-        try {
-          var W = img.naturalWidth;
-          var H = img.naturalHeight;
-          var canvas = document.createElement('canvas');
-          canvas.width = W;
-          canvas.height = H;
-          var ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
-          var data = ctx.getImageData(0, 0, W, H).data;
-
-          // 밝기 평균. 235 미만 픽셀이 한 줄에 W의 1% 이상이면 "내용 있는 줄".
-          // 흰색만 있는 줄은 trim 대상.
-          var THRESH = 235;
-          var MIN_DARK_PCT = 0.01;
-          var minDark = Math.max(2, Math.floor(W * MIN_DARK_PCT));
-
-          function rowHasContent(y) {
-            var dark = 0;
-            for (var x = 0; x < W; x++) {
-              var i = (y * W + x) * 4;
-              if (data[i] < THRESH || data[i + 1] < THRESH || data[i + 2] < THRESH) {
-                dark++;
-                if (dark >= minDark) return true;
-              }
-            }
-            return false;
-          }
-
-          var top = 0;
-          while (top < H && !rowHasContent(top)) top++;
-          var bottom = H - 1;
-          while (bottom > top && !rowHasContent(bottom)) bottom--;
-
-          // 전부 흰 이미지면 원본 그대로
-          if (top >= bottom) { resolve(dataUrl); return; }
-
-          // 위·아래 ~3% 여백 살려두기 (너무 빡빡하면 답답함)
-          var PAD = Math.max(4, Math.floor(H * 0.03));
-          var t = Math.max(0, top - PAD);
-          var b = Math.min(H - 1, bottom + PAD);
-          var newH = b - t + 1;
-
-          var out = document.createElement('canvas');
-          out.width = W;
-          out.height = newH;
-          var octx = out.getContext('2d');
-          octx.drawImage(canvas, 0, t, W, newH, 0, 0, W, newH);
-          resolve(out.toDataURL('image/png'));
-        } catch (e) {
-          // CORS / 메모리 등 어떤 이유로든 실패하면 원본 반환
-          resolve(dataUrl);
-        }
-      };
-      img.onerror = function () { resolve(dataUrl); };
-      img.src = dataUrl;
-    });
   }
 })();

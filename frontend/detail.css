@@ -42,22 +42,23 @@
   width: 100%;
 }
 
-/* 좌측 메인 이미지 영역 — 데스크톱에선 컴팩트하게 (640px max) */
+/* 메인 이미지 영역 — 세로로 긴 4:6 portrait, 좌측 영역 중앙 정렬 */
 .detail-hero__media {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  max-width: 560px;
+  max-width: 440px;
+  margin: 0 auto; /* 좌측 컨텐츠 영역 가운데로 */
 }
 .hero-img-wrap {
   position: relative;
   width: 100%;
-  aspect-ratio: 6 / 4;
+  aspect-ratio: 4 / 6; /* 가로 4 : 세로 6 (위로 긴 사진) */
   overflow: hidden;
   background: #f4f5f7;
 }
 .hero-img-wrap.hero-img-full {
-  aspect-ratio: 6 / 4;
+  aspect-ratio: 4 / 6;
   max-height: none;
 }
 .hero-img {
@@ -191,9 +192,6 @@
   color: #9ca3af;
   margin-left: 1px;
 }
-/* 스크롤바 보이지 않게 부드럽게 */
-.detail-info::-webkit-scrollbar { width: 4px; }
-.detail-info::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 2px; }
 
 .info-title {
   font-family: var(--font-round);

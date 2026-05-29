@@ -52,13 +52,36 @@ const BLUEPRINT_PROMPT =
   'Both views are the EXACT SAME garment — preserve every detail from the reference photo(s): exact colors, sleeve color contrast, all logos, embroidery, patches, lettering, stripes, ribbing. Do not invent or omit anything.\n\n' +
   'Crop tight, minimal whitespace at top and bottom. Output exactly ONE image with the two views side-by-side. No labels, no text.';
 
-const TRYON_PROMPT =
-  'The attached images show ONE garment. The first image is a flat product illustration of it. The remaining images (if any) are the original reference photos — use them as the source of truth for exact colors, logos, embroidery, patches, and design details.\n\n' +
-  'Generate a single photorealistic image of a young Korean university student (twenties) wearing that garment, with two halves side-by-side:\n' +
-  '- LEFT half: student facing the camera (front of garment visible).\n' +
-  '- RIGHT half: same student facing away from the camera (back of garment visible, with all back-side design elements clearly shown).\n\n' +
-  'Same studio background, lighting, body, hair, and framing in both halves — only the angle changes. Show head to waist. The garment MUST exactly match the references (no invented or omitted details).\n\n' +
-  'Crop tight, minimal whitespace at top and bottom. Output ONE image.';
+type ModelType = 'female' | 'male' | 'female_athletic' | 'male_athletic';
+type Background = 'studio' | 'campus' | 'classroom' | 'outdoor';
+
+const GENDER_DESC: Record<string, string> = {
+  female: 'a young Korean woman university student in her twenties',
+  male: 'a young Korean man university student in his twenties',
+  female_athletic: 'a young athletic Korean woman university student in her twenties',
+  male_athletic: 'a young athletic Korean man university student in his twenties',
+};
+const BG_DESC: Record<string, string> = {
+  studio: 'a clean photo studio with soft, even lighting and a plain light-gray backdrop',
+  campus: 'an outdoor university campus background, softly blurred',
+  classroom: 'a bright university classroom background, softly blurred',
+  outdoor: 'a clean outdoor street background, softly blurred',
+};
+
+// 업로드한 디자인(옷) 이미지를 모델에게 입힌 사진 프롬프트. 모델 성별·배경은 사용자 선택을 반영.
+function buildTryOnPrompt(modelType: string, background: string): string {
+  const who = GENDER_DESC[modelType] || GENDER_DESC.female;
+  const bg = BG_DESC[background] || BG_DESC.studio;
+  return (
+    'The attached image(s) are reference photos of ONE garment design (clothing). If multiple photos are attached, treat them as different views/details of the SAME garment. Generate ONE photorealistic image of ' + who +
+    ' wearing that exact garment, shown in two halves side-by-side:\n' +
+    '- LEFT half: the student facing the camera (front of the garment visible).\n' +
+    '- RIGHT half: the SAME student with their back to the camera (back of the garment visible).\n\n' +
+    'Background: ' + bg + ' — identical in both halves. Same body, hair, lighting and framing in both halves; only the camera angle differs. Show from head to waist.\n' +
+    'The garment MUST match the attached design EXACTLY: same colors, logos, lettering, patterns, sleeve color contrast — do not invent or omit any detail.\n' +
+    'Crop tight, minimal whitespace at top and bottom. Output exactly ONE image.'
+  );
+}
 
 export class GeminiImageService {
   private readonly ai: GoogleGenAI;
@@ -90,14 +113,19 @@ export class GeminiImageService {
     return this.callOnce(BLUEPRINT_PROMPT, clothing, ctx);
   }
 
-  // 첫 번째 인자가 도면(SOT), 나머지는 옷 원본 reference 사진들. 합쳐서 한 번에 전송.
+  // 업로드한 디자인(옷) 이미지(1~5장)를 모델에게 입힌 사진 생성. 모델타입/배경은 LOUN 디자인의 select 값.
   async generateTryOn(
-    blueprint: ImageInput,
-    references: ImageInput[],
+    garments: ImageInput[],
+    opts: { modelType: string; background: string },
     ctx: BilledCallContext,
   ): Promise<ImageInput> {
-    const inputs = [blueprint, ...references.slice(0, 5)]; // 최대 1(도면) + 5(원본) = 6장
-    return this.callOnce(TRYON_PROMPT, inputs, ctx);
+    if (garments.length === 0) {
+      throw new AppError('MISSING_REQUIRED_FIELD', '피팅에 사용할 이미지가 없습니다');
+    }
+    if (garments.length > 5) {
+      throw new AppError('MISSING_REQUIRED_FIELD', '이미지는 최대 5장까지 첨부 가능합니다');
+    }
+    return this.callOnce(buildTryOnPrompt(opts.modelType, opts.background), garments, ctx);
   }
 
   // 단일 Gemini 호출. 재시도 없음. 안전장치 다섯 겹.
@@ -166,10 +194,19 @@ export class GeminiImageService {
             ],
           },
         ],
+        // 이미지 출력 모델은 responseModalities 에 IMAGE 를 명시해야 실제 이미지를 반환한다.
+        // 미지정 시 텍스트만 반환되어 'AI 응답에서 이미지를 찾지 못했습니다' 로 떨어진다.
+        // seed 고정 + 낮은 temperature 로 생성 일관성을 최대한 확보 (실행마다 결과가 덜 달라짐).
+        config: {
+          responseModalities: ['IMAGE', 'TEXT'],
+          seed: parsePositiveInt(process.env.GEMINI_SEED, 12345),
+          temperature: 0.2,
+        },
       });
     } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
       logger.error({ err, route: ctx.route, userId: ctx.userId }, '[GEMINI-FAILED] Gemini 호출 실패');
-      throw new AppError('AI_UNAVAILABLE', 'AI 생성에 실패했습니다');
+      throw new AppError('AI_UNAVAILABLE', `AI 생성 실패: ${detail}`);
     }
 
     // 응답에서 이미지 1장만 추출 — 2장 이상 와도 첫 번째만 사용
@@ -190,7 +227,11 @@ export class GeminiImageService {
       logger.warn({ route: ctx.route, userId: ctx.userId, extraImages }, '[GEMINI-MULTI] 응답에 이미지 2장 이상 — 첫 번째만 사용');
     }
     if (!imageOut) {
-      throw new AppError('AI_UNAVAILABLE', 'AI 응답에서 이미지를 찾지 못했습니다');
+      // 이미지가 없으면 보통 모델이 텍스트로 거부 사유를 보냄 — 그걸 노출해 디버깅 가능하게.
+      const textPart = parts.map((p) => p.text).filter(Boolean).join(' ').slice(0, 300);
+      const reason = textPart || '응답에 이미지가 없습니다 (안전필터 또는 모델 설정 확인)';
+      logger.warn({ route: ctx.route, userId: ctx.userId, reason }, '[GEMINI-NOIMAGE] 이미지 미반환');
+      throw new AppError('AI_UNAVAILABLE', `AI가 이미지를 만들지 못했습니다: ${reason}`);
     }
 
     this.dedupCache.set(cacheKey, { ts: now, output: imageOut });

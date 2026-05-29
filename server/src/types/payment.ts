@@ -25,8 +25,17 @@ export interface GroupBuy {
   currentQuantity: number;
   deadline: Date;
   status: GroupBuyStatus;
+  designImageUrl?: string | null; // 업로드한 옷 디자인 사진 (base64 data URL)
+  tryonImageUrl?: string | null;  // AI 모델 피팅 결과 사진 (base64 data URL)
+  contentBlocks?: ContentBlock[] | null; // 게시글 본문 (사용자 작성 텍스트/이미지 블록)
   createdAt: Date;
   updatedAt: Date;
+}
+
+// 게시글 본문 블록 — 텍스트와 이미지를 사용자가 원하는 순서로 섞음
+export interface ContentBlock {
+  type: 'text' | 'image';
+  value: string; // text: 본문 문자열 / image: data URL 또는 http URL
 }
 
 export interface Participation {

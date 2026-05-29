@@ -13,17 +13,9 @@
  *   const noti = await api.get('/notifications', { silentAuthFail: true });
  */
 (function () {
-  // 백엔드 API 베이스 — 프론트(3000)와 백엔드(8000) 분리 운영 대응.
-  // 동일 origin 인 경우 자동으로 같은 호스트 사용.
-  const API_BASE = (function () {
-    const host = window.location.hostname;
-    const port = window.location.port;
-    // 프론트가 별도 포트로 떠있으면 같은 호스트의 :8000 으로 API 호출
-    if (port === '3000' || port === '5173' || port === '4321') {
-      return window.location.protocol + '//' + host + ':8000/api';
-    }
-    return window.location.origin + '/api';
-  })();
+  // 백엔드 API 베이스 — 단일 서버(프론트+API 동일 origin) 및 운영(CloudFront /api→EC2) 모두 same-origin.
+  // 별도 백엔드 호스트가 필요하면 페이지에서 window.API_BASE_OVERRIDE 로 지정 가능.
+  const API_BASE = window.API_BASE_OVERRIDE || (window.location.origin + '/api');
   window.API_BASE_URL = API_BASE;
 
   // 401 시 토큰 자동 갱신 후 원요청 재시도 (동시 401 은 큐로 모아 한 번만 refresh)

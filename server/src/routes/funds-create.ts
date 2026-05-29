@@ -1,6 +1,10 @@
 import type { Request, Response } from 'express';
+import { randomUUID } from 'node:crypto';
+import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
+import type { GroupBuy, ContentBlock } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
+import { logger } from '../logger.js';
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
@@ -8,47 +12,48 @@ const DEPARTMENT_MAX = 50;
 const DESIGN_FEE_MAX = 50000;
 const TARGET_QTY_MAX = 500;
 
+// 가격은 서버에서만 계산 (클라이언트 입력 신뢰 안 함) — 프론트 표시값과 동일
+const BASE_PRICE = 20000;
+const PLATFORM_FEE = 5000;
+
+const MAX_IMG_CHARS = 12_000_000; // base64 data URL 약 8MB 상한
+const MAX_BLOCKS = 40;            // 게시글 본문 블록 최대 개수
+const MAX_TEXT_CHARS = 5000;      // 텍스트 블록 1개 최대 길이
+
 /**
- * POST /api/funds  (펀드 개설)
- *
- * 사장님 영역 화면(fund-create.html)이 호출하는 엔드포인트.
- * 실제 INSERT 로직은 담당 B(B-4 fund Repository, B-5 라우트)에서 채워질 예정.
- *
- * 이 placeholder 는 다음을 보장:
- *  - 인증 검사 (req.userId 필요)
- *  - 입력값 화이트리스트 + 길이/범위 검증
- *  - finalPrice 는 클라이언트 입력 무시하고 서버에서만 계산하도록 강제
- *
- * B 담당이 채울 부분은 // TODO 로 명시.
+ * POST /api/funds  (펀드 = groupbuy 개설)
+ * body: { title, description?, department, deadline(YYYY-MM-DD), designFee, targetQuantity,
+ *         designImageDataUrl(옷 사진), tryOnImages?([모델피팅]) }
+ * → groupbuys 테이블에 INSERT (status='open'), 피드(GET /api/groupbuys)에 노출됨.
+ * response: 201 { id }
  */
-export function createFundsCreateHandler() {
+export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {
-      res.status(401).json(createErrorResponse(new AppError('AUTH_FAILED')));
+      res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED')));
       return;
     }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
-    // designId 는 기존 시안 라이브러리 흐름용. Gemini 도면 flow 에서는 designImageDataUrl 이 그 자리를 대신함.
-    // 둘 중 하나만 있으면 통과 — 다음 단계(B 담당)에서 design 레코드를 어떻게 만들지 결정.
-    const designId = stringField(body.designId);
-    const designImageDataUrl = stringField(body.designImageDataUrl);
     const title = stringField(body.title);
     const description = stringField(body.description, '');
     const department = stringField(body.department);
     const deadline = stringField(body.deadline);
     const designFee = intField(body.designFee, 0, DESIGN_FEE_MAX);
     const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX);
+    const designImage = imageField(body.designImageDataUrl);
+    const tryonImage = imageField(Array.isArray(body.tryOnImages) ? body.tryOnImages[0] : body.tryOnImageDataUrl);
+    const contentBlocks = parseBlocks(body.contentBlocks);
 
     const errors: string[] = [];
-    if (!designId && !designImageDataUrl) errors.push('design (designId 또는 designImageDataUrl 필요)');
     if (!title || title.length > TITLE_MAX) errors.push('title');
     if (description && description.length > DESCRIPTION_MAX) errors.push('description');
     if (!department || department.length > DEPARTMENT_MAX) errors.push('department');
     if (!isValidFutureDate(deadline)) errors.push('deadline');
     if (designFee === null) errors.push('designFee');
     if (targetQuantity === null) errors.push('targetQuantity');
+    if (!designImage && !tryonImage) errors.push('designImageDataUrl (옷 사진 또는 피팅 이미지 필요)');
 
     if (errors.length > 0) {
       res.status(400).json(createErrorResponse(
@@ -57,28 +62,70 @@ export function createFundsCreateHandler() {
       return;
     }
 
-    // TODO (담당 B):
-    //  1. designId 로 design 조회 → creator_id 가 userId 와 일치하는지 검사
-    //  2. design.product_id 로 product 조회 → base_price 획득
-    //  3. final_price = base_price + 인쇄비(서버 상수) + design_fee + platform_fee 계산
-    //  4. fund 테이블에 INSERT (status='open', current_quantity=0)
-    //  5. tryOnImages 가 있으면 별도 fund_image 테이블 또는 design 레코드에 첨부
-    //  6. 알림 자동 생성: 본인에게 "펀드가 개설되었습니다"
-    //  7. 응답: { id }
+    const finalPrice = BASE_PRICE + PLATFORM_FEE + (designFee as number);
+    const now = new Date();
+    const groupbuy: GroupBuy = {
+      id: randomUUID(),
+      creatorId: userId,
+      fundId: null,
+      title,
+      description,
+      productOptions: [],
+      basePrice: BASE_PRICE,
+      designFee: designFee as number,
+      platformFee: PLATFORM_FEE,
+      finalPrice,
+      targetQuantity: targetQuantity as number,
+      currentQuantity: 0,
+      deadline: new Date(deadline + 'T23:59:59'),
+      status: 'open',
+      designImageUrl: designImage,
+      tryonImageUrl: tryonImage,
+      contentBlocks,
+      createdAt: now,
+      updatedAt: now,
+    };
 
-    // 사용자에게는 친화 메시지만 노출하고, 내부 사유는 서버 로그로 남긴다.
-    console.warn('[funds-create] placeholder hit', {
-      userId, reason: 'fund Repository 미연결 — 백엔드 도메인 작업 필요',
-    });
-    res.status(503).json(createErrorResponse(
-      new AppError('FEATURE_UNAVAILABLE', '펀드 개설 기능은 곧 열립니다. 잠시만 기다려 주세요.'),
-    ));
+    try {
+      const created = await groupBuyRepository.create(groupbuy);
+      logger.info({ id: created.id, userId, department }, '펀드(공동구매) 개설 완료');
+      res.status(201).json({ id: created.id });
+    } catch (err) {
+      logger.error({ err, userId }, '펀드 개설 INSERT 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
   };
 }
 
 function stringField(v: unknown, fallback?: string): string {
   if (typeof v !== 'string') return fallback ?? '';
   return v.trim();
+}
+
+// 이미지: http(s) URL 또는 image data URL 만, 크기 상한 적용. 그 외/초과는 null.
+function imageField(v: unknown): string | null {
+  if (typeof v !== 'string' || v.length === 0) return null;
+  if (v.length > MAX_IMG_CHARS) return null;
+  const isHttp = /^https?:\/\//.test(v);
+  const isDataImage = /^data:image\/(png|jpe?g|webp);base64,/.test(v);
+  return (isHttp || isDataImage) ? v : null;
+}
+
+// 게시글 본문 블록 검증: 텍스트/이미지 블록 배열. 형식·크기 위반 블록은 제거.
+function parseBlocks(v: unknown): ContentBlock[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const blocks: ContentBlock[] = [];
+  for (const b of v.slice(0, MAX_BLOCKS)) {
+    if (!b || typeof b.value !== 'string') continue;
+    if (b.type === 'text') {
+      const text = b.value.trim();
+      if (text) blocks.push({ type: 'text', value: text.slice(0, MAX_TEXT_CHARS) });
+    } else if (b.type === 'image') {
+      const img = imageField(b.value);
+      if (img) blocks.push({ type: 'image', value: img });
+    }
+  }
+  return blocks.length ? blocks : null;
 }
 
 function intField(v: unknown, min: number, max: number): number | null {
@@ -89,19 +136,13 @@ function intField(v: unknown, min: number, max: number): number | null {
 }
 
 /**
- * deadline 검증.
- *  1. YYYY-MM-DD 형식
- *  2. 실제 존재하는 날짜 (예: 2024-13-99 거부 — Date 가 자동 보정해도 컴포넌트 매칭으로 잡음)
- *  3. 오늘보다 미래 (오늘 자정 KST 기준)
- *
- * 단순 정규식만으론 2024-02-30 같은 가짜 날짜를 통과시킨다.
+ * deadline 검증: YYYY-MM-DD 형식 + 실제 존재 날짜 + 오늘보다 미래.
  */
 function isValidFutureDate(s: string): boolean {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
   const [y, m, d] = s.split('-').map((p) => Number(p));
   const dt = new Date(y, m - 1, d);
   if (dt.getFullYear() !== y || dt.getMonth() !== m - 1 || dt.getDate() !== d) return false;
-  // 오늘 자정 (로컬 타임존) 기준 — 같은 날짜는 거부, 다음 날부터 허용.
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   return dt.getTime() > today.getTime();
