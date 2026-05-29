@@ -41,8 +41,18 @@
           <div id="tryonThumbs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         </div>
 
+        <!-- 상품 종류 (착용 방식 결정) -->
+        <div class="field" style="margin-top:24px;">
+          <label for="tryonCategorySelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">상품 종류</label>
+          <select id="tryonCategorySelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+            <option value="top">의류 (과잠·반팔티 등 — 입은 앞/뒤)</option>
+            <option value="ecobag">에코백 (메고 있는 모습)</option>
+            <option value="keyring">키링 (손에 들거나 가방에 단 모습)</option>
+          </select>
+        </div>
+
         <!-- 모델 옵션 -->
-        <div style="margin-top:24px;display:flex;gap:12px;">
+        <div style="margin-top:16px;display:flex;gap:12px;">
           <div class="field" style="flex:1;">
             <label for="tryonModelSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">모델 타입</label>
             <select id="tryonModelSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">

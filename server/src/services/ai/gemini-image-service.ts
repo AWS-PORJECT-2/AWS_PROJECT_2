@@ -68,10 +68,38 @@ const BG_DESC: Record<string, string> = {
   outdoor: 'a clean outdoor street background, softly blurred',
 };
 
-// 업로드한 디자인(옷) 이미지를 모델에게 입힌 사진 프롬프트. 모델 성별·배경은 사용자 선택을 반영.
-function buildTryOnPrompt(modelType: string, background: string): string {
+// 업로드한 디자인 이미지를 모델에게 적용한 사진 프롬프트. 상품 종류(category)에 따라 착용 방식이 다르다.
+function buildTryOnPrompt(modelType: string, background: string, category: string): string {
   const who = GENDER_DESC[modelType] || GENDER_DESC.female;
   const bg = BG_DESC[background] || BG_DESC.studio;
+
+  // 에코백: 옷처럼 몸통에 "입히면" 안 됨 — 어깨에 메거나 손에 든 자연스러운 모습.
+  if (category === 'ecobag') {
+    return (
+      'The attached image(s) are reference photos of ONE tote bag / eco bag design. If multiple photos are attached, treat them as different views of the SAME bag. Generate ONE photorealistic image of ' + who +
+      ' carrying that exact tote bag in a natural everyday pose:\n' +
+      '- The bag hangs from one shoulder (or is held by its handles in one hand), worn as a real tote bag — NOT stretched across the torso like a shirt.\n' +
+      '- The printed side of the bag faces the camera and is fully visible and flat.\n\n' +
+      'Background: ' + bg + '. Natural, relaxed pose. Show the person from head to hip with the bag clearly in frame.\n' +
+      'The bag design MUST match the attached reference EXACTLY: same colors, logos, lettering, patterns — do not invent or omit any detail. Keep the bag fabric soft and naturally draped.\n' +
+      'Output exactly ONE image.'
+    );
+  }
+
+  // 키링: 사람이 입는 게 아니라 손에 들거나 가방에 단 소품 클로즈업.
+  if (category === 'keyring') {
+    return (
+      'The attached image(s) are reference photos of ONE keyring / bag charm design. If multiple photos are attached, treat them as different views of the SAME charm. Generate ONE photorealistic lifestyle image of ' + who +
+      ' holding that exact keyring in their hand (or with it clipped onto a handbag), as a small accessory:\n' +
+      '- The keyring is the focus — shown close-up and clearly, at a realistic small size relative to the hand/bag.\n' +
+      '- Do NOT enlarge it to clothing size or place it on the torso.\n\n' +
+      'Background: ' + bg + '. Natural pose, hand/bag area in focus.\n' +
+      'The keyring design MUST match the attached reference EXACTLY: same colors, shape, lettering, charm details — do not invent or omit any detail.\n' +
+      'Output exactly ONE image.'
+    );
+  }
+
+  // 기본: 상의 의류(과잠/반팔티 등) — 앞/뒤 착용 2분할.
   return (
     'The attached image(s) are reference photos of ONE garment design (clothing). If multiple photos are attached, treat them as different views/details of the SAME garment. Generate ONE photorealistic image of ' + who +
     ' wearing that exact garment, shown in two halves side-by-side:\n' +
@@ -116,7 +144,7 @@ export class GeminiImageService {
   // 업로드한 디자인(옷) 이미지(1~5장)를 모델에게 입힌 사진 생성. 모델타입/배경은 LOUN 디자인의 select 값.
   async generateTryOn(
     garments: ImageInput[],
-    opts: { modelType: string; background: string },
+    opts: { modelType: string; background: string; category?: string },
     ctx: BilledCallContext,
   ): Promise<ImageInput> {
     if (garments.length === 0) {
@@ -125,7 +153,7 @@ export class GeminiImageService {
     if (garments.length > 5) {
       throw new AppError('MISSING_REQUIRED_FIELD', '이미지는 최대 5장까지 첨부 가능합니다');
     }
-    return this.callOnce(buildTryOnPrompt(opts.modelType, opts.background), garments, ctx);
+    return this.callOnce(buildTryOnPrompt(opts.modelType, opts.background, opts.category || 'top'), garments, ctx);
   }
 
   // 단일 Gemini 호출. 재시도 없음. 안전장치 다섯 겹.

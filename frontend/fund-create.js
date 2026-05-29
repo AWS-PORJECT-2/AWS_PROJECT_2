@@ -36,6 +36,7 @@
     bindStep2();
     bindNavigation();
     setDefaultDeadline();
+    presetCategoryFromUrl();
 
     try {
       state.me = await api.get('/auth/me');
@@ -44,6 +45,16 @@
     } catch (err) {
       // 미로그인이면 api.js 가 /login.html로 보냄
     }
+  }
+
+  // URL ?category=(과잠|반팔티|에코백) → 상품 종류 셀렉트 기본값.
+  function presetCategoryFromUrl() {
+    var sel = document.getElementById('tryonCategorySelect');
+    if (!sel) return;
+    var raw = new URLSearchParams(window.location.search).get('category') || '';
+    var map = { '에코백': 'ecobag', 'ecobag': 'ecobag', '키링': 'keyring', 'keyring': 'keyring' };
+    var v = map[raw];
+    if (v) sel.value = v;
   }
 
   // ========== Step 네비게이션 ==========
@@ -188,11 +199,13 @@
     var btn = document.getElementById('btnAiTryOn');
     var modelSel = document.getElementById('tryonModelSelect');
     var bgSel = document.getElementById('tryonBgSelect');
+    var catSel = document.getElementById('tryonCategorySelect');
     var modelType = (modelSel && modelSel.value) || 'female';
     var background = (bgSel && bgSel.value) || 'studio';
+    var category = (catSel && catSel.value) || 'top';
     btn.disabled = true;
     var stop = startAiLoading(btn);
-    api.post('/ai/try-on', { imageDataUrls: state.designImages, modelType: modelType, background: background })
+    api.post('/ai/try-on', { imageDataUrls: state.designImages, modelType: modelType, background: background, category: category })
       .then(function (res) {
         if (!res || !res.tryOnDataUrl) throw new Error('NO_TRYON');
         state.tryOnImage = res.tryOnDataUrl;
