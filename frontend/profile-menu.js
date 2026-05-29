@@ -12,14 +12,13 @@
   if (profileLink) profileLink.remove();
   // 이미 드롭다운이 있으면 중복 생성 방지
   if (topbarRight.querySelector('.topbar-profile-wrapper')) return;
-  if (topbarRight.querySelector('.topbar-profile-wrapper')) return;
 
   var wrapper = document.createElement('div');
   wrapper.className = 'topbar-profile-wrapper';
   wrapper.style.position = 'relative';
   wrapper.innerHTML =
     '<button class="topbar-profile" id="profileMenuBtn" aria-label="프로필 메뉴" style="background:none;border:none;cursor:pointer;padding:0;">' +
-      '<img src="data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2736%27 height=%2736%27 viewBox=%270 0 24 24%27 fill=%27none%27 stroke=%27%239ca3af%27 stroke-width=%271.5%27%3E%3Ccircle cx=%2712%27 cy=%2712%27 r=%2710%27/%3E%3Ccircle cx=%2712%27 cy=%2710%27 r=%273%27/%3E%3Cpath d=%27M7 20.662V19a2 2 0 012-2h6a2 2 0 012 2v1.662%27/%3E%3C/svg%3E" alt="프로필" class="topbar-avatar" style="width:36px;height:36px;border-radius:50%;object-fit:cover;">' +
+      '<img id="profileMenuAvatar" src="/default-avatar.svg" alt="프로필" class="topbar-avatar" onerror="this.style.background=\'#e5e7eb\';this.removeAttribute(\'src\')">' +
     '</button>' +
     '<div class="profile-dropdown" id="profileDropdown" style="display:none;position:absolute;top:44px;right:0;width:220px;background:#fff;border-radius:12px;box-shadow:0 4px 24px rgba(0,0,0,0.12);z-index:1000;padding:8px 0;border:1px solid #f0f0f0;">' +
       '<a href="/profile.html" class="profile-dropdown-item">' +
@@ -71,13 +70,12 @@
     });
   }
 
-  // 아바타를 실제 유저 프로필 사진으로 업데이트
-  if (window.api) {
-    window.api.get('/auth/me', { silentAuthFail: true }).then(function(data) {
-      if (data && data.picture) {
-        var avatar = wrapper.querySelector('.topbar-avatar');
-        if (avatar) avatar.src = data.picture;
-      }
-    }).catch(function() { /* 미로그인 시 기본 placeholder 유지 */ });
-  }
+  // 로그인 사용자의 실제 프로필 사진 반영 (하드코딩 이미지 대신). 실패해도 기본 아바타 유지.
+  (function loadAvatar() {
+    var avatar = document.getElementById('profileMenuAvatar');
+    if (!avatar || !window.api) return;
+    window.api.get('/auth/me', { silentAuthFail: true })
+      .then(function (me) { if (me && me.picture) avatar.src = me.picture; })
+      .catch(function () {});
+  })();
 })();
