@@ -143,6 +143,7 @@ const SCHOOL_DOMAIN_TO_NAME = {
   'kookmin.ac.kr': '국민대학교',
 };
 const currentUser = {
+  userId: null,
   name: '',
   university: '',
   department: '',
@@ -164,6 +165,7 @@ async function loadCurrentUser() {
       throw new Error('failed to load /api/auth/me: HTTP ' + res.status);
     }
     const data = await res.json();
+    currentUser.userId = data.userId || null;
     currentUser.name = data.name || data.email || '';
     currentUser.university = SCHOOL_DOMAIN_TO_NAME[data.schoolDomain] || data.schoolDomain || '';
     if (data.picture) currentUser.avatarUrl = data.picture;
@@ -232,7 +234,10 @@ function renderProfileTabContent() {
     items = products.filter((p) => p.isReserved === true);
     currentUser.joinedFundingCount = items.length;
   } else {
-    items = [];
+    // 제작한 펀딩 — 내 userId 가 creatorId 인 펀드 (로그인 사용자가 개설한 것)
+    items = currentUser.userId
+      ? products.filter((p) => p.creatorId && String(p.creatorId) === String(currentUser.userId))
+      : [];
     currentUser.createdFundingCount = items.length;
   }
 
@@ -313,7 +318,7 @@ function renderProfile() {
         <button onclick="switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;">
           나의 활동
         </button>
-        <button style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;">
+        <button onclick="switchProfileTab('created');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;">
           프로젝트 관리
         </button>
       </div>
@@ -402,5 +407,9 @@ function renderProfile() {
   if (shouldRender) {
     await loadOrderStatusCounts(); // 배송/결제 현황 카운트 채운 뒤 렌더 (PR#19)
     renderProfile();
+    // mock-data 의 백엔드 상품 로드가 끝나면 탭 내용(좋아요/참여/제작) 갱신
+    window.addEventListener('mockproducts:updated', function () {
+      if (typeof renderProfileTabContent === 'function') renderProfileTabContent();
+    });
   }
 })();

@@ -171,6 +171,7 @@ async function loadProductsFromBackend() {
     MOCK_PRODUCTS = data.items.map(function (p) {
       return {
         id: p.id,
+        creatorId: p.creatorId || null,  // 제작한 펀딩 필터용 (내 userId 와 비교)
         imageUrl: p.imageUrl || _JACKET_IMGS[0],
         author: p.author || '익명',
         authorAvatar: p.authorAvatar || ('https://picsum.photos/seed/avatar-' + encodeURIComponent(p.id) + '/48/48'),
@@ -193,6 +194,9 @@ async function loadProductsFromBackend() {
       };
     });
     window.MOCK_PRODUCTS = MOCK_PRODUCTS;
+
+    // localStorage 의 좋아요/예약/결제 플래그를 실데이터에 반영 (좋아요·참여한 펀딩 탭이 채워지도록)
+    if (typeof syncUserState === 'function') syncUserState();
 
     // 외부 리스너에 데이터 갱신 알림
     window.dispatchEvent(new CustomEvent('mockproducts:updated', { detail: { items: MOCK_PRODUCTS } }));

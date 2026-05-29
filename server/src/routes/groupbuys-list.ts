@@ -32,6 +32,7 @@ export function createGroupBuysListHandler(groupBuyRepo: GroupBuyRepository) {
           : 0;
         return {
           id: g.id,
+          creatorId: g.creatorId,
           title: g.title,
           description: g.description,
           imageUrl: g.imageUrl ?? '',
