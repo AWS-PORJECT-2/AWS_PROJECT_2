@@ -236,11 +236,11 @@ function toggleAccordion(id) {
 
   if (content.style.display === 'none') {
     content.style.display = 'block';
-    arrow.style.transform = 'rotate(180deg)';
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
     renderAccordionContent(id);
   } else {
     content.style.display = 'none';
-    arrow.style.transform = 'rotate(0deg)';
+    if (arrow) arrow.style.transform = 'rotate(0deg)';
   }
 }
 
