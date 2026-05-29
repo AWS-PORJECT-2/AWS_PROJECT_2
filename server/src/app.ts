@@ -59,6 +59,12 @@ export async function createApp(): Promise<AppContext> {
   const paymentOrderService = new PaymentOrderServiceImpl(pool, orderRepo, proofRepo, confirmRepo, fundRepo);
 
   // --- Auth ---
+  // dev-auth 는 비밀번호 없이 임의 사용자로 로그인되는 개발 전용 인증이다.
+  // 운영(NODE_ENV=production)에 노출되면 완전한 인증 우회가 되므로 부팅을 막는다.
+  // 운영 배포 전 Google OAuth/JWT 를 복원해야 한다.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('dev-auth 는 운영 환경에서 사용할 수 없습니다. Google OAuth 인증을 복원하세요.');
+  }
   app.use('/api/dev-auth', createDevAuthRouter(userRepo));
   const authRequired = createDevAuthRequired(userRepo);
 

@@ -16,6 +16,14 @@ import { AppError } from '../errors/app-error.js';
 import { sendMailBatch, buildFundCompletedMail } from './mailer.js';
 import { logger } from '../logger.js';
 
+// 입금 계좌 정보는 소스에 하드코딩하지 않고 환경변수에서 주입 (CLAUDE.md: 하드코딩 금지).
+// BANK_* 미설정 시 빈 문자열 — 잘못된 계좌로 안내되는 사고보다 '미설정' 노출이 안전.
+const BANK_INFO = {
+  bankName: process.env.BANK_NAME ?? '',
+  accountNumber: process.env.BANK_ACCOUNT_NUMBER ?? '',
+  accountHolder: process.env.BANK_ACCOUNT_HOLDER ?? '',
+};
+
 export interface PaymentOrderService {
   createOrder(userId: number, request: CreateOrderRequest): Promise<CreateOrderResponse>;
   reportPayment(userId: number, orderId: number, depositorName: string): Promise<UploadProofResponse>;
@@ -147,11 +155,7 @@ export class PaymentOrderServiceImpl implements PaymentOrderService {
       orderId: order.id,
       orderNumber: order.orderNumber,
       totalPrice: order.totalPrice, // 서버 계산값
-      bankInfo: {
-        bankName: '토스뱅크',
-        accountNumber: '1002-5655-8980',
-        accountHolder: '공동구매 계좌',
-      },
+      bankInfo: { ...BANK_INFO },
       status: order.status,
     };
   }
