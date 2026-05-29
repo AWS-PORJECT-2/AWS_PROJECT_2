@@ -55,66 +55,42 @@
 
     <!-- 진행 상태 -->
     <div class="step-indicator">
-      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">AI 모델 피팅</span></div>
+      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">옷 도면</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">펀드 정보</span></div>
+      <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">가상 피팅</span></div>
       <div class="step-line"></div>
-      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">검토</span></div>
+      <div class="step" data-step="3"><span class="step-num">3</span><span class="step-label">펀드 정보</span></div>
+      <div class="step-line"></div>
+      <div class="step" data-step="4"><span class="step-num">4</span><span class="step-label">검토</span></div>
     </div>
 
-    <!-- ===== Step 1: AI 모델 피팅 ===== -->
+    <!-- ===== Step 1: 옷 도면 생성 ===== -->
     <section class="step-panel" data-step-panel="1">
-      <h2 class="panel-title">AI 모델 피팅</h2>
-      <p class="panel-desc">굿즈 디자인 이미지를 업로드하면 AI가 모델에 입혀 미리보기를 생성합니다.</p>
+      <h2 class="panel-title">옷 도면 생성</h2>
+      <p class="panel-desc">옷 사진을 최대 5장까지 첨부할 수 있습니다. 첨부한 사진을 합쳐 앞·뒤 도면 한 장을 만듭니다.</p>
 
       <div style="padding:20px;">
-        <!-- 이미지 업로드 -->
-        <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;transition:all 0.2s;">
-          <input id="tryonGarmentFile" type="file" accept="image/*" hidden>
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-            <polyline points="17 8 12 3 7 8"/>
-            <line x1="12" y1="3" x2="12" y2="15"/>
-          </svg>
-          <p style="font-size:15px;font-weight:600;color:#4b5563;margin-top:12px;">굿즈 디자인 이미지 업로드</p>
-          <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG, PNG, WEBP — 최대 10MB</p>
+        <!-- 이미지 업로드 (multiple) -->
+        <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;">
+          <input id="tryonGarmentFile" type="file" accept="image/*" multiple hidden>
+          <p style="font-size:15px;font-weight:600;color:#4b5563;">옷 사진 업로드</p>
+          <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG / PNG / WEBP · 한 장당 최대 10MB · 최대 5장</p>
         </label>
 
-        <!-- 업로드된 이미지 미리보기 -->
-        <div id="tryonUploadPreview" style="display:none;margin-top:16px;text-align:center;">
-          <img id="tryonPreviewImg" alt="업로드된 디자인" style="max-width:100%;max-height:300px;border-radius:12px;border:1px solid #e5e7eb;">
+        <!-- 썸네일 (최대 5장) -->
+        <div id="tryonUploadPreview" style="display:none;margin-top:16px;">
+          <p id="tryonUploadCount" style="font-size:12px;color:#6b7280;margin:0 0 8px;"></p>
+          <div id="tryonThumbs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
         </div>
 
-        <!-- 모델 옵션 -->
-        <div style="margin-top:24px;display:flex;gap:12px;">
-          <div class="field" style="flex:1;">
-            <label for="tryonModelSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">모델 타입</label>
-            <select id="tryonModelSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
-              <option value="female">여성</option>
-              <option value="male">남성</option>
-            </select>
-          </div>
-          <div class="field" style="flex:1;">
-            <label for="tryonBgSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">배경</label>
-            <select id="tryonBgSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
-              <option value="studio">스튜디오</option>
-              <option value="campus">캠퍼스</option>
-              <option value="outdoor">야외</option>
-            </select>
-          </div>
-        </div>
-
-        <!-- AI 피팅 버튼 -->
-        <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;margin-top:20px;padding:16px;border:none;border-radius:14px;background:#7c3aed;color:#fff;font-size:16px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;" disabled>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          AI 모델 피팅 생성
+        <!-- 도면 생성 -->
+        <button type="button" id="btnAiBlueprint" onclick="requestAiBlueprint()" style="width:100%;margin-top:24px;padding:16px;border:none;border-radius:14px;background:#2563eb;color:#fff;font-size:16px;font-weight:700;cursor:pointer;" disabled>
+          도면 생성 (앞·뒤)
         </button>
-        <p style="font-size:12px;color:#9ca3af;margin-top:8px;text-align:center;">Amazon Try-On API 연동 예정 — 현재는 업로드된 이미지가 그대로 사용됩니다.</p>
 
-        <!-- 피팅 결과 -->
-        <div id="tryonResultArea" style="display:none;margin-top:20px;padding:20px;background:#f0fdf4;border-radius:14px;text-align:center;">
-          <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">✅ 피팅 이미지가 준비되었습니다</p>
-          <img id="tryonResultImg" alt="AI 피팅 결과" style="max-width:100%;max-height:300px;border-radius:12px;">
+        <!-- 도면 결과 -->
+        <div id="blueprintResultArea" style="display:none;margin-top:16px;text-align:center;">
+          <img id="blueprintResultImg" alt="옷 도면" style="max-width:100%;max-height:340px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;">
         </div>
       </div>
 
@@ -124,8 +100,35 @@
       </div>
     </section>
 
-    <!-- ===== Step 2: 펀드 정보 ===== -->
+    <!-- ===== Step 2: 가상 피팅 ===== -->
     <section class="step-panel" data-step-panel="2" hidden>
+      <h2 class="panel-title">가상 피팅</h2>
+      <p class="panel-desc">1단계에서 만든 도면으로 모델 착용 사진을 생성합니다. 한 장에 모델의 앞/뒤 모습이 절반씩 들어갑니다.</p>
+
+      <div style="padding:20px;">
+        <!-- 참고용: 이전 단계 도면 -->
+        <div id="tryonBlueprintRef" style="margin-bottom:20px;text-align:center;">
+          <p style="font-size:13px;color:#6b7280;margin:0 0 8px;">사용할 도면</p>
+          <img id="tryonBlueprintImg" alt="" style="max-width:100%;max-height:200px;border-radius:12px;border:1px solid #e5e7eb;background:#fff;">
+        </div>
+
+        <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;padding:16px;border:none;border-radius:14px;background:#7c3aed;color:#fff;font-size:16px;font-weight:700;cursor:pointer;">
+          가상 피팅 생성
+        </button>
+
+        <div id="tryonResultArea" style="display:none;margin-top:16px;text-align:center;">
+          <img id="tryonResultImg" alt="가상 피팅 (앞/뒤)" style="max-width:100%;max-height:380px;border-radius:12px;border:1px solid #e5e7eb;">
+        </div>
+      </div>
+
+      <div class="step-nav">
+        <button type="button" class="btn-prev" data-go="1">← 이전</button>
+        <button type="button" class="btn-next" id="step2Next" disabled>다음 →</button>
+      </div>
+    </section>
+
+    <!-- ===== Step 3: 펀드 정보 ===== -->
+    <section class="step-panel" data-step-panel="3" hidden>
       <h2 class="panel-title">펀드 정보 입력</h2>
 
       <form id="fundForm" novalidate>
@@ -180,19 +183,19 @@
       </form>
 
       <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="1">← 이전</button>
-        <button type="button" class="btn-next" id="step2Next">다음 →</button>
+        <button type="button" class="btn-prev" data-go="2">← 이전</button>
+        <button type="button" class="btn-next" id="step3Next">다음 →</button>
       </div>
     </section>
 
-    <!-- ===== Step 3: 검토 + 등록 ===== -->
-    <section class="step-panel" data-step-panel="3" hidden>
+    <!-- ===== Step 4: 검토 + 등록 ===== -->
+    <section class="step-panel" data-step-panel="4" hidden>
       <h2 class="panel-title">최종 확인</h2>
 
       <div class="review-images">
         <div>
-          <h4>설계도</h4>
-          <img id="reviewDesignImg" alt="">
+          <h4>최종 설계도 (도면 + 가상 피팅)</h4>
+          <img id="reviewDesignImg" alt="최종 설계도" style="max-width:100%;border-radius:12px;border:1px solid #e5e7eb;background:#fff;">
         </div>
       </div>
 
@@ -201,7 +204,7 @@
       </div>
 
       <div class="step-nav">
-        <button type="button" class="btn-prev" data-go="2">← 이전</button>
+        <button type="button" class="btn-prev" data-go="3">← 이전</button>
         <button type="submit" class="btn-submit" id="btnSubmit">펀드 개설하기</button>
       </div>
     </section>

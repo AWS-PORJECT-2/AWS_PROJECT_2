@@ -1,5 +1,7 @@
 import 'dotenv/config';
 import { randomBytes } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
+import path from 'node:path';
 import express from 'express';
 import cookieParser from 'cookie-parser';
 import helmet from 'helmet';
@@ -17,11 +19,7 @@ import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
-import { ComfyUiDesignGenerator } from './services/ai/comfyui-design-generator.js';
-import { CatVtonVirtualTryOn } from './services/ai/catvton-virtual-try-on.js';
-import { NullAiDesignGenerator, NullAiVirtualTryOn } from './services/ai/null-ai-providers.js';
-import type { AiDesignGenerator } from './interfaces/ai-design-generator.js';
-import type { AiVirtualTryOn } from './interfaces/ai-virtual-try-on.js';
+import { GeminiImageService } from './services/ai/gemini-image-service.js';
 import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
@@ -69,11 +67,7 @@ const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 const USE_MOCK_OAUTH = process.env.USE_MOCK_OAUTH === 'true' && !IS_PRODUCTION;
 const MOCK_LOGIN_EMAIL = process.env.MOCK_LOGIN_EMAIL ?? 'test@kookmin.ac.kr';
 
-// AI 어댑터 환경변수 — 미설정 시 NullAi* 로 fallback (라우트가 503 응답)
-const AI_DESIGN_URL = process.env.AI_DESIGN_URL ?? '';
-const AI_TRYON_URL = process.env.AI_TRYON_URL ?? '';
-const AI_WORKFLOW_DIR = process.env.AI_COMFYUI_WORKFLOW_DIR ?? '';
-const AI_TRYON_MODEL_DIR = process.env.AI_TRYON_MODEL_DIR ?? '';
+// AI (Gemini nano-banana) — GEMINI_API_KEY 미설정 시 라우터 미등록 → 404 응답
 const AI_TIMEOUT_DEFAULT = 60000;
 const AI_TIMEOUT_MS = parsePositiveInt(process.env.AI_TIMEOUT_MS, AI_TIMEOUT_DEFAULT);
 
@@ -84,16 +78,6 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   // 그래야 setTimeout 에 NaN 이 흘러가서 즉시 abort 되는 사고를 막을 수 있다.
   if (!Number.isFinite(n) || n <= 0) return fallback;
   return Math.floor(n);
-}
-
-function buildDesignGenerator(): AiDesignGenerator {
-  if (!AI_DESIGN_URL) return new NullAiDesignGenerator();
-  return new ComfyUiDesignGenerator(AI_DESIGN_URL, AI_WORKFLOW_DIR, AI_TIMEOUT_MS);
-}
-
-function buildVirtualTryOn(): AiVirtualTryOn {
-  if (!AI_TRYON_URL) return new NullAiVirtualTryOn();
-  return new CatVtonVirtualTryOn(AI_TRYON_URL, AI_TRYON_MODEL_DIR, AI_TIMEOUT_MS);
 }
 
 const authRateLimit = rateLimit({
@@ -170,10 +154,12 @@ export function createApp(
 
   const authRequired = createAuthRequired(tokenService, userRepository);
 
-  // AI 라우터 (사장님 영역) — 인증 필요. AI 서버 미연결 시 라우트 자체는 떠 있고 503 응답
-  const designGenerator = buildDesignGenerator();
-  const virtualTryOn = buildVirtualTryOn();
-  app.use('/api/ai', authRequired, createAiRouter(designGenerator, virtualTryOn, AI_TIMEOUT_MS));
+  // AI 라우터 (Gemini nano-banana) — GEMINI_API_KEY 가 있어야만 라우트 등록.
+  // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
+  const gemini = GeminiImageService.fromEnv();
+  if (gemini) {
+    app.use('/api/ai', authRequired, createAiRouter(gemini, AI_TIMEOUT_MS));
+  }
 
   // 펀드 개설 (placeholder — 담당 B(B-5) 가 fund Repository 연결 후 활성화)
   app.post('/api/funds', authRequired, createFundsCreateHandler());
@@ -246,10 +232,17 @@ export function createApp(
   }
 
   // 정적 자산은 CloudFront(+ S3) 가 책임진다. EC2 는 API 전용.
-  // 루트 경로엔 health check 만 — CloudFront origin health check 대비.
-  app.get('/', (_req, res) => {
-    res.json({ service: 'doothing-api', ok: true });
-  });
+  // dev 모드에서는 편의상 ../frontend 를 직접 서빙해 로컬 테스트 가능하게.
+  if (!IS_PRODUCTION) {
+    const frontendDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../frontend');
+    app.use(express.static(frontendDir));
+  }
+  // 운영에서만 / 가 API health check 응답. dev 에서는 위 static 가 index.html 서빙.
+  if (IS_PRODUCTION) {
+    app.get('/', (_req, res) => {
+      res.json({ service: 'doothing-api', ok: true });
+    });
+  }
 
   app.use(errorHandler);
   return app;

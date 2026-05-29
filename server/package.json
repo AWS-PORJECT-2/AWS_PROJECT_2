@@ -12,6 +12,7 @@
     "db:check-users": "tsx scripts/check-users.ts"
   },
   "dependencies": {
+    "@google/genai": "^2.6.0",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
