@@ -38,8 +38,14 @@ export function createOrderShippingHandler(orderRepo: OrderRepository) {
     }
 
     // 권한 검증: 주문 소유자만 상태 변경 가능
+    // 단, 'delivered'는 구매자가 직접 마킹할 수 없음 (관리자/판매자 전용)
     if (order.userId !== userId) {
       res.status(403).json({ error: 'FORBIDDEN', message: '해당 주문에 대한 권한이 없습니다' });
+      return;
+    }
+
+    if (status === 'delivered') {
+      res.status(403).json({ error: 'FORBIDDEN', message: '배송 완료는 관리자만 처리할 수 있습니다' });
       return;
     }
 

@@ -18,9 +18,17 @@ export function createMeUpdateHandler(userRepo: UserRepository) {
       return;
     }
 
-    if (picture !== undefined && typeof picture !== 'string') {
-      res.status(400).json({ error: 'INVALID_PICTURE', message: '올바른 이미지 URL을 입력해주세요' });
-      return;
+    if (picture !== undefined) {
+      if (typeof picture !== 'string') {
+        res.status(400).json({ error: 'INVALID_PICTURE', message: '올바른 이미지 URL을 입력해주세요' });
+        return;
+      }
+      const isHttp = /^https?:\/\//.test(picture);
+      const isDataImage = /^data:image\/(png|jpe?g|webp);base64,/.test(picture);
+      if ((!isHttp && !isDataImage) || picture.length > 2_000_000) {
+        res.status(400).json({ error: 'INVALID_PICTURE', message: '허용되지 않는 이미지 형식이거나 용량이 큽니다 (2MB 이하, http/https/data:image만 허용)' });
+        return;
+      }
     }
 
     const updated = await userRepo.updateProfile(userId, {

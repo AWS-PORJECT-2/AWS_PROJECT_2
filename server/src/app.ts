@@ -232,8 +232,8 @@ export function createApp(
 
   // --- 택배 추적 ---
   app.get('/api/orders/:id/tracking', authRequired, createOrderTrackingHandler(orderRepository));
-  // 운송장 등록은 관리자 전용 (추후 admin 미들웨어 추가 시 교체)
-  app.patch('/api/admin/orders/:id/tracking', authRequired, createOrderTrackingUpdateHandler(orderRepository));
+  // 운송장 등록 — 현재 admin 역할 미구현으로 주문 소유자만 허용. 추후 admin 미들웨어 추가 시 교체.
+  app.patch('/api/orders/:id/tracking', authRequired, createOrderTrackingUpdateHandler(orderRepository));
 
   // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
   app.get('/api/config/toss', (_req, res) => {

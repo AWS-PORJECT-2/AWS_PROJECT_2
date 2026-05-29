@@ -11,7 +11,12 @@ function buildSslConfig(): pg.PoolConfig['ssl'] {
   if (mode === 'disabled') return undefined;
   const caPath = process.env.DATABASE_SSL_CA;
   if (caPath) return { ca: fs.readFileSync(caPath, 'utf8') };
-  if (process.env.DATABASE_URL) return { rejectUnauthorized: false };
+  if (process.env.DATABASE_URL) {
+    if (process.env.NODE_ENV === 'production' && !process.env.DATABASE_SSL_CA) {
+      throw new Error('운영 환경에서는 DATABASE_SSL_CA 가 필요합니다 (rejectUnauthorized:false 금지).');
+    }
+    return { rejectUnauthorized: true };
+  }
   return undefined;
 }
 
