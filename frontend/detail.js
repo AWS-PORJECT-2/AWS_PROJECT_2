@@ -296,6 +296,19 @@ function fundToProduct(f) {
   };
 }
 
+/* 최근 본 프로젝트 기록 — localStorage(recentFunds), 최신순 최대 12개, 중복 제거 */
+function saveRecentFund(p) {
+  if (!p || p.id == null) return;
+  try {
+    const KEY = 'recentFunds';
+    let list = JSON.parse(localStorage.getItem(KEY) || '[]');
+    if (!Array.isArray(list)) list = [];
+    list = list.filter((x) => String(x.id) !== String(p.id));
+    list.unshift({ id: p.id, title: p.title || '', imageUrl: p.imageUrl || '' });
+    localStorage.setItem(KEY, JSON.stringify(list.slice(0, 12)));
+  } catch (_) { /* 무시 */ }
+}
+
 /* ===== 메인 렌더링 ===== */
 async function renderDetail() {
   currentProduct = findProduct(getProductId());
@@ -312,6 +325,7 @@ async function renderDetail() {
     return;
   }
 
+  saveRecentFund(currentProduct);
   const rate = getAchievement(currentProduct);
   const days = daysUntil(currentProduct.deadline);
   const raised = calcRaisedAmount(currentProduct);

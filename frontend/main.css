@@ -842,3 +842,32 @@ body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay
     animation: none;
   }
 }
+
+/* ===== 전역 푸터 (실운영) ===== */
+.dt-footer {
+  margin-top: 48px;
+  border-top: 1px solid #ececf2;
+  background: #fafafb;
+  padding: 32px 20px 96px; /* 모바일 하단 네비 고려한 여유 */
+}
+.dt-footer__inner { max-width: 1100px; margin: 0 auto; color: #6b7280; font-size: 13px; line-height: 1.7; }
+.dt-footer__links { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
+.dt-footer__links a { color: #4b5563; font-weight: 600; text-decoration: none; }
+.dt-footer__links a:hover { color: #8b5cf6; }
+.dt-footer__support { margin-bottom: 12px; }
+.dt-footer__support a { color: #8b5cf6; }
+.dt-footer__company { margin-bottom: 10px; }
+.dt-footer__biz { color: #9ca3af; font-size: 12px; }
+.dt-footer__legal { color: #9ca3af; font-size: 12px; margin-bottom: 8px; }
+.dt-footer__copy { color: #b6b6c0; font-size: 12px; }
+@media (min-width: 768px) { .dt-footer { padding-bottom: 48px; } }
+
+/* ===== 최근 본 프로젝트 ===== */
+.dt-recent { max-width: 1280px; margin: 0 auto; padding: 8px 32px 24px; }
+.dt-recent__title { font-size: 18px; font-weight: 800; color: #1a1a1a; margin: 0 0 14px; }
+.dt-recent__row { display: flex; gap: 14px; overflow-x: auto; padding-bottom: 6px; scrollbar-width: thin; }
+.dt-recent__card { flex: 0 0 auto; width: 130px; text-decoration: none; color: inherit; }
+.dt-recent__thumb { width: 130px; height: 130px; border-radius: 12px; overflow: hidden; background: #f3f4f6; }
+.dt-recent__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dt-recent__name { margin-top: 8px; font-size: 13px; font-weight: 600; color: #374151; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 768px) { .dt-recent { padding: 8px 16px 20px; } }

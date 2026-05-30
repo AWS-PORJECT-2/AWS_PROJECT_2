@@ -641,6 +641,30 @@ function NewPicks({ items = NEW_PICKS, title = '신규픽' } = {}) {
  *     - 'main' (기본): 메인 페이지 전체 렌더
  *     - 'detail': 헤더만 메인 컴포넌트로 렌더, 본문은 detail.js 가 처리
  * ===================================================================== */
+/* 최근 본 프로젝트 — detail 에서 localStorage 에 기록한 것을 홈에 가로 스크롤로 표시 */
+function RecentlyViewed() {
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem('recentFunds') || '[]'); } catch (_) { list = []; }
+  const sec = el('section', { class: 'dt-recent' });
+  if (!Array.isArray(list) || list.length === 0) { sec.style.display = 'none'; return sec; }
+
+  sec.appendChild(el('h2', { class: 'dt-recent__title' }, '최근 본 프로젝트'));
+  const row = el('div', { class: 'dt-recent__row' });
+  list.forEach((it) => {
+    const card = el('a', { class: 'dt-recent__card', href: '/detail.html?id=' + encodeURIComponent(it.id) });
+    const thumb = el('div', { class: 'dt-recent__thumb' });
+    if (it.imageUrl) {
+      const img = el('img', { src: it.imageUrl, alt: it.title || '', loading: 'lazy' });
+      thumb.appendChild(img);
+    }
+    card.appendChild(thumb);
+    card.appendChild(el('div', { class: 'dt-recent__name' }, it.title || ''));
+    row.appendChild(card);
+  });
+  sec.appendChild(row);
+  return sec;
+}
+
 function App() {
   document.body.classList.add('main-page');
   const pageMode = document.body.dataset.page || 'main';
@@ -673,6 +697,7 @@ function App() {
   const newPicksWrap = el('div', { class: 'new-picks-wrap' });
   root.appendChild(popularWrap);
   root.appendChild(newPicksWrap);
+  root.appendChild(RecentlyViewed());
 
   function buildSectionsFromMockProducts() {
     // MOCK_PRODUCTS (백엔드에서 가져왔거나 mock) 기반으로 ranking/newpicks 생성
@@ -748,3 +773,36 @@ if (document.readyState === 'loading') {
 } else {
   App();
 }
+
+/* ===== 전역 푸터 — 실운영용 회사정보/약관/문의 (로그인·온보딩·랜딩 제외) ===== */
+function renderGlobalFooter() {
+  const skip = ['/login.html', '/login-dev.html', '/onboarding.html', '/landing.html'];
+  if (skip.indexOf(location.pathname) !== -1) return;
+  if (document.querySelector('.dt-footer')) return;
+
+  const f = document.createElement('footer');
+  f.className = 'dt-footer';
+  f.innerHTML = [
+    '<div class="dt-footer__inner">',
+    '  <nav class="dt-footer__links">',
+    '    <a href="/announcements.html">공지사항</a>',
+    '    <a href="/support.html">고객지원·문의</a>',
+    '    <a href="/privacy.html">개인정보처리방침</a>',
+    '    <a href="/terms.html">이용약관</a>',
+    '  </nav>',
+    '  <div class="dt-footer__support">',
+    '    <strong>고객지원</strong> 평일 10:00~18:00 (점심 12:00~13:00 제외)',
+    '    · 문의 <a href="mailto:support@doothing.kr">support@doothing.kr</a>',
+    '  </div>',
+    '  <div class="dt-footer__company">',
+    '    두띵(doothing) · 대학교 굿즈 펀딩 플랫폼<br>',
+    '    <span class="dt-footer__biz">상호/대표/사업자등록번호/주소: 사업자 등록 후 기입 예정</span>',
+    '  </div>',
+    '  <div class="dt-footer__legal">두띵은 통신판매중개자로서 거래 당사자가 아니며, 상품·후원·환불 등에 대한 책임은 각 펀드 개설자에게 있습니다.</div>',
+    '  <div class="dt-footer__copy">© 2026 doothing. All rights reserved.</div>',
+    '</div>',
+  ].join('');
+  document.body.appendChild(f);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderGlobalFooter);
+else renderGlobalFooter();
