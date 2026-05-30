@@ -20,6 +20,11 @@ import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createGroupBuyGetHandler } from './routes/groupbuy-get.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler } from './routes/admin-funds.js';
+import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
+import {
+  createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
+  createAdminDepositsListHandler, createAdminConfirmDepositHandler,
+} from './routes/reward-orders.js';
 import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
@@ -273,6 +278,14 @@ export function createApp(
   app.get('/api/admin/funds', authRequired, requireAdmin, createAdminFundsListHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository));
+
+  // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
+  const rewardOrderRepository = new PgRewardOrderRepository(pool);
+  app.post('/api/funds/:id/back', authRequired, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository));
+  app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
+  app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
+  app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
+  app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository));
 
   // --- Email Notification Service (export for socket/scheduler use) ---
   const emailService = createEmailService();

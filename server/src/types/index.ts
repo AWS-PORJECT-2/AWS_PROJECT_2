@@ -14,5 +14,6 @@ export type {
 } from './payment.js';
 export type { PaymentMethod } from './payment-method.js';
 export type { Address } from './address.js';
+export type { RewardOrder, RewardOrderStatus } from './reward-order.js';
 export type { Announcement, AnnouncementListItem } from './announcement.js';
 export type { ChatRoom, ChatMessage } from './chat.js';

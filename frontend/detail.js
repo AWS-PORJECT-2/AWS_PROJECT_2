@@ -495,11 +495,18 @@ async function renderDetail() {
 
 /* 게시글 본문 렌더 — GET /api/groupbuys/:id 의 contentBlocks(글/사진) 를 순서대로 표시.
    실패하거나 블록이 없으면 한 줄 소개(description)만 남긴다. 가짜 문단/이미지는 생성하지 않음. */
-/* 선물(리워드) 선택 표시. Phase 4 에서 선택→결제 연동 예정. 현재는 목록·잔여수량 표시. */
+/* 선물(리워드) 선택 + 후원하기(무통장입금). 로그인·배송지 게이팅은 backFlow 에서 처리. */
+let _selectedTierId = null;
+
 function renderRewardTiers(tiers) {
   const box = document.getElementById('rewardTierBox');
   if (!box) return;
   if (!Array.isArray(tiers) || tiers.length === 0) { box.innerHTML = ''; return; }
+
+  // 리워드가 있으면 기존(카드) 참여 버튼은 숨기고 리워드 후원으로 일원화
+  var legacy = document.querySelector('.info-actions .btn-join');
+  if (legacy) legacy.style.display = 'none';
+
   box.innerHTML = '';
   const head = document.createElement('div');
   head.textContent = '선물 선택';
@@ -509,9 +516,12 @@ function renderRewardTiers(tiers) {
   tiers.forEach((t) => {
     const remain = (t.stockLimit == null) ? null : Math.max(0, t.stockLimit - (t.soldCount || 0));
     const soldOut = remain === 0;
-    const card = document.createElement('div');
-    card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:10px;' +
-      (soldOut ? 'opacity:0.5;' : '');
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.dataset.tierId = t.id;
+    card.disabled = soldOut;
+    card.style.cssText = 'display:block;width:100%;text-align:left;border:1.5px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:10px;background:#fff;cursor:' +
+      (soldOut ? 'not-allowed;opacity:0.5;' : 'pointer;');
     const price = document.createElement('div');
     price.style.cssText = 'font-size:16px;font-weight:800;color:#1a1a1a;';
     price.textContent = (Number(t.price) || 0).toLocaleString('ko-KR') + '원 +';
@@ -532,8 +542,109 @@ function renderRewardTiers(tiers) {
       stock.textContent = soldOut ? '품절' : (remain + '개 남음');
       card.appendChild(stock);
     }
+    if (!soldOut) {
+      card.addEventListener('click', function () {
+        _selectedTierId = t.id;
+        box.querySelectorAll('button[data-tier-id]').forEach(function (b) {
+          var on = b.dataset.tierId === _selectedTierId;
+          b.style.borderColor = on ? '#8b5cf6' : '#e5e7eb';
+          b.style.background = on ? '#f3f0fe' : '#fff';
+        });
+      });
+    }
     box.appendChild(card);
   });
+
+  const backBtn = document.createElement('button');
+  backBtn.type = 'button';
+  backBtn.textContent = '후원하기';
+  backBtn.style.cssText = 'width:100%;padding:14px;border:none;border-radius:12px;background:#8b5cf6;color:#fff;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px;';
+  backBtn.addEventListener('click', function () { backFlow(currentProduct.id); });
+  box.appendChild(backBtn);
+}
+
+/* 후원 플로우: 로그인(자동) → 배송지 확인/선택 → 입금 신청 → 계좌·입금자명 보고 */
+async function backFlow(fundId) {
+  if (!_selectedTierId) { alert('후원할 선물을 선택해 주세요.'); return; }
+  let addrs;
+  try {
+    const r = await window.api.get('/addresses');
+    addrs = Array.isArray(r) ? r : (r && r.items) || [];
+  } catch (e) {
+    if (e && e.status === 401) return; // api 래퍼가 로그인으로 보냄
+    alert('배송지 조회 실패'); return;
+  }
+  if (!addrs.length) {
+    if (confirm('후원하려면 배송지가 필요합니다. 배송지를 등록하시겠어요?')) {
+      window.location.href = '/addresses.html';
+    }
+    return;
+  }
+  // 기본 배송지 우선, 없으면 첫 번째
+  const def = addrs.find(function (a) { return a.isDefault; }) || addrs[0];
+  const addrLabel = (def.label || '') + ' · ' + (def.recipientName || '') + ' · ' + (def.roadAddress || '');
+  if (!confirm('아래 배송지로 후원을 진행할까요?\n\n' + addrLabel + '\n\n(다른 배송지는 설정 > 배송지에서 변경)')) return;
+
+  try {
+    const res = await window.api.post('/funds/' + encodeURIComponent(fundId) + '/back', {
+      rewardTierId: _selectedTierId,
+      addressId: def.id,
+    });
+    showDepositInfo(res);
+  } catch (e) {
+    if (e && e.status === 401) return;
+    alert('후원 신청 실패: ' + ((e && e.message) || '알 수 없는 오류'));
+  }
+}
+
+/* 입금 안내 + 입금자명 보고 UI */
+function showDepositInfo(res) {
+  const box = document.getElementById('rewardTierBox');
+  if (!box) return;
+  const dep = res.deposit || {};
+  box.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.style.cssText = 'border:1.5px solid #8b5cf6;border-radius:14px;padding:18px;background:#f3f0fe;';
+  const h = document.createElement('div');
+  h.textContent = '입금 안내';
+  h.style.cssText = 'font-size:16px;font-weight:800;color:#7c3aed;margin-bottom:12px;';
+  wrap.appendChild(h);
+  [['입금 금액', (Number(res.amount) || 0).toLocaleString('ko-KR') + '원'],
+   ['은행', dep.bank || '-'],
+   ['계좌번호', dep.account || '-'],
+   ['예금주', dep.holder || '-']].forEach(function (row) {
+    const r = document.createElement('div');
+    r.style.cssText = 'display:flex;justify-content:space-between;font-size:14px;margin:6px 0;color:#1a1a1a;';
+    const k = document.createElement('span'); k.style.color = '#6b7280'; k.textContent = row[0];
+    const v = document.createElement('span'); v.style.fontWeight = '700'; v.textContent = row[1];
+    r.appendChild(k); r.appendChild(v); wrap.appendChild(r);
+  });
+  const note = document.createElement('p');
+  note.style.cssText = 'font-size:12px;color:#6b7280;margin:12px 0;line-height:1.6;';
+  note.textContent = '위 계좌로 입금 후 입금자명을 입력해 주세요. 관리자가 입금자명·금액을 대조하여 확인하면 후원이 확정됩니다.';
+  wrap.appendChild(note);
+
+  const input = document.createElement('input');
+  input.type = 'text'; input.placeholder = '입금자명';
+  input.style.cssText = 'width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;box-sizing:border-box;margin-bottom:10px;';
+  wrap.appendChild(input);
+
+  const report = document.createElement('button');
+  report.type = 'button'; report.textContent = '입금자명 제출';
+  report.style.cssText = 'width:100%;padding:13px;border:none;border-radius:10px;background:#8b5cf6;color:#fff;font-size:14px;font-weight:700;cursor:pointer;';
+  report.addEventListener('click', async function () {
+    var name = input.value.trim();
+    if (!name) { alert('입금자명을 입력해 주세요.'); return; }
+    try {
+      await window.api.post('/me/backings/' + encodeURIComponent(res.orderId) + '/report', { depositorName: name });
+      wrap.innerHTML = '<div style="text-align:center;padding:12px;color:#16a34a;font-weight:700;">입금자명이 제출되었습니다. 관리자 확인 후 후원이 확정됩니다.</div>';
+    } catch (e) {
+      alert('제출 실패: ' + ((e && e.message) || ''));
+    }
+  });
+  wrap.appendChild(report);
+  box.appendChild(wrap);
+  box.scrollIntoView({ behavior: 'smooth' });
 }
 
 async function renderStoryBody(id) {

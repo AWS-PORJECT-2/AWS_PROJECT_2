@@ -26,8 +26,103 @@
       return;
     }
 
+    bindViews();
     bindTabs();
+    bindDepositTabs();
     load();
+  }
+
+  var currentView = 'funds';
+  var currentDepositStatus = 'awaiting_deposit';
+
+  function bindViews() {
+    document.querySelectorAll('.admin-view').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        currentView = btn.dataset.view;
+        document.getElementById('viewFunds').style.display = currentView === 'funds' ? '' : 'none';
+        document.getElementById('viewDeposits').style.display = currentView === 'deposits' ? '' : 'none';
+        renderViews();
+        if (currentView === 'funds') load(); else loadDeposits();
+      });
+    });
+    renderViews();
+  }
+  function renderViews() {
+    document.querySelectorAll('.admin-view').forEach(function (btn) {
+      var active = btn.dataset.view === currentView;
+      btn.style.cssText = 'padding:9px 18px;border-radius:10px;border:none;background:' +
+        (active ? '#8b5cf6' : '#f3f4f6') + ';color:' + (active ? '#fff' : '#6b7280') +
+        ';font-size:14px;font-weight:700;cursor:pointer;';
+    });
+  }
+
+  function bindDepositTabs() {
+    document.querySelectorAll('.deposit-tab').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        currentDepositStatus = btn.dataset.status;
+        renderDepositTabs();
+        loadDeposits();
+      });
+    });
+    renderDepositTabs();
+  }
+  function renderDepositTabs() {
+    document.querySelectorAll('.deposit-tab').forEach(function (btn) {
+      var active = btn.dataset.status === currentDepositStatus;
+      btn.style.cssText = 'padding:9px 18px;border-radius:20px;border:1.5px solid ' + (active ? '#8b5cf6' : '#e5e7eb') +
+        ';background:' + (active ? '#f3f0fe' : '#fff') + ';color:' + (active ? '#8b5cf6' : '#6b7280') +
+        ';font-size:14px;font-weight:600;cursor:pointer;';
+    });
+  }
+
+  async function loadDeposits() {
+    var list = document.getElementById('adminDepositList');
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">불러오는 중…</div>';
+    try {
+      var res = await window.api.get('/admin/deposits?status=' + encodeURIComponent(currentDepositStatus));
+      var items = (res && res.items) || [];
+      if (!items.length) { list.innerHTML = '<div style="padding:48px 20px;text-align:center;color:#9ca3af;">해당 상태의 입금 건이 없습니다.</div>'; return; }
+      list.innerHTML = '';
+      items.forEach(function (o) { list.appendChild(depositCard(o)); });
+    } catch (e) {
+      list.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">불러오기 실패: ' + esc((e && e.message) || '') + '</div>';
+    }
+  }
+
+  function depositCard(o) {
+    var wrap = document.createElement('div');
+    wrap.style.cssText = 'display:flex;gap:16px;align-items:center;padding:16px;border:1px solid #e5e7eb;border-radius:14px;margin-bottom:12px;background:#fff;';
+    var info = document.createElement('div');
+    info.style.cssText = 'flex:1;min-width:0;';
+    var title = document.createElement('div');
+    title.style.cssText = 'font-size:15px;font-weight:700;color:#1a1a1a;margin-bottom:4px;';
+    title.textContent = o.fundTitle + ' — ' + o.rewardTitle;
+    var meta = document.createElement('div');
+    meta.style.cssText = 'font-size:13px;color:#6b7280;';
+    meta.textContent = '후원자: ' + (o.userName || '-') + ' · 입금자명: ' + (o.depositorName || '(미입력)') +
+      ' · 금액: ' + Number(o.amount || 0).toLocaleString('ko-KR') + '원';
+    info.appendChild(title); info.appendChild(meta);
+    wrap.appendChild(info);
+
+    if (o.status === 'awaiting_deposit') {
+      var btn = document.createElement('button');
+      btn.type = 'button'; btn.textContent = '입금 확인';
+      btn.style.cssText = 'padding:9px 16px;border:none;border-radius:10px;background:#8b5cf6;color:#fff;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;';
+      btn.addEventListener('click', async function () {
+        if (!confirm('입금자명·금액을 대조하셨나요? 확인하면 후원이 확정됩니다.')) return;
+        try {
+          await window.api.post('/admin/deposits/' + encodeURIComponent(o.id) + '/confirm', {});
+          loadDeposits();
+        } catch (e) { alert('확인 실패: ' + ((e && e.message) || '')); }
+      });
+      wrap.appendChild(btn);
+    } else {
+      var badge = document.createElement('span');
+      badge.textContent = '확인 완료';
+      badge.style.cssText = 'padding:6px 12px;border-radius:8px;font-size:13px;font-weight:600;color:#16a34a;background:#dcfce7;flex-shrink:0;';
+      wrap.appendChild(badge);
+    }
+    return wrap;
   }
 
   function bindTabs() {
