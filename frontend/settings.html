@@ -7,29 +7,20 @@
   <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
   <title>설정 · 두띵</title>
-  <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="main.css">
-  <link rel="stylesheet" href="settings.css">
+  <link rel="stylesheet" href="wz.css">
+  <link rel="stylesheet" href="wz-settings.css">
+</head>
+<body class="wz-body">
+  <div id="wz-header"></div>
+  <main id="wz-settings"></main>
+  <div id="wz-footer"></div>
+
   <script src="api.js"></script>
   <script src="categories.js"></script>
-  <script src="notification.js"></script>
-  <script src="search.js"></script>
   <script src="category-icons.js"></script>
-  <script src="main.js"></script>
-  <script src="settings.js" defer></script>
-</head>
-<body class="main-page" data-page="sub">
-  <div id="app"></div>
-
-  <main class="set-page dt-wrap">
-    <h1 class="set-page__title">설정</h1>
-
-    <!-- 와디즈식 세로 리스트: 중앙 아바타(연필 편집) + 행 리스트 -->
-    <section class="set-card" id="setCard"></section>
-
-    <!-- 하단 계정 액션(로그아웃 / 회원 탈퇴) — 기존 API 보존 -->
-    <section class="set-account" id="setAccount"></section>
-  </main>
+  <script src="mock-data.js"></script>
+  <script src="wz-core.js"></script>
+  <script src="wz-settings.js"></script>
 </body>
 </html>

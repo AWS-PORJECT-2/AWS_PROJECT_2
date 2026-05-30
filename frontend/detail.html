@@ -1,74 +1,26 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <title>상품 상세 - doothing</title>
-  <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="main.css">
-  <link rel="stylesheet" href="detail.css">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+  <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+  <title>프로젝트 상세 · 두띵</title>
+  <link rel="stylesheet" href="/tokens.css" />
+  <link rel="stylesheet" href="/wz.css" />
+  <link rel="stylesheet" href="/wz-detail.css" />
 </head>
-<body class="main-page" data-page="detail">
-  <div id="app"></div>
+<body class="wz-body">
+  <div id="wz-header"></div>
+  <main id="wz-detail"></main>
+  <div id="wz-footer"></div>
 
-  <main class="detail-main">
-    <!-- 메인 콘텐츠는 detail.js 가 렌더링 (상단 2단 + 하단 2단, 스펙 §3.3) -->
-    <div class="detail-container" id="detailContainer"></div>
-  </main>
-
-  <!-- 모바일 하단 고정 후원 바 (detail.js 가 채움) -->
-  <div class="dt-mobile-bar" id="mobileBar"></div>
-
-  <!-- TOP 플로팅 버튼 -->
-  <button class="dt-top-btn" id="topBtn" type="button" aria-label="맨 위로">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
-  </button>
-
-  <!-- 예약 확정 모달 -->
-  <div class="modal-overlay" id="modalReservation" role="dialog" aria-modal="true" aria-labelledby="modalReservationTitle">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 id="modalReservationTitle">예약 확정</h2>
-        <button class="modal-close" onclick="hideModal('modalReservation')" aria-label="닫기">&times;</button>
-      </div>
-      <div class="modal-body">
-        <p>이 상품의 공동구매에 참여하시겠습니까?</p>
-        <div id="sizeSelectionArea" style="margin-top:16px;"></div>
-        <p class="modal-sub">참여 확정 후 정책 안내를 확인해 주세요.</p>
-      </div>
-      <div class="modal-actions">
-        <button class="modal-btn-cancel" onclick="hideModal('modalReservation')">취소</button>
-        <button class="modal-btn-confirm" onclick="handleReservationConfirm()">확인</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 정책 안내 모달 -->
-  <div class="modal-overlay" id="modalPolicy" role="dialog" aria-modal="true" aria-labelledby="modalPolicyTitle">
-    <div class="modal-content modal-policy">
-      <div class="modal-header">
-        <h2 id="modalPolicyTitle">정책 안내</h2>
-        <button class="modal-close" onclick="hideModal('modalPolicy')" aria-label="닫기">&times;</button>
-      </div>
-      <div class="modal-body" id="policyBody"></div>
-      <div class="modal-actions">
-        <button class="modal-btn-cancel" onclick="hideModal('modalPolicy')">취소</button>
-        <button class="modal-btn-confirm" onclick="handlePolicyAgree()">동의 후 참여</button>
-      </div>
-    </div>
-  </div>
-
-  <script src="api.js"></script>
-  <script src="categories.js"></script>
-  <script src="mock-data.js"></script>
-  <script src="motion.js"></script>
-  <script src="search.js"></script>
-  <script src="notification.js"></script>
-  <script src="category-icons.js"></script>
-  <script src="main.js"></script>
-  <script src="detail.js"></script>
+  <script src="/api.js"></script>
+  <script src="/categories.js"></script>
+  <script src="/category-icons.js"></script>
+  <script src="/mock-data.js"></script>
+  <script src="/wz-core.js"></script>
+  <script src="/wz-detail.js"></script>
 </body>
 </html>
