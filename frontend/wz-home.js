@@ -99,6 +99,9 @@
     const dots = [];
     // 슬라이드별 목적지: null = 기본(둘러보기 인기순), 문자열 = 해당 detail.html URL
     const slideHrefs = [];
+    // 캐러셀 상태 — addSlide()/start()/show() 보다 먼저 선언해야 TDZ ReferenceError 방지(초기 addSlide 가 start() 호출).
+    let cur = 0;
+    let timer = null;
 
     // 활성 슬라이드의 목적지에 따라 이동(기본 배너=둘러보기, Boost=상세)
     a.addEventListener('click', (e) => {
@@ -151,16 +154,13 @@
 
     const cap = W.el('div', { class: 'wz-hero__cap' });
     // 로운님 글씨 이미지(보라 그라데이션) — 배너 위에 또렷이. 실패 시 텍스트 캡션 폴백.
-    const capImg = W.el('img', { class: 'wz-hero__captext', src: '/assets/left%20text%20renew.png', alt: '우리의 상상을 현실로', loading: 'eager' });
+    const capImg = W.el('img', { class: 'wz-hero__captext', src: '/assets/%EA%B8%80.png', alt: '우리의 상상을 현실로', loading: 'eager' });
     capImg.addEventListener('error', () => {
       capImg.remove();
       cap.appendChild(W.el('h2', {}, '우리의 상상을\n현실로 만드는 곳'));
     });
     cap.appendChild(capImg);
     a.appendChild(cap);
-
-    let cur = 0;
-    let timer = null;
 
     function show(idx) {
       if (!slides.length) return;
