@@ -294,6 +294,7 @@ function buildAndOpenMenu() {
     ];
     if (isAdmin) {
       loggedItems.push(
+        { label: '[관리자] 펀드 심사·입금', href: '/admin.html', emphasis: true },
         { label: '[관리자] 주문',  href: '/admin-orders.html' },
         { label: '[관리자] 채팅',  href: '/admin-chat.html' },
       );
@@ -325,7 +326,7 @@ async function fetchAuthStatus() {
     const res = await fetch('/api/auth/me', { credentials: 'include' });
     if (res.ok) {
       const data = await res.json().catch(() => null);
-      if (data && (data.user || data.id)) {
+      if (data && (data.user || data.id || data.userId)) {
         return data.user ? data : { user: data };
       }
     }

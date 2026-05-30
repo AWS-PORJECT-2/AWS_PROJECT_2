@@ -495,6 +495,25 @@ async function renderDetail() {
 
 /* 게시글 본문 렌더 — GET /api/groupbuys/:id 의 contentBlocks(글/사진) 를 순서대로 표시.
    실패하거나 블록이 없으면 한 줄 소개(description)만 남긴다. 가짜 문단/이미지는 생성하지 않음. */
+/* 펀드 상태 배지 — open 이외(심사중/반려 등)일 때 제목 위에 표시 + 후원 차단 안내 */
+function renderFundStatusBadge(status) {
+  const wrap = document.getElementById('detailInfo');
+  if (!wrap || !status || status === 'open') return;
+  const MAP = {
+    pending: ['심사 중 — 관리자 승인 후 공개됩니다', '#92400e', '#fef3c7'],
+    rejected: ['반려된 펀드입니다', '#9ca3af', '#f3f4f6'],
+    achieved: ['목표 달성', '#16a34a', '#dcfce7'],
+    completed: ['종료된 펀드', '#6b7280', '#f3f4f6'],
+    failed: ['무산된 펀드', '#9ca3af', '#f3f4f6'],
+    cancelled: ['취소된 펀드', '#9ca3af', '#f3f4f6'],
+  };
+  const m = MAP[status]; if (!m) return;
+  const bar = document.createElement('div');
+  bar.textContent = m[0];
+  bar.style.cssText = 'padding:10px 14px;border-radius:10px;font-size:13px;font-weight:700;color:' + m[1] + ';background:' + m[2] + ';margin-bottom:12px;';
+  wrap.insertBefore(bar, wrap.firstChild);
+}
+
 /* 선물(리워드) 선택 + 후원하기(무통장입금). 로그인·배송지 게이팅은 backFlow 에서 처리. */
 let _selectedTierId = null;
 
@@ -652,6 +671,7 @@ async function renderStoryBody(id) {
   if (!flow || !window.api) return;
   try {
     const fund = await window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true });
+    renderFundStatusBadge(fund && fund.status);
     renderRewardTiers(fund && fund.rewardTiers);
     const blocks = fund && Array.isArray(fund.contentBlocks) ? fund.contentBlocks : [];
     const desc = (fund && fund.description) || currentProduct.description || '';

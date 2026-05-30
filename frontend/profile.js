@@ -218,72 +218,104 @@ function renderProfileTabs() {
   });
 }
 
+const FUND_STATUS_LABEL = {
+  pending: ['심사 중', '#92400e', '#fef3c7'],
+  rejected: ['반려됨', '#9ca3af', '#f3f4f6'],
+  open: ['모집 중', '#7c3aed', '#f3f0fe'],
+  achieved: ['달성', '#16a34a', '#dcfce7'],
+  executing: ['제작 중', '#2563eb', '#eff6ff'],
+  completed: ['완료', '#16a34a', '#dcfce7'],
+  failed: ['무산', '#9ca3af', '#f3f4f6'],
+  cancelled: ['취소', '#9ca3af', '#f3f4f6'],
+};
+const BACKING_STATUS_LABEL = {
+  awaiting_deposit: ['입금 대기', '#92400e', '#fef3c7'],
+  confirmed: ['후원 확정', '#16a34a', '#dcfce7'],
+  cancelled: ['취소', '#9ca3af', '#f3f4f6'],
+};
+
+function statusBadge(map, status) {
+  const esc = window.escapeHTML;
+  const m = map[status] || [status, '#6b7280', '#f3f4f6'];
+  return `<span style="display:inline-block;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;color:${m[1]};background:${m[2]};">${esc(m[0])}</span>`;
+}
+
+function rowItemHtml(opts) {
+  const esc = window.escapeHTML;
+  const id = encodeURIComponent(opts.id);
+  return `
+    <a href="detail.html?id=${id}" style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:inherit;">
+      <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#f3f4f6;">
+        ${opts.imageUrl ? `<img src="${esc(opts.imageUrl)}" alt="${esc(opts.title)}" style="width:100%;height:100%;object-fit:cover;">` : ''}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(opts.title)}</div>
+        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">${opts.sub || ''}</div>
+      </div>
+      ${opts.badge || ''}
+    </a>`;
+}
+
+function renderEmpty(container, label) {
+  const esc = window.escapeHTML;
+  container.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#9ca3af;"><p style="font-size:14px;">${esc(label)}이 아직 없습니다</p></div>`;
+}
+
 function renderProfileTabContent() {
   const container = document.getElementById('profileTabContent');
-  let items;
-  const esc = window.escapeHTML;
-
-  // 방어 로직: MOCK_PRODUCTS가 로드되지 않았을 경우 빈 배열로 fallback
-  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
-    ? MOCK_PRODUCTS
-    : [];
+  if (!container) return;
 
   if (profileTab === 'liked') {
-    items = products.filter((p) => p.isLiked === true);
-  } else if (profileTab === 'joined') {
-    items = products.filter((p) => p.isReserved === true);
-    currentUser.joinedFundingCount = items.length;
-  } else {
-    // 제작한 펀딩 — 내 userId 가 creatorId 인 펀드 (로그인 사용자가 개설한 것)
-    items = currentUser.userId
-      ? products.filter((p) => p.creatorId && String(p.creatorId) === String(currentUser.userId))
-      : [];
-    currentUser.createdFundingCount = items.length;
-  }
-
-  if (items.length === 0) {
-    const label = profileTab === 'liked' ? '찜한 상품' : profileTab === 'joined' ? '참여한 펀딩' : '제작한 펀딩';
-    container.innerHTML = `
-      <div style="text-align:center;padding:48px 20px;color:#9ca3af;">
-        <p style="font-size:14px;">${esc(label)}이 아직 없습니다</p>
-      </div>
-    `;
+    const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS)) ? MOCK_PRODUCTS : [];
+    const items = products.filter((p) => p.isLiked === true);
+    if (items.length === 0) { renderEmpty(container, '찜한 상품'); return; }
+    container.innerHTML = items.map((item) => {
+      const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(item) : 0;
+      return rowItemHtml({ id: item.id, title: item.title, imageUrl: item.imageUrl, sub: (item.priceText || '') + ' · ' + rate + '% 달성' });
+    }).join('');
     return;
   }
 
-  container.innerHTML = items
-    .map((item) => {
-      const rate = (typeof calcAchievementRate === 'function')
-        ? calcAchievementRate(item)
-        : 0;
-      const id = encodeURIComponent(item.id);
-      const title = esc(item.title);
-      const imageUrl = esc(item.imageUrl);
-      const priceText = esc(item.priceText);
-      const sizeRaw = localStorage.getItem('selectedSize_' + item.id) || '미선택';
-      const size = esc(sizeRaw);
-      // item.id 가 number/string 이라 cancelReservation 인자에 그대로 전달.
-      // onclick 핸들러는 quote 안전을 위해 JSON.stringify 로 감싼다.
-      const cancelArg = JSON.stringify(item.id);
-      const cancelBtn = (profileTab === 'joined' && !item.isPaid)
-        ? '<button onclick="event.stopPropagation(); cancelReservation(' + cancelArg + ')" style="background:#fee2e2;color:#ef4444;border:none;padding:6px 12px;border-radius:6px;font-size:13px;font-weight:600;cursor:pointer;flex-shrink:0;align-self:center;">취소</button>'
-        : '';
-      return `
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;">
-      <a href="detail.html?id=${id}" style="display:flex;gap:12px;cursor:pointer;text-decoration:none;color:inherit;flex:1;min-width:0;">
-        <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;">
-          <img src="${imageUrl}" alt="${title}" style="width:100%;height:100%;object-fit:cover;">
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
-          <div style="font-size:12px;color:#9ca3af;margin-top:2px;">${priceText} · ${rate}% 달성 · 사이즈: ${size}</div>
-        </div>
-      </a>
-      ${cancelBtn}
-    </div>
-  `;
-    })
-    .join('');
+  // joined(내 후원)·created(내 펀드)는 서버 실데이터
+  container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">불러오는 중…</div>';
+  if (profileTab === 'joined') {
+    loadMyBackings(container);
+  } else {
+    loadMyFunds(container);
+  }
+}
+
+async function loadMyFunds(container) {
+  try {
+    const res = await window.api.get('/me/funds', { silentAuthFail: true });
+    const items = (res && res.items) || [];
+    currentUser.createdFundingCount = items.length;
+    if (!items.length) { renderEmpty(container, '제작한 펀딩'); return; }
+    container.innerHTML = items.map((f) => rowItemHtml({
+      id: f.id, title: f.title, imageUrl: f.imageUrl,
+      sub: (f.achievementRate || 0) + '% 달성 · ' + Number(f.finalPrice || 0).toLocaleString('ko-KR') + '원~',
+      badge: statusBadge(FUND_STATUS_LABEL, f.status),
+    })).join('');
+  } catch (e) {
+    renderEmpty(container, '제작한 펀딩');
+  }
+}
+
+async function loadMyBackings(container) {
+  try {
+    const res = await window.api.get('/me/backings', { silentAuthFail: true });
+    const items = (res && res.items) || [];
+    currentUser.joinedFundingCount = items.length;
+    if (!items.length) { renderEmpty(container, '참여한 펀딩'); return; }
+    container.innerHTML = items.map((o) => rowItemHtml({
+      id: o.fundId, title: o.fundTitle, imageUrl: o.fundImageUrl,
+      sub: o.rewardTitle + ' · ' + Number(o.amount || 0).toLocaleString('ko-KR') + '원' +
+        (o.depositorName ? ' · 입금자 ' + window.escapeHTML(o.depositorName) : ''),
+      badge: statusBadge(BACKING_STATUS_LABEL, o.status),
+    })).join('');
+  } catch (e) {
+    renderEmpty(container, '참여한 펀딩');
+  }
 }
 
 function renderProfile() {
