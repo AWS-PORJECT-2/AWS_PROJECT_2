@@ -132,7 +132,82 @@ function LikeHeartButton(productId) {
  *   variant: 'main' (기본 — 디자인하기/알림/설정/마이프로필 텍스트 메뉴 + 검색바 별도)
  *            'detail' (상품 상세 — 우측에 돋보기 아이콘 + 동그란 마이프로필 아바타)
  * ===================================================================== */
-function Header({ variant = 'main' } = {}) {
+/* =====================================================================
+ * Header v2 — 텀블벅형 2단 헤더 (흰 배경)
+ *   1단: 로고 · 검색 · [프로젝트 올리기] · [로그인/마이]
+ *   2단: 카테고리 · 홈 · 인기 · 신규 · 마감임박
+ * 모든 페이지 공통. 로그인 상태는 비동기로 갱신.
+ * ===================================================================== */
+function Header() {
+  const header = el('header', { class: 'dt-hd' });
+
+  // --- 1단: 상단바 ---
+  const topbar = el('div', { class: 'dt-hd__top' });
+  const hamburger = el('button', { class: 'dt-hd__ham', type: 'button', 'aria-label': '카테고리' });
+  hamburger.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>';
+  hamburger.addEventListener('click', buildAndOpenMenu);
+
+  const logo = el('a', { class: 'dt-hd__logo', href: '/main.html' }, 'doothing');
+
+  const searchForm = el('form', { class: 'dt-hd__search', role: 'search' });
+  const searchInput = el('input', { class: 'dt-hd__search-input', type: 'text', placeholder: '검색어를 입력해주세요', 'aria-label': '검색' });
+  searchForm.appendChild(searchInput);
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = searchInput.value.trim();
+    location.href = '/feed.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+  });
+
+  const actions = el('div', { class: 'dt-hd__actions' });
+  const uploadLink = el('a', { class: 'dt-hd__upload', href: '/fund-create.html' }, '프로젝트 올리기');
+  const authArea = el('div', { class: 'dt-hd__auth' });
+  authArea.appendChild(el('a', { class: 'dt-hd__login', href: '/login.html' }, '로그인/회원가입'));
+  actions.appendChild(uploadLink);
+  actions.appendChild(authArea);
+
+  topbar.appendChild(hamburger);
+  topbar.appendChild(logo);
+  topbar.appendChild(searchForm);
+  topbar.appendChild(actions);
+
+  // --- 2단: 네비바 ---
+  const navbar = el('nav', { class: 'dt-hd__nav', 'aria-label': '주요 메뉴' });
+  const navItems = [
+    { label: '카테고리', href: '/feed.html', cat: true },
+    { label: '홈', href: '/main.html' },
+    { label: '인기', href: '/feed.html?sort=popular' },
+    { label: '신규', href: '/feed.html?sort=latest' },
+    { label: '마감임박', href: '/feed.html?sort=ending' },
+  ];
+  navItems.forEach((it) => {
+    const a = el('a', { class: 'dt-hd__navlink' + (it.cat ? ' dt-hd__navlink--cat' : ''), href: it.href }, it.label);
+    navbar.appendChild(a);
+  });
+
+  header.appendChild(topbar);
+  header.appendChild(navbar);
+
+  // 로그인 상태 반영 (비동기)
+  fetchAuthStatus().then((auth) => {
+    if (!auth || !auth.user) return;
+    const u = auth.user;
+    const isAdmin = String(u.role || auth.role || 'USER').toUpperCase() === 'ADMIN';
+    authArea.innerHTML = '';
+    const my = el('a', { class: 'dt-hd__login', href: '/profile.html' }, (u.nickname || u.name || '마이') + '님');
+    const set = el('a', { class: 'dt-hd__iconlink', href: '/settings.html', 'aria-label': '설정' }, '설정');
+    authArea.appendChild(my);
+    authArea.appendChild(set);
+    if (isAdmin) authArea.appendChild(el('a', { class: 'dt-hd__iconlink dt-hd__admin', href: '/admin.html' }, '관리자'));
+    const out = el('a', { class: 'dt-hd__iconlink', href: '#' }, '로그아웃');
+    out.addEventListener('click', handleLogout);
+    authArea.appendChild(out);
+  }).catch(() => {});
+
+  return header;
+}
+
+/* (구) Header — 미사용. 하위 호환용 잔존 코드 제거됨. */
+function _legacyHeaderUnused({ variant = 'main' } = {}) {
   // 좌측 그룹 — 뒤로가기(모바일용) + ☰ + doothing + 인기/신규
   const backBtn = el('button', {
     class: 'back-btn-mobile', type: 'button', 'aria-label': '뒤로가기',
@@ -667,6 +742,68 @@ function RecentlyViewed() {
   return sec;
 }
 
+/* 카테고리 그리드 — 13종+기타를 아이콘+라벨 그리드로 (텀블벅 카테고리 영역) */
+function CategoryGrid() {
+  const sec = el('section', { class: 'dt-catgrid' });
+  sec.appendChild(el('h2', { class: 'dt-catgrid__title' }, '카테고리'));
+  const grid = el('div', { class: 'dt-catgrid__grid' });
+  CATEGORIES.forEach((c) => {
+    const a = el('a', { class: 'dt-catgrid__item', href: '/feed.html?category=' + encodeURIComponent(c.slug), 'aria-label': c.label });
+    const ic = el('div', { class: 'dt-catgrid__icon' });
+    const svg = (typeof window.categoryIconSvg === 'function') ? window.categoryIconSvg(c.key) : '';
+    if (svg) ic.innerHTML = svg;
+    a.appendChild(ic);
+    a.appendChild(el('span', { class: 'dt-catgrid__label' }, c.label));
+    grid.appendChild(a);
+  });
+  sec.appendChild(grid);
+  return sec;
+}
+
+/* 프로젝트 카드 그리드 섹션 (인기/신규). 빈 상태 처리. */
+function HomeProjectSection(title, items, badge) {
+  const sec = el('div', { class: 'dt-home-sec__inner' });
+  const head = el('div', { class: 'dt-home-sec__head' });
+  head.appendChild(el('h2', { class: 'dt-home-sec__title' }, title));
+  head.appendChild(el('a', { class: 'dt-home-sec__more', href: '/feed.html' }, '전체보기'));
+  sec.appendChild(head);
+
+  if (!items || items.length === 0) {
+    sec.appendChild(el('div', { class: 'dt-home-sec__empty' }, '아직 등록된 프로젝트가 없어요. 첫 프로젝트를 올려보세요!'));
+    return sec;
+  }
+  const grid = el('div', { class: 'dt-pcard-grid' });
+  items.forEach((p) => grid.appendChild(ProjectCard(p, badge)));
+  sec.appendChild(grid);
+  return sec;
+}
+
+/* 프로젝트 카드 — 썸네일 + 카테고리/제목/창작자 + 달성률·가격 */
+function ProjectCard(p, badge) {
+  const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(p) : 0;
+  const card = el('a', { class: 'dt-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+  const thumb = el('div', { class: 'dt-pcard__thumb' });
+  if (p.imageUrl) {
+    const img = el('img', { src: p.imageUrl, alt: p.title || '', loading: 'lazy' });
+    img.addEventListener('error', () => { img.style.display = 'none'; });
+    thumb.appendChild(img);
+  }
+  if (badge) thumb.appendChild(el('span', { class: 'dt-pcard__badge' }, badge));
+  card.appendChild(thumb);
+
+  const body = el('div', { class: 'dt-pcard__body' });
+  const catLabel = (typeof window.dtCategory === 'function' && window.dtCategory(p.category)) ? window.dtCategory(p.category).label : '';
+  if (catLabel) body.appendChild(el('span', { class: 'dt-pcard__cat' }, catLabel));
+  body.appendChild(el('p', { class: 'dt-pcard__author' }, p.author || '익명'));
+  body.appendChild(el('h3', { class: 'dt-pcard__title' }, p.title || ''));
+  const meta = el('div', { class: 'dt-pcard__meta' });
+  meta.appendChild(el('span', { class: 'dt-pcard__rate' }, rate + '% 달성'));
+  if (p.priceText) meta.appendChild(el('span', { class: 'dt-pcard__price' }, p.priceText));
+  body.appendChild(meta);
+  card.appendChild(body);
+  return card;
+}
+
 function App() {
   document.body.classList.add('main-page');
   const pageMode = document.body.dataset.page || 'main';
@@ -690,74 +827,26 @@ function App() {
     return;
   }
 
-  // 메인 페이지
-  root.appendChild(Header({ variant: 'main' }));
-  root.appendChild(SearchBar());
+  // 메인 페이지 (텀블벅형: 카테고리 그리드 + 프로젝트 카드 그리드)
+  root.appendChild(Header());
+  root.appendChild(CategoryGrid());
 
-  // PopularSection / NewPicks 컨테이너 — 백엔드 데이터 도착 시 다시 렌더
-  const popularWrap = el('div', { class: 'popular-wrap' });
-  const newPicksWrap = el('div', { class: 'new-picks-wrap' });
+  const popularWrap = el('section', { class: 'dt-home-sec' });
+  const newWrap = el('section', { class: 'dt-home-sec' });
   root.appendChild(popularWrap);
-  root.appendChild(newPicksWrap);
+  root.appendChild(newWrap);
   root.appendChild(RecentlyViewed());
 
-  function buildSectionsFromMockProducts() {
-    // MOCK_PRODUCTS (백엔드에서 가져왔거나 mock) 기반으로 ranking/newpicks 생성
-    const products = (typeof window.MOCK_PRODUCTS !== 'undefined' && Array.isArray(window.MOCK_PRODUCTS))
-      ? window.MOCK_PRODUCTS : [];
-
-    let rankingData = POPULAR_RANKING;
-    let newPicksData = NEW_PICKS;
-
-    if (products.length > 0) {
-      // 인기순 5개 → POPULAR_RANKING 형식
-      const sortedByLikes = [...products]
-        .sort((a, b) => {
-          const aRate = a.targetQuantity > 0 ? a.currentQuantity / a.targetQuantity : 0;
-          const bRate = b.targetQuantity > 0 ? b.currentQuantity / b.targetQuantity : 0;
-          return bRate - aRate;
-        })
-        .slice(0, 5);
-
-      rankingData = sortedByLikes.map((p, idx) => ({
-        rank: idx + 1,
-        productId: p.id,
-        maker: p.author || '익명',
-        name: p.title,
-        seller: p.title,
-        achieve: p.targetQuantity > 0
-          ? Math.round((p.currentQuantity / p.targetQuantity) * 100)
-          : 0,
-        img: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
-        bg: 'var(--primary-soft)',
-        emoji: 'jacket',
-        model: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
-      }));
-
-      // 최신순 5개 → NEW_PICKS 형식
-      const sortedByCreated = [...products]
-        .sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0))
-        .slice(0, 5);
-
-      newPicksData = sortedByCreated.map((p, idx) => ({
-        id: p.id,
-        productId: p.id,
-        name: p.title,
-        desc: p.description?.slice(0, 30) || p.title,
-        img: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
-        bg: 'var(--primary-soft)',
-        progress: p.targetQuantity > 0
-          ? Math.round((p.currentQuantity / p.targetQuantity) * 100)
-          : 0,
-      }));
-    }
-
-    popularWrap.replaceChildren(PopularSection({ ranking: rankingData }));
-    newPicksWrap.replaceChildren(NewPicks({ items: newPicksData }));
+  function buildHome() {
+    const products = (Array.isArray(window.MOCK_PRODUCTS)) ? window.MOCK_PRODUCTS : [];
+    const rate = (p) => (p.targetQuantity > 0 ? p.currentQuantity / p.targetQuantity : 0);
+    const popular = [...products].sort((a, b) => rate(b) - rate(a)).slice(0, 8);
+    const fresh = [...products].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 8);
+    popularWrap.replaceChildren(HomeProjectSection('인기 프로젝트', popular, '인기'));
+    newWrap.replaceChildren(HomeProjectSection('신규 프로젝트', fresh, '신규'));
   }
-
-  buildSectionsFromMockProducts();
-  window.addEventListener('mockproducts:updated', buildSectionsFromMockProducts);
+  buildHome();
+  window.addEventListener('mockproducts:updated', buildHome);
 
   // index.html?search=<keyword> 로 진입 시 feed.html?q= 로 자동 위임
   try {
