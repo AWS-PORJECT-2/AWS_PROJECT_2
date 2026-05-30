@@ -6,160 +6,158 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <title>배송지 관리 - 두띵</title>
-  <link rel="stylesheet" href="style.css">
+  <title>배송지 관리 · 두띵</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="wz.css">
   <style>
-    .container { max-width: 720px; margin: 0 auto; padding: 24px 20px 100px; }
-    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
-    .btn-primary {
-      background: #8b5cf6; color: #fff; border: none; padding: 10px 18px;
-      border-radius: 10px; font-weight: 600; cursor: pointer; font-size: 14px;
+    .adr-wrap { max-width: 760px; margin: 0 auto; padding: 32px var(--sp-6) 96px; }
+    .adr-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+    .adr-head__eyebrow {
+      display: inline-block; margin-bottom: 10px; padding: 4px 12px;
+      border-radius: var(--r-full); background: var(--c-primary-50);
+      color: var(--c-primary-700); font-size: var(--fs-caption); font-weight: 700;
     }
-    .btn-primary:hover { background: #7c3aed; }
-    .btn-secondary {
-      background: #fff; color: #1a1a1a; border: 1px solid #e5e7eb; padding: 8px 14px;
-      border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;
+    .adr-head h1 { margin: 0 0 6px; font-size: var(--fs-h1); font-weight: 800; color: var(--c-text); }
+    .adr-head__sub { margin: 0; font-size: var(--fs-body-sm); color: var(--c-text-muted); }
+
+    .adr-list { display: flex; flex-direction: column; gap: 12px; }
+
+    .adr-card {
+      display: flex; gap: 14px; padding: 18px;
+      background: var(--c-surface); border: 1px solid var(--c-border);
+      border-radius: var(--r-md); transition: border-color .15s, box-shadow .15s;
     }
-    .btn-secondary:hover { background: #f9fafb; }
-    .btn-danger {
-      background: #fff; color: #ef4444; border: 1px solid #fecaca; padding: 8px 14px;
-      border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 13px;
+    .adr-card.is-default { border-color: var(--c-primary-400); box-shadow: 0 0 0 1px var(--c-primary-400) inset; }
+    .adr-card__ic {
+      flex: none; width: 40px; height: 40px; border-radius: var(--r-full);
+      display: flex; align-items: center; justify-content: center;
+      background: var(--c-primary-50); color: var(--c-primary-600);
     }
-    .btn-danger:hover { background: #fef2f2; }
-    .btn-danger:disabled { opacity: 0.4; cursor: not-allowed; }
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .addr-card {
-      background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px 18px;
-      margin-bottom: 12px; transition: border-color 0.15s;
+    .adr-card__ic svg { width: 22px; height: 22px; }
+    .adr-card__body { flex: 1; min-width: 0; }
+    .adr-card__title { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: var(--fs-body); font-weight: 700; color: var(--c-text); }
+    .adr-card__line { margin-top: 6px; font-size: var(--fs-body-sm); color: var(--c-text-sub); line-height: 1.55; }
+    .adr-card__meta { margin-top: 4px; font-size: var(--fs-caption); color: var(--c-text-muted); line-height: 1.5; }
+    .adr-badge {
+      flex: none; padding: 2px 9px; border-radius: var(--r-full);
+      background: var(--c-primary-500); color: #fff; font-size: var(--fs-caption); font-weight: 700; line-height: 1.4;
     }
-    .addr-card.default { border-color: #8b5cf6; box-shadow: 0 0 0 1px #8b5cf6 inset; }
-    .addr-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .addr-label { font-weight: 700; font-size: 15px; }
-    .badge-default {
-      background: #8b5cf6; color: #fff; font-size: 11px; font-weight: 700;
-      padding: 2px 8px; border-radius: 999px;
+    .adr-card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+
+    .adr-mini {
+      height: 34px; padding: 0 13px; border-radius: var(--r-sm);
+      background: #fff; border: 1px solid var(--c-border); cursor: pointer;
+      font-family: inherit; font-size: 13px; font-weight: 700; color: var(--c-text-sub);
+      display: inline-flex; align-items: center; transition: background .15s, border-color .15s, color .15s;
     }
-    .addr-line { font-size: 14px; color: #374151; line-height: 1.6; }
-    .addr-meta { font-size: 12px; color: #6b7280; margin-top: 4px; }
-    .addr-actions { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .empty {
-      background: #fff; border: 1px dashed #d1d5db; border-radius: 12px; padding: 40px 20px;
-      text-align: center; color: #6b7280;
+    .adr-mini:hover { border-color: var(--c-primary-400); color: var(--c-primary-600); background: var(--c-primary-50); }
+    .adr-mini--ghost { color: var(--c-primary-600); border-color: var(--c-primary-400); }
+    .adr-mini--danger { color: var(--c-danger); border-color: #FECACA; }
+    .adr-mini--danger:hover { background: #FEF2F2; border-color: #FCA5A5; color: var(--c-danger); }
+    .adr-mini:disabled { opacity: .45; cursor: not-allowed; }
+
+    .adr-empty, .adr-loading, .adr-error {
+      padding: 56px 20px; text-align: center; font-size: var(--fs-body-sm); color: var(--c-text-muted);
+      background: var(--c-surface); border: 1px dashed var(--c-border); border-radius: var(--r-md);
+    }
+    .adr-error { color: var(--c-danger); }
+
+    /* ===== 모달 ===== */
+    .adr-modal-back {
+      position: fixed; inset: 0; z-index: 1000; padding: 20px;
+      display: flex; align-items: center; justify-content: center;
+      background: rgba(17, 17, 17, .45); opacity: 0; transition: opacity .2s;
+    }
+    .adr-modal-back.is-open { opacity: 1; }
+    .adr-modal {
+      width: 100%; max-width: 520px; max-height: 90vh; overflow-y: auto;
+      background: var(--c-surface); border-radius: var(--r-lg);
+      box-shadow: 0 24px 60px rgba(17, 17, 17, .25);
+      transform: translateY(12px); transition: transform .2s;
+    }
+    .adr-modal-back.is-open .adr-modal { transform: translateY(0); }
+    .adr-modal__head {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 18px 20px; border-bottom: 1px solid var(--c-border);
+    }
+    .adr-modal__title { margin: 0; font-size: var(--fs-h3); font-weight: 800; color: var(--c-text); }
+    .adr-modal__close {
+      width: 34px; height: 34px; border: none; background: none; cursor: pointer;
+      color: var(--c-text-muted); border-radius: var(--r-sm);
+      display: inline-flex; align-items: center; justify-content: center;
+    }
+    .adr-modal__close:hover { background: var(--c-bg); color: var(--c-text); }
+    .adr-modal__close svg { width: 20px; height: 20px; }
+    .adr-modal__body { padding: 20px; }
+    .adr-modal__foot {
+      display: flex; justify-content: flex-end; gap: 8px;
+      padding: 14px 20px; border-top: 1px solid var(--c-border);
     }
 
-    .modal-back {
-      display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4);
-      align-items: center; justify-content: center; z-index: 1000; padding: 20px;
+    .adr-form { display: flex; flex-direction: column; gap: 14px; }
+    .adr-form__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    .adr-fld { display: flex; flex-direction: column; }
+    .adr-fld__label { display: block; margin-bottom: 6px; font-size: 13px; font-weight: 700; color: var(--c-text-sub); }
+    .adr-fld__label .req { color: var(--c-danger); margin-left: 2px; }
+    .adr-fld__row { display: flex; gap: 8px; }
+    .adr-fld__row .adr-input { flex: 1; min-width: 0; }
+    .adr-input {
+      width: 100%; height: 44px; padding: 0 12px;
+      font-family: inherit; font-size: var(--fs-body-sm); color: var(--c-text);
+      background: #fff; border: 1px solid var(--c-border); border-radius: var(--r-sm); outline: none;
+      transition: border-color .15s, box-shadow .15s;
     }
-    .modal-back.active { display: flex; }
-    .modal {
-      background: #fff; border-radius: 16px; width: 100%; max-width: 520px;
-      max-height: 90vh; overflow-y: auto;
+    .adr-input:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+    .adr-input[readonly] { background: var(--c-bg); cursor: default; }
+    .adr-fld__err { margin-top: 5px; font-size: 12px; color: var(--c-danger); display: none; }
+    .adr-fld__err.is-show { display: block; }
+    .adr-consent { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--c-text-sub); line-height: 1.5; margin-top: 2px; }
+    .adr-consent input { margin-top: 2px; flex: none; accent-color: var(--c-primary-500); }
+    .adr-consent a { color: var(--c-primary-600); font-weight: 700; }
+
+    /* ===== 토스트 ===== */
+    .adr-toast {
+      position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(12px);
+      z-index: 1100; max-width: 90vw; padding: 12px 18px;
+      background: var(--c-text); color: #fff; border-radius: var(--r-full);
+      font-size: var(--fs-body-sm); font-weight: 600; box-shadow: 0 8px 24px rgba(17, 17, 17, .25);
+      opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
     }
-    .modal-head {
-      padding: 18px 20px; border-bottom: 1px solid #e5e7eb;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .modal-head h2 { font-size: 17px; font-weight: 700; }
-    .modal-close { background: none; border: none; font-size: 22px; cursor: pointer; color: #6b7280; }
-    .modal-body { padding: 20px; }
-    .field { margin-bottom: 14px; }
-    .field label {
-      display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; color: #374151;
-    }
-    .field label .req { color: #ef4444; }
-    .field input {
-      width: 100%; padding: 11px 12px; border: 1.5px solid #e5e7eb; border-radius: 8px;
-      font-size: 14px;
-    }
-    .field input:focus { outline: none; border-color: #8b5cf6; }
-    .field-row { display: flex; gap: 10px; }
-    .field-row > .field { flex: 1; }
-    .checkbox {
-      display: flex; align-items: center; gap: 8px; font-size: 13px; color: #374151;
-      margin: 8px 0 14px;
-    }
-    .modal-foot {
-      padding: 14px 20px; border-top: 1px solid #e5e7eb;
-      display: flex; justify-content: flex-end; gap: 8px;
+    .adr-toast.is-show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    @media (max-width: 767px) {
+      .adr-wrap { padding: 24px var(--sp-4) 80px; }
+      .adr-head { flex-direction: column; align-items: stretch; }
+      .adr-form__grid { grid-template-columns: 1fr; }
     }
   </style>
-  <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="main.css">
 </head>
-<body class="main-page" data-page="sub">
-  <div id="app"></div>
+<body class="wz-body">
+  <div id="wz-header"></div>
 
-  <!-- 데스크톱 사이드바 -->
-
-  <main class="main-content">
-
-    <div class="container">
-      <p class="sub">상품을 받아볼 주소를 관리하세요. 마지막 배송지는 삭제할 수 없습니다.</p>
-
-      <div class="toolbar">
-        <div id="addrCount" style="font-size:13px;color:#6b7280;"></div>
-        <button class="btn-primary" id="btnAdd">+ 새 배송지</button>
+  <main>
+    <div class="adr-wrap">
+      <div class="adr-head">
+        <div>
+          <span class="adr-head__eyebrow">두띵 배송</span>
+          <h1>배송지 관리</h1>
+          <p class="adr-head__sub">굿즈를 받아볼 주소를 등록하고 관리하세요. 기본 배송지는 후원 결제 시 자동으로 선택됩니다.</p>
+        </div>
+        <button id="btnAdd" type="button" class="wz-btn wz-btn--primary" style="display:none;">배송지 추가</button>
       </div>
 
-      <div id="addrList"></div>
+      <div id="adrList" class="adr-list">
+        <div class="adr-loading">불러오는 중...</div>
+      </div>
     </div>
   </main>
 
-  <!-- Add/Edit Modal -->
-  <div class="modal-back" id="modal" role="dialog" aria-modal="true">
-    <div class="modal">
-      <div class="modal-head">
-        <h2 id="modalTitle">배송지 추가</h2>
-        <button type="button" class="modal-close" id="modalClose">×</button>
-      </div>
-      <div class="modal-body">
-        <form id="addrForm">
-          <div class="field">
-            <label>별칭 <span class="req">*</span></label>
-            <input type="text" name="label" placeholder="예: 자취방, 본가" maxlength="50" required>
-          </div>
-          <div class="field-row">
-            <div class="field">
-              <label>수령인 이름 <span class="req">*</span></label>
-              <input type="text" name="recipientName" maxlength="50" required>
-            </div>
-            <div class="field">
-              <label>연락처 <span class="req">*</span></label>
-              <input type="tel" name="recipientPhone" placeholder="010-0000-0000" maxlength="20" required>
-            </div>
-          </div>
-          <div class="field">
-            <label>우편번호 <span class="req">*</span></label>
-            <input type="text" name="postalCode" maxlength="10" required>
-          </div>
-          <div class="field">
-            <label>도로명 주소 <span class="req">*</span></label>
-            <input type="text" name="roadAddress" maxlength="200" required>
-          </div>
-          <div class="field">
-            <label>지번 주소 (선택)</label>
-            <input type="text" name="jibunAddress" maxlength="200">
-          </div>
-          <div class="field">
-            <label>상세 주소 (선택)</label>
-            <input type="text" name="detailAddress" placeholder="동/호수 등" maxlength="200">
-          </div>
-          <label class="checkbox">
-            <input type="checkbox" name="isDefault"> 기본 배송지로 설정
-          </label>
-        </form>
-      </div>
-      <div class="modal-foot">
-        <button type="button" class="btn-secondary" id="modalCancel">취소</button>
-        <button type="button" class="btn-primary" id="modalSubmit">저장</button>
-      </div>
-    </div>
-  </div>
+  <div id="wz-footer"></div>
 
-  <script src="payment-api.js"></script>
-  <script src="addresses.js"></script>
+  <script src="api.js"></script>
+  <script src="categories.js"></script>
   <script src="category-icons.js"></script>
-  <script src="main.js"></script>
+  <script src="wz-core.js"></script>
+  <script src="addresses.js"></script>
 </body>
 </html>

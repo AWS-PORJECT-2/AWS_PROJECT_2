@@ -22,6 +22,8 @@
     star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.9L12 16.9 6.8 19.2l1-5.9L3.5 9.2l5.9-.9L12 3z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
+    alert: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><path d="M12 9v4M12 17h.01"/></svg>',
     /* 브랜드 글리프 — 단색 currentColor fill */
     kakao: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-.7 2.6-.8 3-.1.5.2.5.4.4.2-.1 2.7-1.8 3.8-2.6.6.1 1.3.1 1.9.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>',
     twitterX: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.5h3.3l-7.2 8.2 8.5 11.3h-6.7l-5.2-6.8-6 6.8H1.6l7.7-8.8L1.2 2.5h6.8l4.7 6.2 5.5-6.2zm-1.2 17.6h1.8L7.1 4.3H5.2l11.8 15.8z"/></svg>',
@@ -57,6 +59,22 @@
     const d = new Date(deadline);
     if (isNaN(d.getTime())) return null;
     return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' 마감';
+  }
+  /* D-day 라벨/상태 산출. null 이면 기간 정보 없음(배지 미노출).
+   *  - 지난 건 '마감'(is-ended), 오늘은 '오늘 마감'(is-urgent), D-3 이하 임박(is-urgent), 그 외 D-n. */
+  function ddayInfo(deadline) {
+    const n = daysLeft(deadline);
+    if (n == null) return null;
+    if (n < 0) return { label: '마감', state: 'ended' };
+    if (n === 0) return { label: '오늘 마감', state: 'urgent' };
+    if (n <= 3) return { label: 'D-' + n, state: 'urgent' };
+    return { label: 'D-' + n, state: 'normal' };
+  }
+  /* D-day 강조 배지 엘리먼트. 보라 톤, 임박/마감 상태에 따라 클래스 부여. */
+  function DdayBadge(deadline) {
+    const info = ddayInfo(deadline);
+    if (!info) return null;
+    return W.el('span', { class: 'wz-d-dday is-' + info.state }, info.label);
   }
   /* contentBlocks 이미지 url 추출 (계약: {type:"image", url}). 구버전 value 도 허용. */
   function blockImageUrl(b) {
@@ -364,10 +382,14 @@
     const { rate, backers, dleft, tiers } = ctx;
     const owner = isOwner(f);
 
-    /* 카테고리 — 아이콘/배경 없이 plain 텍스트 */
+    /* 상단 메타 행: 카테고리 + D-day 강조 배지(보라, 마감임박 강조 / 지난 건 '마감') */
     const cat = window.dtCategory && window.dtCategory(f.category);
-    if (cat) {
-      sideCol.appendChild(W.el('p', { class: 'wz-d-cat' }, cat.label));
+    const dday = DdayBadge(f.deadline);
+    if (cat || dday) {
+      const metaRow = W.el('div', { class: 'wz-d-metarow' });
+      if (cat) metaRow.appendChild(W.el('span', { class: 'wz-d-cat' }, cat.label));
+      if (dday) metaRow.appendChild(dday);
+      sideCol.appendChild(metaRow);
     }
 
     /* 본인 소유 프로젝트면 "내 프로젝트" 배지 노출 */
@@ -430,6 +452,7 @@
       if (typeof window.toggleLike !== 'function') return;
       const on = window.toggleLike(f.id);
       likeBtn.classList.toggle('is-on', on);
+      if (on) popHeart(likeBtn);
       likeLabel.textContent = '찜 ' + Math.max(0, Number(localStorage.getItem('liked_delta_' + f.id)) || 0);
       syncMobileLike(on);
     });
@@ -458,6 +481,113 @@
 
     /* 리워드 선택 */
     sideCol.appendChild(Rewards(f, tiers));
+
+    /* 관리자 전용: 게시글 삭제(위험 영역). 소유자/일반 사용자에겐 미노출.
+     * 관리자는 어떤 상태의 글이든 삭제할 수 있다. */
+    if (isAdmin()) {
+      sideCol.appendChild(AdminDanger(f));
+    }
+  }
+
+  /* ---------- 관리자 게시글 삭제 영역 ---------- */
+  function AdminDanger(f) {
+    const wrap = W.el('div', { class: 'wz-d-admindanger' });
+    wrap.appendChild(W.el('p', { class: 'wz-d-admindanger__label' },
+      W.el('span', { class: 'wz-d-admindanger__ic', html: SVG.shield }),
+      W.el('span', {}, '관리자 전용')));
+    const btn = W.el('button', { class: 'wz-d-delbtn', type: 'button' },
+      W.el('span', { class: 'wz-d-delbtn__ic', html: SVG.trash }), W.el('span', {}, '게시글 삭제'));
+    btn.addEventListener('click', () => confirmAdminDelete(f));
+    wrap.appendChild(btn);
+    return wrap;
+  }
+
+  /* 삭제 확인 모달 → POST /api/admin/funds/:id/delete → 성공 시 홈으로 이동. */
+  function confirmAdminDelete(f) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '게시글 삭제' });
+    const box = W.el('div', { class: 'wz-d-modal__box' });
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    const head = W.el('div', { class: 'wz-d-modal__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '게시글 삭제'), closeBtn);
+
+    const body = W.el('div', { class: 'wz-d-modal__body' });
+    body.appendChild(W.el('div', { class: 'wz-d-delwarn' },
+      W.el('span', { class: 'wz-d-delwarn__ic', html: SVG.alert }),
+      W.el('span', {}, '“' + (f.title || '제목 없음') + '” 게시글을 삭제합니다. 진행 중인 모든 후원이 취소되며, 이 작업은 되돌릴 수 없습니다.')));
+    body.appendChild(W.el('p', { class: 'wz-d-modal__note' },
+      '입금 완료(확정) 건은 실제 환불이 필요합니다. 삭제 후 환불 대상 목록이 표시됩니다.'));
+
+    const foot = W.el('div', { class: 'wz-d-delfoot' });
+    const cancel = W.el('button', { class: 'wz-btn wz-btn--ghost', type: 'button' }, '취소');
+    cancel.addEventListener('click', close);
+    const del = W.el('button', { class: 'wz-btn wz-btn--block wz-d-delconfirm', type: 'button' }, '삭제');
+    del.addEventListener('click', async () => {
+      del.disabled = true; cancel.disabled = true;
+      const prev = del.textContent; del.textContent = '삭제 중...';
+      let res;
+      try {
+        res = await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/delete', {});
+      } catch (e) {
+        del.disabled = false; cancel.disabled = false; del.textContent = prev;
+        if (e && e.status === 401) { location.href = '/login.html'; return; }
+        if (e && e.status === 404) { toast('이미 삭제되었거나 존재하지 않는 게시글이에요'); return; }
+        toast((e && e.message) ? e.message : '삭제에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      close();
+      const refundable = (res && Array.isArray(res.refundable)) ? res.refundable : [];
+      if (refundable.length) {
+        // 환불 안내를 먼저 보여주고, 확인 시 홈으로 이동
+        showRefundList(refundable, () => { location.href = '/main.html'; });
+        toast('게시글을 삭제했어요');
+      } else {
+        toast('게시글을 삭제했어요');
+        setTimeout(() => { location.href = '/main.html'; }, 700);
+      }
+    });
+    foot.append(cancel, del);
+
+    body.appendChild(foot);
+    box.append(head, body);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+  }
+
+  /* 환불 대상(입금완료였던 주문) 목록 안내. 확인 시 onDone 콜백 실행. */
+  function showRefundList(refundable, onDone) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '환불 대상' });
+    const box = W.el('div', { class: 'wz-d-modal__box' });
+    const done = () => { overlay.remove(); if (typeof onDone === 'function') onDone(); };
+
+    const head = W.el('div', { class: 'wz-d-modal__head' });
+    head.append(W.el('h3', {}, '환불 대상 ' + refundable.length + '건'));
+
+    const body = W.el('div', { class: 'wz-d-modal__body' });
+    body.appendChild(W.el('p', { class: 'wz-d-modal__note' }, '아래 입금 완료 건은 실제 환불 처리가 필요합니다.'));
+    const list = W.el('div', { class: 'wz-d-refunds' });
+    refundable.forEach((r) => {
+      const who = (r && (r.depositorName || r.userName || r.userId)) || '후원자';
+      const row = W.el('div', { class: 'wz-d-refunds__row' });
+      row.append(
+        W.el('span', { class: 'wz-d-refunds__who' }, String(who)),
+        W.el('span', { class: 'wz-d-refunds__amt' }, W.money((r && r.amount) || 0)));
+      list.appendChild(row);
+    });
+    body.appendChild(list);
+
+    const ok = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--block', type: 'button' }, '확인');
+    ok.addEventListener('click', done);
+    body.appendChild(ok);
+
+    box.append(head, body);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
   }
 
   /* 창작자 정보(creatorInfo) 정규화 — 저장된 필드만 추림. 하나도 없으면 null. */
@@ -618,6 +748,18 @@
     return sec;
   }
 
+  /* 하트 팝 애니메이션 — 클래스 재부여로 keyframe 재생(연타 시 재시작). */
+  function popHeart(btn) {
+    btn.classList.remove('is-pop');
+    // reflow 강제 후 클래스 재부여(같은 클래스 연속 토글 시에도 애니메이션 재시작)
+    void btn.offsetWidth;
+    btn.classList.add('is-pop');
+    btn.addEventListener('animationend', function onEnd() {
+      btn.classList.remove('is-pop');
+      btn.removeEventListener('animationend', onEnd);
+    });
+  }
+
   /* ---------- 모바일 하단 고정 바 ---------- */
   let _mobileLikeSync = null;
   function syncMobileLike(on) { const b = document.querySelector('.wz-d-mbar__like'); if (b) b.classList.toggle('is-on', on); }
@@ -630,6 +772,7 @@
       if (typeof window.toggleLike !== 'function') return;
       const on = window.toggleLike(f.id);
       like.classList.toggle('is-on', on);
+      if (on) popHeart(like);
       if (_mobileLikeSync) _mobileLikeSync(on);
     });
     if (owner) {
@@ -1146,6 +1289,10 @@
   let _me = null;
   function isOwner(f) {
     return !!(_me && _me.userId && f && f.creatorId && _me.userId === f.creatorId);
+  }
+  /* 현재 로그인 사용자가 관리자(ADMIN)인지. 게시글 삭제 등 운영 기능 노출 판단. */
+  function isAdmin() {
+    return !!(_me && String(_me.role || '').toUpperCase() === 'ADMIN');
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);

@@ -29,6 +29,10 @@
     const followingWrap = W.el('div', { class: 'wz-following' });
     home.appendChild(followingWrap);
 
+    // 최근 본 프로젝트 — localStorage recentFunds ∩ 현재 존재하는 펀드만(있을 때만 표시)
+    const recentWrap = W.el('div', { class: 'wz-recentwrap' });
+    home.appendChild(recentWrap);
+
     const browse = BrowseSection();
     home.appendChild(browse.node);
     root.appendChild(home);
@@ -42,6 +46,7 @@
       const products = Array.isArray(window.MOCK_PRODUCTS) ? window.MOCK_PRODUCTS : [];
       rankCol.replaceChildren(RankList(products));
       shelves.replaceChildren.apply(shelves, buildShelves(products));
+      buildRecent(recentWrap, products);
       browse.render(products);
     }
     build();
@@ -177,7 +182,10 @@
       arr.forEach((p, i) => {
         const li = W.el('a', { class: 'wz-rank__item', href: '/detail.html?id=' + encodeURIComponent(p.id) });
         li.appendChild(W.el('span', { class: 'wz-rank__no' + (i < 3 ? ' is-top' : '') }, String(i + 1)));
-        const th = W.el('div', { class: 'wz-rank__thumb' }); W.fillThumb(th, p); li.appendChild(th);
+        const th = W.el('div', { class: 'wz-rank__thumb' }); W.fillThumb(th, p);
+        const badge = DdayBadge(p);
+        if (badge) th.appendChild(badge);
+        li.appendChild(th);
         const info = W.el('div', { class: 'wz-rank__info' });
         info.append(
           W.el('p', { class: 'wz-rank__author' }, p.author || p.creatorName || '익명'),
@@ -224,23 +232,59 @@
         gridWrap.replaceChildren(empty);
         return;
       }
+      // 홈은 기본 3줄(데스크톱 4열×3 = 12개)만, 나머지는 별도 전체목록 페이지로
+      const BROWSE_HOME_LIMIT = 12;
+      const shown = arr.slice(0, BROWSE_HOME_LIMIT);
       const grid = W.el('div', { class: 'wz-grid' });
-      arr.forEach((p) => grid.appendChild(Card(p)));
-      gridWrap.replaceChildren(grid);
+      shown.forEach((p) => grid.appendChild(Card(p)));
+      const frag = document.createDocumentFragment();
+      frag.appendChild(grid);
+      if (arr.length > shown.length) {
+        const more = W.el('div', { class: 'wz-browse__more' });
+        const qs = new URLSearchParams();
+        qs.set('sort', state.sort);
+        if (state.category && state.category !== 'all') qs.set('category', state.category);
+        more.appendChild(W.el('a', { class: 'wz-btn wz-btn--outline', href: '/feed.html?' + qs.toString() },
+          '프로젝트 전체보기 (' + arr.length + ')'));
+        frag.appendChild(more);
+      }
+      gridWrap.replaceChildren(frag);
     }
     return { node, render };
+  }
+
+  /* 남은 기간 배지 — deadline → D-7 / D-1 / 오늘 마감 / 마감. 마감 임박은 강조색. */
+  function ddayInfo(deadline) {
+    if (!deadline) return null;
+    const end = new Date(deadline).getTime();
+    if (!end || isNaN(end)) return null;
+    const now = Date.now();
+    if (end <= now) return { label: '마감', cls: 'is-closed' };
+    const days = Math.ceil((end - now) / 86400000);
+    if (days <= 1) return { label: '오늘 마감', cls: 'is-urgent' };
+    if (days <= 3) return { label: 'D-' + days, cls: 'is-urgent' };
+    return { label: 'D-' + days, cls: '' };
+  }
+  function DdayBadge(p) {
+    const info = ddayInfo(p.deadline);
+    if (!info) return null;
+    return W.el('span', { class: 'wz-dday' + (info.cls ? ' wz-dday--' + info.cls.replace('is-', '') : '') }, info.label);
   }
 
   function Card(p) {
     const card = W.el('a', { class: 'wz-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
     const th = W.el('div', { class: 'wz-pcard__thumb' });
     W.fillThumb(th, p);
+    const badge = DdayBadge(p);
+    if (badge) th.appendChild(badge);
     const liked = (typeof window.isLiked === 'function') && window.isLiked(p.id);
     const heart = W.el('button', { class: 'wz-pcard__heart' + (liked ? ' is-on' : ''), type: 'button', 'aria-label': '찜', html: W.ICON.heart });
     heart.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       if (typeof window.toggleLike !== 'function') return;
-      heart.classList.toggle('is-on', window.toggleLike(p.id));
+      const on = window.toggleLike(p.id);
+      heart.classList.toggle('is-on', on);
+      if (on) { heart.classList.remove('is-pop'); void heart.offsetWidth; heart.classList.add('is-pop'); }
     });
     th.appendChild(heart);
     card.appendChild(th);
@@ -268,10 +312,8 @@
   function FollowingSection(items) {
     const sec = W.el('section', { class: 'wz-follsec' });
     const head = W.el('div', { class: 'wz-shelf__head' });
-    const titles = W.el('div', {});
-    titles.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '팔로우한 창작자의 프로젝트'));
-    titles.appendChild(W.el('p', { class: 'wz-shelf__sub' }, '내가 팔로우한 창작자가 새로 올린 프로젝트'));
-    head.appendChild(titles);
+    head.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '팔로잉'));
+    if (items.length) head.appendChild(W.el('a', { class: 'wz-shelf__more', href: '/feed.html?feed=following' }, '전체보기'));
     sec.appendChild(head);
 
     if (!items.length) {
@@ -280,15 +322,16 @@
       img.addEventListener('error', () => img.remove());
       empty.append(
         img,
-        W.el('p', {}, '팔로우한 사람이 없어요 — 관심 있는 창작자를 팔로우해 보세요'),
+        W.el('p', {}, '팔로우한 창작자가 없어요'),
         W.el('a', { class: 'wz-btn wz-btn--primary', href: '/main.html' }, '둘러보기')
       );
       sec.appendChild(empty);
       return sec;
     }
-    const grid = W.el('div', { class: 'wz-grid' });
-    items.forEach((p) => grid.appendChild(FollowingCard(p)));
-    sec.appendChild(grid);
+    // 홈에서는 가로 한 줄(약 4~5개)만 — 전체는 /feed.html?feed=following
+    const scroll = W.el('div', { class: 'wz-shelf__scroll' });
+    items.slice(0, 10).forEach((p) => scroll.appendChild(FollowingCard(p)));
+    sec.appendChild(scroll);
     return sec;
   }
 
@@ -297,6 +340,8 @@
     const card = W.el('a', { class: 'wz-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
     const th = W.el('div', { class: 'wz-pcard__thumb' });
     W.fillThumb(th, { imageUrl: p.coverImageUrl || '', title: p.title, category: p.category });
+    const badge = DdayBadge(p);
+    if (badge) th.appendChild(badge);
     card.appendChild(th);
     const rateVal = (typeof p.achievementRate === 'number') ? p.achievementRate : W.rate(p);
     card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, rateVal + '% 달성'));
@@ -324,6 +369,37 @@
     if (fresh.length >= 3) out.push(Shelf('신규 오픈', '두띵에 막 올라온 따끈한 프로젝트', fresh, { sort: 'latest' }));
 
     return out;
+  }
+
+  /* ---- 최근 본 프로젝트 ----
+   * localStorage recentFunds([{id,title,imageUrl}], 그 브라우저에만 존재)를
+   * 현재 공개 목록(products)과 id 로 교차 — 존재하는 것만, 최근 순으로 한 줄. 없으면 섹션 미표시. */
+  function readRecent() {
+    try {
+      const l = JSON.parse(localStorage.getItem('recentFunds') || '[]');
+      return Array.isArray(l) ? l.filter((x) => x && x.id != null) : [];
+    } catch (_) { return []; }
+  }
+  function buildRecent(wrap, products) {
+    const recent = readRecent();
+    if (!recent.length || !products.length) { wrap.replaceChildren(); return; }
+    const byId = {};
+    products.forEach((p) => { byId[String(p.id)] = p; });
+    // 현재 존재하는 것만(없는 건 스킵), recentFunds 순서(최근 우선) 유지
+    const items = [];
+    recent.forEach((r) => { const p = byId[String(r.id)]; if (p && items.indexOf(p) === -1) items.push(p); });
+    if (!items.length) { wrap.replaceChildren(); return; }
+    wrap.replaceChildren(RecentSection(items.slice(0, 12)));
+  }
+  function RecentSection(items) {
+    const sec = W.el('section', { class: 'wz-shelf wz-recent' });
+    const head = W.el('div', { class: 'wz-shelf__head' });
+    head.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '최근 본 프로젝트'));
+    sec.appendChild(head);
+    const scroll = W.el('div', { class: 'wz-shelf__scroll' });
+    items.forEach((p) => scroll.appendChild(Card(p)));
+    sec.appendChild(scroll);
+    return sec;
   }
 
   function Shelf(title, subtitle, items, moreQuery) {

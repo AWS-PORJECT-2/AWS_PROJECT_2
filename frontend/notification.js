@@ -248,7 +248,7 @@
           +     '<span class="wz-notif__rate wz-notif__rate--done">' + rate + '% 달성</span>'
           +     '<span class="wz-notif__size">사이즈: ' + safeSize + '</span>'
           +   '</div>'
-          +   '<a class="wz-notif__cta" href="payment.html?id=' + id + '&size=' + sizeForUrl + '" data-notif-link data-notif-id="' + dataId + '">결제하기</a>'
+          +   '<a class="wz-notif__cta" href="detail.html?id=' + id + '" data-notif-link data-notif-id="' + dataId + '">펀딩하기</a>'
           + '</div>';
       }
 
@@ -339,7 +339,7 @@
     });
   }
 
-  // wz 헤더 종은 <a href="/notice.html"> — 클릭 시 슬라이드 패널 열도록 가로채기(1회 바인딩)
+  // wz 헤더 종은 <button id="wz-bell"> — 클릭 시 슬라이드 패널 오픈(1회 바인딩). 레거시 앵커도 호환.
   function bindBellClicks() {
     getBellTargets().forEach(function (el) {
       if (el.getAttribute('data-notif-bound') === '1') return;

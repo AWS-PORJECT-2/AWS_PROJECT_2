@@ -23,21 +23,7 @@ body {
   line-height: 1.6;
 }
 
-/* ===== 마우스 따라가는 ambient glow ===== */
-.ambient-glow {
-  position: fixed;
-  top: 0; left: 0;
-  width: 100vw; height: 100vh;
-  pointer-events: none;
-  z-index: 0;
-  background: radial-gradient(
-    600px circle at var(--mx, 50%) var(--my, 50%),
-    rgba(124, 58, 237, 0.10),
-    transparent 60%
-  );
-  transition: background 0.2s ease;
-}
-
+/* ===== 정적 배경 그리드 ===== */
 .ambient-grid {
   position: fixed;
   inset: 0;
@@ -649,9 +635,9 @@ body {
   color: #fde047;
   letter-spacing: 2px;
 }
-.mock-thumb-2 { background: linear-gradient(135deg, #fde68a, #fb7185); }
+.mock-thumb-2 { background: linear-gradient(135deg, #ddd6fe, #c4b5fd); }
 .mock-thumb-2::after {
-  content: 'DESIGN \'25';
+  content: 'KEYRING';
   position: absolute;
   inset: 0;
   display: flex;
@@ -660,12 +646,12 @@ body {
   font-family: -apple-system, sans-serif;
   font-size: 16px;
   font-weight: 900;
-  color: #fff;
+  color: #6d28d9;
   letter-spacing: 2px;
 }
-.mock-thumb-3 { background: linear-gradient(135deg, #a7f3d0, #93c5fd); }
+.mock-thumb-3 { background: linear-gradient(135deg, #ede9fe, #c7d2fe); }
 .mock-thumb-3::after {
-  content: 'BUSINESS';
+  content: 'ECO BAG';
   position: absolute;
   inset: 0;
   display: flex;

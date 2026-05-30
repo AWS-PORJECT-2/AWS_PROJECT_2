@@ -18,6 +18,14 @@
 /* 상세에선 전역 헤더를 비고정으로 — 스크롤 시 헤더가 사라지고 탭바가 맨 위에 붙는다 */
 body.wz-detail-page .wz-hd { position: static; }
 .wz-d-cat { font-size: 13px; font-weight: 600; color: var(--c-text-muted); margin: 0 0 6px; }
+/* 상단 메타 행: 카테고리 + D-day 배지 */
+.wz-d-metarow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.wz-d-metarow .wz-d-cat { margin: 0; }
+/* D-day 강조 배지 — 기본 보라 톤. 임박/오늘은 채워진 보라, 마감은 회색. */
+.wz-d-dday { display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; letter-spacing: .2px; line-height: 1; padding: 5px 10px; border-radius: 999px; color: var(--c-primary-700); background: var(--c-primary-50); border: 1px solid var(--c-primary-200); }
+.wz-d-dday.is-urgent { color: #fff; background: var(--c-primary-600); border-color: var(--c-primary-600); box-shadow: 0 0 0 3px var(--c-primary-100); animation: wz-d-ddaypulse 1.6s ease-in-out infinite; }
+.wz-d-dday.is-ended { color: var(--c-text-muted); background: var(--c-divider); border-color: var(--c-border); }
+@keyframes wz-d-ddaypulse { 0%, 100% { box-shadow: 0 0 0 0 var(--c-primary-100); } 50% { box-shadow: 0 0 0 4px var(--c-primary-100); } }
 .wz-d-tabs__inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 30px; }
 .wz-d-tab { appearance: none; background: none; border: 0; font-family: inherit; cursor: pointer; padding: 16px 2px; font-size: 16px; font-weight: 700; color: var(--c-text-muted); border-bottom: 2.5px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .wz-d-tab:hover { color: var(--c-text); }
@@ -105,6 +113,9 @@ body.wz-detail-page .wz-hd { position: static; }
 .wz-d-act__label { font-size: 11px; font-weight: 700; }
 .wz-d-act.is-on { color: #ef4444; border-color: #fca5a5; }
 .wz-d-act.is-on svg { fill: #ef4444; }
+/* 하트 팝 애니메이션 — 찜 ON 시 하트 아이콘이 통통 튀는 효과 */
+.wz-d-act.is-pop svg, .wz-d-mbar__like.is-pop svg { animation: wz-d-heartpop .42s cubic-bezier(.34, 1.56, .64, 1); transform-origin: center; }
+@keyframes wz-d-heartpop { 0% { transform: scale(1); } 30% { transform: scale(.78); } 60% { transform: scale(1.28); } 100% { transform: scale(1); } }
 
 .wz-d-cta { margin-bottom: 14px; }
 
@@ -190,6 +201,33 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 /* ---------- 토스트 ---------- */
 .wz-d-toast { position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 16px); z-index: 1200; background: var(--c-text); color: #fff; font-size: 14px; font-weight: 600; padding: 12px 20px; border-radius: 10px; box-shadow: var(--sh-3); opacity: 0; transition: opacity .22s, transform .22s; max-width: 90vw; text-align: center; pointer-events: none; }
 .wz-d-toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+
+/* ---------- 관리자 게시글 삭제(위험 영역) ---------- */
+.wz-d-admindanger { margin-top: 18px; border: 1px solid #fca5a5; background: #fef2f2; border-radius: 12px; padding: 14px 16px; }
+.wz-d-admindanger__label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #b91c1c; margin: 0 0 10px; }
+.wz-d-admindanger__ic { display: inline-flex; width: 15px; height: 15px; }
+.wz-d-admindanger__ic svg { width: 100%; height: 100%; }
+.wz-d-delbtn { width: 100%; appearance: none; box-sizing: border-box; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 46px; border-radius: 10px; border: 1px solid #ef4444; background: #fff; color: #dc2626; font-size: 14px; font-weight: 800; transition: background .15s, color .15s; }
+.wz-d-delbtn:hover { background: #ef4444; color: #fff; }
+.wz-d-delbtn__ic { display: inline-flex; width: 18px; height: 18px; }
+.wz-d-delbtn__ic svg { width: 100%; height: 100%; }
+
+/* 삭제 확인 모달 내부 */
+.wz-d-delwarn { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.6; color: var(--c-text-sub); margin-bottom: 12px; word-break: break-word; }
+.wz-d-delwarn__ic { flex-shrink: 0; width: 22px; height: 22px; color: #dc2626; margin-top: 1px; }
+.wz-d-delwarn__ic svg { width: 100%; height: 100%; }
+.wz-d-delfoot { display: flex; gap: 10px; margin-top: 4px; }
+.wz-d-delfoot .wz-btn { flex: 1; }
+.wz-d-delconfirm { background: #ef4444; border: 1px solid #ef4444; color: #fff; }
+.wz-d-delconfirm:hover { background: #dc2626; border-color: #dc2626; }
+.wz-d-delconfirm:disabled { opacity: .6; cursor: default; }
+
+/* 환불 대상 목록 */
+.wz-d-refunds { border: 1px solid var(--c-border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+.wz-d-refunds__row { display: flex; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--c-divider); font-size: 14px; }
+.wz-d-refunds__row:last-child { border-bottom: 0; }
+.wz-d-refunds__who { color: var(--c-text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wz-d-refunds__amt { color: var(--c-primary-700); font-weight: 800; flex-shrink: 0; }
 
 /* ---------- 소유자 수정 모달 ---------- */
 .wz-d-edit { position: fixed; inset: 0; z-index: 1100; background: rgba(16,24,40,.5); display: flex; align-items: flex-start; justify-content: center; padding: 32px 16px; overflow-y: auto; }

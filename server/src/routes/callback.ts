@@ -22,8 +22,8 @@ export function createCallbackHandler(authService: AuthService) {
         httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth', maxAge: refreshMaxAge,
       });
       logger.info({ email: result.user.email }, '인증 성공');
-      // 로그인 성공 후 메인 홈 (index.html) 으로 보냄.
-      res.redirect(`${FRONTEND_URL}/index.html?login=success`);
+      // 로그인 성공 후 메인 홈 (새 wz 홈 main.html) 으로 보냄.
+      res.redirect(`${FRONTEND_URL}/main.html?login=success`);
     } catch (error) {
       const errorCode = error instanceof AppError ? error.code : 'INTERNAL_ERROR';
       logger.warn({ errorCode, ip: req.ip }, '인증 실패');

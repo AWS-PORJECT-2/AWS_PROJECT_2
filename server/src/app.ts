@@ -428,7 +428,8 @@ export function createApp(
     app.use(express.static(frontendPath));
     app.get('*', (req, res, next) => {
       if (req.path.startsWith('/api')) return next();
-      res.sendFile(join(frontendPath, 'index.html'));
+      // 비-/api 경로의 SPA 폴백은 새 wz 홈(main.html) 으로. (구 index.html 은 리다이렉트 스텁)
+      res.sendFile(join(frontendPath, 'main.html'));
     });
   } else {
     app.get('/', (_req, res) => {

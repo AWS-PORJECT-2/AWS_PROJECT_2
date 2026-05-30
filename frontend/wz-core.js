@@ -134,9 +134,10 @@
     const heartBtn = el('button', { class: 'wz-hd__icon wz-hd__heart', type: 'button', 'aria-label': '관심 목록', title: '관심 목록', 'aria-expanded': 'false', html: ICON.heart });
     heartBtn.addEventListener('click', (e) => { e.stopPropagation(); openLikedPop(heartBtn); });
     right.appendChild(heartBtn);
-    /* 종(알림) — id=wz-bell 부여(알림 에이전트가 배지 부착) */
-    const bell = iconLink('bell', '알림', '/notice.html');
-    bell.id = 'wz-bell';
+    /* 종(알림) — 버튼(페이지 이동 없음). id=wz-bell 로 notification.js 가 클릭 시 wz 알림 패널 오픈.
+     * 폴백: 버튼이라 notification.js 의 앵커 가로채기가 안 걸려도 여기서 직접 openNotification 호출. */
+    const bell = el('button', { class: 'wz-hd__icon', type: 'button', id: 'wz-bell', 'aria-label': '알림', title: '알림', html: ICON.bell });
+    bell.addEventListener('click', (e) => { e.stopPropagation(); if (typeof window.openNotification === 'function') window.openNotification(); });
     right.appendChild(bell);
 
     /* 인증 슬롯: 깜빡임 방지 — 직전 로그인 여부 캐시로 초기 렌더 결정.
@@ -242,10 +243,7 @@
   function renderLikedEmpty(body) {
     body.innerHTML = '';
     const empty = el('div', { class: 'wz-likedpop__empty' });
-    empty.append(
-      el('p', {}, '관심 목록이 비어 있어요'),
-      el('a', { class: 'wz-btn wz-btn--outline wz-btn--sm', href: '/main.html' }, '둘러보기')
-    );
+    empty.append(el('p', {}, '관심 목록이 비어 있어요'));
     body.appendChild(empty);
   }
   function LikedRow(p) {
@@ -272,10 +270,8 @@
     closeAllPops();
     anchor.setAttribute('aria-expanded', 'true');
     const m = el('div', { class: 'wz-menu wz-usermenu', role: 'menu' });
+    /* ☰ 바로가기 메뉴는 편의 링크만 — 로그아웃은 아바타 드롭다운(openProfileMenu)에만 둔다. */
     USER_SHORTCUTS.forEach((g) => { const sec = el('div', { class: 'wz-menu__grp' }); g.forEach(([l, h]) => sec.appendChild(el('a', { class: 'wz-menu__item', href: h }, l))); m.appendChild(sec); });
-    const og = el('div', { class: 'wz-menu__grp' });
-    const out = el('a', { class: 'wz-menu__item', href: '#' }, '로그아웃'); out.addEventListener('click', logout);
-    og.appendChild(out); m.appendChild(og);
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
     m.style.top = (r.bottom + 8) + 'px'; m.style.left = Math.max(8, r.left) + 'px';
@@ -295,10 +291,23 @@
     m.appendChild(head);
     const groups = [
       [['프로필', '/profile.html'], ['후원한 프로젝트', '/profile.html#backings'], ['관심 프로젝트', '/profile.html#liked'], ['내 메이커 페이지', '/maker.html?me=1']],
-      [['프로젝트 만들기', '/fund-create.html'], ['알림', '/notice.html'], ['설정', '/settings.html#profile']],
+      /* 알림은 href 이동이 아니라 wz 알림 패널 오픈 → 아래에서 별도 처리(구 notice.html 로 가지 않음) */
+      [['프로젝트 만들기', '/fund-create.html'], ['__notif__', '알림'], ['설정', '/settings.html#profile']],
     ];
     if (isAdmin) groups.push([['관리자', '/admin.html']]);
-    groups.forEach((g) => { const sec = el('div', { class: 'wz-menu__grp' }); g.forEach(([l, h]) => sec.appendChild(el('a', { class: 'wz-menu__item', href: h }, l))); m.appendChild(sec); });
+    groups.forEach((g) => {
+      const sec = el('div', { class: 'wz-menu__grp' });
+      g.forEach(([l, h]) => {
+        if (l === '__notif__') {
+          const it = el('button', { class: 'wz-menu__item', type: 'button' }, h);
+          it.addEventListener('click', (ev) => { ev.preventDefault(); closeAllPops(); if (typeof window.openNotification === 'function') window.openNotification(); });
+          sec.appendChild(it);
+        } else {
+          sec.appendChild(el('a', { class: 'wz-menu__item', href: h }, l));
+        }
+      });
+      m.appendChild(sec);
+    });
     const og = el('div', { class: 'wz-menu__grp' });
     const out = el('a', { class: 'wz-menu__item', href: '#' }, '로그아웃'); out.addEventListener('click', logout);
     og.appendChild(out); m.appendChild(og);
@@ -411,6 +420,12 @@
     function setHeaderH() { const hh = document.getElementById('wz-header'); if (hh) document.documentElement.style.setProperty('--wz-hd-h', hh.offsetHeight + 'px'); }
     setHeaderH(); window.addEventListener('resize', setHeaderH);
     const f = document.getElementById('wz-footer'); if (f && !f.dataset.done) { f.dataset.done = '1'; f.appendChild(Footer()); }
+    // 알림 컨트롤러(종 배지+wz 패널)는 헤더(#wz-bell)가 그려진 뒤 1회 주입 — 모든 wz 페이지에서 종 동작.
+    if (h && !document.getElementById('wz-notif-js')) {
+      const ns = document.createElement('script');
+      ns.id = 'wz-notif-js'; ns.src = '/notification.js'; ns.defer = true;
+      document.body.appendChild(ns);
+    }
     // 가입 동의 게이트(있을 때만 가드 호출)
     try { if (window.WZConsent && typeof window.WZConsent.ensure === 'function') window.WZConsent.ensure(); } catch (_) {}
   }

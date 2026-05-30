@@ -1,24 +1,9 @@
 /**
  * 두띵 랜딩 페이지 인터랙션
- * - 마우스 위치 → ambient glow CSS 변수
  * - 네비 스크롤 시 glassmorphism
  * - story 섹션: sticky 풀스크린 + 단계별 frame 교체 + 배경 색상 모핑
  */
 (function () {
-  // ========== 마우스 추적 그라데이션 ==========
-  let mx = 50, my = 50;
-  let rafId = null;
-  document.addEventListener('mousemove', (e) => {
-    mx = (e.clientX / window.innerWidth) * 100;
-    my = (e.clientY / window.innerHeight) * 100;
-    if (rafId) return;
-    rafId = requestAnimationFrame(() => {
-      document.documentElement.style.setProperty('--mx', mx + '%');
-      document.documentElement.style.setProperty('--my', my + '%');
-      rafId = null;
-    });
-  });
-
   // ========== 네비 스크롤 효과 ==========
   const nav = document.getElementById('nav');
   if (nav) {
@@ -91,25 +76,5 @@
       });
     }, { passive: true });
     setActiveFrame(0);
-  }
-
-  // ========== Hero 비주얼 마우스 따라 parallax ==========
-  const heroVisual = document.querySelector('.hero-visual');
-  if (heroVisual) {
-    let raf2 = false;
-    let mxh = 0, myh = 0;
-    document.addEventListener('mousemove', (e) => {
-      mxh = (e.clientX / window.innerWidth - 0.5) * 2;
-      myh = (e.clientY / window.innerHeight - 0.5) * 2;
-      if (raf2) return;
-      raf2 = true;
-      requestAnimationFrame(() => {
-        const rotateY = mxh * 4;
-        const rotateX = -myh * 3;
-        heroVisual.style.transform =
-          `perspective(1200px) rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
-        raf2 = false;
-      });
-    });
   }
 })();
