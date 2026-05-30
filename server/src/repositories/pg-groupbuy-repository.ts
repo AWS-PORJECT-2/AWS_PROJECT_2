@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import type { PoolClient } from 'pg';
-import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier } from '../types/index.js';
+import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
   GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyUpdateFields,
@@ -39,6 +39,26 @@ function parseRewardTiers(raw: unknown): RewardTier[] | null {
   } catch {
     return null;
   }
+}
+
+// creator_info (JSONB/TEXT) → CreatorInfo 안전 파싱. 알 수 없는 키는 버리고 5개 필드만 추린다.
+function parseCreatorInfo(raw: unknown): CreatorInfo | null {
+  if (raw == null) return null;
+  let obj: unknown = raw;
+  if (typeof raw === 'string') {
+    try { obj = JSON.parse(raw); } catch { return null; }
+  }
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return null;
+  const o = obj as Record<string, unknown>;
+  const str = (v: unknown): string | undefined => (typeof v === 'string' ? v : undefined);
+  const result: CreatorInfo = {};
+  if (str(o.name) !== undefined) result.name = str(o.name);
+  if (typeof o.image === 'string') result.image = o.image;
+  else if (o.image === null) result.image = null;
+  if (str(o.intro) !== undefined) result.intro = str(o.intro);
+  if (str(o.sido) !== undefined) result.sido = str(o.sido);
+  if (str(o.sigungu) !== undefined) result.sigungu = str(o.sigungu);
+  return Object.keys(result).length ? result : null;
 }
 
 function achievementRate(current: number, target: number): number {
@@ -90,8 +110,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, plan, video_url, creator_info, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -103,6 +123,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.rewardTiers ? JSON.stringify(groupbuy.rewardTiers) : null,
         groupbuy.delegated ?? false, groupbuy.feeRate ?? 5,
         groupbuy.coverImageUrl ?? null, groupbuy.mode ?? 'normal',
+        groupbuy.plan ?? 'start', groupbuy.videoUrl ?? null,
+        groupbuy.creatorInfo ? JSON.stringify(groupbuy.creatorInfo) : null,
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -180,6 +202,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       contentBlocks: 'content_blocks',
       deadline: 'deadline',
       targetQuantity: 'target_quantity',
+      plan: 'plan',
+      videoUrl: 'video_url',
+      creatorInfo: 'creator_info',
     };
 
     const sets: string[] = [];
@@ -187,8 +212,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     for (const [key, column] of Object.entries(COLUMN)) {
       if (!(key in fields)) continue; // 제공된 필드만 갱신
       const raw = (fields as Record<string, unknown>)[key];
-      // content_blocks 는 JSON 직렬화해서 저장(컬럼은 JSONB). 나머지는 값 그대로.
-      const value = key === 'contentBlocks'
+      // content_blocks / creator_info 는 JSON 직렬화해서 저장(컬럼은 JSONB). 나머지는 값 그대로.
+      const value = (key === 'contentBlocks' || key === 'creatorInfo')
         ? (raw == null ? null : JSON.stringify(raw))
         : raw;
       params.push(value);
@@ -410,6 +435,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       platformFee: Number(r.platform_fee) || 0,
       finalPrice: Number(r.final_price) || 0,
       mode: (r.mode as string) ?? 'normal',
+      plan: (r.plan as string) ?? 'start',
+      videoUrl: (r.video_url as string | null) ?? null,
+      creatorInfo: parseCreatorInfo(r.creator_info),
       contentBlocks: contentBlocksToContract(parseContentBlocks(r.content_blocks)),
       rewardTiers: rewardTiersToContract(parseRewardTiers(r.reward_tiers)),
       maker: {
@@ -450,6 +478,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       contentBlocks: parseContentBlocks(row.content_blocks),
       coverImageUrl: (row.cover_image_url as string | null) ?? null,
       mode: (row.mode as string | undefined) ?? 'normal',
+      plan: (row.plan as string | undefined) ?? 'start',
+      videoUrl: (row.video_url as string | null) ?? null,
+      creatorInfo: parseCreatorInfo(row.creator_info),
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };

@@ -34,8 +34,20 @@ export interface GroupBuy {
   contentBlocks?: ContentBlock[] | null; // 게시글 본문 (사용자 작성 텍스트/이미지 블록)
   coverImageUrl?: string | null;  // 대표 이미지(목록 썸네일) — 006_social_features
   mode?: string;                  // 'normal' | 'proxy' (대리 펀딩) — 006_social_features
+  plan?: string;                  // 직접개설 요금제 'start'|'run'|'boost' (수수료율 5/9/15%) — 022_create_extras
+  videoUrl?: string | null;       // 대표 영상(데이터 URL 또는 http) — 022_create_extras
+  creatorInfo?: CreatorInfo | null; // 창작자 정보 {name,image,intro,sido,sigungu} — 022_create_extras
   createdAt: Date;
   updatedAt: Date;
+}
+
+// 창작자 정보(프로젝트 단위) — 022_create_extras. groupbuys.creator_info JSONB 에 저장.
+export interface CreatorInfo {
+  name?: string;        // 창작자/팀명 (<=20)
+  image?: string | null; // 창작자 이미지 (data URL 또는 http)
+  intro?: string;       // 소개 (<=300)
+  sido?: string;        // 시/도
+  sigungu?: string;     // 시/군/구
 }
 
 // 게시글 본문 블록 — 텍스트와 이미지를 사용자가 원하는 순서로 섞음

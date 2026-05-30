@@ -51,6 +51,13 @@ import { createFollowStatusHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
 import { GeminiImageService } from './services/ai/gemini-image-service.js';
+import { GeminiTextService } from './services/ai/gemini-text-service.js';
+import { createAiStoryDraftHandler } from './routes/ai-story-draft.js';
+import {
+  createMeDraftsListHandler, createMeDraftCreateHandler, createMeDraftGetHandler,
+  createMeDraftUpdateHandler, createMeDraftDeleteHandler,
+} from './routes/me-drafts.js';
+import { PgProjectDraftRepository } from './repositories/pg-project-draft-repository.js';
 import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
@@ -179,7 +186,8 @@ export function createApp(
   // 웹훅 외 라우트용 JSON 파서 — webhook 경로는 제외
   app.use((req, res, next) => {
     if (req.path === '/api/payments/webhook') return next();
-    express.json({ limit: '15mb' })(req, res, next);
+    // 대표 영상(video data URL) + 만들기 폼 임시저장(data JSONB) 이 커서 50mb 로 상향.
+    express.json({ limit: '50mb' })(req, res, next);
   });
   app.use(cookieParser());
 
@@ -229,6 +237,11 @@ export function createApp(
   if (gemini) {
     app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
   }
+
+  // AI 스토리 초안 — 텍스트 모델. 키 미설정 시에도 라우트는 등록하고 핸들러에서 503 응답
+  //  (이미지 라우터의 404 미등록과 달리, 프론트가 503 미연결 안내를 받게).
+  const geminiText = GeminiTextService.fromEnv();
+  app.post('/api/ai/story-draft', authRequired, aiRateLimit, createAiStoryDraftHandler(geminiText, AI_TIMEOUT_MS));
 
   // --- 공동구매(=펀드) 저장소 ---
   const groupBuyRepository = new PgGroupBuyRepository(pool);
@@ -333,6 +346,14 @@ export function createApp(
   app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository, refreshTokenRepository));
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
+
+  // --- 만들기 폼 임시저장(project_drafts) — 본인 것만 CRUD ---
+  const projectDraftRepository = new PgProjectDraftRepository(pool);
+  app.get('/api/me/drafts', authRequired, createMeDraftsListHandler(projectDraftRepository));
+  app.post('/api/me/drafts', authRequired, writeRateLimit, createMeDraftCreateHandler(projectDraftRepository));
+  app.get('/api/me/drafts/:id', authRequired, createMeDraftGetHandler(projectDraftRepository));
+  app.put('/api/me/drafts/:id', authRequired, writeRateLimit, createMeDraftUpdateHandler(projectDraftRepository));
+  app.delete('/api/me/drafts/:id', authRequired, createMeDraftDeleteHandler(projectDraftRepository));
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
   app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
   app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository));

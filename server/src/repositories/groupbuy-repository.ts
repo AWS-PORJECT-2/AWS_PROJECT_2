@@ -1,4 +1,4 @@
-import type { GroupBuy, GroupBuyStatus, ContentBlock } from '../types/index.js';
+import type { GroupBuy, GroupBuyStatus, ContentBlock, CreatorInfo } from '../types/index.js';
 import type { PoolClient } from 'pg';
 
 // 관리자 부분 수정에 허용되는 필드(화이트리스트). 모두 선택적 — 제공된 키만 갱신.
@@ -13,6 +13,9 @@ export interface GroupBuyUpdateFields {
   contentBlocks?: ContentBlock[] | null;
   deadline?: Date;
   targetQuantity?: number;
+  plan?: string;                      // 'start'|'run'|'boost' — 022_create_extras
+  videoUrl?: string | null;           // 대표 영상 — 022_create_extras
+  creatorInfo?: CreatorInfo | null;   // 창작자 정보 — 022_create_extras
 }
 
 export interface GroupBuyListItem extends GroupBuy {
@@ -56,6 +59,9 @@ export interface GroupBuyDetail extends GroupBuyCardItem {
   platformFee: number;
   finalPrice: number;
   mode: string;
+  plan: string;                                  // 'start'|'run'|'boost' — 022_create_extras
+  videoUrl: string | null;                       // 대표 영상 — 022_create_extras
+  creatorInfo: import('../types/index.js').CreatorInfo | null; // 창작자 정보 — 022_create_extras
   contentBlocks: Array<{ type: 'text' | 'image'; text?: string; url?: string }>;
   rewardTiers: Array<{ title: string; price: number; desc: string; soldCount: number; stock?: number | null }>;
   maker: {

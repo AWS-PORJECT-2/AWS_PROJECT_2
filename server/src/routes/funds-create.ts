@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
-import type { GroupBuy, ContentBlock, RewardTier } from '../types/index.js';
+import type { GroupBuy, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
@@ -24,10 +24,56 @@ const TIER_PRICE_MAX = 10_000_000;
 const TIER_STOCK_MAX = 100_000;
 
 // ─── 수수료율(서버 권위) ───
-// 일반(normal): 창작자가 직접 운영 → 5%. 대리(proxy): 플랫폼이 대행 → 12%.
+// 일반(normal): 창작자가 직접 운영. 요금제(plan)별 차등 수수료.
+//   Start 5% / Run 9% / Boost 15%. 대리(proxy): 플랫폼이 대행 → 12%.
 // platform_fee = round(finalPrice * RATE). 클라이언트가 보낸 금액은 절대 신뢰하지 않음.
-const NORMAL_FEE_RATE = 0.05;
+const NORMAL_FEE_RATE = 0.05; // 직접개설 기본(Start) — 하위호환용 기준값
 const PROXY_FEE_RATE = 0.12;
+
+// 직접개설 요금제 → 플랫폼 수수료율. 알 수 없는 값/미지정은 'start'(5%).
+const PLAN_FEE_RATE: Record<string, number> = {
+  start: 0.05,
+  run: 0.09,
+  boost: 0.15,
+};
+function resolvePlan(v: unknown): 'start' | 'run' | 'boost' {
+  return v === 'run' || v === 'boost' ? v : 'start';
+}
+
+// 창작자 정보(creatorInfo) 검증 상한
+const CREATOR_NAME_MAX = 20;
+const CREATOR_INTRO_MAX = 300;
+const CREATOR_REGION_MAX = 30;
+
+// 대표 영상(videoUrl) — data:video/(mp4|webm|quicktime);base64, 또는 http(s) URL.
+// 영상 data URL 은 크므로 별도 상한(base64 약 36MB). app.ts express.json limit 은 50mb 로 상향.
+const MAX_VIDEO_CHARS = 48_000_000;
+
+function videoField(v: unknown): string | null {
+  if (typeof v !== 'string' || v.length === 0) return null;
+  if (v.length > MAX_VIDEO_CHARS) return null;
+  const isHttp = /^https?:\/\//.test(v);
+  const isDataVideo = /^data:video\/(mp4|webm|quicktime);base64,/.test(v);
+  return (isHttp || isDataVideo) ? v : null;
+}
+
+// {name,image,intro,sido,sigungu} 검증. 어느 필드도 없으면 null 반환(저장 생략).
+function creatorInfoField(v: unknown): CreatorInfo | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const info: CreatorInfo = {};
+  const name = stringField(o.name).slice(0, CREATOR_NAME_MAX);
+  if (name) info.name = name;
+  const image = imageField(o.image);
+  if (image) info.image = image;
+  const intro = stringField(o.intro).slice(0, CREATOR_INTRO_MAX);
+  if (intro) info.intro = intro;
+  const sido = stringField(o.sido).slice(0, CREATOR_REGION_MAX);
+  if (sido) info.sido = sido;
+  const sigungu = stringField(o.sigungu).slice(0, CREATOR_REGION_MAX);
+  if (sigungu) info.sigungu = sigungu;
+  return Object.keys(info).length ? info : null;
+}
 
 /**
  * POST /api/funds — 공구(groupbuy) 개설. mode 로 일반/대리 분기.
@@ -71,6 +117,9 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   // coverImageUrl 우선, 없으면 designImageDataUrl(기존 프론트 호환)
   const cover = imageField(body.coverImageUrl) ?? imageField(body.designImageDataUrl);
   const delegated = body.delegated === true; // 기존 프론트 호환 플래그
+  const plan = resolvePlan(body.plan);        // start|run|boost (수수료율 5/9/15%)
+  const videoUrl = videoField(body.videoUrl); // 대표 영상(선택)
+  const creatorInfo = creatorInfoField(body.creatorInfo); // 창작자 정보(선택)
 
   const errors: string[] = [];
   if (!title || title.length > TITLE_MAX) errors.push('title');
@@ -88,7 +137,9 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   const tiers = rewardTiers ?? [];
   // 대표가격 = 최저 리워드가(목록/결제 호환).
   const finalPrice = tiers.length > 0 ? Math.min(...tiers.map((t) => t.price)) : 0;
-  const platformFee = Math.round(finalPrice * NORMAL_FEE_RATE);
+  // 요금제(plan)별 수수료율 — Start 5% / Run 9% / Boost 15%. 서버에서만 결정.
+  const feeRate = PLAN_FEE_RATE[plan] ?? NORMAL_FEE_RATE;
+  const platformFee = Math.round(finalPrice * feeRate);
   const firstContentImage = contentBlocks?.find((b) => b.type === 'image')?.value ?? null;
   const thumbnail = cover ?? firstContentImage;
   const now = new Date();
@@ -102,7 +153,7 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     category,
     rewardTiers: tiers,
     delegated,
-    feeRate: NORMAL_FEE_RATE * 100,
+    feeRate: feeRate * 100,
     productOptions: [],
     basePrice,
     designFee,
@@ -117,6 +168,9 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     contentBlocks,
     coverImageUrl: thumbnail,
     mode: 'normal',
+    plan,
+    videoUrl,
+    creatorInfo,
     createdAt: now,
     updatedAt: now,
   };
@@ -157,6 +211,9 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
     }
   }
   const contentBlocks: ContentBlock[] | null = blocks.length ? blocks : null;
+  // 대리 의뢰에도 대표 영상/창작자 정보는 선택 허용(있으면 저장).
+  const videoUrl = videoField(body.videoUrl);
+  const creatorInfo = creatorInfoField(body.creatorInfo);
 
   return {
     id: randomUUID(),
@@ -182,6 +239,9 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
     contentBlocks,
     coverImageUrl: null,
     mode: 'proxy',
+    plan: 'start', // 대리는 요금제 개념 없음 — 기본값.
+    videoUrl,
+    creatorInfo,
     createdAt: now,
     updatedAt: now,
   };

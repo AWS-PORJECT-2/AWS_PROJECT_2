@@ -40,3 +40,7 @@ export type { AnnouncementRepository } from './announcement-repository.js';
 export { PgAnnouncementRepository } from './pg-announcement-repository.js';
 export type { ChatRepository } from './chat-repository.js';
 export { PgChatRepository } from './pg-chat-repository.js';
+
+// Project drafts(만들기 폼 임시저장) — 022_create_extras
+export type { ProjectDraftRepository, ProjectDraftSummary } from './project-draft-repository.js';
+export { PgProjectDraftRepository } from './pg-project-draft-repository.js';

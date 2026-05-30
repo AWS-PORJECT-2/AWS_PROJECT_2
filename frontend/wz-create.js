@@ -35,7 +35,37 @@
     hands: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l5-5 4 4 3-3 5 5"/><path d="M2 12v4a2 2 0 0 0 2 2h3"/><path d="M22 12v4a2 2 0 0 1-2 2h-3"/></svg>',
     phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
     arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+    tier: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/></svg>',
+    video: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="14" height="14" rx="2"/><path d="M22 7l-6 5 6 5V7z"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>',
+    pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 12-9 12s-9-5-9-12a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>',
+    save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
+    resume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
   };
+
+  /* ---- 요금제(서버가 최종 수수료율 계산; 표시는 참고용) ---- */
+  var PLAN_INFO = {
+    start: {
+      key: 'start', name: 'Start', feePct: 5, feeRate: 0.05,
+      tagline: '처음 시작하는 창작자를 위한 기본 요금제',
+      points: ['플랫폼 수수료 5% (가장 낮음)', '프로젝트 공개 및 후원 모집', '기본 결제·정산 지원'],
+    },
+    run: {
+      key: 'run', name: 'Run', feePct: 9, feeRate: 0.09,
+      tagline: '더 많은 후원자에게 닿고 싶은 창작자를 위한 요금제',
+      points: ['플랫폼 수수료 9%', '공개 예정(오픈 알림) 페이지 제공', '후원·유입 데이터 분석 리포트'],
+    },
+    boost: {
+      key: 'boost', name: 'Boost', feePct: 15, feeRate: 0.15,
+      tagline: '최대 노출로 펀딩을 끌어올리는 요금제',
+      points: ['플랫폼 수수료 15%', '홈·카테고리 상단 노출 부스팅', 'SNS 광고 집행 및 데이터 분석', '공개 예정 페이지 제공'],
+    },
+  };
+  function planInfo(key) { return PLAN_INFO[key] || PLAN_INFO.start; }
+
+  /* 임시저장 자동 저장 디바운스(ms) */
+  var DRAFT_DEBOUNCE_MS = 1500;
 
   /* ---- 진행 방식별 안내(수수료는 서버 계산, 표시는 참고용) ---- */
   var MODE_INFO = {
@@ -53,11 +83,28 @@
       me = m;
       if (!me) { renderNeedLogin(); return; }
       var q = new URLSearchParams(location.search);
+      var draftId = q.get('draft');
+      if (draftId) { resumeDraft(draftId); return; }
       var mode = q.get('mode');
       if (mode === 'normal') startNormal();
       else if (mode === 'proxy') startProxy();
       else renderPick();
     });
+  }
+
+  /* ?draft=<id> 로 진입 — 서버에서 임시저장 불러와 작성 현황으로 복원 */
+  function resumeDraft(id) {
+    root.replaceChildren();
+    root.appendChild(W.el('div', { class: 'wc-loading' }, '임시저장을 불러오는 중...'));
+    window.api.get('/me/drafts/' + encodeURIComponent(id))
+      .then(function (d) {
+        if (!restoreFromDraft(d)) { toast('임시저장을 불러올 수 없어 새로 시작합니다'); renderPick(); return; }
+        renderStudio();
+      })
+      .catch(function (err) {
+        toast(err && err.status === 404 ? '임시저장을 찾을 수 없습니다' : '임시저장을 불러오지 못했습니다');
+        renderPick();
+      });
   }
 
   /* =====================================================================
@@ -74,6 +121,11 @@
       W.el('p', { class: 'wc-choose__sub' }, '진행 방식을 선택하세요. 직접 개설은 수수료가 낮고 모든 내용을 직접 작성하며, 대리 개설은 수수료를 더 받는 대신 두띵이 기획과 운영을 대신 진행합니다.'),
     );
     wrap.appendChild(head);
+
+    // 임시저장(이어서 만들기) 영역 — 있을 때만 표시
+    var draftsWrap = W.el('div', {});
+    wrap.appendChild(draftsWrap);
+    loadDraftsInto(draftsWrap);
 
     var grid = W.el('div', { class: 'wc-choose__grid' });
     grid.append(
@@ -135,17 +187,90 @@
     return card;
   }
 
+  /* ---- 임시저장 목록(이어서 만들기) ---- */
+  function loadDraftsInto(container) {
+    window.api.get('/me/drafts')
+      .then(function (res) {
+        var items = (res && Array.isArray(res.items)) ? res.items : [];
+        if (!items.length) return;
+        renderDraftsResume(container, items);
+      })
+      .catch(function () { /* 임시저장 불러오기 실패는 조용히 무시 — 신규 작성 흐름 유지 */ });
+  }
+
+  function renderDraftsResume(container, items) {
+    container.replaceChildren();
+    var sec = W.el('section', { class: 'wc-drafts' });
+    var head = W.el('div', { class: 'wc-drafts__head' });
+    head.append(
+      W.el('span', { class: 'wc-drafts__ic', html: IC.resume }),
+      W.el('div', {},
+        W.el('p', { class: 'wc-drafts__title' }, '만들던 프로젝트가 있습니다'),
+        W.el('p', { class: 'wc-drafts__sub' }, '이어서 작성하거나 삭제할 수 있어요. 임시저장은 직접 개설 프로젝트에만 적용됩니다.'),
+      ),
+    );
+    sec.appendChild(head);
+
+    var list = W.el('div', { class: 'wc-drafts__list' });
+    items.forEach(function (d) {
+      list.appendChild(DraftRow(d, function () { loadDraftsInto(container); }));
+    });
+    sec.appendChild(list);
+    container.appendChild(sec);
+  }
+
+  function DraftRow(d, onChange) {
+    var row = W.el('div', { class: 'wc-draft' });
+    var info = W.el('div', { class: 'wc-draft__info' });
+    var title = (d.title && String(d.title).trim()) ? String(d.title) : '제목 없는 프로젝트';
+    info.appendChild(W.el('p', { class: 'wc-draft__title' }, title));
+    var meta = W.el('p', { class: 'wc-draft__meta' });
+    var catLabel = '';
+    if (d.category) { var c = window.dtCategory ? window.dtCategory(d.category) : null; catLabel = c ? c.label : ''; }
+    if (catLabel) meta.append(W.el('span', {}, catLabel), W.el('span', { class: 'wc-draft__dot' }, '·'));
+    meta.append(W.el('span', {}, '수정 ' + formatDraftDate(d.updatedAt)));
+    info.appendChild(meta);
+    row.appendChild(info);
+
+    var actions = W.el('div', { class: 'wc-draft__actions' });
+    var resumeBtn = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, '이어서 만들기');
+    resumeBtn.addEventListener('click', function () { resumeDraft(d.id); });
+    var delBtn = W.el('button', { class: 'wc-draft__del', type: 'button', 'aria-label': '임시저장 삭제', html: IC.trash });
+    delBtn.addEventListener('click', function () {
+      delBtn.disabled = true;
+      window.api.del('/me/drafts/' + encodeURIComponent(d.id))
+        .then(function () { toast('임시저장을 삭제했습니다'); if (onChange) onChange(); })
+        .catch(function () { delBtn.disabled = false; toast('삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.'); });
+    });
+    actions.append(resumeBtn, delBtn);
+    row.appendChild(actions);
+    return row;
+  }
+
+  function formatDraftDate(iso) {
+    var dt = new Date(iso);
+    if (isNaN(dt.getTime())) return '';
+    var y = dt.getFullYear(), m = dt.getMonth() + 1, day = dt.getDate();
+    var hh = String(dt.getHours()).padStart(2, '0'), mm = String(dt.getMinutes()).padStart(2, '0');
+    return y + '.' + m + '.' + day + ' ' + hh + ':' + mm;
+  }
+
   /* =====================================================================
    * 일반(직접) 개설
    * ===================================================================== */
   var nstate;
-  function startNormal() {
-    nstate = {
+  // 임시저장 추적: 현재 작성 중인 draft 의 서버 id(없으면 null) + 자동저장 상태
+  var draftId = null, draftSaving = false, draftTimer = null, lastSavedJson = '';
+
+  function newNState() {
+    return {
       mode: 'normal',
+      plan: 'start',          // 요금제: start|run|boost
       category: '',
       title: '',
       description: '',
       coverImage: null,       // data URL
+      videoUrl: '',           // 대표 영상: data URL(mp4/webm) 또는 http(s) 링크
       basePrice: '',
       targetQuantity: '',
       deadline: '',
@@ -155,9 +280,32 @@
       legalNotice: '',
       makerIntro: '',
       makerContact: '',
+      creatorName: '',
+      creatorImage: null,     // data URL 또는 http(s)
+      creatorIntro: '',
+      creatorSido: '',
+      creatorSigungu: '',
       tryonImage: null,
     };
+  }
+
+  function startNormal() {
+    nstate = newNState();
+    draftId = null; lastSavedJson = '';
     renderCategoryPick();
+  }
+
+  /* 서버 draft.data 로부터 nstate 복원. 성공 시 true */
+  function restoreFromDraft(d) {
+    if (!d || !d.data || typeof d.data !== 'object' || Array.isArray(d.data)) return false;
+    nstate = Object.assign(newNState(), d.data);
+    nstate.mode = 'normal';
+    // 배열/객체 필드 방어적 정규화
+    if (!Array.isArray(nstate.rewardTiers)) nstate.rewardTiers = [];
+    if (!Array.isArray(nstate.storyBlocks)) nstate.storyBlocks = [];
+    draftId = d.id || null;
+    lastSavedJson = draftPayloadJson();
+    return true;
   }
 
   /* 카테고리 선택(일반 첫 단계) */
@@ -214,6 +362,11 @@
         open: openBasicForm,
       },
       {
+        key: 'plan', name: '요금제', required: true,
+        done: function () { return !!PLAN_INFO[nstate.plan]; },
+        open: openPlanForm,
+      },
+      {
         key: 'goal', name: '기본가 · 목표 · 일정', required: true,
         done: function () { return validPrice(nstate.basePrice) && validQty(nstate.targetQuantity) && validDeadline(nstate.deadline); },
         open: openGoalForm,
@@ -227,6 +380,11 @@
         key: 'reward', name: '리워드', required: true,
         done: function () { return nstate.rewardTiers.length > 0 && nstate.rewardTiers.every(validTier); },
         open: openRewardForm,
+      },
+      {
+        key: 'creator', name: '창작자 정보', required: true,
+        done: function () { return !!nstate.creatorName.trim() && !!nstate.creatorIntro.trim(); },
+        open: openCreatorForm,
       },
       {
         key: 'policy', name: '정책', required: false,
@@ -269,29 +427,31 @@
     root.appendChild(studio);
   }
 
+  // 섹션 key → 사이드바 아이콘
+  var SECTION_ICON = {
+    basic: IC.doc, plan: IC.tier, goal: IC.calendar, story: IC.pen,
+    reward: IC.wallet, creator: IC.user, policy: IC.shield, maker: IC.mega,
+  };
+
   function Sidebar() {
     var side = W.el('nav', { class: 'wc-side', 'aria-label': '메이커 스튜디오' });
-    side.appendChild(W.el('p', { class: 'wc-side__title' }, '메이커 스튜디오'));
+    side.appendChild(W.el('p', { class: 'wc-side__title' }, '프로젝트 작성 단계'));
     var ul = W.el('ul', { class: 'wc-side__nav' });
-    var items = [
-      { name: '프로젝트 작성', icon: IC.doc, active: true },
-      { name: '일정', icon: IC.calendar },
-      { name: '데이터·인사이트', icon: IC.chart },
-      { name: '마케팅 도구', icon: IC.mega },
-      { name: '정산', icon: IC.wallet },
-    ];
-    items.forEach(function (it) {
-      var li = W.el('li', { class: 'wc-side__item ' + (it.active ? 'is-active' : 'is-disabled') });
-      var sp = W.el('span', { html: it.icon, class: 'wc-side__ic' });
+    sections().forEach(function (sec) {
+      var done = sec.done();
+      var li = W.el('li', { class: 'wc-side__item is-active' + (done ? ' is-done' : '') });
+      var sp = W.el('span', { html: SECTION_ICON[sec.key] || IC.doc, class: 'wc-side__ic' });
       sp.style.display = 'inline-flex'; sp.style.width = '18px'; sp.style.height = '18px';
       li.appendChild(sp);
-      li.appendChild(W.el('span', {}, it.name));
-      if (!it.active) li.appendChild(W.el('span', { class: 'wc-side__soon' }, '준비 중'));
+      li.appendChild(W.el('span', {}, sec.name));
+      if (done) li.appendChild(W.el('span', { class: 'wc-side__tick', html: IC.check }));
+      else if (sec.required) li.appendChild(W.el('span', { class: 'wc-side__req' }, '필수'));
+      li.addEventListener('click', function () { sec.open(); });
       ul.appendChild(li);
     });
     side.appendChild(ul);
     var change = W.el('button', { class: 'wc-side__change', type: 'button' }, '진행 방식 다시 선택');
-    change.addEventListener('click', renderPick);
+    change.addEventListener('click', function () { stopAutosave(); renderPick(); });
     side.appendChild(change);
     return side;
   }
@@ -299,6 +459,7 @@
   function MainColumn() {
     var col = W.el('div', { class: 'wc-main' });
     col.append(
+      DraftBar(),
       W.el('h1', { class: 'wc-main__title' }, '작성 현황'),
       W.el('p', { class: 'wc-main__sub' }, '프로젝트를 공개하는 데 필요한 내용을 작성해 주세요'),
       ProgressCard(),
@@ -308,6 +469,29 @@
     );
     return col;
   }
+
+  /* 임시저장 상태 + 수동 저장 버튼 바 */
+  var _draftStatusEl;
+  function DraftBar() {
+    var bar = W.el('div', { class: 'wc-draftbar' });
+    var left = W.el('div', { class: 'wc-draftbar__left' });
+    left.append(W.el('span', { class: 'wc-draftbar__ic', html: IC.save }));
+    _draftStatusEl = W.el('span', { class: 'wc-draftbar__status' }, draftStatusText());
+    left.appendChild(_draftStatusEl);
+    var saveBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, '임시저장');
+    saveBtn.addEventListener('click', function () {
+      saveBtn.disabled = true;
+      saveDraftNow(true).then(function () { saveBtn.disabled = false; }).catch(function () { saveBtn.disabled = false; });
+    });
+    bar.append(left, saveBtn);
+    return bar;
+  }
+  function draftStatusText() {
+    if (draftSaving) return '임시저장 중...';
+    if (draftId) return '임시저장됨 · 작성 내용은 자동으로 저장됩니다';
+    return '작성을 시작하면 자동으로 임시저장됩니다';
+  }
+  function updateDraftStatus() { if (_draftStatusEl) _draftStatusEl.textContent = draftStatusText(); }
 
   function ProgressCard() {
     var pct = progressPct();
@@ -372,7 +556,7 @@
     wrap.appendChild(btn);
     wrap.appendChild(W.el('p', { class: 'wc-submit__hint' },
       ready ? '제출하면 창작자 약관 동의 후 관리자 심사를 거쳐 프로젝트가 공개됩니다.'
-            : '필수 항목(기본 정보 · 기본가/목표/일정 · 스토리 · 리워드)을 모두 작성해 주세요.'));
+            : '필수 항목(기본 정보 · 요금제 · 기본가/목표/일정 · 스토리 · 리워드 · 창작자 정보)을 모두 작성해 주세요.'));
     return wrap;
   }
 
@@ -380,9 +564,11 @@
     var aside = W.el('aside', { class: 'wc-aside' });
     var cat = window.dtCategory ? window.dtCategory(nstate.category) : null;
 
+    var planI = planInfo(nstate.plan);
     var b1 = W.el('div', { class: 'wc-banner wc-banner--accent' });
     b1.appendChild(W.el('p', { class: 'wc-banner__title', html: IC.info + '<span>선택한 항목</span>' }));
     b1.appendChild(W.el('p', { class: 'wc-banner__text' }, (cat ? cat.label : '미지정') + ' · 직접 개설'));
+    b1.appendChild(W.el('p', { class: 'wc-banner__text', style: 'margin-top:6px' }, planI.name + ' 요금제 · 플랫폼 수수료 ' + planI.feePct + '% (참고)'));
     aside.appendChild(b1);
 
     var b2 = W.el('div', { class: 'wc-banner' });
@@ -406,7 +592,60 @@
     return aside;
   }
 
-  function refreshStudio() { renderStudio(); }
+  function refreshStudio() { renderStudio(); scheduleAutosave(); }
+
+  /* =====================================================================
+   * 임시저장(자동/수동)
+   * ===================================================================== */
+  // draft 로 저장할 폼 상태(nstate) — JSON 직렬화 가능한 평범한 객체.
+  function draftData() { return Object.assign({}, nstate); }
+  function draftPayloadJson() { try { return JSON.stringify(draftData()); } catch (_) { return ''; } }
+  // 목록·제목 요약을 위해 title 도 함께 보냄(서버는 data.category 로 카테고리 요약).
+  function draftTitle() { var t = String(nstate.title || '').trim(); return t ? t.slice(0, 120) : null; }
+
+  function stopAutosave() { if (draftTimer) { clearTimeout(draftTimer); draftTimer = null; } }
+
+  function scheduleAutosave() {
+    stopAutosave();
+    // 빈 상태(아무 것도 입력 안 함)면 굳이 생성하지 않음
+    if (!hasAnyInput()) return;
+    var cur = draftPayloadJson();
+    if (cur === lastSavedJson) return;   // 변경 없음
+    draftTimer = setTimeout(function () { saveDraftNow(false); }, DRAFT_DEBOUNCE_MS);
+  }
+
+  function hasAnyInput() {
+    return !!(String(nstate.title || '').trim() || String(nstate.description || '').trim() ||
+      nstate.coverImage || String(nstate.videoUrl || '').trim() ||
+      String(nstate.basePrice) !== '' || String(nstate.targetQuantity) !== '' || nstate.deadline ||
+      (nstate.rewardTiers && nstate.rewardTiers.length) || (nstate.storyBlocks && nstate.storyBlocks.length) ||
+      String(nstate.creatorName || '').trim() || nstate.creatorImage || String(nstate.creatorIntro || '').trim());
+  }
+
+  // manual=true 면 사용자 명시 저장(토스트), false 면 자동 디바운스 저장(조용히).
+  function saveDraftNow(manual) {
+    if (draftSaving) return Promise.resolve();
+    if (!hasAnyInput()) { if (manual) toast('저장할 내용을 먼저 입력해 주세요'); return Promise.resolve(); }
+    var data = draftData();
+    var json = draftPayloadJson();
+    draftSaving = true; updateDraftStatus();
+    var body = { title: draftTitle(), data: data };
+    // window.api 는 put 헬퍼가 없어 post 에 method: 'PUT' 을 덮어써 사용(401 자동 갱신 로직 재사용).
+    var p = draftId
+      ? window.api.post('/me/drafts/' + encodeURIComponent(draftId), body, { method: 'PUT' })
+      : window.api.post('/me/drafts', body);
+    return p.then(function (res) {
+      if (res && res.id) draftId = res.id;
+      lastSavedJson = json;
+      draftSaving = false; updateDraftStatus();
+      if (manual) toast('임시저장되었습니다');
+    }).catch(function (err) {
+      draftSaving = false; updateDraftStatus();
+      // draft 가 서버에서 사라진 경우(404) → id 비우고 다음 저장 때 새로 생성
+      if (err && err.status === 404) { draftId = null; }
+      if (manual) toast((err && err.message) ? err.message : '임시저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+    });
+  }
 
   /* =====================================================================
    * 슬라이드오버 공통
@@ -446,6 +685,7 @@
   function closeOver() {
     if (!_over) return;
     var o = _over; _over = null;
+    _applyAiBlocks = null;   // 슬라이드오버 닫힘 → AI 초안 콜백 무효화
     o.classList.remove('is-open');
     setTimeout(function () { if (o.parentNode) o.parentNode.removeChild(o); }, 250);
   }
@@ -462,9 +702,10 @@
   function input(props) { return W.el('input', Object.assign({ class: 'wc-input' }, props)); }
   function textarea(props) { return W.el('textarea', Object.assign({ class: 'wc-textarea' }, props)); }
 
-  /* ---- 기본 정보 ---- */
+  /* ---- 기본 정보 (대표 이미지 + 대표 영상 포함) ---- */
   function openBasicForm() {
     var titleIn, descIn, coverState = nstate.coverImage, previewWrap;
+    var videoState = nstate.videoUrl || '', videoWrap, linkIn;
     openOver('기본 정보', function (body) {
       titleIn = input({ type: 'text', value: nstate.title, maxlength: '80', placeholder: '프로젝트 제목' });
       body.appendChild(field('제목', true, titleIn, '후원자에게 보이는 프로젝트 이름입니다. 최대 80자.'));
@@ -498,11 +739,127 @@
       }
       renderCover();
       body.appendChild(field('대표 이미지', false, previewWrap, '목록·상세 썸네일로 사용됩니다. 비우면 AI 피팅 결과나 스토리 첫 이미지가 사용됩니다.'));
+
+      // ---- 대표 영상(선택): 파일 업로드(data URL) 또는 링크(http) 택1 ----
+      videoWrap = W.el('div', {});
+      function renderVideo() {
+        videoWrap.replaceChildren();
+        if (videoState) {
+          var box = W.el('div', { class: 'wc-vpreview' });
+          if (/^data:video\//.test(videoState)) {
+            var v = W.el('video', { src: videoState, controls: 'controls', playsinline: 'playsinline' });
+            box.appendChild(v);
+          } else {
+            var lk = W.el('div', { class: 'wc-vlink' });
+            lk.append(W.el('span', { class: 'wc-vlink__ic', html: IC.play }), W.el('span', { class: 'wc-vlink__url' }, videoState));
+            box.appendChild(lk);
+          }
+          var del = W.el('button', { class: 'wc-preview__del', type: 'button', 'aria-label': '영상 삭제', html: IC.close });
+          del.addEventListener('click', function () { videoState = ''; if (linkIn) linkIn.value = ''; renderVideo(); });
+          box.appendChild(del);
+          videoWrap.appendChild(box);
+        } else {
+          var up = W.el('label', { class: 'wc-upload' });
+          up.appendChild(W.el('div', { html: IC.video }));
+          up.appendChild(W.el('div', { class: 'wc-upload__text' }, '대표 영상 업로드'));
+          up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · MP4 · WEBP · MOV (최대 30MB)'));
+          var fileIn = W.el('input', { type: 'file', accept: 'video/mp4,video/webm,video/quicktime', style: 'display:none' });
+          fileIn.addEventListener('change', function () {
+            readVideo(fileIn.files && fileIn.files[0], function (dataUrl) { videoState = dataUrl; if (linkIn) linkIn.value = ''; renderVideo(); });
+            fileIn.value = '';
+          });
+          up.appendChild(fileIn);
+          enableVideoDrop(up, function (dataUrl) { videoState = dataUrl; if (linkIn) linkIn.value = ''; renderVideo(); });
+          videoWrap.appendChild(up);
+        }
+      }
+      renderVideo();
+      body.appendChild(field('대표 영상 (선택)', false, videoWrap, '영상 파일을 올리거나 아래에 영상 링크를 넣어 주세요. 둘 중 하나만 사용됩니다.'));
+
+      linkIn = input({ type: 'url', value: /^https?:\/\//.test(videoState) ? videoState : '', maxlength: '2000', placeholder: 'YouTube·Vimeo 등 영상 링크(선택)' });
+      linkIn.addEventListener('input', function () {
+        var u = linkIn.value.trim();
+        if (u && /^https?:\/\//.test(u)) { videoState = u; renderVideo(); }
+        else if (!u && /^https?:\/\//.test(videoState)) { videoState = ''; renderVideo(); }
+      });
+      body.appendChild(field('영상 링크 (선택)', false, linkIn, 'YouTube·Vimeo 등 영상 페이지 주소를 붙여넣으면 링크로 등록됩니다.'));
+
+      body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
+        '대표 이미지와 영상을 모두 올리면 상세 페이지에서 영상이 먼저 표시됩니다.'));
     }, function () {
       var t = titleIn.value.trim(), d = descIn.value.trim();
       if (!t) { toast('제목을 입력해 주세요'); return false; }
       if (!d) { toast('한 줄 소개를 입력해 주세요'); return false; }
       nstate.title = t; nstate.description = d; nstate.coverImage = coverState;
+      nstate.videoUrl = normalizeVideo(videoState);
+      return true;
+    });
+  }
+
+  /* ---- 요금제 ---- */
+  function openPlanForm() {
+    var picked = PLAN_INFO[nstate.plan] ? nstate.plan : 'start';
+    var cardsWrap, previewEl;
+    openOver('요금제', function (body) {
+      body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 16px' },
+        '프로젝트에 적용할 요금제를 선택하세요. 요금제에 따라 플랫폼 수수료율과 제공 기능이 달라집니다. 최종 수수료는 서버에서 계산됩니다.'));
+
+      cardsWrap = W.el('div', { class: 'wc-plans' });
+      ['start', 'run', 'boost'].forEach(function (key) {
+        var p = PLAN_INFO[key];
+        var card = W.el('button', { class: 'wc-plan' + (picked === key ? ' is-on' : ''), type: 'button', 'aria-pressed': picked === key ? 'true' : 'false' });
+        var top = W.el('div', { class: 'wc-plan__top' });
+        top.append(
+          W.el('span', { class: 'wc-plan__name' }, p.name),
+          W.el('span', { class: 'wc-plan__fee' }, '수수료 ' + p.feePct + '%'),
+        );
+        card.appendChild(top);
+        card.appendChild(W.el('p', { class: 'wc-plan__tagline' }, p.tagline));
+        var ul = W.el('ul', { class: 'wc-plan__list' });
+        p.points.forEach(function (pt) {
+          var li = W.el('li', {});
+          li.append(W.el('span', { class: 'wc-plan__dot', html: IC.check }), W.el('span', {}, pt));
+          ul.appendChild(li);
+        });
+        card.appendChild(ul);
+        var sel = W.el('span', { class: 'wc-plan__select' }, picked === key ? '선택됨' : '선택하기');
+        card.appendChild(sel);
+        card.addEventListener('click', function () {
+          picked = key;
+          cardsWrap.querySelectorAll('.wc-plan').forEach(function (x) { x.classList.remove('is-on'); x.setAttribute('aria-pressed', 'false'); });
+          cardsWrap.querySelectorAll('.wc-plan__select').forEach(function (x) { x.textContent = '선택하기'; });
+          card.classList.add('is-on'); card.setAttribute('aria-pressed', 'true');
+          sel.textContent = '선택됨';
+          renderPreview();
+        });
+        cardsWrap.appendChild(card);
+      });
+      body.appendChild(cardsWrap);
+
+      previewEl = W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' });
+      renderPreview();
+      body.appendChild(previewEl);
+
+      function renderPreview() {
+        var info = PLAN_INFO[picked];
+        previewEl.replaceChildren();
+        var base = Number(nstate.basePrice);
+        var lowestReward = null;
+        (nstate.rewardTiers || []).forEach(function (t) {
+          var pr = Number(t.price);
+          if (Number.isFinite(pr) && (lowestReward === null || pr < lowestReward)) lowestReward = pr;
+        });
+        var refPrice = (lowestReward !== null) ? lowestReward : (Number.isFinite(base) && String(nstate.basePrice).trim() !== '' ? base : null);
+        if (refPrice !== null && Number.isFinite(refPrice)) {
+          var fee = Math.round(refPrice * info.feeRate);
+          previewEl.textContent = info.name + ' 요금제 기준 수수료 ' + info.feePct + '% — '
+            + '최저 리워드가 ' + W.money(refPrice) + ' 기준 약 ' + W.money(fee) + ' (참고용, 최종 금액은 서버에서 계산됩니다)';
+        } else {
+          previewEl.textContent = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드·기본가를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
+        }
+      }
+    }, function () {
+      nstate.plan = picked;
       return true;
     });
   }
@@ -609,6 +966,46 @@
     openOver('스토리', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
         '프로젝트의 이야기를 글과 이미지 블록으로 구성하세요. 최소 1개 블록이 필요합니다.'));
+
+      // ---- AI 스토리 초안 ----
+      var aiCard = W.el('div', { class: 'wc-aidraft' });
+      var aiTop = W.el('div', { class: 'wc-aidraft__top' });
+      aiTop.append(
+        W.el('span', { class: 'wc-aidraft__ic', html: IC.sparkle }),
+        W.el('div', {},
+          W.el('p', { class: 'wc-aidraft__name' }, 'AI로 초안 작성'),
+          W.el('p', { class: 'wc-aidraft__desc' }, '입력한 기본 정보(제목·카테고리·소개·기본가·목표수량)를 바탕으로 스토리 본문 초안을 만들어 드립니다.'),
+        ),
+      );
+      aiCard.appendChild(aiTop);
+      var aiBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', html: IC.sparkle + '<span>AI로 초안 작성</span>' });
+      var aiStatus = W.el('p', { class: 'wc-aidraft__status' });
+      aiStatus.style.display = 'none';
+      aiBtn.addEventListener('click', function () { runStoryDraft(aiBtn, aiStatus); });
+      aiCard.append(aiBtn, aiStatus);
+      body.appendChild(aiCard);
+
+      // 초안 결과를 현재 draft 블록에 반영(덮어쓸지/추가할지 확인)
+      function applyAiBlocks(blocks) {
+        var textBlocks = blocks.filter(function (b) { return b && b.type === 'text' && String(b.value || '').trim(); })
+          .map(function (b) { return { type: 'text', value: String(b.value).slice(0, 5000) }; });
+        if (!textBlocks.length) { toast('AI 초안을 받지 못했습니다'); return; }
+        var hasContent = draft.some(function (b) { return b.type === 'text' ? String(b.value || '').trim() : b.value; });
+        if (!hasContent) {
+          draft = textBlocks; renderBlocks();
+          toast('AI 초안을 불러왔습니다');
+          return;
+        }
+        confirmModal('AI 초안 적용', '이미 작성한 스토리 내용이 있습니다. 어떻게 할까요?',
+          [
+            { label: '기존 내용 덮어쓰기', kind: 'primary', onClick: function () { draft = textBlocks; renderBlocks(); toast('AI 초안으로 교체했습니다'); } },
+            { label: '뒤에 추가하기', kind: 'outline', onClick: function () { textBlocks.forEach(function (b) { draft.push(b); }); renderBlocks(); toast('AI 초안을 추가했습니다'); } },
+          ]);
+      }
+
+      // 외부에서 결과를 넘기기 위한 클로저 등록
+      _applyAiBlocks = applyAiBlocks;
+
       listEl = W.el('div', {});
       renderBlocks();
       body.appendChild(listEl);
@@ -658,6 +1055,157 @@
       });
       if (!cleaned.length) { toast('스토리에 최소 1개 블록을 작성해 주세요'); return false; }
       nstate.storyBlocks = cleaned;
+      return true;
+    });
+  }
+
+  // 현재 열린 스토리 폼의 블록 적용 콜백(폼이 열려 있을 때만 유효)
+  var _applyAiBlocks = null;
+
+  /* AI 스토리 초안 호출 — 비용 가드: 사용자 클릭 시에만 호출 */
+  function runStoryDraft(btn, statusEl) {
+    var title = String(nstate.title || '').trim();
+    var category = String(nstate.category || '').trim();
+    var summary = String(nstate.description || '').trim();
+    var basicInfo = { title: title, category: category, summary: summary };
+    if (String(nstate.basePrice).trim() !== '' && Number.isFinite(Number(nstate.basePrice))) basicInfo.basePrice = Math.floor(Number(nstate.basePrice));
+    if (String(nstate.targetQuantity).trim() !== '' && Number.isFinite(Number(nstate.targetQuantity))) basicInfo.targetQuantity = Math.floor(Number(nstate.targetQuantity));
+
+    btn.disabled = true;
+    statusEl.style.display = '';
+    statusEl.className = 'wc-aidraft__status';
+    statusEl.replaceChildren(W.el('span', { class: 'wc-spin wc-spin--sm' }), document.createTextNode('AI가 스토리 초안을 작성하고 있어요...'));
+
+    window.api.post('/ai/story-draft', { basicInfo: basicInfo })
+      .then(function (res) {
+        btn.disabled = false;
+        statusEl.style.display = 'none';
+        var blocks = (res && Array.isArray(res.blocks)) ? res.blocks : [];
+        if (_applyAiBlocks) _applyAiBlocks(blocks);
+        else toast('AI 초안을 불러왔습니다');
+      })
+      .catch(function (err) {
+        btn.disabled = false;
+        statusEl.style.display = 'none';
+        if (err && err.code === 'NEED_BASIC_INFO') {
+          // 기본 정보 부족 → 안내 후 기본 정보 단계로 유도
+          toast('제목·카테고리·소개를 먼저 입력해 주세요');
+          confirmModal('기본 정보가 필요해요', 'AI 초안을 만들려면 제목·카테고리·한 줄 소개가 필요합니다. 기본 정보부터 입력할까요?',
+            [{ label: '기본 정보 입력하기', kind: 'primary', onClick: function () { closeOver(); openBasicForm(); } }]);
+          return;
+        }
+        if (err && (err.status === 503 || err.code === 'AI_UNAVAILABLE')) {
+          toast('지금은 AI 초안을 사용할 수 없어요');
+          return;
+        }
+        toast((err && err.message) ? err.message : 'AI 초안 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+      });
+  }
+
+  /* 간단 확인 모달(버튼 1~2개). actions: [{label, kind:'primary'|'outline', onClick}] */
+  function confirmModal(title, message, actions) {
+    var modal = W.el('div', { class: 'wc-modal is-open' });
+    var dim = W.el('div', { class: 'wc-modal__dim' });
+    dim.addEventListener('click', close);
+    var box = W.el('div', { class: 'wc-modal__box wc-confirm', role: 'dialog', 'aria-label': title });
+    var head = W.el('div', { class: 'wc-modal__head' });
+    var closeBtn = W.el('button', { class: 'wc-modal__close', type: 'button', 'aria-label': '닫기', html: IC.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h2', { class: 'wc-modal__title' }, title), closeBtn);
+    box.appendChild(head);
+    box.appendChild(W.el('p', { class: 'wc-modal__sub' }, message));
+    var foot = W.el('div', { class: 'wc-confirm__foot' });
+    (actions || []).forEach(function (a) {
+      var b = W.el('button', { class: 'wz-btn ' + (a.kind === 'outline' ? 'wz-btn--outline' : 'wz-btn--primary'), type: 'button' }, a.label);
+      b.addEventListener('click', function () { close(); if (a.onClick) a.onClick(); });
+      foot.appendChild(b);
+    });
+    var cancel = W.el('button', { class: 'wz-btn wz-btn--ghost', type: 'button' }, '취소');
+    cancel.addEventListener('click', close);
+    foot.appendChild(cancel);
+    box.appendChild(foot);
+    modal.append(dim, box);
+    document.body.appendChild(modal);
+    function close() { if (modal.parentNode) modal.parentNode.removeChild(modal); }
+  }
+
+  /* ---- 창작자 정보 ---- */
+  function openCreatorForm() {
+    var nameIn, introIn, imageState = nstate.creatorImage, imageWrap;
+    var sidoSel, sigunguSel;
+    var regions = window.KR_REGIONS || {};
+    openOver('창작자 정보', function (body) {
+      body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 16px' },
+        '후원자에게 보일 창작자(팀) 정보입니다. 이름과 소개는 필수입니다.'));
+
+      nameIn = input({ type: 'text', value: nstate.creatorName, maxlength: '20', placeholder: '창작자 또는 팀 이름' });
+      body.appendChild(field('창작자 이름', true, nameIn, '후원자에게 표시되는 이름입니다. 최대 20자.'));
+
+      imageWrap = W.el('div', {});
+      function renderImage() {
+        imageWrap.replaceChildren();
+        if (imageState) {
+          var pv = W.el('div', { class: 'wc-preview wc-preview--avatar' });
+          pv.appendChild(W.el('img', { src: imageState, alt: '프로필 이미지 미리보기' }));
+          var del = W.el('button', { class: 'wc-preview__del', type: 'button', 'aria-label': '이미지 삭제', html: IC.close });
+          del.addEventListener('click', function () { imageState = null; renderImage(); });
+          pv.appendChild(del);
+          imageWrap.appendChild(pv);
+        } else {
+          var up = W.el('label', { class: 'wc-upload' });
+          up.appendChild(W.el('div', { html: IC.upload }));
+          up.appendChild(W.el('div', { class: 'wc-upload__text' }, '프로필 이미지 업로드'));
+          up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · PNG · JPG · WEBP (최대 8MB)'));
+          var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+          fileIn.addEventListener('change', function () {
+            readImage(fileIn.files && fileIn.files[0], function (dataUrl) { imageState = dataUrl; renderImage(); });
+          });
+          up.appendChild(fileIn);
+          enableDrop(up, function (dataUrl) { imageState = dataUrl; renderImage(); });
+          imageWrap.appendChild(up);
+        }
+      }
+      renderImage();
+      body.appendChild(field('프로필 이미지', false, imageWrap, '창작자 페이지·메이커 정보에 표시됩니다.'));
+
+      introIn = textarea({ maxlength: '300', placeholder: '어떤 창작자(팀)인지, 어떤 작업을 해왔는지 소개해 주세요.' });
+      introIn.value = nstate.creatorIntro || '';
+      body.appendChild(field('창작자 소개', true, introIn, '최대 300자.'));
+
+      // 주 활동 지역: 시·도 → 시·군·구 종속 select
+      var regionGrid = W.el('div', { class: 'wc-region' });
+      sidoSel = W.el('select', { class: 'wc-select' });
+      sidoSel.appendChild(W.el('option', { value: '' }, '시·도 선택'));
+      Object.keys(regions).forEach(function (sido) {
+        var opt = W.el('option', { value: sido }, sido);
+        if (nstate.creatorSido === sido) opt.setAttribute('selected', 'selected');
+        sidoSel.appendChild(opt);
+      });
+      sigunguSel = W.el('select', { class: 'wc-select' });
+      function fillSigungu(keepValue) {
+        sigunguSel.replaceChildren();
+        sigunguSel.appendChild(W.el('option', { value: '' }, '시·군·구 선택'));
+        var list = regions[sidoSel.value] || [];
+        list.forEach(function (sg) {
+          var opt = W.el('option', { value: sg }, sg);
+          if (keepValue && nstate.creatorSigungu === sg) opt.setAttribute('selected', 'selected');
+          sigunguSel.appendChild(opt);
+        });
+        sigunguSel.disabled = !sidoSel.value;
+      }
+      fillSigungu(true);
+      sidoSel.addEventListener('change', function () { fillSigungu(false); });
+      regionGrid.append(sidoSel, sigunguSel);
+      body.appendChild(field('주 활동 지역 (선택)', false, regionGrid, '시·도를 먼저 선택하면 시·군·구를 고를 수 있습니다.'));
+    }, function () {
+      var name = nameIn.value.trim(), intro = introIn.value.trim();
+      if (!name) { toast('창작자 이름을 입력해 주세요'); return false; }
+      if (!intro) { toast('창작자 소개를 입력해 주세요'); return false; }
+      nstate.creatorName = name.slice(0, 20);
+      nstate.creatorIntro = intro.slice(0, 300);
+      nstate.creatorImage = imageState;
+      nstate.creatorSido = sidoSel.value || '';
+      nstate.creatorSigungu = sidoSel.value ? (sigunguSel.value || '') : '';
       return true;
     });
   }
@@ -836,6 +1384,7 @@
 
         var payload = {
           mode: 'normal',
+          plan: PLAN_INFO[nstate.plan] ? nstate.plan : 'start',
           title: nstate.title,
           description: nstate.description,
           category: nstate.category,
@@ -848,10 +1397,19 @@
         // 대표 이미지: 업로드 data URL 우선 -> 없으면 AI 피팅 결과
         var cover = nstate.coverImage || nstate.tryonImage;
         if (cover) payload.designImageDataUrl = cover;
-        // designFee 는 서버 계산. 클라가 보내지 않음.
+        // 대표 영상(선택): 서버 검증 형태만
+        var video = normalizeVideo(nstate.videoUrl);
+        if (video) payload.videoUrl = video;
+        // 창작자 정보(선택 필드 모음) — 유효한 값만 추려 보냄
+        var creator = buildCreatorInfo();
+        if (creator) payload.creatorInfo = creator;
+        // designFee·platformFee 는 서버 계산. 클라가 보내지 않음.
 
         return window.api.post('/funds', payload)
           .then(function (res) {
+            stopAutosave();
+            // 제출 성공 시 임시저장 정리(있으면)
+            if (draftId) { window.api.del('/me/drafts/' + encodeURIComponent(draftId)).catch(function () {}); draftId = null; }
             toast('프로젝트가 제출되었습니다');
             var id = res && res.id;
             setTimeout(function () {
@@ -863,6 +1421,22 @@
             toast((err && err.message) ? err.message : '제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
           });
       });
+  }
+
+  // 창작자 정보 payload — 서버 검증 한도에 맞춰 유효 필드만. 하나도 없으면 null.
+  function buildCreatorInfo() {
+    var out = {};
+    var name = String(nstate.creatorName || '').trim();
+    if (name) out.name = name.slice(0, 20);
+    var intro = String(nstate.creatorIntro || '').trim();
+    if (intro) out.intro = intro.slice(0, 300);
+    var sido = String(nstate.creatorSido || '').trim();
+    if (sido) out.sido = sido.slice(0, 30);
+    var sigungu = String(nstate.creatorSigungu || '').trim();
+    if (sigungu) out.sigungu = sigungu.slice(0, 30);
+    var img = String(nstate.creatorImage || '').trim();
+    if (img && (/^data:image\/(png|jpe?g|webp);base64,/.test(img) || /^https?:\/\//.test(img)) && img.length <= 12000000) out.image = img;
+    return Object.keys(out).length ? out : null;
   }
 
   /* =====================================================================
@@ -1096,6 +1670,40 @@
     r.onload = function () { cb(String(r.result)); };
     r.onerror = function () { toast('이미지를 읽지 못했습니다'); };
     r.readAsDataURL(file);
+  }
+
+  // 대표 영상 파일 → data URL. mp4/webm/quicktime, 최대 30MB.
+  function readVideo(file, cb) {
+    if (!file) return;
+    if (!/^video\/(mp4|webm|quicktime)$/.test(file.type)) { toast('MP4·WEBM·MOV 영상만 업로드할 수 있어요'); return; }
+    if (file.size > 30 * 1024 * 1024) { toast('영상은 최대 30MB까지 가능합니다'); return; }
+    var r = new FileReader();
+    r.onload = function () { cb(String(r.result)); };
+    r.onerror = function () { toast('영상을 읽지 못했습니다'); };
+    r.readAsDataURL(file);
+  }
+
+  // 영상 드래그앤드롭(단일 파일).
+  function enableVideoDrop(el, cb) {
+    if (!el) return el;
+    el.classList.add('wc-drop');
+    el.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); el.classList.add('is-drag'); });
+    el.addEventListener('dragleave', function (e) { e.preventDefault(); e.stopPropagation(); el.classList.remove('is-drag'); });
+    el.addEventListener('drop', function (e) {
+      e.preventDefault(); e.stopPropagation(); el.classList.remove('is-drag');
+      var files = (e.dataTransfer && e.dataTransfer.files) ? Array.prototype.slice.call(e.dataTransfer.files) : [];
+      if (files.length) readVideo(files[0], cb);
+    });
+    return el;
+  }
+
+  // 서버 검증과 동일한 형태만 통과시키고, 아니면 ''(저장 안 함).
+  function normalizeVideo(v) {
+    var s = String(v || '').trim();
+    if (!s) return '';
+    if (/^data:video\/(mp4|webm|quicktime);base64,/.test(s)) return s.length <= 48000000 ? s : '';
+    if (/^https?:\/\//.test(s)) return s.length <= 48000000 ? s : '';
+    return '';
   }
 
   // 드래그앤드롭: 대상 요소에 부착 → 파일을 떨어뜨리면 readImage 로 처리.

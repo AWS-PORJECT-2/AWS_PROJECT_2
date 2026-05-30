@@ -34,6 +34,8 @@
     arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
     chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
     flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V4M4 4h13l-2 4 2 4H4"/></svg>',
+    edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+    trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
     search2: W.ICON.search,
   };
 
@@ -44,6 +46,7 @@
       { key: 'liked',      label: '관심 프로젝트',     icon: 'heart',  view: 'liked',     hash: 'liked' },
       { key: 'backings',   label: '후원한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
       { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds',     hash: 'funds' },
+      { key: 'drafts',     label: '개설 중인 프로젝트', icon: 'edit',  view: 'drafts',    hash: 'drafts' },
       { key: 'friends',    label: '친구 찾기',         icon: 'users',  view: 'friends',   hash: 'friends' },
       { key: 'maker',      label: '내 메이커 페이지로 가기', icon: 'crown', href: '/maker.html?me=1' },
       { key: 'create',     label: '프로젝트 만들기',   icon: 'plus',   href: '/fund-create.html' },
@@ -52,7 +55,7 @@
   };
 
   /* 상태(스탯/패널 공유) */
-  var state = { me: null, funds: null, backings: null };
+  var state = { me: null, funds: null, backings: null, drafts: null };
   var refs = {};
 
   function run() {
@@ -92,6 +95,7 @@
     else if (tab === 'funds') selectView('funds', true);
     else if (tab === 'liked' || tab === 'likes') selectView('liked', true);
     else if (tab === 'friends') selectView('friends', true);
+    else if (tab === 'drafts') selectView('drafts', true);
     else if (tab === 'recent') selectView('recent', true);
   }
 
@@ -109,6 +113,9 @@
     window.api.get('/me/backings', { silentAuthFail: true })
       .then(function (r) { state.backings = backingItems(r); afterStats(); })
       .catch(function () { state.backings = state.backings || null; });
+    window.api.get('/me/drafts', { silentAuthFail: true })
+      .then(function (r) { state.drafts = (r && r.items) || []; afterStats(); })
+      .catch(function () { state.drafts = state.drafts || null; });
   }
   function afterStats() {
     if (refs.curView === 'home' || !refs.curView) refreshStats();
@@ -156,10 +163,7 @@
       });
       btn.dataset.key = it.key;
       btn.appendChild(W.el('span', {}, it.label));
-      if (it.soon) {
-        btn.appendChild(W.el('span', { class: 'wz-mp-side__soon' }, '준비 중'));
-        btn.disabled = true;
-      } else if (it.href) {
+      if (it.href) {
         btn.addEventListener('click', function () { location.href = it.href; });
       } else if (it.view) {
         btn.addEventListener('click', function () { selectView(it.view); });
@@ -224,12 +228,16 @@
     var fundsN = Array.isArray(state.funds) ? state.funds.length : 0;
     var backN = Array.isArray(state.backings) ? state.backings.length : 0;
     var likedN = countLiked();
-    refs.statsRow.replaceChildren(
+    var draftsN = Array.isArray(state.drafts) ? state.drafts.length : 0;
+    var cards = [
       statCard('개설한 프로젝트', String(fundsN), function () { selectView('funds'); }),
       statCard('후원한 프로젝트', String(backN), function () { selectView('backings'); }),
       statCard('관심 프로젝트', String(likedN), function () { selectView('liked'); }),
-      statCardMore('친구 찾기', '검색', function () { selectView('friends'); })
-    );
+    ];
+    // 작성 중인 초안이 있을 때만 노출(빈 0개 카드 노이즈 방지)
+    if (draftsN > 0) cards.push(statCard('작성 중', String(draftsN), function () { selectView('drafts'); }));
+    cards.push(statCardMore('친구 찾기', '검색', function () { selectView('friends'); }));
+    refs.statsRow.replaceChildren.apply(refs.statsRow, cards);
     refs.walletRow.replaceChildren(
       walletItem('coin', '포인트', '0P'),
       walletItem('ticket', '쿠폰', '0장')
@@ -316,6 +324,7 @@
     if (view === 'liked') return panelLiked();
     if (view === 'backings') return panelBackings();
     if (view === 'funds') return panelFunds();
+    if (view === 'drafts') return panelDrafts();
     if (view === 'friends') return panelFriends();
     showHome();
   }
@@ -445,6 +454,77 @@
       return;
     }
     items.forEach(function (f) { grid.appendChild(fundCard(f)); });
+  }
+
+  /* 패널: 개설 중인 프로젝트 (임시저장 초안, GET /api/me/drafts)
+   *  각 카드: 제목(없으면 "제목 미정") · 카테고리 요약 · 수정일
+   *           + [이어서 만들기](/fund-create.html?draft=<id>) + [삭제](DELETE /api/me/drafts/:id, 확인). */
+  function panelDrafts() {
+    refs.curView = 'drafts';
+    var main = panelHead('개설 중인 프로젝트', 'drafts');
+    var list = W.el('div', { class: 'wz-mp-drafts' });
+    main.appendChild(list);
+    if (!state.me) { list.appendChild(loginEmpty('작성 중인 프로젝트를 보려면 로그인하세요')); return; }
+    if (Array.isArray(state.drafts)) return fillDrafts(list, state.drafts);
+    list.appendChild(loading());
+    window.api.get('/me/drafts')
+      .then(function (r) { state.drafts = (r && r.items) || []; fillDrafts(list, state.drafts); refreshStats(); })
+      .catch(function () { list.replaceChildren(errorState()); });
+  }
+  function fillDrafts(list, items) {
+    list.replaceChildren();
+    if (!items.length) {
+      list.appendChild(emptyState('edit', '아직 작성 중인 프로젝트가 없어요', '프로젝트 만들기', '/fund-create.html'));
+      return;
+    }
+    items.forEach(function (d) { list.appendChild(draftRow(d, list)); });
+  }
+
+  /* 초안 한 줄. d: { id, title, category(slug), updatedAt } */
+  function draftRow(d, list) {
+    var row = W.el('div', { class: 'wz-mp-draft' });
+
+    var body = W.el('div', { class: 'wz-mp-draft__body' });
+    body.appendChild(W.el('p', { class: 'wz-mp-draft__title' }, (d.title && String(d.title).trim()) ? d.title : '제목 미정'));
+    var metas = [];
+    var cat = d.category ? (window.dtCategory && window.dtCategory(d.category)) : null;
+    if (cat) metas.push(cat.label);
+    var when = relTime(d.updatedAt);
+    if (when) metas.push(when + ' 수정');
+    if (metas.length) {
+      var meta = W.el('p', { class: 'wz-mp-draft__meta' });
+      metas.forEach(function (m, i) {
+        if (i) meta.appendChild(W.el('span', { class: 'wz-mp-draft__dot' }, '·'));
+        meta.appendChild(W.el('span', {}, m));
+      });
+      body.appendChild(meta);
+    }
+
+    var actions = W.el('div', { class: 'wz-mp-draft__actions' });
+    var go = W.el('a', { class: 'wz-btn wz-btn--primary wz-mp-draft__go', href: '/fund-create.html?draft=' + encodeURIComponent(d.id) }, '이어서 만들기');
+    var del = W.el('button', { class: 'wz-mp-draft__del', type: 'button', 'aria-label': '초안 삭제', title: '삭제', html: IC.trash });
+    var busy = false;
+    del.addEventListener('click', function () {
+      if (busy) return;
+      var label = (d.title && String(d.title).trim()) ? d.title : '제목 미정';
+      if (!window.confirm('「' + label + '」 초안을 삭제할까요?')) return;
+      busy = true;
+      del.disabled = true;
+      window.api.del('/me/drafts/' + encodeURIComponent(d.id))
+        .then(function () {
+          if (Array.isArray(state.drafts)) {
+            state.drafts = state.drafts.filter(function (x) { return String(x.id) !== String(d.id); });
+          }
+          row.remove();
+          if (Array.isArray(state.drafts) && !state.drafts.length) fillDrafts(list, state.drafts);
+          refreshStats();
+        })
+        .catch(function () { busy = false; del.disabled = false; });
+    });
+    actions.append(go, del);
+
+    row.append(body, actions);
+    return row;
   }
 
   /* =================== 패널: 친구 찾기 (인스타형) ===================
@@ -671,6 +751,26 @@
     return W.el('div', { class: 'wz-mp-empty' },
       W.el('div', { class: 'wz-mp-empty__ic', html: IC.box }),
       W.el('p', {}, '목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'));
+  }
+
+  /* 상대시간(방금 전 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD) — wz-comments 와 동일 규칙 */
+  function relTime(iso) {
+    if (!iso) return '';
+    var t = new Date(iso).getTime();
+    if (isNaN(t)) return '';
+    var diff = Date.now() - t;
+    if (diff < 0) diff = 0;
+    var sec = Math.floor(diff / 1000);
+    if (sec < 60) return '방금 전';
+    var min = Math.floor(sec / 60);
+    if (min < 60) return min + '분 전';
+    var hr = Math.floor(min / 60);
+    if (hr < 24) return hr + '시간 전';
+    var day = Math.floor(hr / 24);
+    if (day < 7) return day + '일 전';
+    var d = new Date(t);
+    var p = function (x) { return (x < 10 ? '0' : '') + x; };
+    return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
   }
 
   /* 찜한 펀드 id 목록 — localStorage liked_<id>='1'. window.isLiked 가 있으면 그것으로 한 번 더 확인. */

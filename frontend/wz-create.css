@@ -102,12 +102,13 @@
 .wc-side { position: sticky; top: 90px; }
 .wc-side__title { font-size: 13px; font-weight: 700; color: var(--c-text-faint); margin: 0 0 10px; padding-left: 12px; }
 .wc-side__nav { list-style: none; margin: 0 0 24px; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.wc-side__item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-sm); font-size: 14px; font-weight: 600; color: var(--c-text-sub); cursor: default; }
+.wc-side__item { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: var(--r-sm); font-size: 14px; font-weight: 600; color: var(--c-text-sub); cursor: pointer; transition: background .15s, color .15s; }
 .wc-side__item svg { width: 18px; height: 18px; flex-shrink: 0; }
-.wc-side__item.is-active { background: var(--c-primary-50); color: var(--c-primary-700); font-weight: 700; cursor: pointer; }
-.wc-side__item.is-disabled { color: var(--c-text-faint); }
-.wc-side__item.is-disabled svg { opacity: .6; }
-.wc-side__soon { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--c-text-faint); background: var(--c-divider); padding: 2px 6px; border-radius: var(--r-full); }
+.wc-side__item.is-active:hover { background: var(--c-primary-50); color: var(--c-primary-700); }
+.wc-side__item.is-done { color: var(--c-primary-700); }
+.wc-side__tick { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; background: var(--c-primary-500); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wc-side__tick svg { width: 11px; height: 11px; }
+.wc-side__req { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--c-primary-600); background: var(--c-primary-50); padding: 2px 7px; border-radius: var(--r-full); flex-shrink: 0; }
 .wc-side__change { width: 100%; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-sub); border-radius: var(--r-sm); padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s; }
 .wc-side__change:hover { border-color: var(--c-primary-400); color: var(--c-primary-600); }
 
@@ -304,6 +305,86 @@
 .wc-done__actions { display: flex; justify-content: center; gap: 12px; }
 .wc-done__actions .wz-btn { min-width: 160px; }
 
+/* =================== 임시저장(이어서 만들기) — 진입 화면 =================== */
+.wc-drafts { background: var(--c-primary-50); border: 1px solid var(--c-primary-200); border-radius: var(--r-lg); padding: 20px 22px; margin-bottom: 28px; }
+.wc-drafts__head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.wc-drafts__ic { flex-shrink: 0; width: 38px; height: 38px; border-radius: var(--r-md); background: var(--c-primary-100); color: var(--c-primary-600); display: flex; align-items: center; justify-content: center; }
+.wc-drafts__ic svg { width: 20px; height: 20px; }
+.wc-drafts__title { font-size: 16px; font-weight: 800; margin: 0; color: var(--c-text); }
+.wc-drafts__sub { font-size: 13px; color: var(--c-text-muted); margin: 4px 0 0; line-height: 1.5; }
+.wc-drafts__list { display: flex; flex-direction: column; gap: 10px; }
+.wc-draft { background: #fff; border: 1px solid var(--c-border); border-radius: var(--r-md); padding: 14px 16px; display: flex; align-items: center; gap: 14px; }
+.wc-draft__info { min-width: 0; flex: 1; }
+.wc-draft__title { font-size: 15px; font-weight: 700; color: var(--c-text); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wc-draft__meta { font-size: 12px; color: var(--c-text-muted); margin: 4px 0 0; display: flex; align-items: center; gap: 6px; }
+.wc-draft__dot { color: var(--c-text-faint); }
+.wc-draft__actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.wc-draft__actions .wz-btn { height: 38px; padding: 0 16px; font-size: 13px; }
+.wc-draft__del { width: 38px; height: 38px; border: 1px solid var(--c-border); background: #fff; border-radius: var(--r-sm); color: var(--c-text-sub); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: border-color .15s, color .15s; }
+.wc-draft__del:hover { border-color: var(--c-danger); color: var(--c-danger); }
+.wc-draft__del svg { width: 17px; height: 17px; }
+.wc-draft__del:disabled { opacity: .5; cursor: default; }
+
+/* =================== 임시저장 상태 바 — 작성 현황 상단 =================== */
+.wc-draftbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; background: #fff; border: 1px solid var(--c-border); border-radius: var(--r-md); padding: 10px 14px; margin-bottom: 18px; box-shadow: var(--sh-1); }
+.wc-draftbar__left { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.wc-draftbar__ic { color: var(--c-primary-600); display: inline-flex; flex-shrink: 0; }
+.wc-draftbar__ic svg { width: 18px; height: 18px; }
+.wc-draftbar__status { font-size: 13px; color: var(--c-text-muted); }
+.wc-draftbar .wz-btn { height: 36px; padding: 0 16px; font-size: 13px; flex-shrink: 0; }
+
+/* =================== 요금제 카드 =================== */
+.wc-plans { display: flex; flex-direction: column; gap: 12px; margin-bottom: 6px; }
+.wc-plan { display: block; width: 100%; text-align: left; background: #fff; border: 1.5px solid var(--c-border); border-radius: var(--r-md); padding: 18px 18px 16px; cursor: pointer; font-family: inherit; transition: border-color .15s, box-shadow .15s; }
+.wc-plan:hover { border-color: var(--c-primary-300); }
+.wc-plan.is-on { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wc-plan__top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.wc-plan__name { font-size: 17px; font-weight: 800; color: var(--c-text); }
+.wc-plan__fee { font-size: 13px; font-weight: 800; color: var(--c-primary-600); background: var(--c-primary-50); padding: 4px 11px; border-radius: var(--r-full); }
+.wc-plan.is-on .wc-plan__fee { background: var(--c-primary-100); color: var(--c-primary-700); }
+.wc-plan__tagline { font-size: 13px; color: var(--c-text-muted); margin: 0 0 12px; line-height: 1.5; }
+.wc-plan__list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.wc-plan__list li { display: flex; align-items: flex-start; gap: 8px; font-size: 13px; color: var(--c-text-sub); line-height: 1.45; }
+.wc-plan__dot { flex-shrink: 0; width: 16px; height: 16px; border-radius: 50%; background: var(--c-primary-100); color: var(--c-primary-600); display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+.wc-plan__dot svg { width: 10px; height: 10px; }
+.wc-plan__select { display: inline-flex; align-items: center; justify-content: center; height: 38px; width: 100%; border-radius: var(--r-sm); font-size: 14px; font-weight: 800; background: var(--c-divider); color: var(--c-text-sub); }
+.wc-plan.is-on .wc-plan__select { background: var(--c-primary-500); color: #fff; }
+
+/* =================== 대표 영상 미리보기 =================== */
+.wc-vpreview { position: relative; border-radius: var(--r-md); overflow: hidden; background: var(--c-divider); }
+.wc-vpreview video { width: 100%; display: block; max-height: 320px; background: #000; }
+.wc-vlink { display: flex; align-items: center; gap: 10px; padding: 16px 14px; }
+.wc-vlink__ic { flex-shrink: 0; color: var(--c-primary-600); display: inline-flex; }
+.wc-vlink__ic svg { width: 26px; height: 26px; }
+.wc-vlink__url { font-size: 13px; color: var(--c-text-sub); word-break: break-all; line-height: 1.4; padding-right: 36px; }
+
+/* =================== 창작자 정보 — 지역 select =================== */
+.wc-region { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.wc-preview--avatar { width: 140px; height: 140px; border-radius: 50%; }
+.wc-preview--avatar img { width: 100%; height: 100%; max-height: none; object-fit: cover; }
+
+/* =================== 정보성 안내(노란 경고와 구분되는 보라 톤) =================== */
+.wc-fld__notice--info { color: var(--c-primary-700); background: var(--c-primary-50); }
+
+/* =================== AI 스토리 초안 카드(스토리 폼 내부) =================== */
+.wc-aidraft { background: var(--c-primary-50); border: 1px solid var(--c-primary-200); border-radius: var(--r-md); padding: 16px; margin-bottom: 18px; }
+.wc-aidraft__top { display: flex; align-items: flex-start; gap: 11px; margin-bottom: 12px; }
+.wc-aidraft__ic { flex-shrink: 0; width: 30px; height: 30px; color: var(--c-primary-600); display: flex; align-items: center; justify-content: center; }
+.wc-aidraft__ic svg { width: 22px; height: 22px; }
+.wc-aidraft__name { font-size: 14px; font-weight: 800; color: var(--c-primary-700); margin: 0; }
+.wc-aidraft__desc { font-size: 12px; color: var(--c-text-muted); margin: 3px 0 0; line-height: 1.5; }
+.wc-aidraft .wz-btn { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.wc-aidraft .wz-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+.wc-aidraft__status { display: flex; align-items: center; justify-content: center; gap: 9px; font-size: 13px; color: var(--c-text-muted); margin: 12px 0 0; }
+
+/* 작은 스피너(인라인) */
+.wc-spin--sm { width: 18px; height: 18px; border-width: 2px; margin: 0; }
+
+/* =================== 확인 모달 =================== */
+.wc-confirm { width: 440px; }
+.wc-confirm__foot { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
+.wc-confirm__foot .wz-btn { width: 100%; }
+
 /* =================== 반응형 =================== */
 @media (max-width: 1023px) {
   .wc-studio { grid-template-columns: minmax(0, 1fr); }
@@ -322,9 +403,12 @@
   .wc-studio { padding: 22px 0 60px; }
   .wc-main__title { font-size: 22px; }
   .wc-over__panel { width: 100%; }
-  .wc-tier__grid, .wc-opts { grid-template-columns: 1fr; }
+  .wc-tier__grid, .wc-opts, .wc-region { grid-template-columns: 1fr; }
   .wc-card { padding: 14px 16px; gap: 12px; }
   .wc-card__btn .wz-btn { height: 40px; padding: 0 14px; }
+  .wc-draft { flex-direction: column; align-items: stretch; gap: 12px; }
+  .wc-draft__actions .wz-btn { flex: 1; }
+  .wc-confirm { width: 100%; }
   .wc-proxy { padding: 24px 0 60px; }
   .wc-proxy__title { font-size: 21px; }
   .wc-proxy__grid2 { grid-template-columns: 1fr; }

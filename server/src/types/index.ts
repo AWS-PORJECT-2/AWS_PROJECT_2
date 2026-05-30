@@ -12,11 +12,12 @@ export type { OAuthTokenResponse } from './oauth-token-response.js';
 export type { UserInfo } from './user-info.js';
 export type {
   GroupBuyStatus, ParticipationStatus, OrderStatus, OrderKind, PaymentStatus, RefundStatus,
-  ProductOption, GroupBuy, ContentBlock, RewardTier, Participation, Order, Payment, PaymentEvent, Refund,
+  ProductOption, GroupBuy, CreatorInfo, ContentBlock, RewardTier, Participation, Order, Payment, PaymentEvent, Refund,
   ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,
 } from './payment.js';
 export type { PaymentMethod } from './payment-method.js';
 export type { Address } from './address.js';
 export type { RewardOrder, RewardOrderStatus } from './reward-order.js';
+export type { ProjectDraft } from './project-draft.js';
 export type { Announcement, AnnouncementListItem } from './announcement.js';
 export type { ChatRoom, ChatMessage } from './chat.js';

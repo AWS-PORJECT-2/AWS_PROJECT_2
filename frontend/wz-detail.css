@@ -28,6 +28,12 @@ body.wz-detail-page .wz-hd { position: static; }
 .wz-d-main { min-width: 0; }
 .wz-d-side { position: sticky; top: 64px; min-width: 0; }
 
+/* ---------- 대표 영상 (영상 우선, 16:9) ---------- */
+.wz-d-video { position: relative; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; }
+.wz-d-video__el { width: 100%; height: 100%; border: 0; display: block; object-fit: contain; background: #000; }
+.wz-d-video .wz-d-gallery__ph { background: var(--c-divider); width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.wz-d-video .wz-d-gallery__ph svg { width: 30%; height: 30%; }
+
 /* ---------- 대표 이미지 갤러리 ---------- */
 .wz-d-gallery { position: relative; border-radius: 12px; overflow: hidden; background: var(--c-divider); aspect-ratio: 16/10; display: flex; align-items: center; justify-content: center; }
 .wz-d-gallery__img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -111,6 +117,8 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-maker__name { font-size: 15px; font-weight: 800; color: var(--c-text); margin: 0; }
 .wz-d-maker__followers { font-size: 13px; color: var(--c-text-muted); margin: 2px 0 0; }
 .wz-d-maker__followers b { color: var(--c-text); font-weight: 700; }
+.wz-d-maker__region { font-size: 12px; font-weight: 600; color: var(--c-primary-700); margin: 0 0 8px; }
+.wz-d-maker__intro { font-size: 13px; line-height: 1.6; color: var(--c-text-sub); margin: 0 0 14px; white-space: pre-wrap; word-break: break-word; }
 .wz-d-maker__btns { display: flex; gap: 8px; }
 .wz-d-maker__btns .wz-btn { flex: 1; }
 

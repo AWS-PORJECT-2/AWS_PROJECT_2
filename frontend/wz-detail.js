@@ -72,6 +72,51 @@
     return (Number(f.finalPrice) || 0) * (Number(f.currentQuantity) || 0);
   }
 
+  /* ---------- 대표 영상 파싱 ----------
+   * videoUrl(공개 상세 키)이 있으면 대표 영역을 영상으로 대체.
+   *  - data:video/(mp4|webm|quicktime) 또는 mp4/webm 으로 끝나는 http(s) → <video>
+   *  - YouTube / Vimeo URL → 화이트리스트 도메인만 안전 iframe 임베드
+   * 그 외(인식 불가)는 null 반환 → 호출부에서 기존 이미지 갤러리로 폴백. */
+  function classifyVideo(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+    const url = raw.trim();
+    if (!url) return null;
+
+    // 1) data: 동영상
+    if (/^data:video\/(mp4|webm|quicktime);base64,/i.test(url)) {
+      return { kind: 'file', src: url };
+    }
+    // http(s) 만 허용 (javascript:, data:text 등 차단)
+    if (!/^https?:\/\//i.test(url)) return null;
+
+    let u;
+    try { u = new URL(url); } catch (e) { return null; }
+    const host = u.hostname.replace(/^www\./i, '').toLowerCase();
+
+    // 2) YouTube
+    if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com') {
+      const vid = u.searchParams.get('v') || (/^\/(embed|shorts)\/([\w-]{6,})/.exec(u.pathname) || [])[2];
+      if (vid && /^[\w-]{6,}$/.test(vid)) return { kind: 'embed', src: 'https://www.youtube-nocookie.com/embed/' + vid };
+      return null;
+    }
+    if (host === 'youtu.be') {
+      const vid = u.pathname.replace(/^\/+/, '').split('/')[0];
+      if (vid && /^[\w-]{6,}$/.test(vid)) return { kind: 'embed', src: 'https://www.youtube-nocookie.com/embed/' + vid };
+      return null;
+    }
+    // 3) Vimeo
+    if (host === 'vimeo.com' || host === 'player.vimeo.com') {
+      const m = /(\d{6,})/.exec(u.pathname);
+      if (m) return { kind: 'embed', src: 'https://player.vimeo.com/video/' + m[1] };
+      return null;
+    }
+    // 4) 직접 동영상 파일 http URL
+    if (/\.(mp4|webm|mov)(\?|#|$)/i.test(u.pathname)) {
+      return { kind: 'file', src: url };
+    }
+    return null;
+  }
+
   /* 메이커 정보 정규화 (계약: f.maker{userId,name,slug,picture,followerCount,isFollowing}).
      구버전 호환: maker 없으면 creator* 필드로 폴백. */
   function makerOf(f) {
@@ -119,9 +164,10 @@
     const tabsInner = W.el('div', { class: 'wz-d-tabs__inner' });
     const grid = W.el('div', { class: 'wz-d-grid' });
 
-    /* ----- 좌측: 갤러리(메인) + 스토리 + 댓글 + 안내 ----- */
+    /* ----- 좌측: 대표 영역(영상 우선, 없으면 갤러리) + 스토리 + 댓글 + 안내 ----- */
     const mainCol = W.el('div', { class: 'wz-d-main' });
-    const galleryEl = Gallery(imgs, f.title);
+    const video = classifyVideo(f.videoUrl);
+    const galleryEl = video ? VideoHero(video, f.title) : Gallery(imgs, f.title);
     const storyEl = Story(f);
     const commentsEl = Comments(f);
     mainCol.append(galleryEl, storyEl, commentsEl, FundingNotice());
@@ -169,6 +215,45 @@
     }
     window.addEventListener('scroll', onScroll, { passive: true });
     setActive('main');
+  }
+
+  /* ---------- 대표 영상 (영상 우선) ----------
+   * file: data: 또는 직접 mp4/webm/mov → <video controls playsinline muted>
+   * embed: YouTube/Vimeo → 화이트리스트 도메인 src 의 sandbox iframe */
+  function VideoHero(video, title) {
+    const box = W.el('div', { class: 'wz-d-video' });
+    if (video.kind === 'file') {
+      const v = W.el('video', {
+        class: 'wz-d-video__el',
+        src: video.src,
+        controls: 'controls',
+        playsinline: 'playsinline',
+        muted: 'muted',
+        preload: 'metadata',
+      });
+      v.muted = true; // 자동재생 정책 대비(속성+프로퍼티)
+      v.setAttribute('aria-label', (title || '대표 영상'));
+      // 영상 로드 실패 시 자리표시자로 대체
+      v.addEventListener('error', () => {
+        v.replaceWith(W.el('div', { class: 'wz-d-gallery__ph', html: SVG.box }));
+      });
+      box.appendChild(v);
+    } else {
+      // embed.src 는 classifyVideo 화이트리스트(youtube-nocookie/vimeo)에서만 생성됨
+      const frame = W.el('iframe', {
+        class: 'wz-d-video__el',
+        src: video.src,
+        title: '대표 영상',
+        frameborder: '0',
+        allow: 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture',
+        sandbox: 'allow-scripts allow-same-origin allow-presentation allow-popups',
+        allowfullscreen: 'allowfullscreen',
+        referrerpolicy: 'strict-origin-when-cross-origin',
+        loading: 'lazy',
+      });
+      box.appendChild(frame);
+    }
+    return box;
   }
 
   /* ---------- 갤러리 ---------- */
@@ -351,9 +436,27 @@
     sideCol.appendChild(Rewards(f, tiers));
   }
 
-  /* ---------- 메이커 카드 (팔로우) ---------- */
+  /* 창작자 정보(creatorInfo) 정규화 — 저장된 필드만 추림. 하나도 없으면 null. */
+  function creatorInfoOf(f) {
+    const c = f.creatorInfo;
+    if (!c || typeof c !== 'object') return null;
+    const out = {};
+    if (typeof c.name === 'string' && c.name.trim()) out.name = c.name.trim();
+    if (typeof c.image === 'string' && c.image.trim()) out.image = c.image.trim();
+    if (typeof c.intro === 'string' && c.intro.trim()) out.intro = c.intro.trim();
+    if (typeof c.sido === 'string' && c.sido.trim()) out.sido = c.sido.trim();
+    if (typeof c.sigungu === 'string' && c.sigungu.trim()) out.sigungu = c.sigungu.trim();
+    return Object.keys(out).length ? out : null;
+  }
+  function creatorRegion(ci) {
+    if (!ci) return '';
+    return [ci.sido, ci.sigungu].filter(Boolean).join(' ');
+  }
+
+  /* ---------- 메이커 카드 (팔로우 + 창작자 정보) ---------- */
   function MakerCard(f) {
     const maker = makerOf(f);
+    const ci = creatorInfoOf(f);
     const href = makerHref(maker);
     const card = W.el('div', { class: 'wz-d-maker' });
 
@@ -362,8 +465,10 @@
       ? W.el('a', { class: 'wz-d-maker__head', href })
       : W.el('div', { class: 'wz-d-maker__head' });
     const av = W.el('span', { class: 'wz-d-maker__av', html: SVG.user });
-    if (maker.picture) {
-      const im = W.el('img', { src: maker.picture, alt: '' });
+    // 아바타: 메이커 프로필 사진 우선, 없으면 창작자 정보 이미지로 폴백
+    const avatarSrc = maker.picture || (ci && ci.image) || '';
+    if (avatarSrc) {
+      const im = W.el('img', { src: avatarSrc, alt: '' });
       im.addEventListener('error', () => { im.remove(); av.innerHTML = SVG.user; });
       av.innerHTML = '';
       av.appendChild(im);
@@ -371,9 +476,20 @@
     const info = W.el('div', {});
     const followersEl = W.el('p', { class: 'wz-d-maker__followers' });
     followersEl.append(W.el('b', {}, String(maker.followerCount)), document.createTextNode('명의 팔로워'));
-    info.append(W.el('p', { class: 'wz-d-maker__name' }, makerName(maker)), followersEl);
+    // 이름: 메이커 이름 우선, 없으면 창작자 정보 이름으로 폴백
+    const displayName = maker.name || (ci && ci.name) || makerName(maker);
+    info.append(W.el('p', { class: 'wz-d-maker__name' }, displayName), followersEl);
     head.append(av, info);
     card.appendChild(head);
+
+    /* 창작자 정보 보강: 활동 지역 · 소개 (값 있는 줄만) */
+    const region = creatorRegion(ci);
+    if (region) {
+      card.appendChild(W.el('p', { class: 'wz-d-maker__region' }, region));
+    }
+    if (ci && ci.intro) {
+      card.appendChild(W.el('p', { class: 'wz-d-maker__intro' }, ci.intro));
+    }
 
     const btns = W.el('div', { class: 'wz-d-maker__btns' });
     let following = maker.isFollowing;

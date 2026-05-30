@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository, GroupBuyUpdateFields } from '../repositories/groupbuy-repository.js';
-import type { RewardTier, ContentBlock } from '../types/index.js';
+import type { RewardTier, ContentBlock, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
@@ -110,6 +110,30 @@ function isValidImage(v: string): boolean {
   return /^https?:\/\//.test(v) || /^data:image\/(png|jpe?g|webp);base64,/.test(v);
 }
 
+// 대표 영상 — funds-create.ts videoField 와 동일 기준.
+const MAX_VIDEO_CHARS = 48_000_000;
+function isValidVideo(v: string): boolean {
+  if (v.length === 0 || v.length > MAX_VIDEO_CHARS) return false;
+  return /^https?:\/\//.test(v) || /^data:video\/(mp4|webm|quicktime);base64,/.test(v);
+}
+
+// 창작자 정보 검증 — funds-create.ts creatorInfoField 와 동일 상한. 어느 필드도 없으면 null.
+function parseCreatorInfo(v: unknown): CreatorInfo | null {
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
+  const o = v as Record<string, unknown>;
+  const info: CreatorInfo = {};
+  const name = typeof o.name === 'string' ? o.name.trim().slice(0, 20) : '';
+  if (name) info.name = name;
+  if (typeof o.image === 'string' && isValidImage(o.image)) info.image = o.image;
+  const intro = typeof o.intro === 'string' ? o.intro.trim().slice(0, 300) : '';
+  if (intro) info.intro = intro;
+  const sido = typeof o.sido === 'string' ? o.sido.trim().slice(0, 30) : '';
+  if (sido) info.sido = sido;
+  const sigungu = typeof o.sigungu === 'string' ? o.sigungu.trim().slice(0, 30) : '';
+  if (sigungu) info.sigungu = sigungu;
+  return Object.keys(info).length ? info : null;
+}
+
 /** deadline 검증: YYYY-MM-DD 또는 ISO datetime, 미래여야 함(funds-create 와 동일). */
 function isValidFutureDate(s: string): boolean {
   if (!s) return false;
@@ -200,6 +224,22 @@ export function createAdminFundUpdateHandler(repo: GroupBuyRepository) {
       if (!Number.isFinite(n) || Math.floor(n) < 1 || Math.floor(n) > TARGET_QTY_MAX) errors.push('targetQuantity');
       else fields.targetQuantity = Math.floor(n);
     }
+    if ('plan' in body) {
+      const p = typeof body.plan === 'string' ? body.plan.trim() : '';
+      if (p === 'start' || p === 'run' || p === 'boost') fields.plan = p;
+      else errors.push('plan');
+    }
+    if ('videoUrl' in body) {
+      const v = body.videoUrl;
+      if (v == null || v === '') fields.videoUrl = null;
+      else if (typeof v === 'string' && isValidVideo(v)) fields.videoUrl = v;
+      else errors.push('videoUrl');
+    }
+    if ('creatorInfo' in body) {
+      const v = body.creatorInfo;
+      if (v == null) fields.creatorInfo = null;
+      else fields.creatorInfo = parseCreatorInfo(v); // 유효 필드만 추림(없으면 null)
+    }
 
     if (errors.length > 0) {
       res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', `유효하지 않은 필드: ${errors.join(', ')}`)));
@@ -231,6 +271,9 @@ export function createAdminFundUpdateHandler(repo: GroupBuyRepository) {
         targetQuantity: updated.targetQuantity,
         coverImageUrl: updated.coverImageUrl ?? null,
         contentBlocks: updated.contentBlocks ?? [],
+        plan: updated.plan ?? 'start',
+        videoUrl: updated.videoUrl ?? null,
+        creatorInfo: updated.creatorInfo ?? null,
         deadline: updated.deadline instanceof Date ? updated.deadline.toISOString() : updated.deadline,
         updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
       });
