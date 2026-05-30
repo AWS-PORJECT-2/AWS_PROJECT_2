@@ -173,28 +173,10 @@ img { max-width: 100%; }
 .wz-shelf__scroll::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 999px; }
 .wz-shelf__scroll::-webkit-scrollbar-track { background: transparent; }
 
-.wz-promo { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
-.wz-promo__card {
-  position: relative; border-radius: 16px; padding: 28px; min-height: 172px;
-  text-decoration: none; color: #fff; overflow: hidden;
-  display: flex; flex-direction: column; transition: transform .18s, box-shadow .18s;
-}
-.wz-promo__card:hover { transform: translateY(-2px); box-shadow: var(--sh-3); }
-.wz-promo__card--make { background: linear-gradient(135deg, var(--c-primary-600), var(--c-primary-400)); }
-.wz-promo__card--proxy { background: linear-gradient(135deg, #4f3d7a, var(--c-primary-500)); }
-.wz-promo__eyebrow { font-size: 13px; font-weight: 800; letter-spacing: .02em; opacity: .9; margin: 0; }
-.wz-promo__title { font-size: 23px; font-weight: 800; line-height: 1.3; margin: 8px 0 0; white-space: pre-line; }
-.wz-promo__desc { font-size: 13px; opacity: .92; margin: 10px 0 0; line-height: 1.55; }
-.wz-promo__cta { margin-top: auto; padding-top: 16px; font-size: 14px; font-weight: 800; }
-.wz-promo__cta::after { content: ' →'; }
-
 @media (max-width: 767px) {
   .wz-shelves { margin-top: 36px; gap: 34px; }
   .wz-shelf__title { font-size: 19px; }
   .wz-shelf__scroll { grid-auto-columns: 58vw; gap: 14px; }
-  .wz-promo { grid-template-columns: 1fr; gap: 14px; }
-  .wz-promo__card { min-height: 0; padding: 22px; }
-  .wz-promo__title { font-size: 20px; }
 }
 
 /* 둘러보기(홈 단일 허브) — 정렬 탭 + 카테고리 칩 + 그리드 */

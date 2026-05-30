@@ -183,9 +183,6 @@
       .slice(0, 12);
     if (fresh.length >= 3) out.push(Shelf('신규 오픈', '두띵에 막 올라온 따끈한 프로젝트', fresh, { sort: 'latest' }));
 
-    // 프로모션 밴드 (직접 개설 vs 대리 개설)
-    out.push(PromoBand());
-
     return out;
   }
 
@@ -202,24 +199,6 @@
     items.forEach((p) => scroll.appendChild(Card(p)));
     sec.appendChild(scroll);
     return sec;
-  }
-
-  function PromoBand() {
-    const band = W.el('section', { class: 'wz-promo' });
-    const a = W.el('a', { class: 'wz-promo__card wz-promo__card--make', href: '/fund-create.html?mode=normal' });
-    a.append(
-      W.el('p', { class: 'wz-promo__eyebrow' }, '직접 개설'),
-      W.el('h3', { class: 'wz-promo__title' }, '내 손으로 만드는\n우리 과 굿즈'),
-      W.el('p', { class: 'wz-promo__desc' }, '낮은 수수료로 디자인부터 직접. 5분이면 충분해요.'),
-      W.el('span', { class: 'wz-promo__cta' }, '프로젝트 만들기'));
-    const b = W.el('a', { class: 'wz-promo__card wz-promo__card--proxy', href: '/fund-create.html?mode=proxy' });
-    b.append(
-      W.el('p', { class: 'wz-promo__eyebrow' }, '대리 개설'),
-      W.el('h3', { class: 'wz-promo__title' }, '기획부터 운영까지\n두띵이 대신'),
-      W.el('p', { class: 'wz-promo__desc' }, '아이디어만 주세요. 디자인·리워드·운영을 맡아드려요.'),
-      W.el('span', { class: 'wz-promo__cta' }, '대리 개설 신청'));
-    band.append(a, b);
-    return band;
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
