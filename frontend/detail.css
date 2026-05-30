@@ -73,11 +73,11 @@
   flex-direction: column;
   gap: 12px;
   position: fixed;
-  top: 80px;
+  top: 124px; /* 2단 헤더(상단 60 + 네비 48) 아래로 */
   /* 1200px 콘텐츠의 우측 32px(메인 좌우 padding) 만큼 안전 영역 두고 우측 정렬 */
   right: max(32px, calc((100vw - 1200px) / 2 + 32px));
   width: 360px;
-  max-height: calc(100vh - 100px);
+  max-height: calc(100vh - 144px);
   overflow-y: auto;
   z-index: 10;
   background: #fff;
@@ -100,7 +100,7 @@
   flex-wrap: wrap;
 }
 .info-creator-tag .creator-badge {
-  background: linear-gradient(135deg, #b07be0, #8b8de0);
+  background: var(--c-primary-500);
   color: #fff;
   font-size: 12px;
   font-weight: 800;

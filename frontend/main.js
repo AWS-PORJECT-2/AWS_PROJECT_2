@@ -433,13 +433,21 @@ async function fetchAuthStatus() {
   return null;
 }
 
-/** 로그아웃 — 백엔드 세션/쿠키 정리 */
+/** 로그아웃 — 백엔드 세션/쿠키 정리 + 로컬 잔존 상태 정리(M5: 공유기기 사용자 간 상태 누수 방지) */
 async function handleLogout(e) {
   if (e && e.preventDefault) e.preventDefault();
   try {
     await fetch('/api/dev-auth/logout', { method: 'POST', credentials: 'include' }).catch(() => null);
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).catch(() => null);
   } finally {
+    try {
+      const keep = /^(API_BASE|theme)/; // 보존할 키 패턴
+      Object.keys(localStorage).forEach((k) => {
+        if (/^(liked_|reserved_|paid_|selectedSize_|recentFunds|liked_delta_|reserved_delta_)/.test(k) && !keep.test(k)) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (_) { /* ignore */ }
     location.href = '/main.html';
   }
 }
