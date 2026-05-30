@@ -275,7 +275,7 @@ function buildAndOpenMenu() {
   // 1) 즉시 비로그인 메뉴로 열기
   const guestItems = [
     ...baseItems,
-    { label: '로그인',       href: '/login-dev.html' },
+    { label: '로그인',       href: '/login.html' },
   ];
   openSimpleMenu(guestItems);
 
@@ -794,7 +794,7 @@ function renderGlobalFooter() {
     '  </nav>',
     '  <div class="dt-footer__support">',
     '    <strong>고객지원</strong> 평일 10:00~18:00 (점심 12:00~13:00 제외)',
-    '    · 문의 <a href="mailto:support@doothing.kr">support@doothing.kr</a>',
+    '    · <a href="/support.html">1:1 문의</a>',
     '  </div>',
     '  <div class="dt-footer__company">',
     '    두띵(doothing) · 대학교 굿즈 펀딩 플랫폼<br>',
