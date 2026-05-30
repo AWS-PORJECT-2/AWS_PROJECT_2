@@ -26,5 +26,19 @@ export interface GroupBuyRepository {
   incrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void>;
   decrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void>;
   list(options: GroupBuyListOptions): Promise<{ items: GroupBuyListItem[]; total: number }>;
+  requestDelete(id: string, userId: string, reason: string): Promise<boolean>;
+  listDeleteRequests(): Promise<DeleteRequestItem[]>;
+  cancelFund(id: string): Promise<void>;
+}
+
+export interface DeleteRequestItem {
+  id: string;
+  title: string;
+  creatorId: string;
+  authorName: string | null;
+  imageUrl: string | null;
+  deleteReason: string | null;
+  deleteRequestedAt: Date | null;
+  status: string;
 }
 

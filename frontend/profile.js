@@ -286,18 +286,51 @@ function renderProfileTabContent() {
 }
 
 async function loadMyFunds(container) {
+  const esc = window.escapeHTML;
   try {
     const res = await window.api.get('/me/funds', { silentAuthFail: true });
     const items = (res && res.items) || [];
     currentUser.createdFundingCount = items.length;
     if (!items.length) { renderEmpty(container, '제작한 펀딩'); return; }
-    container.innerHTML = items.map((f) => rowItemHtml({
-      id: f.id, title: f.title, imageUrl: f.imageUrl,
-      sub: (f.achievementRate || 0) + '% 달성 · ' + Number(f.finalPrice || 0).toLocaleString('ko-KR') + '원~',
-      badge: statusBadge(FUND_STATUS_LABEL, f.status),
-    })).join('');
+    container.innerHTML = '';
+    items.forEach((f) => {
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;';
+      const link = document.createElement('a');
+      link.href = 'detail.html?id=' + encodeURIComponent(f.id);
+      link.style.cssText = 'display:flex;gap:12px;flex:1;min-width:0;text-decoration:none;color:inherit;';
+      link.innerHTML = `
+        <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#f3f4f6;">
+          ${f.imageUrl ? `<img src="${esc(f.imageUrl)}" alt="${esc(f.title)}" style="width:100%;height:100%;object-fit:cover;">` : ''}
+        </div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.title)} ${statusBadge(FUND_STATUS_LABEL, f.status)}</div>
+          <div style="font-size:12px;color:#9ca3af;margin-top:4px;">${f.achievementRate || 0}% 달성 · ${Number(f.finalPrice || 0).toLocaleString('ko-KR')}원~</div>
+        </div>`;
+      row.appendChild(link);
+      // 삭제 요청 — 취소/반려 상태가 아니면 노출
+      if (f.status !== 'cancelled' && f.status !== 'rejected') {
+        const del = document.createElement('button');
+        del.type = 'button'; del.textContent = '삭제 요청';
+        del.style.cssText = 'background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;';
+        del.addEventListener('click', () => requestFundDelete(f.id));
+        row.appendChild(del);
+      }
+      container.appendChild(row);
+    });
   } catch (e) {
     renderEmpty(container, '제작한 펀딩');
+  }
+}
+
+async function requestFundDelete(fundId) {
+  const reason = prompt('삭제 요청 사유를 입력해 주세요 (관리자가 검토 후 삭제·환불 처리합니다):', '');
+  if (reason === null) return;
+  try {
+    await window.api.post('/me/funds/' + encodeURIComponent(fundId) + '/delete-request', { reason: reason });
+    alert('삭제 요청이 접수되었습니다. 관리자 확인 후 처리됩니다.');
+  } catch (e) {
+    alert('삭제 요청 실패: ' + ((e && e.message) || ''));
   }
 }
 

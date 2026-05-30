@@ -72,6 +72,14 @@ export class PgUserRepository implements UserRepository {
     await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
   }
 
+  async listAll(limit = 500): Promise<User[]> {
+    const res = await this.pool.query(
+      'SELECT * FROM "user" ORDER BY created_at DESC LIMIT $1',
+      [Math.min(Math.max(limit, 1), 2000)],
+    );
+    return res.rows.map((r) => this.mapRow(r));
+  }
+
   private mapRow(row: Record<string, unknown>): User {
     return {
       id: row.id as string,

@@ -39,12 +39,19 @@
     document.querySelectorAll('.admin-view').forEach(function (btn) {
       btn.addEventListener('click', function () {
         currentView = btn.dataset.view;
-        document.getElementById('viewFunds').style.display = currentView === 'funds' ? '' : 'none';
-        document.getElementById('viewDeposits').style.display = currentView === 'deposits' ? '' : 'none';
+        ['funds', 'deposits', 'deletes', 'users'].forEach(function (v) {
+          var el = document.getElementById('view' + v.charAt(0).toUpperCase() + v.slice(1));
+          if (el) el.style.display = currentView === v ? '' : 'none';
+        });
         renderViews();
-        if (currentView === 'funds') load(); else loadDeposits();
+        if (currentView === 'funds') load();
+        else if (currentView === 'deposits') loadDeposits();
+        else if (currentView === 'deletes') loadDeleteRequests();
+        else if (currentView === 'users') loadUsers();
       });
     });
+    var us = document.getElementById('userSearch');
+    if (us) us.addEventListener('input', function () { loadUsers(us.value.trim()); });
     renderViews();
   }
   function renderViews() {
@@ -232,6 +239,85 @@
       load(); // 목록 갱신
     } catch (e) {
       alert(verb + ' 실패: ' + ((e && e.message) || '알 수 없는 오류'));
+    }
+  }
+
+  // ===== 삭제 요청 =====
+  async function loadDeleteRequests() {
+    var list = document.getElementById('adminDeleteList');
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">불러오는 중…</div>';
+    try {
+      var res = await window.api.get('/admin/fund-delete-requests');
+      var items = (res && res.items) || [];
+      if (!items.length) { list.innerHTML = '<div style="padding:48px 20px;text-align:center;color:#9ca3af;">삭제 요청이 없습니다.</div>'; return; }
+      list.innerHTML = '';
+      items.forEach(function (f) {
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;gap:16px;align-items:center;padding:16px;border:1px solid #fde68a;border-radius:14px;margin-bottom:12px;background:#fffbeb;';
+        var info = document.createElement('div'); info.style.cssText = 'flex:1;min-width:0;';
+        var t = document.createElement('div'); t.style.cssText = 'font-size:15px;font-weight:700;color:#1a1a1a;'; t.textContent = f.title;
+        var m = document.createElement('div'); m.style.cssText = 'font-size:13px;color:#92400e;margin-top:4px;';
+        m.textContent = '작성자: ' + (f.authorName || '-') + ' · 사유: ' + (f.deleteReason || '(없음)');
+        info.appendChild(t); info.appendChild(m); wrap.appendChild(info);
+        var btn = document.createElement('button');
+        btn.type = 'button'; btn.textContent = '삭제 처리';
+        btn.style.cssText = 'padding:9px 16px;border:none;border-radius:10px;background:#ef4444;color:#fff;font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;';
+        btn.addEventListener('click', function () { doDelete(f.id); });
+        wrap.appendChild(btn);
+        list.appendChild(wrap);
+      });
+    } catch (e) {
+      list.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">불러오기 실패</div>';
+    }
+  }
+  async function doDelete(id) {
+    if (!confirm('이 펀드를 삭제 처리할까요? 모든 후원이 취소되고, 입금 완료 건은 환불 대상으로 안내됩니다.')) return;
+    try {
+      var res = await window.api.post('/admin/funds/' + encodeURIComponent(id) + '/delete', {});
+      var refund = (res && res.refundable) || [];
+      if (refund.length) {
+        alert('삭제 완료. 환불 필요(입금완료) ' + refund.length + '건:\n' +
+          refund.map(function (r) { return '· ' + (r.depositorName || r.userId) + ' / ' + Number(r.amount || 0).toLocaleString('ko-KR') + '원'; }).join('\n'));
+      } else {
+        alert('삭제 완료. 환불 대상(입금완료) 없음.');
+      }
+      loadDeleteRequests();
+    } catch (e) { alert('삭제 실패: ' + ((e && e.message) || '')); }
+  }
+
+  // ===== 사용자 관리 =====
+  async function loadUsers(q) {
+    var list = document.getElementById('adminUserList');
+    list.innerHTML = '<div style="padding:40px;text-align:center;color:#9ca3af;">불러오는 중…</div>';
+    try {
+      var res = await window.api.get('/admin/users' + (q ? '?q=' + encodeURIComponent(q) : ''));
+      var items = (res && res.items) || [];
+      if (!items.length) { list.innerHTML = '<div style="padding:48px 20px;text-align:center;color:#9ca3af;">사용자가 없습니다.</div>'; return; }
+      list.innerHTML = '';
+      items.forEach(function (u) {
+        var wrap = document.createElement('div');
+        wrap.style.cssText = 'display:flex;gap:16px;align-items:center;padding:14px 16px;border:1px solid #e5e7eb;border-radius:12px;margin-bottom:10px;background:#fff;';
+        var info = document.createElement('div'); info.style.cssText = 'flex:1;min-width:0;';
+        var nm = document.createElement('div'); nm.style.cssText = 'font-size:14px;font-weight:700;color:#1a1a1a;';
+        nm.textContent = (u.name || '(이름없음)') + (u.role === 'ADMIN' ? ' · 관리자' : '');
+        var em = document.createElement('div'); em.style.cssText = 'font-size:13px;color:#6b7280;'; em.textContent = u.email;
+        info.appendChild(nm); info.appendChild(em); wrap.appendChild(info);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        var makeAdmin = u.role !== 'ADMIN';
+        btn.textContent = makeAdmin ? '관리자 지정' : '관리자 해제';
+        btn.style.cssText = 'padding:8px 14px;border:1.5px solid ' + (makeAdmin ? '#8b5cf6' : '#e5e7eb') + ';border-radius:10px;background:' + (makeAdmin ? '#f3f0fe' : '#fff') + ';color:' + (makeAdmin ? '#7c3aed' : '#6b7280') + ';font-size:13px;font-weight:700;cursor:pointer;flex-shrink:0;';
+        btn.addEventListener('click', async function () {
+          try {
+            await window.api.post('/admin/users/' + encodeURIComponent(u.id) + '/role', { role: makeAdmin ? 'ADMIN' : 'USER' });
+            loadUsers(q);
+          } catch (e) { alert('변경 실패: ' + ((e && e.message) || '')); }
+        });
+        wrap.appendChild(btn);
+        list.appendChild(wrap);
+      });
+    } catch (e) {
+      list.innerHTML = '<div style="padding:40px;text-align:center;color:#ef4444;">불러오기 실패</div>';
     }
   }
 })();

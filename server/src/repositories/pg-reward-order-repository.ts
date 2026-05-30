@@ -128,6 +128,42 @@ export class PgRewardOrderRepository {
     }
   }
 
+  /**
+   * 펀드 삭제 시 해당 펀드의 모든 후원 주문을 취소.
+   * confirmed 였던 주문은 groupbuys.current_quantity 를 되돌린다(환불 대상).
+   * 반환: 취소된 주문들(환불 안내용) — 특히 confirmed 였던 건은 실제 송금 환불 필요.
+   */
+  async cancelAllForFund(fundId: string): Promise<{ refundable: RewardOrder[]; cancelledCount: number }> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const active = await client.query(
+        `SELECT * FROM reward_orders WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed') FOR UPDATE`,
+        [fundId],
+      );
+      const rows = active.rows.map(mapRow);
+      const confirmedCount = rows.filter((r) => r.status === 'confirmed').length;
+      if (confirmedCount > 0) {
+        await client.query(
+          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - $1), updated_at = NOW() WHERE id = $2`,
+          [confirmedCount, fundId],
+        );
+      }
+      await client.query(
+        `UPDATE reward_orders SET status = 'cancelled' WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')`,
+        [fundId],
+      );
+      await client.query('COMMIT');
+      // confirmed(=실제 입금완료) 였던 건만 환불 대상으로 안내
+      return { refundable: rows.filter((r) => r.status === 'confirmed'), cancelledCount: rows.length };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   // 특정 티어의 확정 수량(재고 차감 계산용)
   async confirmedCountForTier(fundId: string, rewardTierId: string): Promise<number> {
     const res = await this.pool.query(

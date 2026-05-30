@@ -19,7 +19,9 @@ import { createAiRouter } from './routes/ai.js';
 import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createGroupBuyGetHandler } from './routes/groupbuy-get.js';
-import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler } from './routes/admin-funds.js';
+import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler } from './routes/admin-funds.js';
+import { createFundDeleteRequestHandler } from './routes/me-funds.js';
+import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
 import { createMeFundsHandler } from './routes/me-funds.js';
 import {
@@ -288,6 +290,15 @@ export function createApp(
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
   app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
   app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository));
+
+  // --- 펀드 삭제 요청(작성자) → 관리자 삭제+환불 (항목 11) ---
+  app.post('/api/me/funds/:id/delete-request', authRequired, createFundDeleteRequestHandler(groupBuyRepository));
+  app.get('/api/admin/fund-delete-requests', authRequired, requireAdmin, createAdminDeleteRequestsHandler(groupBuyRepository));
+  app.post('/api/admin/funds/:id/delete', authRequired, requireAdmin, createAdminFundDeleteHandler(groupBuyRepository, rewardOrderRepository));
+
+  // --- 사용자 관리 (항목 10) ---
+  app.get('/api/admin/users', authRequired, requireAdmin, createAdminUsersListHandler(userRepository));
+  app.post('/api/admin/users/:id/role', authRequired, requireAdmin, createAdminSetUserRoleHandler(userRepository));
 
   // --- Email Notification Service (export for socket/scheduler use) ---
   const emailService = createEmailService();

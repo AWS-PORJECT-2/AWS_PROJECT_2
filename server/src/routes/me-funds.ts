@@ -37,3 +37,20 @@ export function createMeFundsHandler(groupBuyRepo: GroupBuyRepository) {
     }
   };
 }
+
+/** POST /api/me/funds/:id/delete-request — 작성자가 본인 펀드 삭제 요청 (관리자가 처리). */
+export function createFundDeleteRequestHandler(groupBuyRepo: GroupBuyRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : '';
+    try {
+      const ok = await groupBuyRepo.requestDelete(req.params.id, userId, reason);
+      if (!ok) { res.status(404).json({ error: 'NOT_FOUND', message: '본인이 개설한 펀드만 삭제 요청할 수 있습니다' }); return; }
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err, userId }, '펀드 삭제 요청 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}

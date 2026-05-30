@@ -81,6 +81,43 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
   }
 
+  // 작성자 본인 펀드에 삭제 요청 플래그 설정
+  async requestDelete(id: string, userId: string, reason: string): Promise<boolean> {
+    const res = await this.pool.query(
+      `UPDATE groupbuys SET delete_requested = TRUE, delete_reason = $1, delete_requested_at = NOW()
+        WHERE id = $2 AND creator_id = $3`,
+      [reason || null, id, userId],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
+  async listDeleteRequests() {
+    const res = await this.pool.query(
+      `SELECT g.id, g.title, g.creator_id, g.status, g.delete_reason, g.delete_requested_at,
+              COALESCE(g.tryon_image_url, g.design_image_url) AS image_url, u.name AS author_name
+         FROM groupbuys g LEFT JOIN "user" u ON u.id = g.creator_id
+        WHERE g.delete_requested = TRUE ORDER BY g.delete_requested_at DESC`,
+    );
+    return res.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      creatorId: r.creator_id as string,
+      authorName: (r.author_name as string | null) ?? null,
+      imageUrl: (r.image_url as string | null) ?? null,
+      deleteReason: (r.delete_reason as string | null) ?? null,
+      deleteRequestedAt: r.delete_requested_at ? new Date(r.delete_requested_at as string) : null,
+      status: r.status as string,
+    }));
+  }
+
+  // 펀드 취소(삭제 처리) — status cancelled + 삭제요청 플래그 해제
+  async cancelFund(id: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE groupbuys SET status = 'cancelled', delete_requested = FALSE, updated_at = NOW() WHERE id = $1`,
+      [id],
+    );
+  }
+
   async incrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void> {
     const queryable = client ?? this.pool;
     await queryable.query(

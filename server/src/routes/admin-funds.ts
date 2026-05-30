@@ -62,3 +62,39 @@ function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected'
 
 export const createAdminFundApproveHandler = (repo: GroupBuyRepository) => createReviewHandler(repo, 'open', '승인');
 export const createAdminFundRejectHandler = (repo: GroupBuyRepository) => createReviewHandler(repo, 'rejected', '반려');
+
+/** GET /api/admin/fund-delete-requests — 삭제 요청된 펀드 목록 */
+export function createAdminDeleteRequestsHandler(repo: GroupBuyRepository) {
+  return async (_req: Request, res: Response): Promise<void> => {
+    try {
+      res.json({ items: await repo.listDeleteRequests() });
+    } catch (err) {
+      logger.error({ err }, '삭제 요청 목록 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/**
+ * POST /api/admin/funds/:id/delete — 펀드 삭제 처리 + 후원 취소/환불 안내.
+ * confirmed(입금완료) 후원은 실제 송금 환불이 필요하므로 목록으로 반환.
+ */
+export function createAdminFundDeleteHandler(
+  repo: GroupBuyRepository,
+  rewardOrderRepo: { cancelAllForFund: (fundId: string) => Promise<{ refundable: unknown[]; cancelledCount: number }> },
+) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    try {
+      const fund = await repo.findById(id);
+      if (!fund) { res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' }); return; }
+      const result = await rewardOrderRepo.cancelAllForFund(id);
+      await repo.cancelFund(id);
+      logger.info({ id, adminId: req.userId, cancelled: result.cancelledCount, refundable: result.refundable.length }, '관리자 펀드 삭제 처리');
+      res.json({ id, status: 'cancelled', cancelledBackings: result.cancelledCount, refundable: result.refundable });
+    } catch (err) {
+      logger.error({ err, id }, '펀드 삭제 처리 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
