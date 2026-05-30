@@ -677,7 +677,7 @@ function App() {
           ? Math.round((p.currentQuantity / p.targetQuantity) * 100)
           : 0,
         img: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
-        bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)',
+        bg: 'var(--primary-soft)',
         emoji: 'jacket',
         model: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
       }));
@@ -693,7 +693,7 @@ function App() {
         name: p.title,
         desc: p.description?.slice(0, 30) || p.title,
         img: p.imageUrl || JACKET_IMAGES[idx % JACKET_IMAGES.length],
-        bg: 'linear-gradient(135deg,#6a7bd6,#8e7cc3)',
+        bg: 'var(--primary-soft)',
         progress: p.targetQuantity > 0
           ? Math.round((p.currentQuantity / p.targetQuantity) * 100)
           : 0,

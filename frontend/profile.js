@@ -65,7 +65,7 @@ async function openTrackingModal() {
     container.innerHTML = '';
     shippingOrders.forEach(function (order) {
       var statusText = { shipping_ready: '배송 준비', shipping: '배송 중', delivered: '배송 완료' };
-      var statusColor = { shipping_ready: '#f97316', shipping: '#2563eb', delivered: '#16a34a' };
+      var statusColor = { shipping_ready: '#f97316', shipping: '#8b5cf6', delivered: '#16a34a' };
       var card = document.createElement('div');
       card.style.cssText = 'padding:12px;border:1px solid #f0f0f0;border-radius:10px;margin-bottom:8px;text-align:left;';
       var header = document.createElement('div');
@@ -85,7 +85,7 @@ async function openTrackingModal() {
       card.appendChild(amountDiv);
       if (order.trackingNumber) {
         var btn = document.createElement('button');
-        btn.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:1px solid #2563eb;border-radius:8px;background:#fff;color:#2563eb;font-size:13px;font-weight:600;cursor:pointer;';
+        btn.style.cssText = 'margin-top:8px;width:100%;padding:8px;border:1px solid #8b5cf6;border-radius:8px;background:#fff;color:#8b5cf6;font-size:13px;font-weight:600;cursor:pointer;';
         btn.textContent = '택배 추적';
         btn.addEventListener('click', function () { viewTracking(order.id); });
         card.appendChild(btn);
@@ -209,8 +209,8 @@ function renderProfileTabs() {
   [likedBtn, joinedBtn, createdBtn].forEach((btn) => {
     if (!btn) return;
     if (btn.id === 'tab' + profileTab.charAt(0).toUpperCase() + profileTab.slice(1)) {
-      btn.style.borderBottom = '2px solid #2563eb';
-      btn.style.color = '#2563eb';
+      btn.style.borderBottom = '2px solid #8b5cf6';
+      btn.style.color = '#8b5cf6';
     } else {
       btn.style.borderBottom = '2px solid transparent';
       btn.style.color = '#9ca3af';
@@ -327,7 +327,7 @@ function renderProfile() {
     <!-- 탭: 참여한 펀딩 / 제작한 펀딩 -->
     <section style="border-bottom:8px solid #f5f5f5;">
       <div style="display:flex;border-bottom:1px solid #f0f0f0;">
-        <button id="tabLiked" onclick="switchProfileTab('liked')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #2563eb;color:#2563eb;">좋아요</button>
+        <button id="tabLiked" onclick="switchProfileTab('liked')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #8b5cf6;color:#8b5cf6;">좋아요</button>
         <button id="tabJoined" onclick="switchProfileTab('joined')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;">참여한 펀딩</button>
         <button id="tabCreated" onclick="switchProfileTab('created')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;">제작한 펀딩</button>
       </div>
@@ -343,23 +343,23 @@ function renderProfile() {
   orderSection.innerHTML = `
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
       <div style="font-size:16px;font-weight:700;color:#1a1a1a;">배송/결제 현황</div>
-      <button onclick="openTrackingModal()" style="font-size:13px;color:#2563eb;font-weight:600;background:none;border:none;cursor:pointer;">배송조회 →</button>
+      <button onclick="openTrackingModal()" style="font-size:13px;color:#8b5cf6;font-weight:600;background:none;border:none;cursor:pointer;">배송조회 →</button>
     </div>
     <div style="display:flex;justify-content:space-around;text-align:center;">
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paymentPending)}</div>
+        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.paymentPending)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 대기</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.paidReady)}</div>
+        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.paidReady)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 완료<br>배송 준비</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.shipping)}</div>
+        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.shipping)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 중</div>
       </div>
       <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#2563eb;">${esc(MOCK_ORDER_STATUS.delivered)}</div>
+        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.delivered)}</div>
         <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 완료</div>
       </div>
     </div>

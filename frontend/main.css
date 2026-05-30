@@ -14,8 +14,17 @@
     system-ui, Roboto, "Helvetica Neue", "Segoe UI", sans-serif;
   --font-round: "NanumSquareRound", var(--font-pretendard);
 
-  --grad-soft: linear-gradient(135deg, #c9b8f0 0%, #a8c5e8 50%, #9fd6e0 100%);
-  --grad-soft-2: linear-gradient(135deg, #e8d8f5 0%, #cfdef3 50%, #d5ecf2 100%);
+  /* ===== 브랜드 색상 — 연한 보라 단색 체계로 통합 (그라데이션 폐지) =====
+   * --primary: 주 액션(버튼/링크/배지) 흰 글씨 대비 확보용 보라
+   * --primary-strong: hover/강조, --primary-soft: 밝은 보라(헤더 등), --primary-tint: 아주 옅은 배경 */
+  --primary: #8b5cf6;
+  --primary-strong: #7c3aed;
+  --primary-soft: #a78bfa;
+  --primary-tint: #f3f0fe;
+
+  /* 그라데이션 토큰은 호환 위해 남기되 전부 연보라 단색/옅은 틴트로 대체 */
+  --grad-soft: var(--primary-soft);
+  --grad-soft-2: var(--primary-tint);
 
   --bg-page: #FAFBFC;
   --card-bg: #ffffff;
@@ -23,9 +32,9 @@
   --text-muted: #6b7280;
   --border-subtle: #e2e2e8;
 
-  --brand: #5b6ee1;
-  /* 과잠 색상 — category-icons.js jacket 그라데이션과 동일 */
-  --jacket-grad: linear-gradient(135deg, #b899e8 0%, #7d8be0 100%);
+  --brand: var(--primary);
+  /* 헤더/카테고리 아이콘 등에 쓰이던 보라 그라데이션 → 연보라 단색 */
+  --jacket-grad: var(--primary-soft);
 }
 
 .main-page * {
@@ -91,7 +100,7 @@
   top: 4px; right: 0;
   width: 8px; height: 8px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #8b5cf6;
   border: 1.5px solid #fff;
 }
 
@@ -199,7 +208,7 @@
   border-radius: 0;
   overflow: hidden;
   min-height: 360px;
-  background-color: #6a7bd6;
+  background-color: #a78bfa;
 }
 .dt-popular .main-card .main-img {
   width: 100%; height: 100%;
@@ -494,7 +503,7 @@
   aspect-ratio: 1 / 1;
   border-radius: 0;
   overflow: hidden;
-  background-color: #6a7bd6;
+  background-color: #a78bfa;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 .dt-new-picks .slot .img-wrap img {

@@ -146,7 +146,7 @@ function getStatusText(s) {
 function getStatusColor(s) {
   return ({
     PENDING: '#f59e0b',
-    WAITING_FOR_CONFIRM: '#3b82f6',
+    WAITING_FOR_CONFIRM: '#8b5cf6',
     PAID: '#10b981',
     CANCELLED: '#6b7280',
     REFUNDED: '#ef4444',

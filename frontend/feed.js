@@ -60,7 +60,7 @@ function renderCategoryChips() {
     .map((cat) => {
       const isActive = cat === currentCategory;
       const safeCat = esc(cat);
-      return `<button onclick="selectCategory('${safeCat}')" style="padding:8px 16px;border:1.5px solid ${isActive ? '#2563eb' : '#e5e7eb'};border-radius:20px;background:${isActive ? '#eff6ff' : '#fff'};font-size:13px;font-weight:600;color:${isActive ? '#2563eb' : '#6b7280'};cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0;">${safeCat}</button>`;
+      return `<button onclick="selectCategory('${safeCat}')" style="padding:8px 16px;border:1.5px solid ${isActive ? '#8b5cf6' : '#e5e7eb'};border-radius:20px;background:${isActive ? '#f3f0fe' : '#fff'};font-size:13px;font-weight:600;color:${isActive ? '#8b5cf6' : '#6b7280'};cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0;">${safeCat}</button>`;
     })
     .join('');
 }

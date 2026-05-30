@@ -12,10 +12,10 @@
     .addr-header h1 { font-size:17px; font-weight:700; color:#1a1a1a; flex:1; }
     .addr-list { padding:0; }
     .addr-card { padding:16px 20px; border-bottom:1px solid #f5f5f5; }
-    .addr-card.is-default { background:#eff6ff; }
+    .addr-card.is-default { background:#f3f0fe; }
     .addr-card .card-head { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
     .addr-card .label { font-size:15px; font-weight:600; color:#1a1a1a; }
-    .addr-card .badge { font-size:11px; background:#2563eb; color:#fff; padding:2px 8px; border-radius:10px; }
+    .addr-card .badge { font-size:11px; background:#8b5cf6; color:#fff; padding:2px 8px; border-radius:10px; }
     .addr-card .recipient { font-size:13px; color:#4b5563; margin-bottom:4px; }
     .addr-card .address { font-size:13px; color:#6b7280; line-height:1.5; }
     .addr-card .actions { display:flex; gap:8px; margin-top:10px; }
@@ -23,7 +23,7 @@
     .addr-card .actions button:hover, .addr-card .actions a:hover { background:#f3f4f6; }
     .add-btn-wrap { padding:20px; }
     .add-btn { display:block; width:100%; padding:14px; text-align:center; border:2px dashed #d1d5db; border-radius:14px; color:#6b7280; font-size:15px; font-weight:600; text-decoration:none; cursor:pointer; background:none; }
-    .add-btn:hover { border-color:#2563eb; color:#2563eb; }
+    .add-btn:hover { border-color:#8b5cf6; color:#8b5cf6; }
     .empty-state { text-align:center; padding:60px 20px; color:#9ca3af; }
     .modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.4); z-index:1000; align-items:center; justify-content:center; }
     .modal-overlay.active { display:flex; }
@@ -32,15 +32,15 @@
     .modal-box .field { margin-bottom:14px; }
     .modal-box .field label { display:block; font-size:13px; font-weight:600; color:#1a1a1a; margin-bottom:6px; }
     .modal-box .field input { width:100%; padding:12px; border:1.5px solid #e5e7eb; border-radius:10px; font-size:14px; outline:none; box-sizing:border-box; }
-    .modal-box .field input:focus { border-color:#2563eb; }
+    .modal-box .field input:focus { border-color:#8b5cf6; }
     .modal-box .field input[readonly] { background:#f9fafb; color:#6b7280; }
     .modal-box .quick-labels { display:flex; gap:6px; margin-top:6px; }
     .modal-box .quick-labels button { padding:6px 12px; border:1px solid #e5e7eb; border-radius:8px; background:#fff; font-size:12px; cursor:pointer; }
-    .modal-box .quick-labels button:hover { border-color:#2563eb; color:#2563eb; }
+    .modal-box .quick-labels button:hover { border-color:#8b5cf6; color:#8b5cf6; }
     .modal-actions { display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
     .modal-actions button { padding:10px 20px; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; border:none; }
     .modal-actions .btn-cancel { background:#f3f4f6; color:#6b7280; }
-    .modal-actions .btn-submit { background:#2563eb; color:#fff; }
+    .modal-actions .btn-submit { background:#8b5cf6; color:#fff; }
   </style>
   <link rel="stylesheet" href="main.css">
 </head>
@@ -86,7 +86,7 @@
         <label>우편번호 *</label>
         <div style="display:flex;gap:8px;">
           <input type="text" id="inputPostal" placeholder="우편번호" readonly style="flex:1;">
-          <button type="button" onclick="searchAddress()" style="padding:10px 14px;border:1.5px solid #2563eb;border-radius:10px;background:#eff6ff;color:#2563eb;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">우편번호 검색</button>
+          <button type="button" onclick="searchAddress()" style="padding:10px 14px;border:1.5px solid #8b5cf6;border-radius:10px;background:#f3f0fe;color:#8b5cf6;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap;">우편번호 검색</button>
         </div>
       </div>
       <div class="field">

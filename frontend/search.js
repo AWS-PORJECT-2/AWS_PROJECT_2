@@ -41,7 +41,7 @@ function ensureSearchOverlay() {
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
         <input id="searchInput" type="text" placeholder="공동구매 검색..." style="border:none;outline:none;background:transparent;font-size:15px;color:#1a1a1a;width:100%;">
       </div>
-      <button onclick="executeSearch()" style="background:none;border:none;cursor:pointer;padding:6px;font-size:15px;font-weight:600;color:#2563eb;">검색</button>
+      <button onclick="executeSearch()" style="background:none;border:none;cursor:pointer;padding:6px;font-size:15px;font-weight:600;color:#8b5cf6;">검색</button>
     </div>
     <div style="padding:20px;">
       <div style="font-size:14px;font-weight:700;color:#1a1a1a;margin-bottom:12px;">인기 키워드</div>

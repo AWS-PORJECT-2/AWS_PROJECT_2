@@ -15,7 +15,7 @@
 
     <!-- 진행 상태 -->
     <div class="step-indicator">
-      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">AI 모델 피팅</span></div>
+      <div class="step active" data-step="1"><span class="step-num">1</span><span class="step-label">AI 모델 피팅 (선택)</span></div>
       <div class="step-line"></div>
       <div class="step" data-step="2"><span class="step-num">2</span><span class="step-label">펀드 정보</span></div>
       <div class="step-line"></div>
@@ -24,8 +24,8 @@
 
     <!-- ===== Step 1: AI 모델 피팅 ===== -->
     <section class="step-panel" data-step-panel="1">
-      <h2 class="panel-title">AI 모델 피팅</h2>
-      <p class="panel-desc">굿즈 디자인 이미지를 업로드하면 AI가 모델에 입혀 미리보기를 생성합니다.</p>
+      <h2 class="panel-title">AI 모델 피팅 <span style="font-size:13px;font-weight:500;color:#9ca3af;">(선택)</span></h2>
+      <p class="panel-desc">굿즈 디자인 이미지를 업로드하면 AI가 미리보기를 생성합니다. 이 단계는 선택이며, 바로 <b>다음</b>으로 넘어가도 됩니다.</p>
 
       <div style="padding:20px;">
         <!-- 이미지 업로드 (최대 5장) -->
@@ -85,7 +85,7 @@
 
       <div class="step-nav">
         <span></span>
-        <button type="button" class="btn-next" id="step1Next" disabled>다음 →</button>
+        <button type="button" class="btn-next" id="step1Next">다음 →</button>
       </div>
     </section>
 
@@ -118,10 +118,10 @@
         </div>
 
         <div class="field">
-          <label for="fundDepartment">학과 <span class="req">*</span></label>
-          <input id="fundDepartment" name="department" type="text" maxlength="50" required
-                 placeholder="예) 소프트웨어학부">
-          <p class="field-hint">로그인된 학과 정보가 자동으로 들어갑니다. 필요하면 수정하세요.</p>
+          <label for="fundDepartment">소속·단체 <span style="font-size:12px;font-weight:500;color:#9ca3af;">(선택)</span></label>
+          <input id="fundDepartment" name="department" type="text" maxlength="50"
+                 placeholder="예) 소프트웨어학부 · OO동아리 · 개인">
+          <p class="field-hint">학과·동아리·팀 등 소속을 적으면 게시글에 표시됩니다. 비워둬도 됩니다.</p>
         </div>
 
         <div class="field-row">

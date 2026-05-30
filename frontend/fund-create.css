@@ -47,13 +47,13 @@
   border-color: #1a1a1a;
 }
 .step.done .step-num {
-  background: #2563eb;
+  background: #8b5cf6;
   color: #fff;
-  border-color: #2563eb;
+  border-color: #8b5cf6;
 }
 .step-label { font-size: 11px; color: #9ca3af; font-weight: 500; }
 .step.active .step-label { color: #1a1a1a; font-weight: 600; }
-.step.done .step-label { color: #2563eb; }
+.step.done .step-label { color: #8b5cf6; }
 .step-line {
   flex: 0 0 24px;
   height: 1px;
@@ -102,7 +102,7 @@
 }
 .source-tab.active {
   background: #fff;
-  color: #2563eb;
+  color: #8b5cf6;
   box-shadow: 0 1px 3px rgba(0,0,0,0.08);
 }
 
@@ -119,9 +119,9 @@
   cursor: pointer;
   transition: all 0.15s;
 }
-.upload-zone:hover { border-color: #2563eb; background: #eff6ff; }
-.upload-zone:hover .upload-icon { color: #2563eb; }
-.upload-zone.drag-over { border-color: #2563eb; background: #dbeafe; }
+.upload-zone:hover { border-color: #8b5cf6; background: #f3f0fe; }
+.upload-zone:hover .upload-icon { color: #8b5cf6; }
+.upload-zone.drag-over { border-color: #8b5cf6; background: #ede9fe; }
 .upload-icon {
   margin-bottom: 14px;
   color: #94a3b8;
@@ -133,7 +133,7 @@
 .btn-fetch-url {
   width: 100%;
   padding: 14px;
-  background: #2563eb;
+  background: #8b5cf6;
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -179,7 +179,7 @@
   gap: 8px;
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  background: linear-gradient(135deg, #7c3aed, #8b5cf6);
   color: #fff;
   border: none;
   border-radius: 12px;
@@ -249,7 +249,7 @@
   text-align: left;
   width: 100%;
 }
-.tool-btn:hover { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+.tool-btn:hover { border-color: #8b5cf6; background: #f3f0fe; color: #8b5cf6; }
 .tool-btn.danger:hover { border-color: #ef4444; background: #fef2f2; color: #ef4444; }
 .tool-icon {
   width: 18px;
@@ -276,7 +276,7 @@
   color: #374151;
   transition: all 0.15s;
 }
-.sticker-btn:hover { border-color: #2563eb; background: #eff6ff; color: #2563eb; }
+.sticker-btn:hover { border-color: #8b5cf6; background: #f3f0fe; color: #8b5cf6; }
 .sticker-btn svg { width: 22px; height: 22px; }
 
 .color-row {
@@ -293,7 +293,7 @@
   cursor: pointer;
   padding: 0;
 }
-.color-swatch.active { box-shadow: 0 0 0 2px #2563eb; }
+.color-swatch.active { box-shadow: 0 0 0 2px #8b5cf6; }
 #colorPicker {
   width: 32px;
   height: 32px;
@@ -361,7 +361,7 @@
 }
 .field input:focus,
 .field textarea:focus,
-.field select:focus { border-color: #2563eb; }
+.field select:focus { border-color: #8b5cf6; }
 .field-hint { font-size: 12px; color: #9ca3af; margin-top: 6px; }
 .field-row {
   display: grid;
@@ -398,7 +398,7 @@
   padding-top: 12px;
   font-size: 15px;
 }
-.price-breakdown li.total strong { color: #2563eb; font-weight: 800; font-size: 18px; }
+.price-breakdown li.total strong { color: #8b5cf6; font-weight: 800; font-size: 18px; }
 
 /* Try-on 미리보기 */
 .tryon-preview {
@@ -441,16 +441,16 @@
   align-items: center;
   gap: 8px;
   padding: 12px 18px;
-  border: 1px solid #2563eb;
-  background: #eff6ff;
-  color: #2563eb;
+  border: 1px solid #8b5cf6;
+  background: #f3f0fe;
+  color: #8b5cf6;
   border-radius: 10px;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   margin-bottom: 10px;
 }
-.btn-tryon:hover { background: #dbeafe; }
+.btn-tryon:hover { background: #ede9fe; }
 .btn-tryon:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 검토 단계 */
@@ -508,7 +508,7 @@
   border: 1px solid #e5e7eb;
   color: #4b5563;
 }
-.btn-next { background: #2563eb; color: #fff; }
+.btn-next { background: #8b5cf6; color: #fff; }
 .btn-next:disabled { background: #d1d5db; cursor: not-allowed; }
 .btn-submit { background: #16a34a; color: #fff; flex: 1; }
 .btn-submit:hover { background: #15803d; }

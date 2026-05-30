@@ -33,7 +33,7 @@ body {
 .funding-card:hover,
 .action-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 20px 40px rgba(37, 99, 235, 0.10);
+  box-shadow: 0 20px 40px rgba(139, 92, 246, 0.10);
 }
 .feed-item:hover {
   background: #fafafa;
@@ -86,10 +86,10 @@ body { animation: page-fade-in 0.3s ease; }
 .school-name {
   font-size: 18px;
   font-weight: 700;
-  color: #2563EB;
+  color: #8b5cf6;
 }
 
-.chevron { color: #2563EB; }
+.chevron { color: #8b5cf6; }
 
 .header-right {
   display: flex;
@@ -221,8 +221,8 @@ body { animation: page-fade-in 0.3s ease; }
 }
 
 .action-card:hover {
-  border-color: #3B82F6;
-  background: #eff6ff;
+  border-color: #8b5cf6;
+  background: #f3f0fe;
 }
 
 .action-icon {
@@ -261,8 +261,8 @@ body { animation: page-fade-in 0.3s ease; }
   font-weight: 600;
   padding: 3px 10px;
   border-radius: 12px;
-  background: #dbeafe;
-  color: #2563eb;
+  background: #ede9fe;
+  color: #8b5cf6;
 }
 
 .tag-badge.green {
@@ -331,7 +331,7 @@ body { animation: page-fade-in 0.3s ease; }
 }
 
 .card-badge.urgent { background: #ef4444; }
-.card-badge.open { background: #2563eb; }
+.card-badge.open { background: #8b5cf6; }
 .card-badge.done { background: #6b7280; }
 
 .card-logo {
@@ -372,7 +372,7 @@ body { animation: page-fade-in 0.3s ease; }
 
 .progress-fill {
   height: 100%;
-  background: #2563eb;
+  background: #8b5cf6;
   border-radius: 2px;
   transition: width 0.3s;
 }
@@ -380,7 +380,7 @@ body { animation: page-fade-in 0.3s ease; }
 .progress-text {
   margin-top: 4px;
   font-size: 11px;
-  color: #2563eb;
+  color: #8b5cf6;
   font-weight: 600;
 }
 
@@ -418,7 +418,7 @@ body { animation: page-fade-in 0.3s ease; }
 }
 
 .nav-item.active {
-  color: #2563eb;
+  color: #8b5cf6;
 }
 
 .nav-item.active svg {
@@ -435,10 +435,10 @@ body { animation: page-fade-in 0.3s ease; }
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #2563eb;
+  background: #8b5cf6;
 }
 
-.nav-item:hover { color: #2563eb; }
+.nav-item:hover { color: #8b5cf6; }
 
 /* ===== 데스크톱 (768px 이상) ===== */
 @media (min-width: 768px) {
@@ -493,7 +493,7 @@ body { animation: page-fade-in 0.3s ease; }
     position: absolute;
     inset: 0;
     border-radius: 9px;
-    background: linear-gradient(135deg, #7c3aed, #2563eb 50%, #10b981);
+    background: linear-gradient(135deg, #7c3aed, #8b5cf6 50%, #10b981);
     z-index: -1;
     opacity: 0;
   }
@@ -502,7 +502,7 @@ body { animation: page-fade-in 0.3s ease; }
   .logo-text {
     font-size: 20px;
     font-weight: 800;
-    background: linear-gradient(135deg, #7c3aed, #2563eb);
+    background: linear-gradient(135deg, #7c3aed, #8b5cf6);
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
@@ -535,8 +535,8 @@ body { animation: page-fade-in 0.3s ease; }
   }
 
   .sidebar-item.active {
-    background: #eff6ff;
-    color: #2563eb;
+    background: #f3f0fe;
+    color: #8b5cf6;
     font-weight: 600;
   }
 

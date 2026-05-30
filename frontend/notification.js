@@ -143,9 +143,9 @@ function renderNotificationList() {
           </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
-            <div style="font-size:12px;color:#2563eb;margin-top:4px;">공구가 현재 ${rate}% 진행 중입니다</div>
+            <div style="font-size:12px;color:#8b5cf6;margin-top:4px;">공구가 현재 ${rate}% 진행 중입니다</div>
             <div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;margin-top:6px;">
-              <div style="height:100%;background:#2563eb;border-radius:2px;width:${Math.min(rate, 100)}%;"></div>
+              <div style="height:100%;background:#8b5cf6;border-radius:2px;width:${Math.min(rate, 100)}%;"></div>
             </div>
           </div>
         </a>`;

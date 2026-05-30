@@ -61,7 +61,7 @@
       '}',
       '.privacy-modal-body th { background: #f3f4f6; font-weight: 700; text-align: left; }',
       '.privacy-modal-body .intro {',
-      '  background: #f9fafb; border-left: 3px solid #2563eb;',
+      '  background: #f9fafb; border-left: 3px solid #8b5cf6;',
       '  padding: 10px 14px; border-radius: 4px; margin-bottom: 18px; font-size: 13px;',
       '}',
       '.privacy-modal-body .note { font-size: 12px; color: #6b7280; margin-top: 4px; }',
@@ -73,10 +73,10 @@
       '  padding: 9px 18px; border-radius: 8px; font-size: 13px; font-weight: 700;',
       '  border: none; cursor: pointer;',
       '}',
-      '.privacy-modal-foot .btn-primary { background: #2563eb; color: #fff; }',
-      '.privacy-modal-foot .btn-primary:hover { background: #1d4ed8; }',
+      '.privacy-modal-foot .btn-primary { background: #8b5cf6; color: #fff; }',
+      '.privacy-modal-foot .btn-primary:hover { background: #7c3aed; }',
       '.privacy-modal-foot .btn-link {',
-      '  background: none; color: #2563eb; padding: 9px 6px;',
+      '  background: none; color: #8b5cf6; padding: 9px 6px;',
       '}',
     ].join('\n');
     document.head.appendChild(style);

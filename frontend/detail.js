@@ -170,9 +170,9 @@ function selectSize(size) {
   _selectedSize = size;
   document.querySelectorAll('.size-btn').forEach((btn) => {
     if (btn.dataset.size === size) {
-      btn.style.borderColor = '#5b6ee1';
+      btn.style.borderColor = '#8b5cf6';
       btn.style.background = '#eff0fb';
-      btn.style.color = '#5b6ee1';
+      btn.style.color = '#8b5cf6';
     } else {
       btn.style.borderColor = '#e5e7eb';
       btn.style.background = '#fff';

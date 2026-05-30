@@ -40,8 +40,7 @@
 
     try {
       state.me = await api.get('/auth/me');
-      const dept = state.me && state.me.department;
-      if (dept) document.getElementById('fundDepartment').value = dept;
+      // 소속·단체는 선택 입력 — 학과 자동주입 제거(일반인 확장 대비)
     } catch (err) {
       // 미로그인이면 api.js 가 /login.html로 보냄
     }
@@ -145,8 +144,9 @@
     var thumbs = document.getElementById('tryonThumbs');
     var count = document.getElementById('tryonUploadCount');
     var hasImages = state.designImages.length > 0;
+    // AI 피팅 버튼은 이미지가 있을 때만 동작. 단, 피팅은 선택사항이라 '다음'은 항상 가능.
     document.getElementById('btnAiTryOn').disabled = !hasImages;
-    document.getElementById('step1Next').disabled = !hasImages;
+    document.getElementById('step1Next').disabled = false;
     if (!hasImages) { preview.style.display = 'none'; thumbs.innerHTML = ''; return; }
     preview.style.display = 'block';
     count.textContent = '첨부 ' + state.designImages.length + ' / ' + MAX_IMAGES + '장';
@@ -324,7 +324,7 @@
       targetQuantity: clampInt(document.getElementById('fundTargetQuantity').value, 1, 500),
       deadline: document.getElementById('fundDeadline').value,
     };
-    if (!state.formValues.title || !state.formValues.department) return;
+    if (!state.formValues.title) return; // 소속·단체(department)는 선택
     goToStep(3);
   }
 
@@ -342,7 +342,7 @@
     var finalPrice = BASE_PRICE_DEFAULT + (v.designFee || 0) + PLATFORM_FEE;
     var rows = [
       ['제목', v.title || '-'],
-      ['학과', v.department || '-'],
+      ['소속·단체', v.department || '-'],
       ['목표 수량', (v.targetQuantity || 0) + '벌'],
       ['마감일', v.deadline || '-'],
       ['디자인 수수료', formatWon(v.designFee || 0)],
