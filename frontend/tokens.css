@@ -1,0 +1,110 @@
+/* =====================================================================
+ * 두띵 디자인 토큰 (재구축 스펙 v3 §2) — 전 페이지 공통. 페이지별 하드코딩 hex 금지.
+ * 모든 페이지에서 main.css 보다 먼저 로드.
+ * ===================================================================== */
+:root {
+  /* Primary — 연보라 */
+  --c-primary-50:  #F5F3FF;
+  --c-primary-100: #EDE9FE;
+  --c-primary-200: #DDD6FE;
+  --c-primary-300: #C4B5FD;
+  --c-primary-400: #A78BFA;
+  --c-primary-500: #8B5CF6;   /* ★ 메인 CTA/진행바/활성 */
+  --c-primary-600: #7C3AED;   /* hover */
+  --c-primary-700: #6D28D9;   /* 흰 배경 위 강조 텍스트(AA) */
+
+  /* 중립 */
+  --c-text:        #1A1A1A;
+  --c-text-sub:    #4B5563;
+  --c-text-muted:  #6B7280;
+  --c-text-faint:  #9CA3AF;
+  --c-border:      #E5E7EB;
+  --c-divider:     #F3F4F6;
+  --c-surface:     #FFFFFF;
+  --c-bg:          #FAFAFB;
+
+  /* 상태 */
+  --c-success: #16A34A;
+  --c-warning: #F59E0B;
+  --c-danger:  #EF4444;
+  --c-info:    #3B82F6;
+
+  /* 하위 호환(기존 코드가 쓰던 별칭) */
+  --primary: var(--c-primary-500);
+  --primary-strong: var(--c-primary-600);
+  --primary-soft: var(--c-primary-400);
+  --primary-tint: var(--c-primary-50);
+
+  /* 타이포 */
+  --font-sans: "Pretendard", -apple-system, "Apple SD Gothic Neo", system-ui, "Segoe UI", Roboto, sans-serif;
+  --fs-display: 32px; --fs-h1: 26px; --fs-h2: 20px; --fs-h3: 18px;
+  --fs-body: 16px; --fs-body-sm: 14px; --fs-caption: 12px; --fs-tab: 11px;
+
+  /* 간격(4px 베이스) */
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:24px;
+  --sp-8:32px; --sp-10:40px; --sp-12:48px; --sp-16:64px;
+  --wrap-max: 1200px;
+
+  /* 라운드 / 그림자 */
+  --r-sm: 8px; --r-md: 12px; --r-lg: 16px; --r-full: 999px;
+  --sh-1: 0 1px 2px rgba(16,24,40,.06);
+  --sh-2: 0 4px 12px rgba(16,24,40,.08);
+  --sh-3: 0 8px 24px rgba(16,24,40,.12);
+  --sh-primary: 0 6px 18px rgba(139,92,246,.28);
+}
+
+/* ===== 기본 컴포넌트 (스펙 §2.5) — class 로 재사용 ===== */
+.dt-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 48px; padding: 0 20px; border-radius: var(--r-md);
+  font-family: var(--font-sans); font-size: var(--fs-body-sm); font-weight: 700;
+  border: 1.5px solid transparent; cursor: pointer; text-decoration: none;
+  transition: background .16s, box-shadow .16s, transform .12s; white-space: nowrap; box-sizing: border-box;
+}
+.dt-btn:focus-visible { outline: 2px solid var(--c-primary-400); outline-offset: 2px; }
+.dt-btn--primary { background: var(--c-primary-500); color: #fff; }
+.dt-btn--primary:hover { background: var(--c-primary-600); box-shadow: var(--sh-primary); color: #fff; }
+.dt-btn--outline { background: #fff; border-color: var(--c-primary-500); color: var(--c-primary-700); }
+.dt-btn--outline:hover { background: var(--c-primary-50); }
+.dt-btn--ghost { background: transparent; color: var(--c-text-sub); }
+.dt-btn--ghost:hover { background: var(--c-primary-50); }
+.dt-btn--danger { background: var(--c-danger); color: #fff; }
+.dt-btn--block { display: flex; width: 100%; }
+.dt-btn--lg { height: 52px; font-size: var(--fs-body); }
+.dt-btn:disabled, .dt-btn[disabled] { background: var(--c-divider); color: var(--c-text-faint); border-color: transparent; cursor: not-allowed; box-shadow: none; }
+
+.dt-badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 3px 9px; border-radius: var(--r-full); font-size: var(--fs-caption); font-weight: 700; line-height: 1.4;
+}
+.dt-badge--cat     { background: var(--c-primary-50);  color: var(--c-primary-700); }
+.dt-badge--open    { background: var(--c-primary-100); color: var(--c-primary-700); }
+.dt-badge--ending  { background: #FEF3C7; color: #B45309; }
+.dt-badge--success { background: #DCFCE7; color: #15803D; }
+.dt-badge--danger  { background: #FEE2E2; color: #B91C1C; }
+.dt-badge--verified{ background: var(--c-primary-500); color: #fff; }
+.dt-badge--proxy   { background: #F3F4F6; color: #4B5563; }
+
+.dt-card {
+  background: #fff; border: 1px solid var(--c-border); border-radius: var(--r-md);
+  box-shadow: var(--sh-1); transition: box-shadow .16s, transform .16s;
+}
+.dt-card--hover:hover { box-shadow: var(--sh-2); transform: translateY(-2px); }
+
+.dt-input {
+  width: 100%; box-sizing: border-box; height: 48px; padding: 0 14px;
+  font-family: var(--font-sans); font-size: 16px; color: var(--c-text);
+  background: #fff; border: 1px solid var(--c-border); border-radius: var(--r-sm); outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.dt-input:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.dt-field-label { display: block; font-size: var(--fs-body-sm); font-weight: 600; color: var(--c-text-sub); margin-bottom: 6px; }
+
+/* 진행바 */
+.dt-progress { height: 8px; border-radius: var(--r-full); background: var(--c-primary-100); overflow: hidden; }
+.dt-progress__fill { height: 100%; background: var(--c-primary-500); border-radius: var(--r-full); transition: width .3s; }
+.dt-progress__fill--over { background: var(--c-success); }
+
+/* 콘텐츠 래퍼 */
+.dt-wrap { max-width: var(--wrap-max); margin: 0 auto; padding-left: var(--sp-6); padding-right: var(--sp-6); }
+@media (max-width: 767px) { .dt-wrap { padding-left: var(--sp-4); padding-right: var(--sp-4); } }
