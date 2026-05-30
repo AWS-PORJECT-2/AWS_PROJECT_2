@@ -1,53 +1,8 @@
 <!DOCTYPE html>
-<html lang="ko">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
-  <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <title>공동구매 피드 - doothing</title>
-  <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="main.css">
-  <link rel="stylesheet" href="feed.css">
-</head>
-<body class="main-page" data-page="feed">
-  <div id="app"></div>
-
-  <main class="feed-main">
-    <!-- 추천 카테고리 (상단) -->
-    <section class="feed-toolbar">
-      <div class="recommend-row" id="recommendRow">
-        <button type="button" class="rec-chip rec-active" data-rec="all">전체</button>
-        <button type="button" class="rec-chip" data-rec="인기">인기</button>
-        <button type="button" class="rec-chip" data-rec="신규">신규</button>
-      </div>
-
-      <!-- 카테고리 칩 + 정렬 -->
-      <div class="filter-row">
-        <div id="categoryChips" class="category-chips"></div>
-        <div class="filter-controls">
-          <select id="sortSelect" onchange="onSortChange()">
-            <option value="popular">인기순</option>
-            <option value="latest">최신순</option>
-            <option value="ending">마감임박순</option>
-          </select>
-        </div>
-      </div>
-    </section>
-
-    <!-- 4-col 그리드 피드 -->
-    <section class="feed-grid" id="feedList"></section>
-  </main>
-
-  <script src="api.js"></script>
-  <script src="categories.js"></script>
-  <script src="mock-data.js"></script>
-  <script src="motion.js"></script>
-  <script src="search.js"></script>
-  <script src="notification.js"></script>
-  <script src="category-icons.js"></script>
-  <script src="main.js"></script>
-  <script src="feed.js"></script>
-</body>
-</html>
+<html lang="ko"><head><meta charset="UTF-8">
+<script>
+  // 둘러보기는 홈 단일 허브로 통합 — 파라미터 유지해 홈으로 이동
+  var q = location.search || '';
+  location.replace('/main.html' + q);
+</script>
+</head><body></body></html>

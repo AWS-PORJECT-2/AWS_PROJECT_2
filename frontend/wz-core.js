@@ -31,12 +31,33 @@
     return 0;
   }
 
+  /* ===== 홈 단일 둘러보기 허브 라우팅 =====
+   * 홈에서 인기/신규/마감임박/카테고리 클릭 → 새 페이지로 가지 않고 홈 그리드만 그 자리에서 갱신.
+   * 홈이 아닌 페이지에서 클릭 → 홈(/main.html)으로 파라미터 들고 이동. */
+  const HOME_PATHS = ['/main.html', '/', '/index.html'];
+  function isHome() { return HOME_PATHS.indexOf(location.pathname) !== -1; }
+  function go(params) {
+    params = params || {};
+    const qs = new URLSearchParams();
+    if (params.sort) qs.set('sort', params.sort);
+    if (params.category && params.category !== 'all') qs.set('category', params.category);
+    const url = '/main.html' + (qs.toString() ? '?' + qs.toString() : '');
+    if (isHome()) {
+      try { history.pushState({}, '', url); } catch (_) {}
+      window.dispatchEvent(new CustomEvent('wz:browse', { detail: params }));
+    } else {
+      location.href = url;
+    }
+  }
+
   const ICON = {
     search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
     heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>',
     bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>',
     store: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l1.5-5h15L21 9"/><path d="M4 9v10a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9"/><path d="M3 9h18"/></svg>',
     box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+    menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+    user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
   };
 
   /* 로그인 상태 */
@@ -80,12 +101,12 @@
     logoImg.addEventListener('error', () => { logo.textContent = 'doothing'; logo.classList.add('wz-hd__logo--text'); });
     logo.appendChild(logoImg);
 
-    const nav = el('nav', { class: 'wz-hd__nav' });
-    [['홈', '/main.html'], ['인기', '/feed.html?sort=popular'], ['신규', '/feed.html?sort=latest'], ['마감임박', '/feed.html?sort=ending']]
-      .forEach(([label, href]) => {
-        const active = href === path || (path === '/main.html' && label === '홈');
-        nav.appendChild(el('a', { class: active ? 'is-active' : '', href }, label));
-      });
+    // ☰ 메뉴(카테고리 드롭다운) + 홈
+    const menuBtn = el('button', { class: 'wz-hd__menubtn', type: 'button', 'aria-label': '카테고리 메뉴' });
+    menuBtn.innerHTML = ICON.menu + '<span>메뉴</span>';
+    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); openCatMenu(menuBtn); });
+    const homeLink = el('a', { class: 'wz-hd__home', href: '/main.html' }, '홈');
+    homeLink.addEventListener('click', (e) => { e.preventDefault(); go({}); });
 
     const right = el('div', { class: 'wz-hd__right' });
     function iconLink(name, label, href) {
@@ -100,8 +121,19 @@
     right.appendChild(el('span', { class: 'wz-hd__divider' }));
     right.appendChild(el('a', { class: 'wz-hd__create', href: '/fund-create.html' }, '프로젝트 만들기'));
 
-    top.append(logo, nav, right);
+    top.append(logo, menuBtn, homeLink, right);
     hd.appendChild(top);
+
+    // 둘째 줄: 텀블벅형 정렬 내비 (인기/신규/마감임박) — 홈 그리드 인플레이스 갱신
+    const nav2 = el('nav', { class: 'wz-hd__nav2', 'aria-label': '정렬' });
+    const nav2inner = el('div', { class: 'wz-hd__nav2-inner' });
+    [['인기', { sort: 'popular' }], ['신규', { sort: 'latest' }], ['마감임박', { sort: 'ending' }]].forEach(([label, params]) => {
+      const a = el('a', { class: 'wz-hd__nav2link', href: '#' }, label);
+      a.addEventListener('click', (e) => { e.preventDefault(); go(params); });
+      nav2inner.appendChild(a);
+    });
+    nav2.appendChild(nav2inner);
+    hd.appendChild(nav2);
 
     fetchMe().then((me) => {
       if (!me) return;
@@ -117,8 +149,27 @@
     return hd;
   }
 
+  /* ☰ 메뉴 → 카테고리 드롭다운 (클릭 시 홈 그리드 필터 or 홈 이동) */
+  function openCatMenu(anchor) {
+    const ex = document.querySelector('.wz-catpop'); if (ex) { ex.remove(); return; }
+    const m = el('div', { class: 'wz-menu wz-catpop', role: 'menu' });
+    const grp = el('div', { class: 'wz-menu__grp' });
+    grp.appendChild((function () { const a = el('a', { class: 'wz-menu__item', href: '/main.html' }, '전체 프로젝트'); a.addEventListener('click', (e) => { e.preventDefault(); go({ category: 'all' }); m.remove(); }); return a; })());
+    (window.DT_CATEGORIES || []).forEach((c) => {
+      const a = el('a', { class: 'wz-menu__item', href: '/main.html?category=' + encodeURIComponent(c.slug) }, c.label);
+      a.addEventListener('click', (e) => { e.preventDefault(); go({ category: c.slug }); m.remove(); });
+      grp.appendChild(a);
+    });
+    m.appendChild(grp);
+    document.body.appendChild(m);
+    const r = anchor.getBoundingClientRect();
+    m.style.top = (r.bottom + 8) + 'px'; m.style.left = r.left + 'px'; m.style.maxHeight = '70vh'; m.style.overflowY = 'auto';
+    const close = (ev) => { if (!m.contains(ev.target) && ev.target !== anchor) { m.remove(); document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+
   function openMenu(anchor, name, isAdmin) {
-    const ex = document.querySelector('.wz-menu'); if (ex) { ex.remove(); return; }
+    const ex = document.querySelector('.wz-menu:not(.wz-catpop)'); if (ex) { ex.remove(); return; }
     const m = el('div', { class: 'wz-menu', role: 'menu' });
     const groups = [
       [['프로필', '/profile.html'], ['후원한 프로젝트', '/profile.html?tab=backings'], ['관심 프로젝트', '/profile.html?tab=likes']],
@@ -152,7 +203,8 @@
     const sec = el('div', { class: 'wz-cats' });
     const row = el('div', { class: 'wz-cats__row' });
     (window.DT_CATEGORIES || []).forEach((c) => {
-      const a = el('a', { class: 'wz-cat', href: '/feed.html?category=' + encodeURIComponent(c.slug) });
+      const a = el('a', { class: 'wz-cat', href: '/main.html?category=' + encodeURIComponent(c.slug) });
+      a.addEventListener('click', (e) => { e.preventDefault(); go({ category: c.slug }); });
       const ic = el('div', { class: 'wz-cat__ic' });
       if (typeof window.categoryIconSvg === 'function') ic.innerHTML = window.categoryIconSvg(c.key);
       a.append(ic, el('span', { class: 'wz-cat__label' }, c.label));
@@ -166,7 +218,11 @@
   function CategoryMenu() {
     const bar = el('nav', { class: 'wz-catmenu', 'aria-label': '카테고리' });
     const inner = el('div', { class: 'wz-catmenu__inner' });
-    (window.DT_CATEGORIES || []).forEach((c) => inner.appendChild(el('a', { href: '/feed.html?category=' + encodeURIComponent(c.slug) }, c.label)));
+    (window.DT_CATEGORIES || []).forEach((c) => {
+      const a = el('a', { href: '/main.html?category=' + encodeURIComponent(c.slug) }, c.label);
+      a.addEventListener('click', (e) => { e.preventDefault(); go({ category: c.slug }); });
+      inner.appendChild(a);
+    });
     bar.appendChild(inner);
     return bar;
   }
@@ -195,5 +251,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  window.WZ = { el, esc, money, rate, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu };
+  window.WZ = { el, esc, money, rate, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome };
 })();

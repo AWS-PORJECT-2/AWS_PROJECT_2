@@ -153,3 +153,61 @@ img { max-width: 100%; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .wz-catmenu__inner { gap: 20px; }
 }
+
+/* 둘러보기(홈 단일 허브) — 정렬 탭 + 카테고리 칩 + 그리드 */
+.wz-browse { margin-top: 44px; }
+.wz-browse .wz-sec__title { margin: 0 0 18px; }
+.wz-browse__sorts { display: flex; gap: 8px; margin-bottom: 14px; }
+.wz-browse__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
+.wz-chip { font-size: 13px; font-weight: 600; color: var(--c-text-sub); background: #fff; border: 1px solid var(--c-border); border-radius: 999px; padding: 8px 14px; cursor: pointer; font-family: inherit; white-space: nowrap; }
+.wz-chip:hover { border-color: var(--c-primary-400); color: var(--c-primary-600); }
+.wz-chip.is-active { background: var(--c-primary-50); border-color: var(--c-primary-500); color: var(--c-primary-700); font-weight: 700; }
+.wz-hd__navlink { cursor: pointer; }
+
+/* =================== 다크모드 잠금 (OS 다크모드여도 색 불변) =================== */
+html { color-scheme: light; }
+.wz-body, .wz-body input, .wz-body textarea, .wz-body select, .wz-body button { color-scheme: light; }
+
+/* =================== 헤더 v2 (로고·메뉴·홈 / 둘째줄 인기·신규·마감임박) =================== */
+.wz-hd__menubtn { display: inline-flex; align-items: center; gap: 6px; background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 16px; font-weight: 700; color: var(--c-text); padding: 4px 2px; }
+.wz-hd__menubtn svg { width: 22px; height: 22px; }
+.wz-hd__menubtn:hover { color: var(--c-primary-600); }
+.wz-hd__home { font-size: 16px; font-weight: 700; color: var(--c-text); }
+.wz-hd__home:hover { color: var(--c-primary-600); }
+/* 만들기 버튼 — 채움형 보라(가시성↑) */
+.wz-hd__create { background: var(--c-primary-500); color: #fff; border: 0; }
+.wz-hd__create:hover { background: var(--c-primary-600); color: #fff; }
+/* 둘째 줄 */
+.wz-hd__nav2 { border-top: 1px solid var(--c-divider); }
+.wz-hd__nav2-inner { max-width: 1200px; margin: 0 auto; display: flex; gap: 26px; padding: 12px 24px; }
+.wz-hd__nav2link { font-size: 15px; font-weight: 600; color: var(--c-text-sub); }
+.wz-hd__nav2link:hover { color: var(--c-primary-700); }
+.wz-catpop { left: 0; }
+@media (max-width: 767px) {
+  .wz-hd__home { display: none; }
+  .wz-hd__nav2-inner { gap: 18px; padding: 10px 16px; overflow-x: auto; }
+}
+
+.wz-rank__cap { font-size: 12px; color: var(--c-text-faint); margin: 0 0 12px; }
+
+/* =================== 가독성 + 색감 보강 =================== */
+/* 헤더 텍스트 진하게(저대비 해소) */
+.wz-hd__login { color: var(--c-text); font-weight: 700; }
+.wz-hd__nav2link { color: var(--c-text); }
+.wz-hd__nav2link:hover { color: var(--c-primary-700); }
+
+/* 카테고리 원형 — 파스텔 다색(보라 일변도 탈피) */
+.wz-cat__ic { border-color: transparent; }
+.wz-cat:nth-child(9n+1) .wz-cat__ic { background: #F1ECFF; }
+.wz-cat:nth-child(9n+2) .wz-cat__ic { background: #FFF0EE; }
+.wz-cat:nth-child(9n+3) .wz-cat__ic { background: #FFF6E6; }
+.wz-cat:nth-child(9n+4) .wz-cat__ic { background: #E8F7EF; }
+.wz-cat:nth-child(9n+5) .wz-cat__ic { background: #E8F1FF; }
+.wz-cat:nth-child(9n+6) .wz-cat__ic { background: #FCEAF4; }
+.wz-cat:nth-child(9n+7) .wz-cat__ic { background: #EEF0FB; }
+.wz-cat:nth-child(9n+8) .wz-cat__ic { background: #FFEFE7; }
+.wz-cat:nth-child(9n+9) .wz-cat__ic { background: #EAF6F8; }
+.wz-cat:hover .wz-cat__ic { filter: brightness(0.97); }
+
+/* 페이지 배경 살짝 따뜻하게 + 히어로 그라데이션 풍부하게 */
+.wz-hero { background: linear-gradient(120deg,#efeaff 0%,#fce9f3 45%,#e7f5ff 100%); }
