@@ -7,6 +7,7 @@
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="tokens.css">
   <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="settings.css">
   <script src="api.js"></script>
   <script src="categories.js"></script>
   <script src="notification.js"></script>
@@ -18,22 +19,22 @@
 <body class="main-page" data-page="sub">
   <div id="app"></div>
 
-  <main class="main-content" style="max-width:720px;padding:24px 20px 100px;">
-    <h1 style="font-size:24px;font-weight:800;margin-bottom:18px;">설정</h1>
+  <main class="set-page dt-wrap">
+    <h1 class="set-page__title">설정</h1>
 
-    <div id="setTabs" style="display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;border-bottom:1px solid #eee;padding-bottom:14px;">
-      <button class="set-tab" data-tab="profile">프로필</button>
-      <button class="set-tab" data-tab="account">계정</button>
-      <button class="set-tab" data-tab="payment">결제수단</button>
-      <button class="set-tab" data-tab="address">배송지</button>
-      <button class="set-tab" data-tab="noti">알림</button>
+    <div class="set-tabs" id="setTabs" role="tablist">
+      <button class="set-tab is-active" data-tab="profile" role="tab">프로필</button>
+      <button class="set-tab" data-tab="account" role="tab">계정</button>
+      <button class="set-tab" data-tab="payment" role="tab">결제수단</button>
+      <button class="set-tab" data-tab="address" role="tab">배송지</button>
+      <button class="set-tab" data-tab="noti" role="tab">알림</button>
     </div>
 
     <section id="setProfile" class="set-pane"></section>
-    <section id="setAccount" class="set-pane" style="display:none;"></section>
-    <section id="setPayment" class="set-pane" style="display:none;"></section>
-    <section id="setAddress" class="set-pane" style="display:none;"></section>
-    <section id="setNoti" class="set-pane" style="display:none;"></section>
+    <section id="setAccount" class="set-pane" hidden></section>
+    <section id="setPayment" class="set-pane" hidden></section>
+    <section id="setAddress" class="set-pane" hidden></section>
+    <section id="setNoti" class="set-pane" hidden></section>
   </main>
 </body>
 </html>

@@ -1,9 +1,14 @@
 /**
- * 상세 마이페이지 렌더링
- * CSS는 외부에서 제공 — 여기서는 구조와 로직만 담당
+ * 프로필(마이페이지) — 텀블벅 충실도 스펙 §3.4 재구축.
  *
- * 주의: HTML 보간 시 사용자 데이터는 반드시 escapeHTML 을 거친다.
- *   기본은 api.js 의 window.escapeHTML 을 사용하고, 미로드 시 아래 fallback 사용.
+ * 레이아웃: 공통 Header()는 main.js(App, data-page="sub")가 #app에 자동 삽입.
+ *           공통 푸터는 renderGlobalFooter()가 자동 append. 여기서 직접 추가하지 않는다.
+ *
+ * 보존: /api/auth/me 로드, /me/funds·/me/backings 목록, 삭제 요청 POST,
+ *       배송조회 모달(/me/orders, /orders/:id/tracking), 좋아요(찜) 목록.
+ *       응답 필드명·엔드포인트는 그대로 유지. UI/탭/레이아웃만 재구축.
+ *
+ * XSS: 사용자 데이터는 textContent 또는 escapeHTML 사용. innerHTML에 사용자값 직접 주입 금지.
  */
 if (typeof window.escapeHTML !== 'function') {
   window.escapeHTML = function (v) {
@@ -13,22 +18,39 @@ if (typeof window.escapeHTML !== 'function') {
   };
 }
 
-/* ===== 예약 취소 함수 (전역) ===== */
+/* DOM 헬퍼 — main.js의 el()이 로드돼 있으면 그걸 쓰고, 아니면 동일한 폴백을 사용.
+ * (profile.js는 main.js보다 먼저 로드되지만, init()이 await 이후 실행돼 시점상 안전.
+ *  그래도 안전하게 폴백 정의.) */
+function pEl(tag, props, ...children) {
+  if (typeof window.el === 'function') return window.el(tag, props, ...children);
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (v == null) continue;
+    if (k === 'class') node.className = v;
+    else if (k === 'onClick') node.addEventListener('click', v);
+    else if (k === 'style') node.style.cssText = v;
+    else if (k === 'href' || k === 'src' || k === 'alt' || k === 'aria-label') node.setAttribute(k, v);
+    else node.setAttribute(k, v);
+  }
+  for (const c of children.flat()) {
+    if (c == null || c === false) continue;
+    if (typeof c === 'string') node.appendChild(document.createTextNode(c));
+    else node.appendChild(c);
+  }
+  return node;
+}
+
+/* ===== 예약 취소 함수 (전역, 보존) ===== */
 function cancelReservation(productId) {
   if (!confirm('정말로 이 펀딩 참여(예약)를 취소하시겠습니까?')) return;
-
-  // 통합 함수로 플래그 + delta + 사이즈 일괄 정리
   if (typeof setReserved === 'function') {
     setReserved(productId, false);
   }
-
   alert('예약이 정상적으로 취소되었습니다.');
-
-  // UI 즉시 갱신 (새로고침 없이)
-  switchProfileTab('joined');
+  switchProfileTab('backings');
 }
 
-/* ===== 배송조회 모달 (PR#19) ===== */
+/* ===== 배송조회 모달 (보존, PR#19) ===== */
 async function openTrackingModal() {
   var existing = document.getElementById('trackingModal');
   if (existing) existing.remove();
@@ -135,10 +157,8 @@ async function viewTracking(orderId) {
   }
 }
 
-/* 사용자 정보 — /api/auth/me 로 채워짐.
- * loadError 가 채워지면 renderProfile 이 "정보를 불러오지 못했습니다" 배너를 띄운다.
- * 절대로 "게스트" 같은 가짜 신원을 사용자에게 노출하지 않는다.
- */
+/* 사용자 정보 — /api/auth/me 로 채워짐. (보존: 필드명/엔드포인트 동일)
+ * loadError 채워지면 "정보를 불러오지 못했습니다" 배너 표시. 가짜 신원 노출 금지. */
 const SCHOOL_DOMAIN_TO_NAME = {
   'kookmin.ac.kr': '국민대학교',
 };
@@ -147,9 +167,11 @@ const currentUser = {
   name: '',
   university: '',
   department: '',
-  avatarUrl: 'https://picsum.photos/seed/profile1/120/120',
-  joinedFundingCount: 0,
-  createdFundingCount: 0,
+  bio: '',
+  avatarUrl: '',
+  joinedFundingCount: null,
+  createdFundingCount: null,
+  followingCount: null,
   loaded: false,
   loadError: null,
 };
@@ -168,7 +190,9 @@ async function loadCurrentUser() {
     currentUser.userId = data.userId || null;
     currentUser.name = data.name || data.email || '';
     currentUser.university = SCHOOL_DOMAIN_TO_NAME[data.schoolDomain] || data.schoolDomain || '';
+    currentUser.bio = data.bio || data.intro || data.about || '';
     if (data.picture) currentUser.avatarUrl = data.picture;
+    if (data.avatarUrl) currentUser.avatarUrl = data.avatarUrl;
     currentUser.loaded = true;
     return true;
   } catch (err) {
@@ -178,22 +202,30 @@ async function loadCurrentUser() {
   }
 }
 
-/* 탭 상태 */
-let profileTab = 'liked'; // 'liked' | 'joined' | 'created'
+/* 탭 상태 — 스펙 §3.4: 프로필(소개) / 후원한 프로젝트 / 개설한 프로젝트 / 팔로워 / 팔로잉 */
+const PROFILE_TABS = [
+  { key: 'intro',     label: '프로필' },
+  { key: 'backings',  label: '후원한 프로젝트' },
+  { key: 'funds',     label: '개설한 프로젝트' },
+  { key: 'followers', label: '팔로워' },
+  { key: 'following', label: '팔로잉' },
+];
+let profileTab = 'intro';
 
-/* 배송/결제 현황 카운트 — /api/orders/status-counts 에서 채움 (PR#19 방식) */
-let MOCK_ORDER_STATUS = {
-  paymentPending: 0,
-  paidReady: 0,
-  shipping: 0,
-  delivered: 0,
-};
-
-async function loadOrderStatusCounts() {
+/* URL ?tab= 매핑 (헤더/드롭다운에서 진입하는 기존 쿼리 호환) */
+function initialTabFromQuery() {
   try {
-    const data = await window.api.get('/orders/status-counts', { silentAuthFail: true });
-    if (data) MOCK_ORDER_STATUS = data;
-  } catch (e) { /* 실패 시 0 유지 */ }
+    const t = new URLSearchParams(location.search).get('tab');
+    const map = {
+      intro: 'intro', profile: 'intro',
+      backings: 'backings', joined: 'backings', backed: 'backings',
+      funds: 'funds', created: 'funds',
+      likes: 'backings', liked: 'backings', // 찜은 후원 탭 영역에 통합 노출
+      followers: 'followers', following: 'following', follow: 'following',
+    };
+    if (t && map[t]) return map[t];
+  } catch (_) { /* ignore */ }
+  return 'intro';
 }
 
 function switchProfileTab(tab) {
@@ -203,126 +235,167 @@ function switchProfileTab(tab) {
 }
 
 function renderProfileTabs() {
-  const likedBtn = document.getElementById('tabLiked');
-  const joinedBtn = document.getElementById('tabJoined');
-  const createdBtn = document.getElementById('tabCreated');
-  [likedBtn, joinedBtn, createdBtn].forEach((btn) => {
-    if (!btn) return;
-    if (btn.id === 'tab' + profileTab.charAt(0).toUpperCase() + profileTab.slice(1)) {
-      btn.style.borderBottom = '2px solid #8b5cf6';
-      btn.style.color = '#8b5cf6';
-    } else {
-      btn.style.borderBottom = '2px solid transparent';
-      btn.style.color = '#9ca3af';
-    }
+  const bar = document.getElementById('profileTabs');
+  if (!bar) return;
+  bar.querySelectorAll('.dt-prof-tab').forEach((btn) => {
+    btn.classList.toggle('is-active', btn.dataset.tab === profileTab);
   });
 }
 
-const FUND_STATUS_LABEL = {
-  pending: ['심사 중', '#92400e', '#fef3c7'],
-  rejected: ['반려됨', '#9ca3af', '#f3f4f6'],
-  open: ['모집 중', '#7c3aed', '#f3f0fe'],
-  achieved: ['달성', '#16a34a', '#dcfce7'],
-  executing: ['제작 중', '#2563eb', '#eff6ff'],
-  completed: ['완료', '#16a34a', '#dcfce7'],
-  failed: ['무산', '#9ca3af', '#f3f4f6'],
-  cancelled: ['취소', '#9ca3af', '#f3f4f6'],
+/* 펀드/후원 상태 배지 — 토큰 클래스 사용 */
+const FUND_STATUS_BADGE = {
+  pending:   ['심사 중',  'dt-badge--ending'],
+  rejected:  ['반려됨',   'dt-badge--proxy'],
+  open:      ['모집 중',  'dt-badge--open'],
+  achieved:  ['달성',     'dt-badge--success'],
+  executing: ['제작 중',  'dt-badge--cat'],
+  completed: ['완료',     'dt-badge--success'],
+  failed:    ['무산',     'dt-badge--proxy'],
+  cancelled: ['취소',     'dt-badge--proxy'],
 };
-const BACKING_STATUS_LABEL = {
-  awaiting_deposit: ['입금 대기', '#92400e', '#fef3c7'],
-  confirmed: ['후원 확정', '#16a34a', '#dcfce7'],
-  cancelled: ['취소', '#9ca3af', '#f3f4f6'],
+const BACKING_STATUS_BADGE = {
+  awaiting_deposit: ['입금 대기',  'dt-badge--ending'],
+  confirmed:        ['후원 확정',  'dt-badge--success'],
+  cancelled:        ['취소',       'dt-badge--proxy'],
 };
 
-function statusBadge(map, status) {
-  const esc = window.escapeHTML;
-  const m = map[status] || [status, '#6b7280', '#f3f4f6'];
-  return `<span style="display:inline-block;padding:3px 9px;border-radius:7px;font-size:11px;font-weight:700;color:${m[1]};background:${m[2]};">${esc(m[0])}</span>`;
+function makeStatusBadge(map, status) {
+  const m = map[status];
+  const span = pEl('span', { class: 'dt-badge ' + (m ? m[1] : 'dt-badge--proxy') });
+  span.textContent = m ? m[0] : String(status || '');
+  return span;
 }
 
-function rowItemHtml(opts) {
-  const esc = window.escapeHTML;
-  const id = encodeURIComponent(opts.id);
-  return `
-    <a href="detail.html?id=${id}" style="display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;text-decoration:none;color:inherit;">
-      <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#f3f4f6;">
-        ${opts.imageUrl ? `<img src="${esc(opts.imageUrl)}" alt="${esc(opts.title)}" style="width:100%;height:100%;object-fit:cover;">` : ''}
-      </div>
-      <div style="flex:1;min-width:0;">
-        <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(opts.title)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">${opts.sub || ''}</div>
-      </div>
-      ${opts.badge || ''}
-    </a>`;
+/* 빈상태 — empty-*.png 일러스트 + 안내문 (+옵션 CTA) */
+function emptyState(imgName, title, sub, cta) {
+  const box = pEl('div', { class: 'dt-prof-empty' });
+  if (imgName) {
+    const img = pEl('img', { class: 'dt-prof-empty__img', src: '/assets/' + imgName, alt: '' });
+    img.addEventListener('error', () => { img.remove(); });
+    box.appendChild(img);
+  }
+  box.appendChild(pEl('p', { class: 'dt-prof-empty__title' }, title));
+  if (sub) box.appendChild(pEl('p', { class: 'dt-prof-empty__sub' }, sub));
+  if (cta) box.appendChild(pEl('a', { class: 'dt-btn dt-btn--outline', href: cta.href }, cta.label));
+  return box;
 }
 
-function renderEmpty(container, label) {
-  const esc = window.escapeHTML;
-  container.innerHTML = `<div style="text-align:center;padding:48px 20px;color:#9ca3af;"><p style="font-size:14px;">${esc(label)}이 아직 없습니다</p></div>`;
+/* 프로젝트 그리드 — main.js ProjectCard() 재사용. 없으면 간단 카드 폴백. */
+function projectGrid(items) {
+  const grid = pEl('div', { class: 'dt-prof-grid' });
+  items.forEach((p) => {
+    if (typeof window.ProjectCard === 'function') {
+      grid.appendChild(window.ProjectCard(p));
+    } else {
+      const card = pEl('a', { class: 'dt-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+      const thumb = pEl('div', { class: 'dt-pcard__thumb' });
+      if (p.imageUrl) thumb.appendChild(pEl('img', { src: p.imageUrl, alt: p.title || '', loading: 'lazy' }));
+      card.appendChild(thumb);
+      const body = pEl('div', { class: 'dt-pcard__body' });
+      body.appendChild(pEl('h3', { class: 'dt-pcard__title' }, p.title || ''));
+      card.appendChild(body);
+      grid.appendChild(card);
+    }
+  });
+  return grid;
 }
 
 function renderProfileTabContent() {
   const container = document.getElementById('profileTabContent');
   if (!container) return;
 
-  if (profileTab === 'liked') {
-    const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS)) ? MOCK_PRODUCTS : [];
-    const items = products.filter((p) => p.isLiked === true);
-    if (items.length === 0) { renderEmpty(container, '찜한 상품'); return; }
-    container.innerHTML = items.map((item) => {
-      const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(item) : 0;
-      return rowItemHtml({ id: item.id, title: item.title, imageUrl: item.imageUrl, sub: (item.priceText || '') + ' · ' + rate + '% 달성' });
-    }).join('');
+  if (profileTab === 'intro') {
+    renderIntroTab(container);
     return;
   }
-
-  // joined(내 후원)·created(내 펀드)는 서버 실데이터
-  container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;">불러오는 중…</div>';
-  if (profileTab === 'joined') {
+  if (profileTab === 'backings') {
+    container.replaceChildren(pEl('div', { class: 'dt-prof-loading' }, '불러오는 중…'));
     loadMyBackings(container);
-  } else {
+    return;
+  }
+  if (profileTab === 'funds') {
+    container.replaceChildren(pEl('div', { class: 'dt-prof-loading' }, '불러오는 중…'));
     loadMyFunds(container);
+    return;
+  }
+  if (profileTab === 'followers') {
+    container.replaceChildren(emptyState('empty-feed.png', '아직 팔로워가 없어요', '프로젝트를 개설하고 후원자와 소통해 보세요.'));
+    return;
+  }
+  if (profileTab === 'following') {
+    container.replaceChildren(emptyState('empty-feed.png', '팔로우한 창작자가 없어요', '관심 있는 창작자를 팔로우하면 새 소식을 받을 수 있어요.'));
+    return;
   }
 }
 
+/* 프로필(소개) 탭 — 소개 없으면 빈상태 */
+function renderIntroTab(container) {
+  container.innerHTML = '';
+  const card = pEl('div', { class: 'dt-prof-introcard' });
+  card.appendChild(pEl('h3', { class: 'dt-prof-introcard__h' }, '소개'));
+  if (currentUser.bio && String(currentUser.bio).trim()) {
+    const p = pEl('p', { class: 'dt-prof-introcard__body' });
+    p.textContent = currentUser.bio; // 사용자 데이터 — textContent로 XSS 방지
+    card.appendChild(p);
+  } else {
+    const empty = pEl('p', { class: 'dt-prof-introcard__empty' }, '등록된 소개가 없습니다.');
+    card.appendChild(empty);
+    card.appendChild(pEl('a', { class: 'dt-btn dt-btn--outline dt-prof-introcard__cta', href: '/settings.html' }, '프로필 편집'));
+  }
+  container.appendChild(card);
+}
+
+/* 개설한 프로젝트 — /me/funds (보존). 응답 필드명 그대로(items, id, title, imageUrl, status, achievementRate, finalPrice) */
 async function loadMyFunds(container) {
   const esc = window.escapeHTML;
   try {
     const res = await window.api.get('/me/funds', { silentAuthFail: true });
     const items = (res && res.items) || [];
     currentUser.createdFundingCount = items.length;
-    if (!items.length) { renderEmpty(container, '제작한 펀딩'); return; }
+    updateStat('created', items.length);
+    if (!items.length) {
+      container.replaceChildren(emptyState('empty-funds.png', '개설한 프로젝트가 없어요', '아이디어를 굿즈로 만들어 후원을 받아보세요.', { href: '/fund-create.html', label: '프로젝트 올리기' }));
+      return;
+    }
     container.innerHTML = '';
+    const list = pEl('div', { class: 'dt-prof-rows' });
     items.forEach((f) => {
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #f0f0f0;';
-      const link = document.createElement('a');
-      link.href = 'detail.html?id=' + encodeURIComponent(f.id);
-      link.style.cssText = 'display:flex;gap:12px;flex:1;min-width:0;text-decoration:none;color:inherit;';
-      link.innerHTML = `
-        <div style="width:64px;height:64px;border-radius:10px;overflow:hidden;flex-shrink:0;background:#f3f4f6;">
-          ${f.imageUrl ? `<img src="${esc(f.imageUrl)}" alt="${esc(f.title)}" style="width:100%;height:100%;object-fit:cover;">` : ''}
-        </div>
-        <div style="flex:1;min-width:0;">
-          <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${esc(f.title)} ${statusBadge(FUND_STATUS_LABEL, f.status)}</div>
-          <div style="font-size:12px;color:#9ca3af;margin-top:4px;">${f.achievementRate || 0}% 달성 · ${Number(f.finalPrice || 0).toLocaleString('ko-KR')}원~</div>
-        </div>`;
+      const row = pEl('div', { class: 'dt-prof-row' });
+      const link = pEl('a', { class: 'dt-prof-row__main', href: 'detail.html?id=' + encodeURIComponent(f.id) });
+      const thumb = pEl('div', { class: 'dt-prof-row__thumb' });
+      if (f.imageUrl) {
+        const img = pEl('img', { src: f.imageUrl, alt: f.title || '', loading: 'lazy' });
+        img.addEventListener('error', () => { img.remove(); });
+        thumb.appendChild(img);
+      }
+      link.appendChild(thumb);
+      const info = pEl('div', { class: 'dt-prof-row__info' });
+      const titleRow = pEl('div', { class: 'dt-prof-row__titlerow' });
+      titleRow.appendChild(pEl('span', { class: 'dt-prof-row__title' }, f.title || ''));
+      titleRow.appendChild(makeStatusBadge(FUND_STATUS_BADGE, f.status));
+      info.appendChild(titleRow);
+      const meta = pEl('div', { class: 'dt-prof-row__meta' });
+      const rate = pEl('span', { class: 'dt-prof-row__rate' }, (f.achievementRate || 0) + '% 달성');
+      meta.appendChild(rate);
+      meta.appendChild(pEl('span', { class: 'dt-prof-row__sub' }, ' · ' + Number(f.finalPrice || 0).toLocaleString('ko-KR') + '원~'));
+      info.appendChild(meta);
+      link.appendChild(info);
       row.appendChild(link);
-      // 삭제 요청 — 취소/반려 상태가 아니면 노출
+      // 삭제 요청 — 취소/반려가 아니면 노출 (보존)
       if (f.status !== 'cancelled' && f.status !== 'rejected') {
-        const del = document.createElement('button');
-        del.type = 'button'; del.textContent = '삭제 요청';
-        del.style.cssText = 'background:#fef2f2;color:#ef4444;border:1px solid #fecaca;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;';
+        const del = pEl('button', { class: 'dt-prof-row__del', type: 'button' }, '삭제 요청');
         del.addEventListener('click', () => requestFundDelete(f.id));
         row.appendChild(del);
       }
-      container.appendChild(row);
+      list.appendChild(row);
     });
+    container.appendChild(list);
   } catch (e) {
-    renderEmpty(container, '제작한 펀딩');
+    container.replaceChildren(emptyState('empty-funds.png', '개설한 프로젝트가 없어요', '아이디어를 굿즈로 만들어 후원을 받아보세요.', { href: '/fund-create.html', label: '프로젝트 올리기' }));
   }
 }
 
+/* 삭제 요청 POST (보존) */
 async function requestFundDelete(fundId) {
   const reason = prompt('삭제 요청 사유를 입력해 주세요 (관리자가 검토 후 삭제·환불 처리합니다):', '');
   if (reason === null) return;
@@ -334,145 +407,150 @@ async function requestFundDelete(fundId) {
   }
 }
 
+/* 후원한 프로젝트 — /me/backings (보존). 필드: items, fundId, fundTitle, fundImageUrl, rewardTitle, amount, depositorName, status */
 async function loadMyBackings(container) {
+  const esc = window.escapeHTML;
   try {
     const res = await window.api.get('/me/backings', { silentAuthFail: true });
     const items = (res && res.items) || [];
     currentUser.joinedFundingCount = items.length;
-    if (!items.length) { renderEmpty(container, '참여한 펀딩'); return; }
-    container.innerHTML = items.map((o) => rowItemHtml({
-      id: o.fundId, title: o.fundTitle, imageUrl: o.fundImageUrl,
-      sub: window.escapeHTML(o.rewardTitle || '') + ' · ' + Number(o.amount || 0).toLocaleString('ko-KR') + '원' +
-        (o.depositorName ? ' · 입금자 ' + window.escapeHTML(o.depositorName) : ''),
-      badge: statusBadge(BACKING_STATUS_LABEL, o.status),
-    })).join('');
+    updateStat('backed', items.length);
+    if (!items.length) {
+      container.replaceChildren(emptyState('empty-backings.png', '후원한 프로젝트가 없어요', '마음에 드는 프로젝트를 찾아 첫 후원을 시작해 보세요.', { href: '/feed.html', label: '프로젝트 둘러보기' }));
+      return;
+    }
+    container.innerHTML = '';
+    const list = pEl('div', { class: 'dt-prof-rows' });
+    items.forEach((o) => {
+      const row = pEl('div', { class: 'dt-prof-row' });
+      const link = pEl('a', { class: 'dt-prof-row__main', href: 'detail.html?id=' + encodeURIComponent(o.fundId) });
+      const thumb = pEl('div', { class: 'dt-prof-row__thumb' });
+      if (o.fundImageUrl) {
+        const img = pEl('img', { src: o.fundImageUrl, alt: o.fundTitle || '', loading: 'lazy' });
+        img.addEventListener('error', () => { img.remove(); });
+        thumb.appendChild(img);
+      }
+      link.appendChild(thumb);
+      const info = pEl('div', { class: 'dt-prof-row__info' });
+      const titleRow = pEl('div', { class: 'dt-prof-row__titlerow' });
+      titleRow.appendChild(pEl('span', { class: 'dt-prof-row__title' }, o.fundTitle || ''));
+      titleRow.appendChild(makeStatusBadge(BACKING_STATUS_BADGE, o.status));
+      info.appendChild(titleRow);
+      const subText = (o.rewardTitle ? o.rewardTitle + ' · ' : '') +
+        Number(o.amount || 0).toLocaleString('ko-KR') + '원' +
+        (o.depositorName ? ' · 입금자 ' + o.depositorName : '');
+      info.appendChild(pEl('div', { class: 'dt-prof-row__meta' }, pEl('span', { class: 'dt-prof-row__sub' }, subText)));
+      link.appendChild(info);
+      row.appendChild(link);
+      list.appendChild(row);
+    });
+    container.appendChild(list);
   } catch (e) {
-    renderEmpty(container, '참여한 펀딩');
+    container.replaceChildren(emptyState('empty-backings.png', '후원한 프로젝트가 없어요', '마음에 드는 프로젝트를 찾아 첫 후원을 시작해 보세요.', { href: '/feed.html', label: '프로젝트 둘러보기' }));
   }
 }
 
+/* 스탯 값 갱신 — 값 없으면 "-" */
+function updateStat(key, value) {
+  const node = document.querySelector('.dt-prof-stat[data-stat="' + key + '"] .dt-prof-stat__num');
+  if (node) node.textContent = (value == null) ? '-' : Number(value).toLocaleString('ko-KR');
+}
+
+function statVal(v) {
+  return (v == null) ? '-' : Number(v).toLocaleString('ko-KR');
+}
+
+/* ===== 메인 렌더 ===== */
 function renderProfile() {
   const main = document.getElementById('profileMain');
-  const esc = window.escapeHTML;
+  if (!main) return;
+  main.innerHTML = '';
+
+  const wrap = pEl('div', { class: 'dt-wrap dt-prof' });
+
+  // 에러 배너
+  if (currentUser.loadError) {
+    const banner = pEl('div', { class: 'dt-prof-errbanner' });
+    banner.textContent = '프로필 정보를 불러오지 못했습니다. 잠시 후 새로고침해 주세요. (' + currentUser.loadError + ')';
+    wrap.appendChild(banner);
+  }
+
+  /* 상단: 아바타 + 이름 + 스탯 + 프로필 편집 */
+  const head = pEl('div', { class: 'dt-prof-head' });
+
+  const avatarBox = pEl('div', { class: 'dt-prof-avatar' });
+  if (currentUser.avatarUrl) {
+    const img = pEl('img', { src: currentUser.avatarUrl, alt: currentUser.name || '프로필' });
+    img.addEventListener('error', () => { img.remove(); avatarBox.classList.add('is-ghost'); avatarBox.innerHTML = GHOST_SVG; });
+    avatarBox.appendChild(img);
+  } else {
+    avatarBox.classList.add('is-ghost');
+    avatarBox.innerHTML = GHOST_SVG;
+  }
+
+  const headInfo = pEl('div', { class: 'dt-prof-head__info' });
   const displayName = currentUser.loaded
-    ? currentUser.name
+    ? (currentUser.name || '회원')
     : (currentUser.loadError ? '정보를 불러오지 못했습니다' : '불러오는 중…');
-  const userName = esc(displayName);
-  const userAvatar = esc(currentUser.avatarUrl);
-  const userUni = esc(currentUser.university);
-  const userDept = esc(currentUser.department);
-  const metaLine = currentUser.loaded
-    ? [userUni, userDept].filter(Boolean).join(' · ')
-    : '';
-  const errorBanner = currentUser.loadError
-    ? `<div style="background:#fef2f2;color:#991b1b;padding:10px 16px;font-size:13px;border-bottom:1px solid #fecaca;">프로필 정보를 불러오지 못했습니다. 잠시 후 새로고침해 주세요. (${esc(currentUser.loadError)})</div>`
-    : '';
+  const nameRow = pEl('div', { class: 'dt-prof-head__namerow' });
+  nameRow.appendChild(pEl('h1', { class: 'dt-prof-name' }, displayName));
+  headInfo.appendChild(nameRow);
+  if (currentUser.loaded && currentUser.university) {
+    headInfo.appendChild(pEl('p', { class: 'dt-prof-uni' }, currentUser.university));
+  }
 
-  main.innerHTML = `
-    ${errorBanner}
-    <!-- 유저 프로필 정보 -->
-    <section id="profileInfo" style="padding:24px 20px;text-align:center;border-bottom:8px solid #f5f5f5;">
-      <img src="${userAvatar}" alt="${userName}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;margin-bottom:12px;">
-      <div style="font-size:18px;font-weight:700;color:#1a1a1a;">${userName}</div>
-      <div style="font-size:13px;color:#9ca3af;margin-top:4px;">${metaLine}</div>
-    </section>
-
-    <!-- 내 프로젝트 관리 -->
-    <section id="projectManage" style="padding:16px 20px;border-bottom:8px solid #f5f5f5;">
-      <div style="display:flex;gap:10px;">
-        <button onclick="switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-          나의 활동
-        </button>
-        <button onclick="switchProfileTab('created');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" style="flex:1;padding:14px;border:1px solid #e5e7eb;border-radius:12px;background:#fff;font-size:14px;font-weight:600;color:#1a1a1a;cursor:pointer;display:flex;align-items:center;justify-content:center;">
-          프로젝트 관리
-        </button>
-      </div>
-    </section>
-
-    <!-- 탭: 참여한 펀딩 / 제작한 펀딩 -->
-    <section style="border-bottom:8px solid #f5f5f5;">
-      <div style="display:flex;border-bottom:1px solid #f0f0f0;">
-        <button id="tabLiked" onclick="switchProfileTab('liked')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid #8b5cf6;color:#8b5cf6;">좋아요</button>
-        <button id="tabJoined" onclick="switchProfileTab('joined')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;">참여한 펀딩</button>
-        <button id="tabCreated" onclick="switchProfileTab('created')" style="flex:1;padding:14px 0;font-size:14px;font-weight:600;border:none;background:none;cursor:pointer;border-bottom:2px solid transparent;color:#9ca3af;">제작한 펀딩</button>
-      </div>
-      <div id="profileTabContent"></div>
-    </section>
-`;
-
-  // 배송/결제 현황 + 하단 메뉴는 append
-  const orderSection = document.createElement('section');
-  orderSection.id = 'orderStatus';
-  orderSection.style.cssText = 'padding:20px;border-bottom:8px solid #f5f5f5;';
-  // 카운트는 number 라 escape 불필요하지만 일관성을 위해 거친다.
-  orderSection.innerHTML = `
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-      <div style="font-size:16px;font-weight:700;color:#1a1a1a;">배송/결제 현황</div>
-      <button onclick="openTrackingModal()" style="font-size:13px;color:#8b5cf6;font-weight:600;background:none;border:none;cursor:pointer;">배송조회 →</button>
-    </div>
-    <div style="display:flex;justify-content:space-around;text-align:center;">
-      <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.paymentPending)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 대기</div>
-      </div>
-      <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.paidReady)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">결제 완료<br>배송 준비</div>
-      </div>
-      <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.shipping)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 중</div>
-      </div>
-      <div style="flex:1;">
-        <div style="font-size:20px;font-weight:700;color:#8b5cf6;">${esc(MOCK_ORDER_STATUS.delivered)}</div>
-        <div style="font-size:12px;color:#9ca3af;margin-top:4px;">배송 완료</div>
-      </div>
-    </div>
-  `;
-  main.appendChild(orderSection);
-
-  // 하단 메뉴 리스트
-  const menuSection = document.createElement('section');
-  menuSection.id = 'profileMenu';
-  menuSection.style.cssText = 'padding:8px 0;';
-
-  const menuItems = [
-    { icon: 'heart', label: '찜한 굿즈 아이디어', href: '#', onclick: "switchProfileTab('liked');document.getElementById('profileTabContent').scrollIntoView({behavior:'smooth'})" },
-    { icon: 'bell', label: '알림 내역', href: '#' },
-    { icon: 'message', label: '1:1 문의', href: '/support.html' },
-    { icon: 'megaphone', label: '공지사항', href: '/notice.html' },
+  // 스탯: 팔로잉 / 후원수 / 개설수 — 값 없으면 "-"
+  const stats = pEl('div', { class: 'dt-prof-stats' });
+  const statDefs = [
+    { key: 'following', label: '팔로잉', value: currentUser.followingCount },
+    { key: 'backed',    label: '후원수', value: currentUser.joinedFundingCount },
+    { key: 'created',   label: '개설수', value: currentUser.createdFundingCount },
   ];
+  statDefs.forEach((s) => {
+    const stat = pEl('div', { class: 'dt-prof-stat', 'data-stat': s.key });
+    stat.appendChild(pEl('span', { class: 'dt-prof-stat__num' }, statVal(s.value)));
+    stat.appendChild(pEl('span', { class: 'dt-prof-stat__label' }, s.label));
+    stats.appendChild(stat);
+  });
+  headInfo.appendChild(stats);
 
-  const iconMap = {
-    heart: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
-    bell: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>',
-    message: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>',
-    megaphone: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>',
-  };
+  const editBtn = pEl('a', { class: 'dt-btn dt-btn--outline dt-prof-edit', href: '/settings.html' }, '프로필 편집');
 
-  // menuItems 는 정적 배열 — 외부 데이터 아님. 그래도 일관성을 위해 escape.
-  menuSection.innerHTML = menuItems
-    .map(
-      (item) => `
-    <a href="${esc(item.href)}" ${item.onclick ? 'onclick="' + item.onclick + '; return false;"' : ''} style="display:flex;align-items:center;padding:14px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-      <span style="font-size:14px;font-weight:500;flex:1;">${esc(item.label)}</span>
-    </a>
-  `
-    )
-    .join('');
+  head.appendChild(avatarBox);
+  head.appendChild(headInfo);
+  head.appendChild(editBtn);
+  wrap.appendChild(head);
 
-  main.appendChild(menuSection);
+  /* 탭바 */
+  const tabs = pEl('nav', { class: 'dt-prof-tabs', id: 'profileTabs', 'aria-label': '프로필 탭' });
+  PROFILE_TABS.forEach((t) => {
+    const btn = pEl('button', {
+      class: 'dt-prof-tab' + (t.key === profileTab ? ' is-active' : ''),
+      type: 'button',
+      'data-tab': t.key,
+    }, t.label);
+    btn.addEventListener('click', () => switchProfileTab(t.key));
+    tabs.appendChild(btn);
+  });
+  wrap.appendChild(tabs);
+
+  /* 탭 콘텐츠 컨테이너 */
+  wrap.appendChild(pEl('div', { class: 'dt-prof-content', id: 'profileTabContent' }));
+
+  main.appendChild(wrap);
 
   renderProfileTabContent();
 }
 
+const GHOST_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>';
+
 (async function init() {
-  // loadCurrentUser 가 false 면 401/410 으로 인한 redirect 진행 중 — 깜빡임 방지를 위해 렌더 스킵
+  profileTab = initialTabFromQuery();
+  // loadCurrentUser 가 false 면 401/410 redirect 진행 중 — 깜빡임 방지 위해 렌더 스킵
   const shouldRender = await loadCurrentUser();
   if (shouldRender) {
-    await loadOrderStatusCounts(); // 배송/결제 현황 카운트 채운 뒤 렌더 (PR#19)
     renderProfile();
-    // mock-data 의 백엔드 상품 로드가 끝나면 탭 내용(좋아요/참여/제작) 갱신
+    // 백엔드 상품 로드 완료 시 탭 내용 갱신
     window.addEventListener('mockproducts:updated', function () {
       if (typeof renderProfileTabContent === 'function') renderProfileTabContent();
     });

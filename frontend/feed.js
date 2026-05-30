@@ -117,8 +117,10 @@ function renderFeedList() {
   if (items.length === 0) {
     container.innerHTML = `
       <div class="feed-empty">
-        <p class="empty-title">해당 조건의 상품이 없습니다</p>
-        <p class="empty-sub">다른 필터를 선택해 보세요</p>
+        <img class="feed-empty__img" src="/assets/empty-feed.png" alt="" onerror="this.remove()">
+        <p class="empty-title">해당 조건의 프로젝트가 없어요</p>
+        <p class="empty-sub">다른 필터를 선택하거나 첫 프로젝트를 올려보세요</p>
+        <a class="dt-btn dt-btn--primary" href="/fund-create.html">프로젝트 올리기</a>
       </div>
     `;
     return;
@@ -132,10 +134,13 @@ function renderFeedList() {
       const desc = esc(item.description ? item.description.split('.')[0] : '');
       const imageUrl = esc(item.imageUrl);
       const author = esc(item.author);
+      const thumbInner = imageUrl
+        ? `<img src="${imageUrl}" alt="${title}" loading="lazy" onerror="this.parentNode.classList.add('is-empty');this.remove()">`
+        : '';
       return `
     <article class="feed-card" onclick="location.href='detail.html?id=${id}'">
-      <div class="feed-card__thumb">
-        <img src="${imageUrl}" alt="${title}" loading="lazy">
+      <div class="feed-card__thumb${imageUrl ? '' : ' is-empty'}">
+        ${thumbInner}
       </div>
       <div class="feed-card__body">
         <p class="feed-card__author">${author}</p>

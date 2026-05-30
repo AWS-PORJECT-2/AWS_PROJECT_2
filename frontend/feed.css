@@ -308,3 +308,11 @@
   .filter-controls select { font-size: 12px; padding: 6px 10px; }
   .rec-chip { font-size: 12px; padding: 7px 12px; }
 }
+
+/* 빈상태 일러스트 + 썸네일 플레이스홀더 (재구축 v4) */
+.feed-empty { text-align: center; padding: 56px 20px; grid-column: 1 / -1; }
+.feed-empty__img { width: 160px; height: auto; opacity: .9; margin: 0 auto 12px; display: block; }
+.feed-empty .empty-title { font-size: 16px; font-weight: 700; color: var(--c-text); margin: 0 0 6px; }
+.feed-empty .empty-sub { font-size: 14px; color: var(--c-text-muted); margin: 0 0 18px; }
+.feed-card__thumb.is-empty { display: flex; align-items: center; justify-content: center; background: var(--c-primary-50); }
+.feed-card__thumb.is-empty::after { content: ""; width: 40%; height: 40%; background: var(--c-primary-200); -webkit-mask: radial-gradient(circle at 50% 40%, #000 30%, transparent 32%) no-repeat center / contain; mask: radial-gradient(circle at 50% 40%, #000 30%, transparent 32%) no-repeat center / contain; opacity: .6; }

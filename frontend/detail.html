@@ -12,9 +12,17 @@
   <div id="app"></div>
 
   <main class="detail-main">
-    <!-- 메인 콘텐츠는 detail.js 가 렌더링 -->
+    <!-- 메인 콘텐츠는 detail.js 가 렌더링 (상단 2단 + 하단 2단, 스펙 §3.3) -->
     <div class="detail-container" id="detailContainer"></div>
   </main>
+
+  <!-- 모바일 하단 고정 후원 바 (detail.js 가 채움) -->
+  <div class="dt-mobile-bar" id="mobileBar"></div>
+
+  <!-- TOP 플로팅 버튼 -->
+  <button class="dt-top-btn" id="topBtn" type="button" aria-label="맨 위로">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+  </button>
 
   <!-- 예약 확정 모달 -->
   <div class="modal-overlay" id="modalReservation" role="dialog" aria-modal="true" aria-labelledby="modalReservationTitle">
