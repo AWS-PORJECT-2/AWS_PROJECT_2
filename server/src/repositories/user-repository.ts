@@ -13,4 +13,5 @@ export interface UserRepository {
   updateProfile(userId: string, data: { name?: string; picture?: string }): Promise<User | null>;
   setRole(userId: string, role: User['role']): Promise<void>;
   listAll(limit?: number): Promise<User[]>;
+  delete(userId: string): Promise<void>;
 }

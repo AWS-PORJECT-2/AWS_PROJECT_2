@@ -63,3 +63,30 @@ export function createUpdateMeHandler(userRepo: UserRepository) {
     }
   };
 }
+
+/**
+ * DELETE /api/me — 회원 탈퇴(계정 삭제).
+ * 진행 중인 펀드/주문(ON DELETE RESTRICT)이 있으면 23503 → 안내 후 차단.
+ * 깨끗한 계정은 주소/결제수단/후원내역(CASCADE)과 함께 삭제.
+ */
+export function createDeleteMeHandler(userRepo: UserRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    try {
+      await userRepo.delete(userId);
+      // 인증 쿠키 정리(best-effort)
+      ['access_token', 'refresh_token', 'accessToken', 'refreshToken'].forEach((c) => res.clearCookie(c));
+      logger.info({ userId }, '회원 탈퇴 완료');
+      res.json({ ok: true });
+    } catch (err) {
+      const code = (err as { code?: string })?.code;
+      if (code === '23503') {
+        res.status(409).json({ error: 'HAS_ACTIVITY', message: '진행 중인 펀드·주문 내역이 있어 바로 탈퇴할 수 없습니다. 고객지원(1:1 문의)으로 요청해 주세요.' });
+        return;
+      }
+      logger.error({ err, userId }, '회원 탈퇴 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}

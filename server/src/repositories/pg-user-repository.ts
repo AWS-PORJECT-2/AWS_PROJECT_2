@@ -79,6 +79,11 @@ export class PgUserRepository implements UserRepository {
     await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
   }
 
+  async delete(userId: string): Promise<void> {
+    // groupbuys/participations/orders 는 ON DELETE RESTRICT → 진행 이력 있으면 23503 throw(상위에서 처리)
+    await this.pool.query('DELETE FROM "user" WHERE id = $1', [userId]);
+  }
+
   async listAll(limit = 500): Promise<User[]> {
     const res = await this.pool.query(
       'SELECT * FROM "user" ORDER BY created_at DESC LIMIT $1',

@@ -3,51 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>설정 - 국민대학교</title>
+  <title>설정 · 두띵</title>
   <link rel="stylesheet" href="style.css">
   <link rel="stylesheet" href="main.css">
+  <script src="api.js"></script>
+  <script src="categories.js"></script>
+  <script src="notification.js"></script>
+  <script src="search.js"></script>
+  <script src="category-icons.js"></script>
+  <script src="main.js"></script>
+  <script src="settings.js" defer></script>
 </head>
 <body class="main-page" data-page="sub">
   <div id="app"></div>
 
-  <main class="main-content" style="padding-bottom:80px;">
-    <nav style="padding:8px 0;">
+  <main class="main-content" style="max-width:720px;padding:24px 20px 100px;">
+    <h1 style="font-size:24px;font-weight:800;margin-bottom:18px;">설정</h1>
 
-      <a href="design-select.html" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-        <span style="flex:1;font-size:15px;font-weight:500;">굿즈 디자인하기</span>
-      </a>
+    <div id="setTabs" style="display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap;border-bottom:1px solid #eee;padding-bottom:14px;">
+      <button class="set-tab" data-tab="profile">프로필</button>
+      <button class="set-tab" data-tab="account">계정</button>
+      <button class="set-tab" data-tab="payment">결제수단</button>
+      <button class="set-tab" data-tab="address">배송지</button>
+      <button class="set-tab" data-tab="noti">알림</button>
+    </div>
 
-      <a href="javascript:void(0);" onclick="alert('현재는 계좌이체(무통장 입금)만 지원합니다.\n토스뱅크 1002-5655-8980 (공동구매 계좌)');" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-        <span style="flex:1;font-size:15px;font-weight:500;">결제 수단 관리</span>
-        <span style="font-size:11px;font-weight:600;color:#92400e;background:#fef3c7;padding:3px 8px;border-radius:999px;">계좌이체만 지원</span>
-      </a>
-
-      <a href="addresses.html" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-        <span style="flex:1;font-size:15px;font-weight:500;">배송지 관리</span>
-      </a>
-
-      <a href="/support.html" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-        <span style="flex:1;font-size:15px;font-weight:500;">1:1 문의</span>
-      </a>
-
-      <a href="/notice.html" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-        <span style="flex:1;font-size:15px;font-weight:500;">공지사항</span>
-      </a>
-
-      <a href="privacy.html" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;text-decoration:none;color:#1a1a1a;border-bottom:1px solid #f5f5f5;">
-        <span style="flex:1;font-size:15px;font-weight:500;">개인정보 처리방침</span>
-      </a>
-
-      <button onclick="handleLogout()" class="settings-item" style="display:flex;align-items:center;padding:16px 20px;width:100%;background:none;border:none;border-bottom:1px solid #f5f5f5;cursor:pointer;text-align:left;">
-        <span style="flex:1;font-size:15px;font-weight:500;color:#ef4444;">로그아웃</span>
-      </button>
-
-    </nav>
+    <section id="setProfile" class="set-pane"></section>
+    <section id="setAccount" class="set-pane" style="display:none;"></section>
+    <section id="setPayment" class="set-pane" style="display:none;"></section>
+    <section id="setAddress" class="set-pane" style="display:none;"></section>
+    <section id="setNoti" class="set-pane" style="display:none;"></section>
   </main>
-
-  <script src="notification.js"></script>
-  <script src="settings.js"></script>
-  <script src="category-icons.js"></script>
-  <script src="main.js"></script>
 </body>
 </html>
