@@ -615,6 +615,8 @@
     if (!hasAnyInput()) return;
     var cur = draftPayloadJson();
     if (cur === lastSavedJson) return;   // 변경 없음
+    // 서버 임시저장이 아직 없으면 즉시 생성(빠르게 이탈해도 "개설 중인 프로젝트"에 남도록). 이후 변경은 디바운스.
+    if (!draftId) { saveDraftNow(false); return; }
     draftTimer = setTimeout(function () { saveDraftNow(false); }, DRAFT_DEBOUNCE_MS);
   }
 

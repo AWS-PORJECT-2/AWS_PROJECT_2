@@ -211,12 +211,25 @@
   /* ===================================================================
    * 메인 렌더
    * =================================================================== */
+  // 최근 본 프로젝트를 localStorage(recentFunds)에 기록 — 홈/프로필 "최근 본 프로젝트"가 읽는다. 최신 우선, 최대 20.
+  function recordRecent(f) {
+    if (!f || f.id == null) return;
+    try {
+      let list = JSON.parse(localStorage.getItem('recentFunds') || '[]');
+      if (!Array.isArray(list)) list = [];
+      list = list.filter((r) => r && String(r.id) !== String(f.id));
+      list.unshift({ id: f.id, title: f.title || '', imageUrl: f.coverImageUrl || f.designImageUrl || '' });
+      localStorage.setItem('recentFunds', JSON.stringify(list.slice(0, 20)));
+    } catch (_) { /* 저장 실패 무시 */ }
+  }
+
   function render(f) {
     const rate = W.rate(f);
     const backers = Number(f.currentQuantity) || 0;
     const dleft = daysLeft(f.deadline);
     const imgs = galleryImages(f);
     const tiers = Array.isArray(f.rewardTiers) ? f.rewardTiers : [];
+    recordRecent(f); // 최근 본 프로젝트 기록
 
     root.replaceChildren();
     document.body.classList.add('wz-detail-page'); // 상세: 헤더 비고정 → 탭바가 맨 위에 sticky
@@ -1004,72 +1017,29 @@
     window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=540');
   }
 
-  /* ---------- 카카오 JS SDK ----------
-   * 카카오톡 실제 공유(Kakao.Share.sendDefault)를 위해 SDK를 1회 동적 로드한다.
-   * 키는 클라이언트 공개용 JavaScript 앱 키라 임베드 정상.
-   * 로드/차단 실패 시 cb(false) → 호출부에서 링크 복사로 폴백한다. */
-  const KAKAO_SDK_SRC = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js';
-  const KAKAO_JS_KEY = '320803e91e6b8a17be375c2f906e952e';
-  let _kakaoLoading = null;
-  function ensureKakao(cb) {
-    function ready() {
-      const K = window.Kakao;
-      if (!K) return cb(false);
-      try { if (!K.isInitialized()) K.init(KAKAO_JS_KEY); } catch (e) { return cb(false); }
-      cb(!!(K.Share && typeof K.Share.sendDefault === 'function'));
-    }
-    if (window.Kakao) { ready(); return; }
-    if (_kakaoLoading) { _kakaoLoading.then(ready, () => cb(false)); return; }
-    _kakaoLoading = new Promise((resolve, reject) => {
-      const s = document.createElement('script');
-      s.src = KAKAO_SDK_SRC;
-      s.async = true;
-      s.onload = resolve;
-      s.onerror = () => { _kakaoLoading = null; reject(new Error('kakao sdk load failed')); };
-      document.head.appendChild(s);
-    });
-    _kakaoLoading.then(ready, () => cb(false));
-  }
-
-  /* 절대 대표 이미지 URL. 상대경로 cover는 origin 기준 절대화, http(s)는 그대로, 없으면 로고. */
-  function shareImageUrl(f) {
-    const cover = f && f.coverImageUrl ? String(f.coverImageUrl).trim() : '';
-    if (cover) return /^https?:\/\//i.test(cover) ? cover : location.origin + (cover[0] === '/' ? cover : '/' + cover);
-    return location.origin + '/assets/logo.png';
+  /* 카카오톡 공유: 카카오 SDK/도메인 등록(4019) 없이 — 링크 복사 + 카카오톡 앱 실행 시도.
+   * 커스텀 스킴(kakaotalk://)을 숨김 iframe 으로 호출(설치 시 앱 열림, 미설치/미지원이면 조용히 무시). */
+  function openKakaoTalk() {
+    try {
+      const ifr = document.createElement('iframe');
+      ifr.style.display = 'none';
+      ifr.src = 'kakaotalk://';
+      document.body.appendChild(ifr);
+      setTimeout(() => { try { ifr.remove(); } catch (_) {} }, 1500);
+    } catch (_) { /* 무시 */ }
   }
 
   function doShare(f) {
     const url = location.href;
     const enc = encodeURIComponent(url);
     const title = f.title || '두띵 프로젝트';
-    const desc = (f.description && String(f.description).trim()) || '국민대 굿즈 펀딩 프로젝트';
-    const imageUrl = shareImageUrl(f);
     const encTitle = encodeURIComponent(title);
 
-    /* 각 항목은 클릭 즉시(동기) 처리한다. window.open 은 핸들러 첫 줄에서 호출(앞에 await/then 금지)
-     * → 데스크톱에서도 팝업 차단/우클릭처럼 무시되는 문제 해결.
-     * 카카오: JS SDK 로드 후 Kakao.Share.sendDefault, 실패 시 링크 복사 폴백.
-     * 모든 항목은 <button type="button"> (a href="#" 미사용)로 컨텍스트 메뉴 유발 요소 없음. */
+    /* 각 항목은 클릭 즉시(동기) 처리. window.open 은 핸들러 첫 줄에서 호출(팝업 차단 방지).
+     * 카카오톡: 링크 복사 + 카카오톡 앱 실행(SDK/도메인 등록 불필요). 나머지는 웹 공유 인텐트.
+     * 모든 항목은 <button type="button"> (a href="#" 미사용). */
     const items = [
-      ['kakao', '카카오톡', SVG.kakao, () => {
-        ensureKakao((ok) => {
-          if (!ok) { copyLink(url, '카카오 공유를 불러오지 못했어요. 링크를 복사했으니 붙여넣어 공유해 주세요.'); return; }
-          try {
-            window.Kakao.Share.sendDefault({
-              objectType: 'feed',
-              content: {
-                title: title,
-                description: desc,
-                imageUrl: imageUrl,
-                link: { mobileWebUrl: url, webUrl: url },
-              },
-              buttons: [{ title: '펀딩 보러가기', link: { mobileWebUrl: url, webUrl: url } }],
-            });
-          } catch (e) {
-            copyLink(url, '카카오 공유에 실패했어요. 링크를 복사했으니 붙여넣어 공유해 주세요.');
-          }
-        });
-      }],
+      ['kakao', '카카오톡', SVG.kakao, () => { copyLink(url, '링크가 복사되었어요. 카카오톡에 붙여넣어 공유하세요.'); openKakaoTalk(); }],
       ['twitterX', 'X', SVG.twitterX, () => {
         openShareWindow('https://twitter.com/intent/tweet?url=' + enc + '&text=' + encTitle);
       }],
