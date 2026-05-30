@@ -18,20 +18,35 @@ import { createAuthRouter } from './routes/index.js';
 import { createAiRouter } from './routes/ai.js';
 import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
-import { createGroupBuyGetHandler } from './routes/groupbuy-get.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
 import { createMeFundsHandler } from './routes/me-funds.js';
-import { createUpdateMeHandler, createDeleteMeHandler } from './routes/me-profile.js';
+import {
+  createUpdateMeHandler, createDeleteMeHandler,
+  createUpdateNotificationsHandler, createConsentHandler,
+} from './routes/me-profile-routes.js';
+import {
+  createUserSearchHandler, createPublicProfileHandler, createUserFundsHandler,
+  createFollowHandler as createUserFollowHandler, createUnfollowHandler as createUserUnfollowHandler,
+  createFollowersHandler, createFollowingHandler,
+} from './routes/users-routes.js';
+import {
+  createCommentsListHandler, createCommentCreateHandler, createCommentDeleteHandler,
+} from './routes/comments-routes.js';
+import {
+  createGroupBuysListHandler as createGroupBuysListV2Handler,
+  createGroupBuyDetailHandler,
+} from './routes/groupbuys-routes.js';
+import { PgCommentRepository } from './repositories/pg-comment-repository.js';
 import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
   createAdminDepositsListHandler, createAdminConfirmDepositHandler,
 } from './routes/reward-orders.js';
 import { createAuthRequired, createOptionalAuth } from './middleware/auth-required.js';
 import { PgFollowRepository } from './repositories/pg-follow-repository.js';
-import { createFollowStatusHandler, createFollowHandler, createUnfollowHandler } from './routes/follows.js';
+import { createFollowStatusHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
 import { GeminiImageService } from './services/ai/gemini-image-service.js';
@@ -61,7 +76,6 @@ import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { createOrderConfirmHandler } from './routes/orders-confirm.js';
-import { createGroupBuysListHandler } from './routes/groupbuys-list.js';
 import { createOrderShippingHandler, createOrderStatusCountsHandler } from './routes/orders-shipping.js';
 import { createOrderTrackingHandler, createOrderTrackingUpdateHandler } from './routes/orders-tracking.js';
 import { logger } from './logger.js';
@@ -199,6 +213,8 @@ export function createApp(
   app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
   const authRequired = createAuthRequired(tokenService, userRepository);
+  // soft-auth: 토큰 있으면 req.userId 채우고, 없거나 무효여도 통과(공개 GET 의 viewer 플래그용).
+  const optionalAuth = createOptionalAuth(tokenService);
 
   // ─── 개발 전용 인증 (운영 환경에서는 절대 노출 안 됨) ───
   if (process.env.NODE_ENV !== 'production') {
@@ -253,9 +269,9 @@ export function createApp(
   app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
   app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
 
-  // 공용: 공동구매 목록 + 단일 상세 (인증 불필요)
-  app.get('/api/groupbuys', createGroupBuysListHandler(groupBuyRepository));
-  app.get('/api/groupbuys/:id', createGroupBuyGetHandler(groupBuyRepository));
+  // 공용: 공동구매 목록 + 단일 상세 (공개; 상세는 soft-auth 로 maker.isFollowing 채움)
+  app.get('/api/groupbuys', createGroupBuysListV2Handler(groupBuyRepository));
+  app.get('/api/groupbuys/:id', optionalAuth, createGroupBuyDetailHandler(groupBuyRepository));
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
@@ -307,8 +323,11 @@ export function createApp(
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
   app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository));
+  // --- 내 프로필/계정 (소셜 계약) ---
   app.patch('/api/me', authRequired, createUpdateMeHandler(userRepository));
-  app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository));
+  app.patch('/api/me/notifications', authRequired, createUpdateNotificationsHandler(userRepository));
+  app.post('/api/me/consent', authRequired, createConsentHandler(userRepository));
+  app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository, refreshTokenRepository));
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
@@ -324,12 +343,30 @@ export function createApp(
   app.get('/api/admin/users', authRequired, requireAdmin, createAdminUsersListHandler(userRepository));
   app.post('/api/admin/users/:id/role', authRequired, requireAdmin, createAdminSetUserRoleHandler(userRepository));
 
-  // --- 팔로우 (항목 6) ---
+  // --- 유저/메이커 공개 + 팔로우 + 댓글 (소셜 계약) ---
   const followRepository = new PgFollowRepository(pool);
-  const optionalAuth = createOptionalAuth(tokenService);
+  const commentRepository = new PgCommentRepository(pool);
+
+  // 댓글
+  app.get('/api/comments', optionalAuth, createCommentsListHandler(commentRepository));
+  app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository));
+  app.delete('/api/comments/:id', authRequired, createCommentDeleteHandler(commentRepository));
+
+  // 유저 검색 — '/search' 는 '/:idOrSlug' 보다 먼저 등록(라우트 섀도잉 방지).
+  app.get('/api/users/search', createUserSearchHandler(userRepository));
+
+  // 팔로우 (구 상태조회 GET /api/users/:id/follow 호환 유지) + POST/DELETE
   app.get('/api/users/:id/follow', optionalAuth, createFollowStatusHandler(followRepository));
-  app.post('/api/users/:id/follow', authRequired, createFollowHandler(followRepository));
-  app.delete('/api/users/:id/follow', authRequired, createUnfollowHandler(followRepository));
+  app.post('/api/users/:id/follow', authRequired, createUserFollowHandler(followRepository));
+  app.delete('/api/users/:id/follow', authRequired, createUserUnfollowHandler(followRepository));
+  app.get('/api/users/:id/followers', optionalAuth, createFollowersHandler(followRepository));
+  app.get('/api/users/:id/following', optionalAuth, createFollowingHandler(followRepository));
+
+  // 메이커 공구 목록 — '/:idOrSlug/funds' 는 '/:idOrSlug' 보다 먼저.
+  app.get('/api/users/:idOrSlug/funds', createUserFundsHandler(userRepository, groupBuyRepository));
+
+  // 공개 프로필(가장 일반적인 패턴이므로 위 구체 경로들 뒤에 등록) — soft-auth.
+  app.get('/api/users/:idOrSlug', optionalAuth, createPublicProfileHandler(userRepository));
 
   // --- Email Notification Service (export for socket/scheduler use) ---
   const emailService = createEmailService();

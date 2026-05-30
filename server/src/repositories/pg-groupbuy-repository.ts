@@ -1,7 +1,10 @@
 import type pg from 'pg';
 import type { PoolClient } from 'pg';
 import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier } from '../types/index.js';
-import type { GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions } from './groupbuy-repository.js';
+import type {
+  GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
+  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions,
+} from './groupbuy-repository.js';
 
 // content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱
 function parseContentBlocks(raw: unknown): ContentBlock[] | null {
@@ -38,13 +41,57 @@ function parseRewardTiers(raw: unknown): RewardTier[] | null {
   }
 }
 
+function achievementRate(current: number, target: number): number {
+  return target > 0 ? Math.round((current / target) * 100) : 0;
+}
+
+// DB row → 계약 <groupbuy 목록 아이템>
+function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
+  const current = Number(row.current_quantity) || 0;
+  const target = Number(row.target_quantity) || 0;
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    creatorId: row.creator_id as string,
+    creatorName: (row.creator_name as string | null) ?? null,
+    creatorSlug: (row.creator_slug as string | null) ?? null,
+    category: (row.category as string | null) ?? null,
+    coverImageUrl: (row.cover_image_url as string | null) ?? null,
+    currentQuantity: current,
+    targetQuantity: target,
+    achievementRate: achievementRate(current, target),
+    deadline: new Date(row.deadline as string).toISOString(),
+    status: row.status as GroupBuyStatus,
+    createdAt: new Date(row.created_at as string).toISOString(),
+  };
+}
+
+// 내부 ContentBlock({type,value}) → 계약 형태({type, text?, url?})
+function contentBlocksToContract(blocks: ContentBlock[] | null): Array<{ type: 'text' | 'image'; text?: string; url?: string }> {
+  if (!blocks) return [];
+  return blocks.map((b) =>
+    b.type === 'text' ? { type: 'text' as const, text: b.value } : { type: 'image' as const, url: b.value });
+}
+
+// 내부 RewardTier → 계약 형태({title, price, desc, soldCount, stock?})
+function rewardTiersToContract(tiers: RewardTier[] | null): Array<{ title: string; price: number; desc: string; soldCount: number; stock?: number | null }> {
+  if (!tiers) return [];
+  return tiers.map((t) => ({
+    title: t.title,
+    price: t.price,
+    desc: t.description ?? '',
+    soldCount: t.soldCount ?? 0,
+    stock: t.stockLimit ?? null,
+  }));
+}
+
 export class PgGroupBuyRepository implements GroupBuyRepository {
   constructor(private readonly pool: pg.Pool) {}
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -55,6 +102,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.category ?? null,
         groupbuy.rewardTiers ? JSON.stringify(groupbuy.rewardTiers) : null,
         groupbuy.delegated ?? false, groupbuy.feeRate ?? 5,
+        groupbuy.coverImageUrl ?? null, groupbuy.mode ?? 'normal',
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -218,6 +266,120 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return { items, total: Number(countRes.rows[0].cnt) };
   }
 
+  // ─── 공개 목록/상세 (계약 형태) ───
+
+  async findMany(options: GroupBuyFindManyOptions): Promise<{ total: number; rows: GroupBuyCardItem[] }> {
+    const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
+    const offset = Math.max(options.offset ?? 0, 0);
+
+    const where: string[] = [];
+    const params: unknown[] = [];
+
+    // 특정 메이커 페이지(creatorId)면 그 사람 전체(rejected 제외), 아니면 공개(open)만.
+    if (options.creatorId) {
+      params.push(options.creatorId);
+      where.push(`g.creator_id = $${params.length}`);
+      where.push(`g.status <> 'rejected'`);
+    } else {
+      where.push(`g.status = 'open'`);
+    }
+    if (options.category && options.category !== 'all') {
+      params.push(options.category);
+      where.push(`g.category = $${params.length}`);
+    }
+
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    let orderSql: string;
+    if (options.sort === 'latest') orderSql = 'ORDER BY g.created_at DESC';
+    else if (options.sort === 'ending') orderSql = 'ORDER BY g.deadline ASC';
+    else orderSql = 'ORDER BY g.current_quantity DESC, g.created_at DESC'; // popular
+
+    params.push(limit);
+    params.push(offset);
+
+    const listQuery = `
+      SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
+             g.deadline, g.status, g.created_at,
+             COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
+             u.name AS creator_name, u.slug AS creator_slug
+        FROM groupbuys g
+        LEFT JOIN "user" u ON u.id = g.creator_id
+        ${whereSql}
+        ${orderSql}
+        LIMIT $${params.length - 1} OFFSET $${params.length}
+    `;
+    const countQuery = `SELECT COUNT(*)::int AS cnt FROM groupbuys g ${whereSql}`;
+    const countParams = params.slice(0, params.length - 2);
+
+    const [listRes, countRes] = await Promise.all([
+      this.pool.query(listQuery, params),
+      this.pool.query(countQuery, countParams),
+    ]);
+
+    return {
+      total: Number(countRes.rows[0].cnt) || 0,
+      rows: listRes.rows.map(toCardItem),
+    };
+  }
+
+  async findByCreator(creatorId: string): Promise<GroupBuyCardItem[]> {
+    const { rows } = await this.findMany({ creatorId, sort: 'latest', limit: 100, offset: 0 });
+    return rows;
+  }
+
+  async getDetail(id: string, viewerId?: string): Promise<GroupBuyDetail | null> {
+    const res = await this.pool.query(
+      `SELECT g.*,
+              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url_resolved,
+              u.id AS maker_id, u.name AS maker_name, u.slug AS maker_slug, u.picture AS maker_picture,
+              (SELECT COUNT(*)::int FROM follows f WHERE f.creator_id = g.creator_id) AS maker_follower_count,
+              CASE WHEN $2::uuid IS NULL THEN FALSE
+                   ELSE EXISTS (SELECT 1 FROM follows f WHERE f.creator_id = g.creator_id AND f.follower_id = $2::uuid)
+              END AS maker_is_following
+         FROM groupbuys g
+         LEFT JOIN "user" u ON u.id = g.creator_id
+        WHERE g.id = $1`,
+      [id, viewerId ?? null],
+    );
+    if (res.rows.length === 0) return null;
+    const r = res.rows[0];
+
+    const card: GroupBuyCardItem = toCardItem({
+      id: r.id,
+      title: r.title,
+      creator_id: r.creator_id,
+      category: r.category,
+      current_quantity: r.current_quantity,
+      target_quantity: r.target_quantity,
+      deadline: r.deadline,
+      status: r.status,
+      created_at: r.created_at,
+      cover_image_url: r.cover_image_url_resolved,
+      creator_name: r.maker_name,
+      creator_slug: r.maker_slug,
+    });
+
+    return {
+      ...card,
+      description: (r.description as string) ?? '',
+      basePrice: Number(r.base_price) || 0,
+      designFee: Number(r.design_fee) || 0,
+      platformFee: Number(r.platform_fee) || 0,
+      finalPrice: Number(r.final_price) || 0,
+      mode: (r.mode as string) ?? 'normal',
+      contentBlocks: contentBlocksToContract(parseContentBlocks(r.content_blocks)),
+      rewardTiers: rewardTiersToContract(parseRewardTiers(r.reward_tiers)),
+      maker: {
+        userId: (r.maker_id as string) ?? (r.creator_id as string),
+        name: (r.maker_name as string | null) ?? null,
+        slug: (r.maker_slug as string | null) ?? null,
+        picture: (r.maker_picture as string | null) ?? null,
+        followerCount: Number(r.maker_follower_count) || 0,
+        isFollowing: Boolean(r.maker_is_following) && viewerId !== (r.creator_id as string),
+      },
+    };
+  }
+
   private mapRow(row: Record<string, unknown>): GroupBuy {
     return {
       id: row.id as string,
@@ -243,6 +405,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       designImageUrl: (row.design_image_url as string | null) ?? null,
       tryonImageUrl: (row.tryon_image_url as string | null) ?? null,
       contentBlocks: parseContentBlocks(row.content_blocks),
+      coverImageUrl: (row.cover_image_url as string | null) ?? null,
+      mode: (row.mode as string | undefined) ?? 'normal',
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };

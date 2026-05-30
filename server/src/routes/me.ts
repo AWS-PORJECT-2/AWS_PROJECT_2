@@ -3,6 +3,7 @@ import type { TokenService } from '../interfaces/token-service.js';
 import type { UserRepository } from '../repositories/user-repository.js';
 import type { User } from '../types/index.js';
 import { logger } from '../logger.js';
+import { serializeMe } from './profile-serializer.js';
 
 export function createMeHandler(tokenService: TokenService, userRepo: UserRepository) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -37,17 +38,6 @@ export function createMeHandler(tokenService: TokenService, userRepo: UserReposi
       return;
     }
 
-    res.json({
-      userId: user.id,
-      email: user.email,
-      name: user.name,
-      schoolDomain: user.schoolDomain,
-      picture: user.picture ?? null,
-      role: user.role ?? 'USER',
-      nickname: user.nickname ?? null,
-      phone: user.phone ?? null,
-      realName: user.realName ?? null,
-      onboarded: user.onboarded ?? false,
-    });
+    res.json(serializeMe(user));
   };
 }

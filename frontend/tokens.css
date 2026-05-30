@@ -29,6 +29,18 @@
   --c-danger:  #EF4444;
   --c-info:    #3B82F6;
 
+  /* 보조 색감(파스텔) — 단색 보라 일변도 탈피용. 보라 대표색은 유지하고 포인트로만. */
+  --c-accent-coral:   #FF7A6B;  /* 코랄 */
+  --c-accent-coral-50:#FFF0EE;
+  --c-accent-mint:    #2EC4A6;  /* 민트 */
+  --c-accent-mint-50: #E6F8F3;
+  --c-accent-peach:   #FFB27A;  /* 피치 */
+  --c-accent-peach-50:#FFF2E6;
+  --c-accent-sky:     #5CA8FF;  /* 스카이 */
+  --c-accent-sky-50:  #E8F1FF;
+  --c-accent-pink:    #FF7AB6;  /* 핑크 */
+  --c-accent-pink-50: #FFEAF3;
+
   /* 하위 호환(기존 코드가 쓰던 별칭) */
   --primary: var(--c-primary-500);
   --primary-strong: var(--c-primary-600);

@@ -13,8 +13,8 @@
 .wz-d-state h2 { font-size: 20px; font-weight: 800; color: var(--c-text); margin: 0 0 8px; }
 .wz-d-state p { font-size: 14px; margin: 0 0 18px; }
 
-/* ---------- 상단 탭바 (스토리/새소식/커뮤니티/후기) ---------- */
-.wz-d-tabs { position: sticky; top: 67px; z-index: 60; background: #fff; border-bottom: 1px solid var(--c-border); margin: 0 -24px 28px; }
+/* ---------- 상단 탭바 (메인/스토리/댓글) — 2줄 헤더 높이만큼 아래에 sticky 고정 ---------- */
+.wz-d-tabs { position: sticky; top: var(--wz-hd-h, 110px); z-index: 60; background: #fff; border-bottom: 1px solid var(--c-border); margin: 0 -24px 28px; }
 .wz-d-tabs__inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 30px; }
 .wz-d-tab { appearance: none; background: none; border: 0; font-family: inherit; cursor: pointer; padding: 16px 2px; font-size: 16px; font-weight: 700; color: var(--c-text-muted); border-bottom: 2.5px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .wz-d-tab:hover { color: var(--c-text); }
@@ -23,7 +23,7 @@
 /* ---------- 본문 2단 레이아웃 ---------- */
 .wz-d-grid { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 40px; align-items: start; }
 .wz-d-main { min-width: 0; }
-.wz-d-side { position: sticky; top: 130px; min-width: 0; }
+.wz-d-side { position: sticky; top: calc(var(--wz-hd-h, 110px) + 56px); min-width: 0; }
 
 /* 탭 패널 (스토리 외) */
 .wz-d-panel { padding: 64px 20px; text-align: center; color: var(--c-text-muted); }
@@ -44,24 +44,6 @@
 .wz-d-gallery__nav--next { right: 12px; }
 .wz-d-gallery__count { position: absolute; right: 12px; bottom: 12px; background: rgba(0,0,0,.6); color: #fff; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
 
-/* ---------- AI 스토리 요약 카드 ---------- */
-.wz-d-ai { margin-top: 22px; border: 1.5px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: 14px; padding: 20px 22px; }
-.wz-d-ai__head { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
-.wz-d-ai__title { font-size: 15px; font-weight: 800; color: var(--c-primary-700); margin: 0; display: inline-flex; align-items: center; gap: 7px; }
-.wz-d-ai__title svg { width: 18px; height: 18px; }
-.wz-d-ai__tag { font-size: 11px; font-weight: 700; color: var(--c-primary-700); background: var(--c-primary-100); border-radius: 999px; padding: 3px 9px; }
-.wz-d-ai__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
-.wz-d-ai__list li { position: relative; padding-left: 18px; font-size: 14px; line-height: 1.6; color: var(--c-text-sub); }
-.wz-d-ai__list li::before { content: ""; position: absolute; left: 2px; top: 9px; width: 6px; height: 6px; border-radius: 50%; background: var(--c-primary-500); }
-
-/* ---------- 특별구성 / 프리오더 안내 2칸 ---------- */
-.wz-d-feats { margin-top: 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-.wz-d-feat { border: 1px solid var(--c-border); border-radius: 12px; padding: 16px 18px; display: flex; gap: 12px; align-items: flex-start; background: #fff; }
-.wz-d-feat__ic { width: 34px; height: 34px; flex-shrink: 0; border-radius: 9px; background: var(--c-primary-50); color: var(--c-primary-600); display: flex; align-items: center; justify-content: center; }
-.wz-d-feat__ic svg { width: 20px; height: 20px; }
-.wz-d-feat__t { font-size: 14px; font-weight: 800; color: var(--c-text); margin: 0 0 3px; }
-.wz-d-feat__d { font-size: 13px; color: var(--c-text-muted); margin: 0; line-height: 1.5; }
-
 /* ---------- 프로젝트 스토리 본문 ---------- */
 .wz-d-story { margin-top: 40px; }
 .wz-d-story__h2 { font-size: 22px; font-weight: 800; color: var(--c-text); margin: 0 0 18px; padding-bottom: 14px; border-bottom: 2px solid var(--c-text); }
@@ -69,6 +51,11 @@
 .wz-d-story__text { font-size: 16px; line-height: 1.8; color: var(--c-text-sub); white-space: pre-wrap; word-break: break-word; }
 .wz-d-story__img { width: 100%; border-radius: 10px; display: block; }
 .wz-d-story__empty { padding: 40px 0; text-align: center; color: var(--c-text-muted); font-size: 14px; }
+
+/* ---------- 댓글 섹션 ---------- */
+.wz-d-comments { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--c-divider); }
+.wz-d-comments__h2 { font-size: 18px; font-weight: 800; color: var(--c-text); margin: 0 0 16px; }
+.wz-d-comments__fallback { font-size: 14px; color: var(--c-text-muted); margin: 0; padding: 20px 0; text-align: center; }
 
 /* ---------- 펀딩 / 환불 안내 카드 ---------- */
 .wz-d-notice { margin-top: 40px; border: 1px solid var(--c-border); border-radius: 14px; padding: 22px 24px; background: var(--c-bg); }
@@ -81,11 +68,12 @@
 .wz-d-rankpill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--c-primary-700); background: var(--c-primary-50); border: 1px solid var(--c-primary-200); border-radius: 999px; padding: 5px 12px; margin-bottom: 16px; }
 .wz-d-rankpill svg { width: 14px; height: 14px; }
 
-.wz-d-maker-row { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+.wz-d-maker-row { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 12px; text-decoration: none; max-width: 100%; }
+.wz-d-maker-row:hover .wz-d-maker-row__name { color: var(--c-primary-700); text-decoration: underline; }
 .wz-d-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--c-divider); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--c-text-faint); }
 .wz-d-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .wz-d-avatar svg { width: 56%; height: 56%; }
-.wz-d-maker-row__name { font-size: 14px; font-weight: 700; color: var(--c-text-sub); }
+.wz-d-maker-row__name { font-size: 14px; font-weight: 700; color: var(--c-text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 .wz-d-title { font-size: 26px; font-weight: 800; line-height: 1.35; color: var(--c-text); margin: 0 0 18px; word-break: break-word; }
 
@@ -124,7 +112,8 @@
 
 /* 메이커 카드 */
 .wz-d-maker { border: 1px solid var(--c-border); border-radius: 12px; padding: 18px 16px; margin-bottom: 18px; }
-.wz-d-maker__head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.wz-d-maker__head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; text-decoration: none; color: inherit; }
+a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-decoration: underline; }
 .wz-d-maker__av { width: 46px; height: 46px; border-radius: 50%; background: var(--c-divider); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--c-text-faint); }
 .wz-d-maker__av img { width: 100%; height: 100%; object-fit: cover; }
 .wz-d-maker__av svg { width: 56%; height: 56%; }
@@ -178,7 +167,7 @@
 @media (max-width: 1023px) {
   .wz-d-grid { grid-template-columns: 1fr; gap: 30px; }
   .wz-d-side { position: static; top: auto; border-top: 1px solid var(--c-divider); padding-top: 28px; }
-  .wz-d-tabs { top: 59px; }
+  .wz-d-tabs { top: var(--wz-hd-h, 96px); }
 }
 @media (max-width: 767px) {
   #wz-detail { padding: 0 16px 90px; }
@@ -186,7 +175,6 @@
   .wz-d-tabs__inner { padding: 0 16px; gap: 22px; }
   .wz-d-tab { font-size: 14px; padding: 14px 2px; }
   .wz-d-title { font-size: 22px; }
-  .wz-d-feats { grid-template-columns: 1fr; }
   .wz-d-rewards { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; }
 
   /* 모바일 하단 고정 펀딩 바 */

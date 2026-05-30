@@ -80,6 +80,35 @@
 .wz-mp-card__title { font-size: 14px; font-weight: 600; color: var(--c-text); margin: 5px 0 0; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.4; }
 .wz-mp-card__meta { font-size: 13px; color: var(--c-text-muted); margin: 5px 0 0; }
 .wz-mp-card__amount { font-size: 14px; font-weight: 700; color: var(--c-text); margin: 5px 0 0; }
+/* 관심 프로젝트 카드 — 우상단 코랄 하트 표식 */
+.wz-mp-card__like { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--sh-1); }
+.wz-mp-card__like svg { width: 15px; height: 15px; color: #F472A8; fill: #F472A8; }
+
+/* =================== 친구 찾기 패널 =================== */
+.wz-mp-friends { max-width: 620px; }
+.wz-mp-search { position: relative; margin-bottom: 18px; }
+.wz-mp-search__ic { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); width: 18px; height: 18px; color: var(--c-text-faint); pointer-events: none; display: flex; }
+.wz-mp-search__ic svg { width: 100%; height: 100%; }
+.wz-mp-search__input { width: 100%; height: 46px; padding: 0 16px 0 42px; border: 1px solid var(--c-border); border-radius: 12px; background: #fff; font-family: inherit; font-size: 15px; color: var(--c-text); outline: none; }
+.wz-mp-search__input::placeholder { color: var(--c-text-faint); }
+.wz-mp-search__input:focus { border-color: var(--c-primary-400); box-shadow: 0 0 0 3px var(--c-primary-100); }
+
+.wz-mp-friendlist { display: flex; flex-direction: column; gap: 6px; }
+.wz-mp-friend { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; border: 1px solid transparent; transition: background .14s, border-color .14s; }
+.wz-mp-friend:hover { background: var(--c-primary-50); border-color: var(--c-primary-100); }
+.wz-mp-friend__av { flex-shrink: 0; width: 44px; height: 44px; border-radius: 50%; overflow: hidden; background: var(--c-divider); display: flex; align-items: center; justify-content: center; }
+.wz-mp-friend__av img { width: 100%; height: 100%; object-fit: cover; }
+.wz-mp-friend__av svg { width: 52%; height: 52%; color: var(--c-text-faint); }
+.wz-mp-friend__info { min-width: 0; flex: 1; }
+.wz-mp-friend__name { font-size: 15px; font-weight: 700; color: var(--c-text); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wz-mp-friend__handle { font-size: 13px; color: var(--c-text-muted); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wz-mp-follow { flex-shrink: 0; height: 34px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--c-primary-500); background: var(--c-primary-500); color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .14s, color .14s, border-color .14s; }
+.wz-mp-follow:hover { background: var(--c-primary-600); border-color: var(--c-primary-600); }
+.wz-mp-follow.is-on { background: #fff; color: var(--c-text-sub); border-color: var(--c-border); }
+.wz-mp-follow.is-on:hover { background: var(--c-divider); color: var(--c-text); border-color: var(--c-border); }
+.wz-mp-friends__hint { text-align: center; padding: 48px 16px; color: var(--c-text-muted); }
+.wz-mp-friends__hint .wz-mp-empty__ic { color: var(--c-text-faint); }
+.wz-mp-friends__hint p { font-size: 14px; margin: 0; }
 
 /* 빈 상태 / 로딩 / 준비 중 */
 .wz-mp-empty { grid-column: 1 / -1; text-align: center; padding: 48px 16px; color: var(--c-text-muted); }

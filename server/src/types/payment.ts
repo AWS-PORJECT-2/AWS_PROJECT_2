@@ -1,4 +1,4 @@
-export type GroupBuyStatus = 'pending' | 'rejected' | 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
+export type GroupBuyStatus = 'pending' | 'pending_review' | 'rejected' | 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
 export type OrderStatus = 'pending' | 'paid' | 'shipping_ready' | 'shipping' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
 export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
@@ -32,6 +32,8 @@ export interface GroupBuy {
   designImageUrl?: string | null; // 업로드한 옷 디자인 사진 (base64 data URL)
   tryonImageUrl?: string | null;  // AI 모델 피팅 결과 사진 (base64 data URL)
   contentBlocks?: ContentBlock[] | null; // 게시글 본문 (사용자 작성 텍스트/이미지 블록)
+  coverImageUrl?: string | null;  // 대표 이미지(목록 썸네일) — 006_social_features
+  mode?: string;                  // 'normal' | 'proxy' (대리 펀딩) — 006_social_features
   createdAt: Date;
   updatedAt: Date;
 }

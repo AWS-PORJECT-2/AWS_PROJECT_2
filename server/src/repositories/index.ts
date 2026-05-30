@@ -1,5 +1,9 @@
-export type { UserRepository } from './user-repository.js';
+export type { UserRepository, ProfilePatch } from './user-repository.js';
 export { PgUserRepository } from './pg-user-repository.js';
+export type { CommentRepository } from './comment-repository.js';
+export { PgCommentRepository } from './pg-comment-repository.js';
+export type { FollowRepository } from './follow-repository.js';
+export { PgFollowRepository } from './pg-follow-repository.js';
 export type { OAuthStateRepository } from './oauth-state-repository.js';
 export { PgOAuthStateRepository } from './pg-oauth-state-repository.js';
 export type { RefreshTokenRepository } from './refresh-token-repository.js';
@@ -7,7 +11,10 @@ export { PgRefreshTokenRepository } from './pg-refresh-token-repository.js';
 export type { AllowedDomainRepository } from './allowed-domain-repository.js';
 
 // Payment repositories
-export type { GroupBuyRepository } from './groupbuy-repository.js';
+export type {
+  GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions, DeleteRequestItem,
+  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions,
+} from './groupbuy-repository.js';
 export { PgGroupBuyRepository } from './pg-groupbuy-repository.js';
 export type { ParticipationRepository } from './participation-repository.js';
 export { PgParticipationRepository } from './pg-participation-repository.js';

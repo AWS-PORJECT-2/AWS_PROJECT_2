@@ -34,23 +34,20 @@
     arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>',
     chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
     flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V4M4 4h13l-2 4 2 4H4"/></svg>',
+    search2: W.ICON.search,
   };
 
-  /* 사이드바 메뉴 정의. view: 메인 패널 식별자(있으면 클릭 시 전환). soon: 준비 중(비활성). href: 외부 페이지 이동. */
+  /* 사이드바 메뉴 정의. view: 메인 패널 식별자(있으면 클릭 시 전환). soon: 준비 중(비활성). href: 외부 페이지 이동. hash: 해시 동기화용. */
   var NAV = {
     activity: [
       { key: 'recent',     label: '최근 본 프로젝트',  icon: 'clock',  view: 'recent' },
-      { key: 'following',  label: '팔로잉',           icon: 'users',  soon: true },
-      { key: 'backings',   label: '후원한 프로젝트',  icon: 'heart',  view: 'backings' },
-      { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds' },
-      { key: 'pay',        label: '간편결제 설정',     icon: 'card',   soon: true },
-      { key: 'inquiry',    label: '메이커 문의내역',   icon: 'chat',   soon: true },
+      { key: 'liked',      label: '관심 프로젝트',     icon: 'heart',  view: 'liked',     hash: 'liked' },
+      { key: 'backings',   label: '후원한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
+      { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds',     hash: 'funds' },
+      { key: 'friends',    label: '친구 찾기',         icon: 'users',  view: 'friends',   hash: 'friends' },
+      { key: 'maker',      label: '내 메이커 페이지로 가기', icon: 'crown', href: '/maker.html?me=1' },
       { key: 'create',     label: '프로젝트 만들기',   icon: 'plus',   href: '/fund-create.html' },
       { key: 'settings',   label: '설정',             icon: 'gear',   href: '/settings.html' },
-    ],
-    benefit: [
-      { key: 'club',       label: '서포터클럽',       icon: 'crown',  soon: true },
-      { key: 'trial',      label: '펀딩 체험단',       icon: 'sparkle', soon: true },
     ],
   };
 
@@ -78,11 +75,24 @@
     // 데이터 로드 (모두 silentAuthFail 로 미로그인 무소음)
     loadAll();
 
-    // 진입 시 ?tab= 으로 패널 직접 오픈 가능(헤더 메뉴 호환: backings/likes)
-    var tab = new URLSearchParams(location.search).get('tab');
-    if (tab === 'backings') selectView('backings');
-    else if (tab === 'funds') selectView('funds');
-    else if (tab === 'likes' || tab === 'recent') selectView('recent');
+    // 진입 라우팅: #hash 우선, 없으면 ?tab= (헤더 메뉴 호환)
+    routeFromLocation();
+    // 해시 변경(브라우저 뒤로/링크) 반응
+    window.addEventListener('hashchange', routeFromLocation);
+  }
+
+  /* location.hash / ?tab= 으로 패널 직접 오픈. (#liked, #backings, #funds, #friends, #recent) */
+  function routeFromLocation() {
+    var hash = (location.hash || '').replace(/^#/, '').toLowerCase();
+    var byHash = NAV.activity.find(function (n) { return n.hash === hash; });
+    if (byHash && byHash.view) { selectView(byHash.view, true); return; }
+    if (hash) { return; } // 알 수 없는 해시면 현재 화면 유지
+    var tab = (new URLSearchParams(location.search).get('tab') || '').toLowerCase();
+    if (tab === 'backings') selectView('backings', true);
+    else if (tab === 'funds') selectView('funds', true);
+    else if (tab === 'liked' || tab === 'likes') selectView('liked', true);
+    else if (tab === 'friends') selectView('friends', true);
+    else if (tab === 'recent') selectView('recent', true);
   }
 
   /* ---- 데이터 로드 ---- */
@@ -97,7 +107,7 @@
       .then(function (r) { state.funds = (r && r.items) || []; afterStats(); })
       .catch(function () { state.funds = state.funds || null; });
     window.api.get('/me/backings', { silentAuthFail: true })
-      .then(function (r) { state.backings = (r && r.items) || []; afterStats(); })
+      .then(function (r) { state.backings = backingItems(r); afterStats(); })
       .catch(function () { state.backings = state.backings || null; });
   }
   function afterStats() {
@@ -131,7 +141,6 @@
 
     // 메뉴 그룹
     side.appendChild(navGroup('나의 활동', NAV.activity));
-    side.appendChild(navGroup('혜택', NAV.benefit));
   }
 
   function navGroup(title, items) {
@@ -164,7 +173,7 @@
 
   function syncActive() {
     refs.side.querySelectorAll('.wz-mp-side__btn').forEach(function (b) {
-      var item = NAV.activity.concat(NAV.benefit).find(function (n) { return n.key === b.dataset.key; });
+      var item = NAV.activity.find(function (n) { return n.key === b.dataset.key; });
       b.classList.toggle('is-active', !!(item && item.view && item.view === refs.curView));
     });
   }
@@ -172,6 +181,8 @@
   /* =================== 메인: 홈(기본) =================== */
   function showHome() {
     refs.curView = 'home';
+    // 패널에서 홈으로 돌아오면 해시 제거(주소창 정리)
+    if (location.hash) { try { history.replaceState(null, '', location.pathname + location.search); } catch (_) {} }
     syncActive();
     var main = refs.main;
     main.replaceChildren();
@@ -212,16 +223,26 @@
     if (!refs.statsRow) return;
     var fundsN = Array.isArray(state.funds) ? state.funds.length : 0;
     var backN = Array.isArray(state.backings) ? state.backings.length : 0;
+    var likedN = countLiked();
     refs.statsRow.replaceChildren(
-      statCard('펀딩+', String(fundsN), function () { selectView('funds'); }),
-      statCard('스토어', String(backN), function () { selectView('backings'); }),
-      statCardMore('지지서명', '보기', function () { selectView('recent'); }),
-      statCardMore('알림신청', '보기', function () { location.href = '/notice.html'; })
+      statCard('개설한 프로젝트', String(fundsN), function () { selectView('funds'); }),
+      statCard('후원한 프로젝트', String(backN), function () { selectView('backings'); }),
+      statCard('관심 프로젝트', String(likedN), function () { selectView('liked'); }),
+      statCardMore('친구 찾기', '검색', function () { selectView('friends'); })
     );
     refs.walletRow.replaceChildren(
       walletItem('coin', '포인트', '0P'),
       walletItem('ticket', '쿠폰', '0장')
     );
+  }
+
+  // localStorage 의 liked_<id> 플래그 중 '1' 인 개수(클라 fallback 좋아요 수)
+  function countLiked() {
+    try {
+      return Object.keys(localStorage).filter(function (k) {
+        return k.indexOf('liked_') === 0 && k.indexOf('liked_delta_') !== 0 && localStorage.getItem(k) === '1';
+      }).length;
+    } catch (_) { return 0; }
   }
 
   function statCard(label, value, onClick) {
@@ -288,15 +309,30 @@
   }
 
   /* =================== 패널 전환 =================== */
-  function selectView(view) {
+  // fromHash=true 면 해시를 다시 쓰지 않음(hashchange 무한루프 방지)
+  function selectView(view, fromHash) {
+    if (!fromHash) syncHash(view);
     if (view === 'recent') return panelRecent();
+    if (view === 'liked') return panelLiked();
     if (view === 'backings') return panelBackings();
     if (view === 'funds') return panelFunds();
+    if (view === 'friends') return panelFriends();
     showHome();
   }
 
-  function panelShell(title) {
-    refs.curView = arguments[1] || refs.curView;
+  // 패널 view -> location.hash 동기화(해당 NAV 항목에 hash 가 있을 때만)
+  function syncHash(view) {
+    var item = NAV.activity.find(function (n) { return n.view === view; });
+    var target = item && item.hash ? ('#' + item.hash) : '';
+    var cur = location.hash || '';
+    if (target && cur.toLowerCase() !== target.toLowerCase()) {
+      try { history.replaceState(null, '', target); } catch (_) { location.hash = target; }
+    }
+  }
+
+  // 패널 헤더(뒤로 + 제목)만 그리고 main 을 반환. view 인자로 활성 상태 동기화.
+  function panelHead(title, view) {
+    if (view) refs.curView = view;
     syncActive();
     var main = refs.main;
     main.replaceChildren();
@@ -306,6 +342,11 @@
     back.addEventListener('click', showHome);
     head.append(back, W.el('h1', { class: 'wz-mp-paneltitle' }, title));
     main.appendChild(head);
+    return main;
+  }
+  // 헤더 + 카드 그리드. 그리드를 반환.
+  function panelShell(title) {
+    var main = panelHead(title, arguments[1] || refs.curView);
     var grid = W.el('div', { class: 'wz-mp-grid' });
     main.appendChild(grid);
     return grid;
@@ -323,6 +364,44 @@
     recent.forEach(function (it) { grid.appendChild(recentCard(it)); });
   }
 
+  /* 패널: 관심 프로젝트 (좋아요/찜) — 서버 likes API 없음.
+   *  localStorage liked_<id> 플래그(window.isLiked) ∩ GET /api/groupbuys 목록 교차필터.
+   *  목록에 없는(예: 종료/비공개) 찜 id 는 detail 링크 카드로 폴백 노출. */
+  function panelLiked() {
+    refs.curView = 'liked';
+    var grid = panelShell('관심 프로젝트', 'liked');
+    var likedIds = readLikedIds();
+    if (!likedIds.length) {
+      grid.appendChild(emptyState('heart', '아직 관심(찜)한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html'));
+      return;
+    }
+    grid.appendChild(loading());
+    // 공개 목록을 넉넉히 받아 교차필터. (공개 GET, 미로그인도 허용)
+    window.api.get('/groupbuys?sort=latest&limit=200', { silentAuthFail: true })
+      .then(function (r) {
+        var items = (r && r.items) || [];
+        var byId = {};
+        items.forEach(function (it) { if (it && it.id != null) byId[String(it.id)] = it; });
+        var matched = likedIds.map(function (id) { return byId[String(id)]; }).filter(Boolean);
+        // 목록에 없는 찜 id (종료/비공개 등) — id 만으로 최소 카드 폴백
+        var missing = likedIds.filter(function (id) { return !byId[String(id)]; });
+        fillLiked(grid, matched, missing);
+      })
+      .catch(function () {
+        // 목록 조회 실패 시에도 찜 id 만으로 최소 카드 노출
+        fillLiked(grid, [], likedIds);
+      });
+  }
+  function fillLiked(grid, matched, missing) {
+    grid.replaceChildren();
+    if (!matched.length && !(missing && missing.length)) {
+      grid.appendChild(emptyState('heart', '관심 프로젝트를 찾지 못했어요', '프로젝트 둘러보기', '/feed.html'));
+      return;
+    }
+    matched.forEach(function (f) { grid.appendChild(likedCard(f)); });
+    (missing || []).forEach(function (id) { grid.appendChild(likedFallbackCard(id)); });
+  }
+
   /* 패널: 후원한 프로젝트 (GET /api/me/backings) */
   function panelBackings() {
     refs.curView = 'backings';
@@ -331,8 +410,15 @@
     if (Array.isArray(state.backings)) return fillBackings(grid, state.backings);
     grid.appendChild(loading());
     window.api.get('/me/backings')
-      .then(function (r) { state.backings = (r && r.items) || []; fillBackings(grid, state.backings); refreshStats(); })
+      .then(function (r) { state.backings = backingItems(r); fillBackings(grid, state.backings); refreshStats(); })
       .catch(function () { grid.replaceChildren(errorState()); });
+  }
+  // /me/backings 응답({items}) 과 /me/orders 응답({orders}) 양쪽 형태를 모두 수용
+  function backingItems(r) {
+    if (!r) return [];
+    if (Array.isArray(r.items)) return r.items;
+    if (Array.isArray(r.orders)) return r.orders;
+    return Array.isArray(r) ? r : [];
   }
   function fillBackings(grid, items) {
     grid.replaceChildren();
@@ -361,6 +447,121 @@
       return;
     }
     items.forEach(function (f) { grid.appendChild(fundCard(f)); });
+  }
+
+  /* =================== 패널: 친구 찾기 (인스타형) ===================
+   *  이름/닉네임 검색(디바운스) -> GET /api/users/search?q=
+   *  각 행: [아바타 · 이름 · @닉네임/아이디] + 팔로우 버튼(POST/DELETE /api/users/:id/follow)
+   *  행 클릭 시 /maker.html?id= 로 이동(버튼 클릭은 이동 차단). */
+  function panelFriends() {
+    refs.curView = 'friends';
+    var main = panelHead('친구 찾기', 'friends');
+
+    var box = W.el('div', { class: 'wz-mp-friends' });
+    // 검색 입력
+    var sform = W.el('div', { class: 'wz-mp-search' });
+    var inp = W.el('input', {
+      class: 'wz-mp-search__input', type: 'search', autocomplete: 'off',
+      placeholder: '이름 또는 아이디(닉네임)로 친구 찾기', 'aria-label': '친구 검색',
+    });
+    sform.appendChild(W.el('span', { class: 'wz-mp-search__ic', html: IC.search2 }));
+    sform.appendChild(inp);
+    box.appendChild(sform);
+
+    var list = W.el('div', { class: 'wz-mp-friendlist' });
+    box.appendChild(list);
+    main.appendChild(box);
+
+    // 초기 안내
+    friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요');
+
+    var timer = null;
+    var seq = 0; // 응답 경합 방지
+    inp.addEventListener('input', function () {
+      var q = inp.value.trim();
+      if (timer) clearTimeout(timer);
+      if (!q) { friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요'); return; }
+      timer = setTimeout(function () { doFriendSearch(q, list, ++seq, function () { return seq; }); }, 300);
+    });
+    // 패널 진입 시 입력에 포커스
+    try { inp.focus(); } catch (_) {}
+  }
+
+  function doFriendSearch(q, list, mySeq, curSeq) {
+    list.replaceChildren(loading());
+    window.api.get('/users/search?q=' + encodeURIComponent(q), { silentAuthFail: true })
+      .then(function (rows) {
+        if (curSeq() !== mySeq) return; // 더 최근 검색이 있으면 폐기
+        renderFriendRows(list, Array.isArray(rows) ? rows : []);
+      })
+      .catch(function () {
+        if (curSeq() !== mySeq) return;
+        friendsHint(list, '검색 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.');
+      });
+  }
+
+  function renderFriendRows(list, rows) {
+    list.replaceChildren();
+    if (!rows.length) {
+      friendsHint(list, '검색 결과가 없어요');
+      return;
+    }
+    rows.forEach(function (u) { list.appendChild(friendRow(u)); });
+  }
+
+  function friendRow(u) {
+    var idOrSlug = u.slug || u.userId;
+    var row = W.el('div', { class: 'wz-mp-friend' });
+    // 아바타
+    var av = W.el('div', { class: 'wz-mp-friend__av' });
+    if (u.picture) {
+      var img = W.el('img', { src: u.picture, alt: u.name || '' });
+      img.addEventListener('error', function () { img.remove(); av.innerHTML = IC.user; });
+      av.appendChild(img);
+    } else { av.innerHTML = IC.user; }
+    // 이름 + @아이디
+    var info = W.el('div', { class: 'wz-mp-friend__info' });
+    info.appendChild(W.el('p', { class: 'wz-mp-friend__name' }, u.name || u.nickname || '회원'));
+    var handle = u.nickname || u.slug;
+    if (handle) info.appendChild(W.el('p', { class: 'wz-mp-friend__handle' }, '@' + handle));
+    // 팔로우 버튼
+    var btn = W.el('button', { class: 'wz-mp-follow', type: 'button' });
+    setFollowBtn(btn, false);
+    var busy = false;
+    btn.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (busy || !u.userId) return;
+      // 미로그인이면 로그인 유도
+      if (!state.me) { location.href = '/login.html'; return; }
+      busy = true;
+      var willFollow = btn.getAttribute('data-on') !== '1';
+      var req = willFollow
+        ? window.api.post('/users/' + encodeURIComponent(u.userId) + '/follow', {})
+        : window.api.del('/users/' + encodeURIComponent(u.userId) + '/follow');
+      req.then(function (r) {
+        setFollowBtn(btn, r ? !!r.following : willFollow);
+      }).catch(function () { /* 실패 시 상태 유지 */ }).then(function () { busy = false; });
+    });
+
+    row.append(av, info, btn);
+    // 행 클릭 -> 메이커 페이지
+    row.addEventListener('click', function () {
+      location.href = '/maker.html?id=' + encodeURIComponent(idOrSlug);
+    });
+    row.style.cursor = 'pointer';
+    return row;
+  }
+
+  function setFollowBtn(btn, on) {
+    btn.setAttribute('data-on', on ? '1' : '0');
+    btn.classList.toggle('is-on', on);
+    btn.replaceChildren(document.createTextNode(on ? '팔로잉' : '팔로우'));
+  }
+
+  function friendsHint(list, msg) {
+    list.replaceChildren(W.el('div', { class: 'wz-mp-friends__hint' },
+      W.el('div', { class: 'wz-mp-empty__ic', html: IC.users }),
+      W.el('p', {}, msg)));
   }
 
   /* =================== 카드 렌더 (WZ.fillThumb 사용) =================== */
@@ -393,6 +594,34 @@
     card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, f.title || '프로젝트'));
     card.appendChild(W.el('p', { class: 'wz-mp-card__meta' },
       (Number(f.currentQuantity) || 0) + ' / ' + (Number(f.targetQuantity) || 0) + '명 참여'));
+    return card;
+  }
+
+  /* 관심 프로젝트 카드 — <groupbuy 목록 아이템>(coverImageUrl/achievementRate 등) */
+  function likedCard(f) {
+    var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(f.id) });
+    var th = W.el('div', { class: 'wz-mp-card__thumb' });
+    W.fillThumb(th, { id: f.id, title: f.title, imageUrl: f.coverImageUrl || f.imageUrl, category: f.category });
+    var st = FUND_STATUS[String(f.status || '').toLowerCase()];
+    if (st && st.label) th.appendChild(W.el('span', { class: 'wz-mp-card__badge wz-mp-card__badge--' + st.cls }, st.label));
+    // 좋아요(찜) 하트 표식
+    th.appendChild(W.el('span', { class: 'wz-mp-card__like', html: IC.heart, 'aria-hidden': 'true' }));
+    card.appendChild(th);
+    var rate = (typeof f.achievementRate === 'number') ? f.achievementRate : W.rate(f);
+    card.appendChild(W.el('p', { class: 'wz-mp-card__rate' }, rate + '% 달성'));
+    card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, f.title || '프로젝트'));
+    if (f.creatorName) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, f.creatorName));
+    return card;
+  }
+  // 공개 목록에 없는 찜 id(종료/비공개 등) — id 만으로 최소 카드
+  function likedFallbackCard(id) {
+    var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(id) });
+    var th = W.el('div', { class: 'wz-mp-card__thumb' });
+    W.fillThumb(th, { id: id });
+    th.appendChild(W.el('span', { class: 'wz-mp-card__like', html: IC.heart, 'aria-hidden': 'true' }));
+    card.appendChild(th);
+    card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, '관심 프로젝트'));
+    card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, '자세히 보기'));
     return card;
   }
 
@@ -435,6 +664,22 @@
     return W.el('div', { class: 'wz-mp-empty' },
       W.el('div', { class: 'wz-mp-empty__ic', html: IC.box }),
       W.el('p', {}, '목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'));
+  }
+
+  /* 찜한 펀드 id 목록 — localStorage liked_<id>='1'. window.isLiked 가 있으면 그것으로 한 번 더 확인. */
+  function readLikedIds() {
+    var ids = [];
+    try {
+      Object.keys(localStorage).forEach(function (k) {
+        if (k.indexOf('liked_') !== 0 || k.indexOf('liked_delta_') === 0) return;
+        if (localStorage.getItem(k) !== '1') return;
+        var id = k.slice('liked_'.length);
+        if (!id) return;
+        if (typeof window.isLiked === 'function') { try { if (!window.isLiked(id)) return; } catch (_) {} }
+        ids.push(id);
+      });
+    } catch (_) { return []; }
+    return ids;
   }
 
   /* recentFunds — detail.js가 { id, title, imageUrl } 로 저장. */

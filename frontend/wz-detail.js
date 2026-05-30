@@ -11,13 +11,9 @@
   const SVG = {
     chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
     chevR: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
-    spark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.6L18.5 9l-4.6 1.4L12 15l-1.9-4.6L5.5 9l4.6-1.4L12 3z"/><path d="M19 14l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8.8-2z"/></svg>',
-    gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 12v9H4v-9"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7C12 7 11 3 8.5 3a2.5 2.5 0 0 0 0 5H12zM12 7s1-4 3.5-4a2.5 2.5 0 0 1 0 5H12z"/></svg>',
-    clock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v5c0 5-3.4 8.5-8 10-4.6-1.5-8-5-8-10V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
     heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/></svg>',
-    flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V4M4 4h13l-2 4 2 4H4"/></svg>',
     user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6 8-6s8 2 8 6"/></svg>',
     trophy: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M6 4h12v4a6 6 0 0 1-12 0V4z"/><path d="M6 6H4a2 2 0 0 0 0 4h2M18 6h2a2 2 0 0 1 0 4h-2"/></svg>',
     box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
@@ -48,16 +44,46 @@
     if (isNaN(d.getTime())) return null;
     return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' 마감';
   }
+  /* contentBlocks 이미지 url 추출 (계약: {type:"image", url}). 구버전 value 도 허용. */
+  function blockImageUrl(b) {
+    if (!b || b.type !== 'image') return '';
+    return b.url || b.value || '';
+  }
+  function blockText(b) {
+    if (!b || b.type !== 'text') return '';
+    return b.text != null ? b.text : (b.value != null ? b.value : '');
+  }
   function galleryImages(f) {
     const out = [];
-    [f.designImageUrl, f.tryonImageUrl].forEach((u) => { if (u && out.indexOf(u) === -1) out.push(u); });
+    [f.coverImageUrl, f.designImageUrl, f.tryonImageUrl].forEach((u) => { if (u && out.indexOf(u) === -1) out.push(u); });
     (Array.isArray(f.contentBlocks) ? f.contentBlocks : []).forEach((b) => {
-      if (b && b.type === 'image' && b.value && out.indexOf(b.value) === -1) out.push(b.value);
+      const u = blockImageUrl(b);
+      if (u && out.indexOf(u) === -1) out.push(u);
     });
     return out;
   }
   function moneyRaised(f) {
     return (Number(f.finalPrice) || 0) * (Number(f.currentQuantity) || 0);
+  }
+
+  /* 메이커 정보 정규화 (계약: f.maker{userId,name,slug,picture,followerCount,isFollowing}).
+     구버전 호환: maker 없으면 creator* 필드로 폴백. */
+  function makerOf(f) {
+    const m = f.maker || {};
+    return {
+      userId: m.userId || f.creatorId || '',
+      name: m.name || f.creatorName || '',
+      slug: m.slug || f.creatorSlug || '',
+      picture: m.picture || '',
+      followerCount: typeof m.followerCount === 'number' ? m.followerCount : 0,
+      isFollowing: !!m.isFollowing,
+    };
+  }
+  function makerName(m) { return m.name || '두띵 창작자'; }
+  function makerHref(m) {
+    if (m.slug) return '/u/' + encodeURIComponent(m.slug);
+    if (m.userId) return '/maker.html?id=' + encodeURIComponent(m.userId);
+    return null;
   }
 
   /* ---------- 상태 빈/에러 ---------- */
@@ -81,57 +107,61 @@
 
     root.replaceChildren();
 
-    /* ----- 상단 탭바 ----- */
+    /* ----- 상단 탭바 (메인 / 스토리 / 댓글 — 섹션 스크롤) ----- */
     const tabs = W.el('div', { class: 'wz-d-tabs' });
     const tabsInner = W.el('div', { class: 'wz-d-tabs__inner' });
-    const panelHost = W.el('div', {}); // 스토리 외 탭의 패널 자리
     const grid = W.el('div', { class: 'wz-d-grid' });
 
-    const TAB_DEFS = [
-      ['story', '스토리'],
-      ['news', '새소식'],
-      ['community', '커뮤니티'],
-      ['review', '후기'],
-    ];
-    const tabBtns = {};
-    function selectTab(key) {
-      Object.keys(tabBtns).forEach((k) => tabBtns[k].classList.toggle('is-active', k === key));
-      if (key === 'story') {
-        panelHost.replaceChildren();
-        grid.style.display = '';
-      } else {
-        grid.style.display = 'none';
-        panelHost.replaceChildren(EmptyPanel(key));
-      }
-    }
-    TAB_DEFS.forEach(([key, label]) => {
-      const b = W.el('button', { class: 'wz-d-tab', type: 'button' }, label);
-      b.addEventListener('click', () => selectTab(key));
-      tabBtns[key] = b;
-      tabsInner.appendChild(b);
-    });
-    tabs.appendChild(tabsInner);
-    root.append(tabs, panelHost, grid);
-
-    /* ----- 좌측: 갤러리 + AI요약 + 특별구성 + 스토리 + 안내 ----- */
+    /* ----- 좌측: 갤러리(메인) + 스토리 + 댓글 + 안내 ----- */
     const mainCol = W.el('div', { class: 'wz-d-main' });
-    mainCol.appendChild(Gallery(imgs, f.title));
-    const ai = AiSummary(f);
-    if (ai) mainCol.appendChild(ai);
-    mainCol.appendChild(Features());
-    mainCol.appendChild(Story(f));
-    mainCol.appendChild(FundingNotice());
+    const galleryEl = Gallery(imgs, f.title);
+    const storyEl = Story(f);
+    const commentsEl = Comments(f);
+    mainCol.append(galleryEl, storyEl, commentsEl, FundingNotice());
 
     /* ----- 우측 sticky 후원 패널 ----- */
     const sideCol = W.el('aside', { class: 'wz-d-side' });
     buildSide(sideCol, f, { rate, backers, dleft, tiers });
-
     grid.append(mainCol, sideCol);
+
+    const sections = { main: galleryEl, story: storyEl, comments: commentsEl };
+    const TAB_DEFS = [['main', '메인'], ['story', '스토리'], ['comments', '댓글']];
+    const tabBtns = {};
+    function setActive(key) { Object.keys(tabBtns).forEach((k) => tabBtns[k].classList.toggle('is-active', k === key)); }
+    function stickyOffset() {
+      const hd = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--wz-hd-h'), 10) || 0;
+      return hd + (tabs.offsetHeight || 50) + 12;
+    }
+    function goSection(key) {
+      const el = sections[key];
+      if (!el) return;
+      const y = el.getBoundingClientRect().top + window.scrollY - stickyOffset();
+      window.scrollTo({ top: y < 0 ? 0 : y, behavior: 'smooth' });
+    }
+    TAB_DEFS.forEach(([key, label]) => {
+      const b = W.el('button', { class: 'wz-d-tab', type: 'button' }, label);
+      b.addEventListener('click', () => { setActive(key); goSection(key); });
+      tabBtns[key] = b;
+      tabsInner.appendChild(b);
+    });
+    tabs.appendChild(tabsInner);
+    root.append(tabs, grid);
 
     /* ----- 모바일 하단 고정 바 ----- */
     root.appendChild(MobileBar(f, tiers));
 
-    selectTab('story');
+    /* 스크롤 스파이 — 현재 보이는 섹션 탭 자동 활성화 */
+    function onScroll() {
+      const off = stickyOffset() + 8;
+      let cur = 'main';
+      ['main', 'story', 'comments'].forEach((k) => {
+        const el = sections[k];
+        if (el && el.getBoundingClientRect().top - off <= 0) cur = k;
+      });
+      setActive(cur);
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    setActive('main');
   }
 
   /* ---------- 갤러리 ---------- */
@@ -157,45 +187,6 @@
     return box;
   }
 
-  /* ---------- AI 스토리 요약 (description 핵심 3줄). 내용 없으면 null ---------- */
-  function AiSummary(f) {
-    const src = (f.description || '').trim();
-    if (!src) return null;
-    const lines = src
-      .split(/\r?\n|(?<=[.!?。])\s+/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .slice(0, 3);
-    if (!lines.length) return null;
-    const card = W.el('div', { class: 'wz-d-ai' });
-    const head = W.el('div', { class: 'wz-d-ai__head' });
-    head.append(
-      W.el('h3', { class: 'wz-d-ai__title', html: SVG.spark }),
-      W.el('span', { class: 'wz-d-ai__tag' }, 'by 두띵 AI'));
-    // 제목 텍스트는 SVG 뒤에 textNode 로 (XSS 안전)
-    head.querySelector('.wz-d-ai__title').appendChild(document.createTextNode('AI 스토리 요약'));
-    const ul = W.el('ul', { class: 'wz-d-ai__list' });
-    lines.forEach((t) => ul.appendChild(W.el('li', {}, t)));
-    card.append(head, ul);
-    return card;
-  }
-
-  /* ---------- 특별구성 / 프리오더 안내 ---------- */
-  function Features() {
-    const wrap = W.el('div', { class: 'wz-d-feats' });
-    [
-      [SVG.gift, '특별 구성', '프로젝트 성공 시에만 제작되는 한정 굿즈로 받아보세요.'],
-      [SVG.clock, '프리오더', '정식 출시 전 미리 만나는 선주문 방식입니다.'],
-    ].forEach(([ic, t, d]) => {
-      wrap.appendChild(W.el('div', { class: 'wz-d-feat' },
-        W.el('div', { class: 'wz-d-feat__ic', html: ic }),
-        W.el('div', {},
-          W.el('p', { class: 'wz-d-feat__t' }, t),
-          W.el('p', { class: 'wz-d-feat__d' }, d))));
-    });
-    return wrap;
-  }
-
   /* ---------- 프로젝트 스토리 (contentBlocks) ---------- */
   function Story(f) {
     const sec = W.el('section', { class: 'wz-d-story' });
@@ -205,14 +196,20 @@
     let rendered = 0;
     blocks.forEach((b) => {
       if (!b) return;
-      if (b.type === 'text' && b.value && String(b.value).trim()) {
-        wrap.appendChild(W.el('p', { class: 'wz-d-story__text' }, String(b.value)));
-        rendered++;
-      } else if (b.type === 'image' && b.value) {
-        const im = W.el('img', { class: 'wz-d-story__img', src: b.value, alt: '', loading: 'lazy' });
-        im.addEventListener('error', () => im.remove());
-        wrap.appendChild(im);
-        rendered++;
+      if (b.type === 'text') {
+        const txt = blockText(b);
+        if (txt && String(txt).trim()) {
+          wrap.appendChild(W.el('p', { class: 'wz-d-story__text' }, String(txt)));
+          rendered++;
+        }
+      } else if (b.type === 'image') {
+        const u = blockImageUrl(b);
+        if (u) {
+          const im = W.el('img', { class: 'wz-d-story__img', src: u, alt: '', loading: 'lazy' });
+          im.addEventListener('error', () => im.remove());
+          wrap.appendChild(im);
+          rendered++;
+        }
       }
     });
     if (!rendered && f.description && f.description.trim()) {
@@ -221,6 +218,25 @@
     }
     if (!rendered) wrap.appendChild(W.el('div', { class: 'wz-d-story__empty' }, '아직 등록된 스토리가 없어요.'));
     sec.appendChild(wrap);
+    return sec;
+  }
+
+  /* ---------- 댓글 섹션 (wz-comments.js 가 마운트) ---------- */
+  function Comments(f) {
+    const sec = W.el('section', { class: 'wz-d-comments' });
+    sec.appendChild(W.el('h2', { class: 'wz-d-comments__h2' }, '댓글'));
+    const host = W.el('div', { id: 'fund-comments' });
+    sec.appendChild(host);
+    // wz-comments.js 는 다른 모듈이 로드한다. 로드 전이면 약간 대기 후 마운트.
+    function tryMount(retries) {
+      if (window.WZComments && typeof window.WZComments.mount === 'function') {
+        window.WZComments.mount(host, { targetType: 'fund', targetId: f.id });
+        return;
+      }
+      if (retries > 0) setTimeout(() => tryMount(retries - 1), 120);
+      else host.appendChild(W.el('p', { class: 'wz-d-comments__fallback' }, '댓글을 불러올 수 없어요.'));
+    }
+    tryMount(20);
     return sec;
   }
 
@@ -268,10 +284,17 @@
         document.createTextNode(cat.label + ' 카테고리')));
     }
 
-    /* 메이커 (아바타 + 이름) */
-    const makerRow = W.el('div', { class: 'wz-d-maker-row' });
-    const av = W.el('div', { class: 'wz-d-avatar', html: SVG.user });
-    makerRow.append(av, W.el('span', { class: 'wz-d-maker-row__name' }, '두띵 창작자'));
+    /* 메이커 (아바타 + 이름) — 클릭 시 메이커 공개 프로필로 이동 */
+    const maker = makerOf(f);
+    const makerRow = W.el('a', { class: 'wz-d-maker-row', href: makerHref(maker) });
+    const av = W.el('span', { class: 'wz-d-avatar', html: SVG.user });
+    if (maker.picture) {
+      const im = W.el('img', { src: maker.picture, alt: '' });
+      im.addEventListener('error', () => { im.remove(); av.innerHTML = SVG.user; });
+      av.innerHTML = '';
+      av.appendChild(im);
+    }
+    makerRow.append(av, W.el('span', { class: 'wz-d-maker-row__name' }, makerName(maker)));
     sideCol.appendChild(makerRow);
 
     /* 제목 */
@@ -362,49 +385,58 @@
 
   /* ---------- 메이커 카드 (팔로우) ---------- */
   function MakerCard(f) {
+    const maker = makerOf(f);
+    const href = makerHref(maker);
     const card = W.el('div', { class: 'wz-d-maker' });
-    const head = W.el('div', { class: 'wz-d-maker__head' });
-    const av = W.el('div', { class: 'wz-d-maker__av', html: SVG.user });
+
+    /* 헤더: 아바타 + 이름/팔로워 (클릭 시 메이커 공개 프로필로 이동) */
+    const head = href
+      ? W.el('a', { class: 'wz-d-maker__head', href })
+      : W.el('div', { class: 'wz-d-maker__head' });
+    const av = W.el('span', { class: 'wz-d-maker__av', html: SVG.user });
+    if (maker.picture) {
+      const im = W.el('img', { src: maker.picture, alt: '' });
+      im.addEventListener('error', () => { im.remove(); av.innerHTML = SVG.user; });
+      av.innerHTML = '';
+      av.appendChild(im);
+    }
     const info = W.el('div', {});
     const followersEl = W.el('p', { class: 'wz-d-maker__followers' });
-    followersEl.append(W.el('b', {}, '0'), document.createTextNode('명의 팔로워'));
-    info.append(W.el('p', { class: 'wz-d-maker__name' }, '두띵 창작자'), followersEl);
+    followersEl.append(W.el('b', {}, String(maker.followerCount)), document.createTextNode('명의 팔로워'));
+    info.append(W.el('p', { class: 'wz-d-maker__name' }, makerName(maker)), followersEl);
     head.append(av, info);
     card.appendChild(head);
 
     const btns = W.el('div', { class: 'wz-d-maker__btns' });
-    const followBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, '팔로우');
+    let following = maker.isFollowing;
+    const followBtn = W.el('button', { class: 'wz-btn ' + (following ? 'wz-btn--ghost' : 'wz-btn--outline'), type: 'button' },
+      following ? '팔로잉' : '팔로우');
     const askBtn = W.el('button', { class: 'wz-btn wz-btn--ghost', type: 'button' }, '문의하기');
     askBtn.addEventListener('click', () => { location.href = '/support.html'; });
     btns.append(followBtn, askBtn);
     card.appendChild(btns);
 
-    const creatorId = f.creatorId;
-    if (creatorId) {
-      let following = false;
-      window.api.get('/users/' + encodeURIComponent(creatorId) + '/follow', { silentAuthFail: true })
-        .then((st) => {
-          if (!st) return;
-          following = !!st.following;
-          if (typeof st.followerCount === 'number') { const b = followersEl.querySelector('b'); if (b) b.textContent = String(st.followerCount); }
-          followBtn.textContent = following ? '팔로잉' : '팔로우';
-          followBtn.classList.toggle('wz-btn--ghost', following);
-          followBtn.classList.toggle('wz-btn--outline', !following);
-        })
-        .catch(() => {});
+    function paint() {
+      followBtn.textContent = following ? '팔로잉' : '팔로우';
+      followBtn.classList.toggle('wz-btn--ghost', following);
+      followBtn.classList.toggle('wz-btn--outline', !following);
+    }
+
+    if (maker.userId) {
       followBtn.addEventListener('click', async () => {
         followBtn.disabled = true;
         try {
           const st = following
-            ? await window.api.del('/users/' + encodeURIComponent(creatorId) + '/follow')
-            : await window.api.post('/users/' + encodeURIComponent(creatorId) + '/follow', {});
+            ? await window.api.del('/users/' + encodeURIComponent(maker.userId) + '/follow')
+            : await window.api.post('/users/' + encodeURIComponent(maker.userId) + '/follow', {});
           following = !!(st && st.following);
-          if (st && typeof st.followerCount === 'number') { const b = followersEl.querySelector('b'); if (b) b.textContent = String(st.followerCount); }
-          followBtn.textContent = following ? '팔로잉' : '팔로우';
-          followBtn.classList.toggle('wz-btn--ghost', following);
-          followBtn.classList.toggle('wz-btn--outline', !following);
+          if (st && typeof st.followerCount === 'number') {
+            const b = followersEl.querySelector('b'); if (b) b.textContent = String(st.followerCount);
+          }
+          paint();
         } catch (e) {
-          if (!(e && e.status === 401)) alert('처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
+          if (e && e.status === 401) { location.href = '/login.html'; return; }
+          alert('처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
         } finally { followBtn.disabled = false; }
       });
     } else {
@@ -426,8 +458,9 @@
       return sec;
     }
     const list = W.el('div', { class: 'wz-d-rewards__list' });
-    tiers.forEach((t) => {
-      const stockLimit = (t.stockLimit == null) ? null : Number(t.stockLimit);
+    tiers.forEach((t, ti) => {
+      const rawStock = (t.stock != null) ? t.stock : t.stockLimit;
+      const stockLimit = (rawStock == null) ? null : Number(rawStock);
       const sold = Number(t.soldCount) || 0;
       const remain = stockLimit == null ? null : Math.max(0, stockLimit - sold);
       const soldOut = remain === 0;
@@ -441,14 +474,15 @@
       top.appendChild(W.el('span', { class: 'wz-d-reward__price' }, W.money(t.price)));
       item.appendChild(top);
       item.appendChild(W.el('p', { class: 'wz-d-reward__t' }, t.title || '리워드'));
-      if (t.description) item.appendChild(W.el('p', { class: 'wz-d-reward__d' }, t.description));
+      const tdesc = t.desc != null ? t.desc : t.description;
+      if (tdesc) item.appendChild(W.el('p', { class: 'wz-d-reward__d' }, tdesc));
 
       const pick = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block wz-d-reward__pick', type: 'button' },
         soldOut ? '마감되었습니다' : '이 리워드 선택');
       if (soldOut) { pick.disabled = true; }
       else {
         const select = () => {
-          _selectedTierId = t.id;
+          _selectedTierId = (t.id != null) ? t.id : ti;
           list.querySelectorAll('.wz-d-reward').forEach((n) => n.classList.remove('is-sel'));
           item.classList.add('is-sel');
           list.querySelectorAll('.wz-d-reward__pick').forEach((b) => { if (!b.disabled) { b.textContent = '이 리워드 선택'; b.classList.remove('wz-btn--primary'); b.classList.add('wz-btn--outline'); } });

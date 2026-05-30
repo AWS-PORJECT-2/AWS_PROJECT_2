@@ -58,6 +58,9 @@
     box: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
     menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
     user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+    grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+    chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
+    close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   };
 
   /* 로그인 상태 */
@@ -90,30 +93,36 @@
     if (typeof window.categoryIconSvg === 'function') node.innerHTML = window.categoryIconSvg(key);
   }
 
+  /* 모든 떠있는 팝오버(메가패널/사용자메뉴) 닫기 — 두 토글이 동시에 열리지 않게 */
+  function closeAllPops() {
+    document.querySelectorAll('.wz-mega, .wz-usermenu').forEach((n) => n.remove());
+    document.querySelectorAll('.wz-hd__menubtn[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+  }
+
   /* ============ 헤더 (상단바) ============ */
   function Header() {
-    const path = location.pathname;
     const hd = el('header', { class: 'wz-hd' });
     const top = el('div', { class: 'wz-hd__top' });
 
+    /* 로고 (두띵 공식 로고 /assets/logo.png, 실패 시 텍스트 폴백) */
     const logo = el('a', { class: 'wz-hd__logo', href: '/main.html', 'aria-label': '두띵 홈' });
     const logoImg = el('img', { src: '/assets/logo.png', alt: 'doothing' });
     logoImg.addEventListener('error', () => { logo.textContent = 'doothing'; logo.classList.add('wz-hd__logo--text'); });
     logo.appendChild(logoImg);
 
-    // ☰ 메뉴(카테고리 드롭다운) + 홈
-    const menuBtn = el('button', { class: 'wz-hd__menubtn', type: 'button', 'aria-label': '카테고리 메뉴' });
+    /* ☰ 메뉴 = 사용자 편의 바로가기 드롭다운(절대 카테고리 아님) */
+    const menuBtn = el('button', { class: 'wz-hd__menubtn', type: 'button', 'aria-label': '바로가기 메뉴', 'aria-expanded': 'false' });
     menuBtn.innerHTML = ICON.menu + '<span>메뉴</span>';
-    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); openCatMenu(menuBtn); });
+    menuBtn.addEventListener('click', (e) => { e.stopPropagation(); openUserMenu(menuBtn); });
+
     const homeLink = el('a', { class: 'wz-hd__home', href: '/main.html' }, '홈');
     homeLink.addEventListener('click', (e) => { e.preventDefault(); go({}); });
 
     const right = el('div', { class: 'wz-hd__right' });
     function iconLink(name, label, href) {
-      const a = el('a', { class: 'wz-hd__icon', href, 'aria-label': label, html: ICON[name] });
-      return a;
+      return el('a', { class: 'wz-hd__icon', href, 'aria-label': label, title: label, html: ICON[name] });
     }
-    right.appendChild(iconLink('heart', '관심 프로젝트', '/profile.html?tab=likes'));
+    right.appendChild(iconLink('heart', '관심 프로젝트', '/profile.html#liked'));
     right.appendChild(iconLink('bell', '알림', '/notice.html'));
     const authSlot = el('span', { class: 'wz-hd__authslot' });
     authSlot.appendChild(el('a', { class: 'wz-hd__login', href: '/login.html' }, '로그인/회원가입'));
@@ -124,12 +133,18 @@
     top.append(logo, menuBtn, homeLink, right);
     hd.appendChild(top);
 
-    // 둘째 줄: 텀블벅형 정렬 내비 (인기/신규/마감임박) — 홈 그리드 인플레이스 갱신
-    const nav2 = el('nav', { class: 'wz-hd__nav2', 'aria-label': '정렬' });
+    /* 둘째 줄(텀블벅형): [☰ 카테고리] [인기] [신규] [마감임박] */
+    const nav2 = el('nav', { class: 'wz-hd__nav2', 'aria-label': '둘러보기' });
     const nav2inner = el('div', { class: 'wz-hd__nav2-inner' });
+
+    const catBtn = el('button', { class: 'wz-hd__catbtn', type: 'button', 'aria-label': '카테고리 전체', 'aria-expanded': 'false' });
+    catBtn.innerHTML = ICON.grid + '<span>카테고리</span>' + '<i class="wz-hd__catchev">' + ICON.chev + '</i>';
+    catBtn.addEventListener('click', (e) => { e.stopPropagation(); openCategoryMega(catBtn, hd); });
+    nav2inner.appendChild(catBtn);
+
     [['인기', { sort: 'popular' }], ['신규', { sort: 'latest' }], ['마감임박', { sort: 'ending' }]].forEach(([label, params]) => {
       const a = el('a', { class: 'wz-hd__nav2link', href: '#' }, label);
-      a.addEventListener('click', (e) => { e.preventDefault(); go(params); });
+      a.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); go(params); });
       nav2inner.appendChild(a);
     });
     nav2.appendChild(nav2inner);
@@ -139,50 +154,97 @@
       if (!me) return;
       authSlot.innerHTML = '';
       const name = me.nickname || me.name || '회원';
-      const isAdmin = String(me.role || '').toUpperCase() === 'ADMIN';
-      const av = el('button', { class: 'wz-hd__avatar', type: 'button', 'aria-label': '내 메뉴' });
+      const av = el('button', { class: 'wz-hd__avatar', type: 'button', 'aria-label': '내 프로필 메뉴' });
       if (me.picture) { const i = el('img', { src: me.picture, alt: name }); i.addEventListener('error', () => i.remove()); av.appendChild(i); }
       else { av.style.background = 'radial-gradient(circle at 50% 38%,#c9ccd6 0 36%,transparent 38%),radial-gradient(circle at 50% 100%,#c9ccd6 0 50%,transparent 52%) , #eef0f4'; }
-      av.addEventListener('click', (e) => { e.stopPropagation(); openMenu(av, name, isAdmin); });
+      av.addEventListener('click', (e) => { e.stopPropagation(); openProfileMenu(av, me); });
       authSlot.appendChild(av);
     });
     return hd;
   }
 
-  /* ☰ 메뉴 → 카테고리 드롭다운 (클릭 시 홈 그리드 필터 or 홈 이동) */
-  function openCatMenu(anchor) {
-    const ex = document.querySelector('.wz-catpop'); if (ex) { ex.remove(); return; }
-    const m = el('div', { class: 'wz-menu wz-catpop', role: 'menu' });
-    const grp = el('div', { class: 'wz-menu__grp' });
-    grp.appendChild((function () { const a = el('a', { class: 'wz-menu__item', href: '/main.html' }, '전체 프로젝트'); a.addEventListener('click', (e) => { e.preventDefault(); go({ category: 'all' }); m.remove(); }); return a; })());
-    (window.DT_CATEGORIES || []).forEach((c) => {
-      const a = el('a', { class: 'wz-menu__item', href: '/main.html?category=' + encodeURIComponent(c.slug) }, c.label);
-      a.addEventListener('click', (e) => { e.preventDefault(); go({ category: c.slug }); m.remove(); });
-      grp.appendChild(a);
-    });
-    m.appendChild(grp);
+  /* ☰ 메뉴(상단) — 사용자 편의 바로가기 드롭다운 (카테고리 아님) */
+  const USER_SHORTCUTS = [
+    [['내 정보', '/settings.html#profile'], ['계정', '/settings.html#account'], ['결제수단', '/settings.html#payment'], ['배송지', '/settings.html#address'], ['알림 설정', '/settings.html#notification']],
+    [['관심 프로젝트', '/profile.html#liked'], ['후원한 프로젝트', '/profile.html#backings'], ['내 메이커 페이지', '/maker.html?me=1']],
+  ];
+  function openUserMenu(anchor) {
+    if (document.querySelector('.wz-usermenu')) { closeAllPops(); return; }
+    closeAllPops();
+    anchor.setAttribute('aria-expanded', 'true');
+    const m = el('div', { class: 'wz-menu wz-usermenu', role: 'menu' });
+    USER_SHORTCUTS.forEach((g) => { const sec = el('div', { class: 'wz-menu__grp' }); g.forEach(([l, h]) => sec.appendChild(el('a', { class: 'wz-menu__item', href: h }, l))); m.appendChild(sec); });
+    const og = el('div', { class: 'wz-menu__grp' });
+    const out = el('a', { class: 'wz-menu__item', href: '#' }, '로그아웃'); out.addEventListener('click', logout);
+    og.appendChild(out); m.appendChild(og);
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
-    m.style.top = (r.bottom + 8) + 'px'; m.style.left = r.left + 'px'; m.style.maxHeight = '70vh'; m.style.overflowY = 'auto';
-    const close = (ev) => { if (!m.contains(ev.target) && ev.target !== anchor) { m.remove(); document.removeEventListener('click', close); } };
+    m.style.top = (r.bottom + 8) + 'px'; m.style.left = Math.max(8, r.left) + 'px';
+    const close = (ev) => { if (!m.contains(ev.target) && ev.target !== anchor && !anchor.contains(ev.target)) { closeAllPops(); document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 0);
   }
 
-  function openMenu(anchor, name, isAdmin) {
-    const ex = document.querySelector('.wz-menu:not(.wz-catpop)'); if (ex) { ex.remove(); return; }
-    const m = el('div', { class: 'wz-menu', role: 'menu' });
+  /* 내 프로필 아바타 드롭다운 (로그인 상태) */
+  function openProfileMenu(anchor, me) {
+    if (document.querySelector('.wz-usermenu')) { closeAllPops(); return; }
+    closeAllPops();
+    const isAdmin = String(me && me.role || '').toUpperCase() === 'ADMIN';
+    const m = el('div', { class: 'wz-menu wz-usermenu', role: 'menu' });
+    const head = el('a', { class: 'wz-menu__me', href: '/profile.html' });
+    head.append(el('strong', {}, me && (me.nickname || me.name) || '회원'));
+    if (me && me.email) head.append(el('small', {}, me.email));
+    m.appendChild(head);
     const groups = [
-      [['프로필', '/profile.html'], ['후원한 프로젝트', '/profile.html?tab=backings'], ['관심 프로젝트', '/profile.html?tab=likes']],
-      [['프로젝트 만들기', '/fund-create.html'], ['알림', '/notice.html'], ['설정', '/settings.html']],
+      [['프로필', '/profile.html'], ['후원한 프로젝트', '/profile.html#backings'], ['관심 프로젝트', '/profile.html#liked'], ['내 메이커 페이지', '/maker.html?me=1']],
+      [['프로젝트 만들기', '/fund-create.html'], ['알림', '/notice.html'], ['설정', '/settings.html#profile']],
     ];
     if (isAdmin) groups.push([['관리자', '/admin.html']]);
     groups.forEach((g) => { const sec = el('div', { class: 'wz-menu__grp' }); g.forEach(([l, h]) => sec.appendChild(el('a', { class: 'wz-menu__item', href: h }, l))); m.appendChild(sec); });
+    const og = el('div', { class: 'wz-menu__grp' });
     const out = el('a', { class: 'wz-menu__item', href: '#' }, '로그아웃'); out.addEventListener('click', logout);
-    const og = el('div', { class: 'wz-menu__grp' }); og.appendChild(out); m.appendChild(og);
+    og.appendChild(out); m.appendChild(og);
     document.body.appendChild(m);
     const r = anchor.getBoundingClientRect();
     m.style.top = (r.bottom + 8) + 'px'; m.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
-    const close = (ev) => { if (!m.contains(ev.target) && ev.target !== anchor) { m.remove(); document.removeEventListener('click', close); } };
+    const close = (ev) => { if (!m.contains(ev.target) && ev.target !== anchor && !anchor.contains(ev.target)) { closeAllPops(); document.removeEventListener('click', close); } };
+    setTimeout(() => document.addEventListener('click', close), 0);
+  }
+
+  /* ☰ 카테고리(둘째 줄) — 아이콘 그리드 메가 패널. 클릭 시 W.go({category}) 로 홈 인플레이스 필터 */
+  function openCategoryMega(anchor, hd) {
+    if (document.querySelector('.wz-mega')) { closeAllPops(); return; }
+    closeAllPops();
+    anchor.setAttribute('aria-expanded', 'true');
+
+    const panel = el('div', { class: 'wz-mega', role: 'menu', 'aria-label': '카테고리' });
+    const inner = el('div', { class: 'wz-mega__inner' });
+    const head = el('div', { class: 'wz-mega__head' });
+    head.appendChild(el('span', { class: 'wz-mega__title' }, '카테고리'));
+    const x = el('button', { class: 'wz-mega__close', type: 'button', 'aria-label': '닫기', html: ICON.close });
+    x.addEventListener('click', () => closeAllPops());
+    head.appendChild(x);
+    inner.appendChild(head);
+
+    const grid = el('div', { class: 'wz-mega__grid' });
+    function cell(slug, key, label) {
+      const a = el('a', { class: 'wz-mega__cell', href: '/main.html' + (slug === 'all' ? '' : '?category=' + encodeURIComponent(slug)) });
+      const ic = el('div', { class: 'wz-mega__ic' });
+      if (slug === 'all') ic.innerHTML = ICON.grid;
+      else if (typeof window.categoryIconSvg === 'function') ic.innerHTML = window.categoryIconSvg(key);
+      a.append(ic, el('span', { class: 'wz-mega__label' }, label));
+      a.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); go(slug === 'all' ? { category: 'all' } : { category: slug }); });
+      return a;
+    }
+    grid.appendChild(cell('all', 'all', '전체'));
+    (window.DT_CATEGORIES || []).forEach((c) => grid.appendChild(cell(c.slug, c.key, c.label)));
+    inner.appendChild(grid);
+    panel.appendChild(inner);
+
+    /* 헤더 바로 아래에 펼침(메가 패널). 위치는 헤더 하단에 고정. */
+    document.body.appendChild(panel);
+    const r = (hd || document.querySelector('.wz-hd')).getBoundingClientRect();
+    panel.style.top = r.bottom + 'px';
+    const close = (ev) => { if (!panel.contains(ev.target) && ev.target !== anchor && !anchor.contains(ev.target)) { closeAllPops(); document.removeEventListener('click', close); } };
     setTimeout(() => document.addEventListener('click', close), 0);
   }
 
@@ -246,7 +308,12 @@
   function mount() {
     document.body.classList.add('wz-body');
     const h = document.getElementById('wz-header'); if (h && !h.dataset.done) { h.dataset.done = '1'; h.appendChild(Header()); }
+    // 2줄 헤더의 실제 높이를 CSS 변수로 노출 — 상세 등 sticky 오프셋 계산에 사용(겹침 방지)
+    function setHeaderH() { const hh = document.getElementById('wz-header'); if (hh) document.documentElement.style.setProperty('--wz-hd-h', hh.offsetHeight + 'px'); }
+    setHeaderH(); window.addEventListener('resize', setHeaderH);
     const f = document.getElementById('wz-footer'); if (f && !f.dataset.done) { f.dataset.done = '1'; f.appendChild(Footer()); }
+    // 가입 동의 게이트(있을 때만 가드 호출)
+    try { if (window.WZConsent && typeof window.WZConsent.ensure === 'function') window.WZConsent.ensure(); } catch (_) {}
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();

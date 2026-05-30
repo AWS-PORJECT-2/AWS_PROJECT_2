@@ -1,8 +1,17 @@
 /* =====================================================================
- * 두띵 — 프로젝트 만들기(메이커 스튜디오 / 작성 현황). from scratch.
- * wz-core.js(WZ) + categories.js(DT_CATEGORIES) + category-icons.js(categoryIconSvg) 사용.
- * 흐름:  0) 카테고리/진행방식 선택 -> 1) 작성 현황(섹션 카드 리스트 + 슬라이드오버 폼) -> 제출
- * 제출: POST /api/funds -> 성공 시 /detail.html?id=
+ * 두띵 — 프로젝트 만들기. from scratch.
+ * wz-core.js(WZ) + categories.js(DT_CATEGORIES) + category-icons.js + wz-consent.js(WZConsent).
+ *
+ * 흐름:
+ *   0) 진입 선택 화면 — "직접 개설(일반)" vs "대리 개설" 큰 카드 2개.
+ *      ?mode=normal | ?mode=proxy 쿼리로 바로 진입 가능.
+ *   1-N) 일반 개설: 메이커 스튜디오형 작성 현황(섹션 카드 + 슬라이드오버 폼)
+ *        -> WZConsent.requireCreator() -> POST /api/funds { mode:"normal", ... } -> /detail.html?id=
+ *   1-P) 대리 개설: 간소 폼(제목/카테고리/연락처/요청사항 + 선택 목표·마감)
+ *        -> WZConsent.requireCreator() -> POST /api/funds { mode:"proxy", ... } -> 접수 완료 화면
+ *
+ * 가격/수수료는 항상 서버 계산을 신뢰. 클라 표시는 참고용.
+ * 사용자/외부 데이터는 textContent(W.el 텍스트 인자) 또는 escapeHTML 으로만 삽입.
  * AI 가상피팅은 별도 모달(메인 흐름 임베드 금지). 이모지 금지(SVG만).
  * ===================================================================== */
 (function () {
@@ -22,31 +31,16 @@
     wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"/><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"/><path d="M18 12a2 2 0 0 0 0 4h3v-4z"/></svg>',
     sparkle: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/><path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8L19 16z"/></svg>',
     shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+    pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
+    hands: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12l5-5 4 4 3-3 5 5"/><path d="M2 12v4a2 2 0 0 0 2 2h3"/><path d="M22 12v4a2 2 0 0 1-2 2h-3"/></svg>',
+    phone: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.7a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.4-1.2a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.7.7a2 2 0 0 1 1.7 2z"/></svg>',
+    arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
   };
 
-  /* ---- 프로젝트 작성 상태(단일 소스) ---- */
-  var state = {
-    category: '',          // slug
-    delegated: false,      // 진행방식: false=직접, true=대리
-    // 기본 정보
-    title: '',
-    description: '',       // 한줄 소개
-    coverImage: null,      // data URL (대표 이미지)
-    // 목표/일정
-    targetQuantity: '',
-    deadline: '',
-    // 리워드 티어 [{title, price, description, stockLimit}]
-    rewardTiers: [],
-    // 스토리 본문 블록 [{type:'text'|'image', value}]
-    storyBlocks: [],
-    // 정책(서버 미저장 -> contentBlocks 합침)
-    refundPolicy: '',
-    legalNotice: '',
-    // 메이커 정보(서버 미저장 -> contentBlocks 합침)
-    makerIntro: '',
-    makerContact: '',
-    // AI 가상피팅 결과(대표/디자인 이미지로 사용)
-    tryonImage: null,
+  /* ---- 진행 방식별 안내(수수료는 서버 계산, 표시는 참고용) ---- */
+  var MODE_INFO = {
+    normal: { label: '직접 개설', feeHint: '5%', short: '직접' },
+    proxy: { label: '대리 개설', feeHint: '20%', short: '대리' },
   };
 
   var root, me;
@@ -58,123 +52,196 @@
     W.fetchMe().then(function (m) {
       me = m;
       if (!me) { renderNeedLogin(); return; }
-      renderPick();
+      var q = new URLSearchParams(location.search);
+      var mode = q.get('mode');
+      if (mode === 'normal') startNormal();
+      else if (mode === 'proxy') startProxy();
+      else renderPick();
     });
   }
 
   /* =====================================================================
-   * 0. 카테고리 / 진행방식 선택 화면
+   * 0. 진입 선택 — 직접 개설(일반) vs 대리 개설
    * ===================================================================== */
   function renderPick() {
     root.replaceChildren();
-    var wrap = W.el('div', { class: 'wc-pick' });
+    var wrap = W.el('div', { class: 'wc-choose' });
 
-    var head = W.el('div', { class: 'wc-pick__head' });
+    var head = W.el('div', { class: 'wc-choose__head' });
     head.append(
-      W.el('p', { class: 'wc-pick__steplabel' }, 'STEP 1'),
-      W.el('h1', { class: 'wc-pick__title' }, '무엇을 만들까요?'),
-      W.el('p', { class: 'wc-pick__sub' }, '카테고리와 진행 방식을 선택하면 작성 현황으로 이동합니다.'),
+      W.el('p', { class: 'wc-choose__steplabel' }, 'STEP 1'),
+      W.el('h1', { class: 'wc-choose__title' }, '어떻게 프로젝트를 시작할까요?'),
+      W.el('p', { class: 'wc-choose__sub' }, '진행 방식을 선택하세요. 직접 개설은 수수료가 낮고 모든 내용을 직접 작성하며, 대리 개설은 수수료를 더 받는 대신 두띵이 기획과 운영을 대신 진행합니다.'),
     );
     wrap.appendChild(head);
 
-    /* 카테고리 카드 그리드 */
-    var catGroup = W.el('div', { class: 'wc-pick__group' });
-    catGroup.appendChild(W.el('h2', { class: 'wc-pick__grouptitle' }, '카테고리'));
+    var grid = W.el('div', { class: 'wc-choose__grid' });
+    grid.append(
+      ChoiceCard({
+        accent: 'normal',
+        icon: IC.pen,
+        name: '직접 개설',
+        tag: '일반',
+        feeLine: '정산 수수료 ' + MODE_INFO.normal.feeHint + ' (참고)',
+        desc: '창작자가 제목·이미지·스토리·리워드·일정을 직접 구성합니다. 수수료가 낮은 대신 모든 내용을 직접 입력해야 합니다.',
+        points: ['수수료가 가장 낮음', '리워드·가격·일정 직접 설정', '대표 이미지·스토리 직접 작성', 'AI 가상 피팅으로 대표 이미지 제작 가능'],
+        cta: '직접 개설하기',
+        onClick: startNormal,
+      }),
+      ChoiceCard({
+        accent: 'proxy',
+        icon: IC.hands,
+        name: '대리 개설',
+        tag: '대리',
+        feeLine: '정산 수수료 ' + MODE_INFO.proxy.feeHint + ' (참고)',
+        desc: '필수 정보 몇 가지만 입력하면 두띵이 상세 기획·이미지·리워드 구성을 대신 진행합니다. 수수료가 더 부과됩니다.',
+        points: ['제목·카테고리·연락처·요청사항만 입력', '상세 기획·이미지·리워드는 두띵이 작성', '검토 후 담당자가 연락', '바쁘거나 처음이라면 추천'],
+        cta: '대리 개설 신청하기',
+        onClick: startProxy,
+      }),
+    );
+    wrap.appendChild(grid);
+
+    var note = W.el('div', { class: 'wc-choose__note' });
+    note.append(
+      W.el('span', { class: 'wc-choose__noteic', html: IC.info }),
+      W.el('span', {}, '두 방식 모두 제출 후 관리자 심사를 거쳐 공개됩니다. 정산 수수료율은 서버 정책에 따라 최종 확정되며, 위 수치는 참고용입니다.'),
+    );
+    wrap.appendChild(note);
+
+    root.appendChild(wrap);
+  }
+
+  function ChoiceCard(o) {
+    var card = W.el('button', { class: 'wc-cc wc-cc--' + o.accent, type: 'button' });
+    var top = W.el('div', { class: 'wc-cc__top' });
+    top.append(
+      W.el('span', { class: 'wc-cc__ic', html: o.icon }),
+      W.el('span', { class: 'wc-cc__tag' }, o.tag),
+    );
+    var name = W.el('h2', { class: 'wc-cc__name' }, o.name);
+    var fee = W.el('p', { class: 'wc-cc__fee' }, o.feeLine);
+    var desc = W.el('p', { class: 'wc-cc__desc' }, o.desc);
+    var ul = W.el('ul', { class: 'wc-cc__list' });
+    o.points.forEach(function (p) {
+      var li = W.el('li', {});
+      li.append(W.el('span', { class: 'wc-cc__dot', html: IC.check }), W.el('span', {}, p));
+      ul.appendChild(li);
+    });
+    var cta = W.el('span', { class: 'wc-cc__cta' });
+    cta.append(W.el('span', {}, o.cta), W.el('span', { class: 'wc-cc__ctaic', html: IC.arrow }));
+    card.append(top, name, fee, desc, ul, cta);
+    card.addEventListener('click', o.onClick);
+    return card;
+  }
+
+  /* =====================================================================
+   * 일반(직접) 개설
+   * ===================================================================== */
+  var nstate;
+  function startNormal() {
+    nstate = {
+      mode: 'normal',
+      category: '',
+      title: '',
+      description: '',
+      coverImage: null,       // data URL
+      basePrice: '',
+      targetQuantity: '',
+      deadline: '',
+      rewardTiers: [],        // [{title, price, desc, stock}]
+      storyBlocks: [],        // [{type:'text'|'image', value}]
+      refundPolicy: '',
+      legalNotice: '',
+      makerIntro: '',
+      makerContact: '',
+      tryonImage: null,
+    };
+    renderCategoryPick();
+  }
+
+  /* 카테고리 선택(일반 첫 단계) */
+  function renderCategoryPick() {
+    root.replaceChildren();
+    var wrap = W.el('div', { class: 'wc-pick' });
+    var head = W.el('div', { class: 'wc-pick__head' });
+    head.append(
+      W.el('p', { class: 'wc-pick__steplabel' }, '직접 개설 · STEP 1'),
+      W.el('h1', { class: 'wc-pick__title' }, '무엇을 만들까요?'),
+      W.el('p', { class: 'wc-pick__sub' }, '카테고리를 선택하면 작성 현황으로 이동합니다.'),
+    );
+    wrap.appendChild(head);
+
     var grid = W.el('div', { class: 'wc-catgrid' });
+    var nextBtn;
     (window.DT_CATEGORIES || []).forEach(function (c) {
-      var card = W.el('button', { class: 'wc-catcard', type: 'button', 'data-slug': c.slug, 'aria-pressed': 'false' });
+      var card = W.el('button', { class: 'wc-catcard' + (nstate.category === c.slug ? ' is-on' : ''), type: 'button', 'data-slug': c.slug, 'aria-pressed': nstate.category === c.slug ? 'true' : 'false' });
       var ic = W.el('div', { class: 'wc-catcard__ic' });
       if (typeof window.categoryIconSvg === 'function') ic.innerHTML = window.categoryIconSvg(c.key);
       var typeLabel = c.type === 'apparel' ? '의류' : (c.type === 'goods' ? '굿즈' : '기타');
       card.append(ic, W.el('span', { class: 'wc-catcard__label' }, c.label), W.el('span', { class: 'wc-catcard__type' }, typeLabel));
       card.addEventListener('click', function () {
-        state.category = c.slug;
+        nstate.category = c.slug;
         grid.querySelectorAll('.wc-catcard').forEach(function (x) { x.classList.remove('is-on'); x.setAttribute('aria-pressed', 'false'); });
         card.classList.add('is-on'); card.setAttribute('aria-pressed', 'true');
-        nextBtn.disabled = !state.category;
+        if (nextBtn) nextBtn.disabled = !nstate.category;
       });
       grid.appendChild(card);
     });
-    catGroup.appendChild(grid);
-    wrap.appendChild(catGroup);
+    wrap.appendChild(grid);
 
-    /* 진행 방식 */
-    var modeGroup = W.el('div', { class: 'wc-pick__group' });
-    modeGroup.appendChild(W.el('h2', { class: 'wc-pick__grouptitle' }, '진행 방식'));
-    var modeGrid = W.el('div', { class: 'wc-modegrid' });
-    var modes = [
-      { val: false, name: '직접 개설', desc: '창작자가 리워드와 일정을 직접 설정하고 진행합니다. 리워드 최소 1개가 필요합니다.' },
-      { val: true, name: '대리 개설', desc: '운영팀이 리워드 구성과 진행을 대신 돕습니다. 리워드는 승인 단계에서 함께 설정합니다.' },
-    ];
-    modes.forEach(function (mo) {
-      var card = W.el('button', { class: 'wc-modecard' + (mo.val === state.delegated ? ' is-on' : ''), type: 'button' });
-      var top = W.el('div', { class: 'wc-modecard__top' });
-      top.append(W.el('span', { class: 'wc-modecard__radio' }), W.el('span', { class: 'wc-modecard__name' }, mo.name));
-      card.append(top, W.el('p', { class: 'wc-modecard__desc' }, mo.desc));
-      card.addEventListener('click', function () {
-        state.delegated = mo.val;
-        modeGrid.querySelectorAll('.wc-modecard').forEach(function (x) { x.classList.remove('is-on'); });
-        card.classList.add('is-on');
-      });
-      modeGrid.appendChild(card);
-    });
-    modeGroup.appendChild(modeGrid);
-    wrap.appendChild(modeGroup);
-
-    /* 다음 */
     var actions = W.el('div', { class: 'wc-pick__actions' });
-    var nextBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '다음');
-    nextBtn.disabled = !state.category;
+    var backBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wz-btn--lg', type: 'button' }, '이전');
+    backBtn.addEventListener('click', renderPick);
+    nextBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '다음');
+    nextBtn.disabled = !nstate.category;
     nextBtn.addEventListener('click', function () {
-      if (!state.category) { toast('카테고리를 선택해 주세요'); return; }
+      if (!nstate.category) { toast('카테고리를 선택해 주세요'); return; }
       renderStudio();
     });
-    actions.appendChild(nextBtn);
+    actions.append(backBtn, nextBtn);
     wrap.appendChild(actions);
 
     root.appendChild(wrap);
   }
 
-  /* =====================================================================
-   * 섹션 정의 — 작성 현황 카드 리스트
-   * required: 필수 여부 / done(): 완료 판정
-   * ===================================================================== */
+  /* ---- 일반 개설 섹션 정의 ---- */
   function sections() {
-    var arr = [
+    return [
       {
         key: 'basic', name: '기본 정보', required: true,
-        done: function () { return !!state.title.trim() && !!state.description.trim(); },
+        done: function () { return !!nstate.title.trim() && !!nstate.description.trim(); },
         open: openBasicForm,
       },
       {
-        key: 'goal', name: '목표 금액 및 일정', required: true,
-        done: function () { return validQty(state.targetQuantity) && validDeadline(state.deadline); },
+        key: 'goal', name: '기본가 · 목표 · 일정', required: true,
+        done: function () { return validPrice(nstate.basePrice) && validQty(nstate.targetQuantity) && validDeadline(nstate.deadline); },
         open: openGoalForm,
       },
       {
         key: 'story', name: '스토리', required: true,
-        done: function () { return state.storyBlocks.some(function (b) { return b.type === 'text' ? b.value.trim() : b.value; }); },
+        done: function () { return nstate.storyBlocks.some(function (b) { return b.type === 'text' ? b.value.trim() : b.value; }); },
         open: openStoryForm,
       },
       {
-        key: 'reward', name: '리워드', required: !state.delegated,
-        done: function () { return state.rewardTiers.length > 0 && state.rewardTiers.every(validTier); },
+        key: 'reward', name: '리워드', required: true,
+        done: function () { return nstate.rewardTiers.length > 0 && nstate.rewardTiers.every(validTier); },
         open: openRewardForm,
       },
       {
         key: 'policy', name: '정책', required: false,
-        done: function () { return !!state.refundPolicy.trim() || !!state.legalNotice.trim(); },
+        done: function () { return !!nstate.refundPolicy.trim() || !!nstate.legalNotice.trim(); },
         open: openPolicyForm,
       },
       {
         key: 'maker', name: '메이커 정보', required: false,
-        done: function () { return !!state.makerIntro.trim() || !!state.makerContact.trim(); },
+        done: function () { return !!nstate.makerIntro.trim() || !!nstate.makerContact.trim(); },
         open: openMakerForm,
       },
     ];
-    return arr;
   }
 
+  function validPrice(v) { var n = Number(v); return Number.isFinite(n) && n >= 0 && String(v).trim() !== ''; }
   function validQty(v) { var n = Number(v); return Number.isFinite(n) && n >= 1 && n <= 500; }
   function validDeadline(s) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false;
@@ -194,9 +261,7 @@
   }
   function allRequiredDone() { return sections().filter(function (s) { return s.required; }).every(function (s) { return s.done(); }); }
 
-  /* =====================================================================
-   * 1. 작성 현황 (메인)
-   * ===================================================================== */
+  /* ---- 작성 현황(메인) ---- */
   function renderStudio() {
     root.replaceChildren();
     var studio = W.el('div', { class: 'wc-studio' });
@@ -217,14 +282,17 @@
     ];
     items.forEach(function (it) {
       var li = W.el('li', { class: 'wc-side__item ' + (it.active ? 'is-active' : 'is-disabled') });
-      li.appendChild(W.el('span', { html: it.icon, class: 'wc-side__ic' }));
-      // 아이콘 span은 inline svg 컨테이너
-      var sp = li.firstChild; sp.style.display = 'inline-flex'; sp.style.width = '18px'; sp.style.height = '18px';
+      var sp = W.el('span', { html: it.icon, class: 'wc-side__ic' });
+      sp.style.display = 'inline-flex'; sp.style.width = '18px'; sp.style.height = '18px';
+      li.appendChild(sp);
       li.appendChild(W.el('span', {}, it.name));
       if (!it.active) li.appendChild(W.el('span', { class: 'wc-side__soon' }, '준비 중'));
       ul.appendChild(li);
     });
     side.appendChild(ul);
+    var change = W.el('button', { class: 'wc-side__change', type: 'button' }, '진행 방식 다시 선택');
+    change.addEventListener('click', renderPick);
+    side.appendChild(change);
     return side;
   }
 
@@ -251,14 +319,13 @@
       W.el('span', { class: 'wc-prog__pct' }, pct + '%'),
     );
     var bar = W.el('div', { class: 'wc-prog__bar' });
-    bar.appendChild(W.el('div', { class: 'wc-prog__fill' }));
-    bar.firstChild.style.width = pct + '%';
+    var fill = W.el('div', { class: 'wc-prog__fill' });
+    fill.style.width = pct + '%';
+    bar.appendChild(fill);
     card.append(rowTop, bar);
-    if (ready) {
-      card.appendChild(W.el('p', { class: 'wc-prog__note is-ready' }, '모든 필수 항목을 작성했습니다. 이제 오픈 예약을 진행할 수 있어요.'));
-    } else {
-      card.appendChild(W.el('p', { class: 'wc-prog__note' }, '모든 필수 항목을 작성하면 오픈 예약하기가 활성화됩니다.'));
-    }
+    card.appendChild(W.el('p', { class: 'wc-prog__note' + (ready ? ' is-ready' : '') },
+      ready ? '모든 필수 항목을 작성했습니다. 이제 오픈 예약을 진행할 수 있어요.'
+            : '모든 필수 항목을 작성하면 오픈 예약하기가 활성화됩니다.'));
     return card;
   }
 
@@ -282,7 +349,6 @@
     return list;
   }
 
-  /* AI 가상피팅 — 별도 버튼 카드(메인 흐름 임베드 금지) */
   function AiFittingCard() {
     var card = W.el('div', { class: 'wc-aicard' });
     var ic = W.el('div', { class: 'wc-aicard__ic', html: IC.sparkle });
@@ -302,21 +368,21 @@
     var ready = allRequiredDone();
     var btn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '오픈 예약하기');
     btn.disabled = !ready;
-    btn.addEventListener('click', submit);
+    btn.addEventListener('click', submitNormal);
     wrap.appendChild(btn);
     wrap.appendChild(W.el('p', { class: 'wc-submit__hint' },
-      ready ? '제출하면 관리자 심사 후 프로젝트가 공개됩니다.' : '필수 항목(기본 정보 · 목표/일정 · 스토리' + (state.delegated ? '' : ' · 리워드') + ')을 모두 작성해 주세요.'));
+      ready ? '제출하면 창작자 약관 동의 후 관리자 심사를 거쳐 프로젝트가 공개됩니다.'
+            : '필수 항목(기본 정보 · 기본가/목표/일정 · 스토리 · 리워드)을 모두 작성해 주세요.'));
     return wrap;
   }
 
   function AsideBanners() {
     var aside = W.el('aside', { class: 'wc-aside' });
-    var cat = window.dtCategory ? window.dtCategory(state.category) : null;
+    var cat = window.dtCategory ? window.dtCategory(nstate.category) : null;
 
     var b1 = W.el('div', { class: 'wc-banner wc-banner--accent' });
-    b1.appendChild(W.el('p', { class: 'wc-banner__title', html: IC.info + '<span>선택한 카테고리</span>' }));
-    b1.appendChild(W.el('p', { class: 'wc-banner__text' },
-      (cat ? cat.label : '미지정') + ' · ' + (state.delegated ? '대리 개설' : '직접 개설')));
+    b1.appendChild(W.el('p', { class: 'wc-banner__title', html: IC.info + '<span>선택한 항목</span>' }));
+    b1.appendChild(W.el('p', { class: 'wc-banner__text' }, (cat ? cat.label : '미지정') + ' · 직접 개설'));
     aside.appendChild(b1);
 
     var b2 = W.el('div', { class: 'wc-banner' });
@@ -324,8 +390,8 @@
     var ul = W.el('ul', { class: 'wc-banner__list' });
     [
       '제목과 한 줄 소개는 후원자가 가장 먼저 보는 정보입니다.',
-      '목표 수량과 마감일을 명확히 설정해 주세요.',
-      state.delegated ? '대리 개설은 리워드를 승인 단계에서 함께 구성합니다.' : '리워드는 최소 1개 이상 등록해야 합니다.',
+      '기본가·목표 수량·마감일을 명확히 설정해 주세요.',
+      '리워드는 최소 1개 이상 등록해야 합니다.',
       '스토리에 디자인 의도와 제작 일정을 담아 주세요.',
     ].forEach(function (t) { ul.appendChild(W.el('li', {}, t)); });
     b2.appendChild(ul);
@@ -333,14 +399,13 @@
 
     var b3 = W.el('div', { class: 'wc-banner' });
     b3.appendChild(W.el('p', { class: 'wc-banner__title', html: IC.shield + '<span>심사 안내</span>' }));
-    b3.appendChild(W.el('p', { class: 'wc-banner__text' }, '제출된 프로젝트는 관리자 심사 후 공개됩니다. 정책·메이커 정보 등 일부 항목은 스토리 본문에 함께 저장됩니다.'));
+    b3.appendChild(W.el('p', { class: 'wc-banner__text' }, '제출된 프로젝트는 관리자 심사 후 공개됩니다. 가격과 수수료는 서버에서 최종 계산됩니다. 정책·메이커 정보 등 일부 항목은 스토리 본문에 함께 저장됩니다.'));
     b3.appendChild(W.el('a', { class: 'wc-banner__link', href: '/support.html' }, '프로젝트 심사 기준 보기'));
     aside.appendChild(b3);
 
     return aside;
   }
 
-  /* studio 전체 재렌더(폼 저장 후 진행률/카드 상태 갱신) */
   function refreshStudio() { renderStudio(); }
 
   /* =====================================================================
@@ -399,16 +464,15 @@
 
   /* ---- 기본 정보 ---- */
   function openBasicForm() {
-    var titleIn, descIn, coverState = state.coverImage, previewWrap;
+    var titleIn, descIn, coverState = nstate.coverImage, previewWrap;
     openOver('기본 정보', function (body) {
-      titleIn = input({ type: 'text', value: state.title, maxlength: '80', placeholder: '프로젝트 제목' });
+      titleIn = input({ type: 'text', value: nstate.title, maxlength: '80', placeholder: '프로젝트 제목' });
       body.appendChild(field('제목', true, titleIn, '후원자에게 보이는 프로젝트 이름입니다. 최대 80자.'));
 
-      descIn = input({ type: 'text', value: state.description, maxlength: '120', placeholder: '한 줄 소개' });
+      descIn = input({ type: 'text', value: nstate.description, maxlength: '120', placeholder: '한 줄 소개' });
       body.appendChild(field('한 줄 소개', true, descIn, '프로젝트를 한 문장으로 설명해 주세요.'));
 
       previewWrap = W.el('div', {});
-      var uploadCtl = W.el('div', {});
       function renderCover() {
         previewWrap.replaceChildren();
         if (coverState) {
@@ -432,54 +496,56 @@
         }
       }
       renderCover();
-      uploadCtl.appendChild(previewWrap);
-      body.appendChild(field('대표 이미지', false, uploadCtl, '목록·상세 썸네일로 사용됩니다. 비우면 AI 피팅 결과나 스토리 첫 이미지가 사용됩니다.'));
+      body.appendChild(field('대표 이미지', false, previewWrap, '목록·상세 썸네일로 사용됩니다. 비우면 AI 피팅 결과나 스토리 첫 이미지가 사용됩니다.'));
     }, function () {
       var t = titleIn.value.trim(), d = descIn.value.trim();
       if (!t) { toast('제목을 입력해 주세요'); return false; }
       if (!d) { toast('한 줄 소개를 입력해 주세요'); return false; }
-      state.title = t; state.description = d; state.coverImage = coverState;
+      nstate.title = t; nstate.description = d; nstate.coverImage = coverState;
       return true;
     });
   }
 
-  /* ---- 목표/일정 ---- */
+  /* ---- 기본가 · 목표 · 일정 ---- */
   function openGoalForm() {
-    var qtyIn, dlIn;
+    var priceIn, qtyIn, dlIn;
     var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     var minDate = tomorrow.toISOString().slice(0, 10);
-    openOver('목표 금액 및 일정', function (body) {
-      qtyIn = input({ type: 'number', value: state.targetQuantity, min: '1', max: '500', placeholder: '예: 50' });
+    openOver('기본가 · 목표 · 일정', function (body) {
+      priceIn = input({ type: 'number', value: nstate.basePrice, min: '0', placeholder: '예: 30000' });
+      body.appendChild(field('기본가(원)', true, priceIn, '제품 1개의 기본 판매가입니다. 디자인비·플랫폼 수수료는 서버에서 자동 계산되어 최종가에 반영됩니다.'));
+
+      qtyIn = input({ type: 'number', value: nstate.targetQuantity, min: '1', max: '500', placeholder: '예: 50' });
       body.appendChild(field('목표 수량', true, qtyIn, '펀딩 성공에 필요한 최소 수량입니다. (1 ~ 500개)'));
 
-      dlIn = input({ type: 'date', value: state.deadline, min: minDate });
+      dlIn = input({ type: 'date', value: nstate.deadline, min: minDate });
       body.appendChild(field('마감일', true, dlIn, '이 날짜까지 목표 수량을 달성해야 펀딩이 성사됩니다. 오늘 이후 날짜만 가능합니다.'));
 
-      var fee = W.el('div', { class: 'wc-fld__notice' },
-        '목표 금액은 리워드 가격과 모집 수량으로 계산되며, 정산 수수료는 ' + (state.delegated ? '대리 개설 20%' : '직접 개설 5%') + ' 기준으로 추후 안내됩니다.');
-      body.appendChild(fee);
+      body.appendChild(W.el('div', { class: 'wc-fld__notice' },
+        '최종 판매가와 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)는 서버에서 계산됩니다. 입력하신 기본가는 산정 기준값으로만 사용됩니다.'));
     }, function () {
+      if (!validPrice(priceIn.value)) { toast('기본가를 0원 이상으로 입력해 주세요'); return false; }
       if (!validQty(qtyIn.value)) { toast('목표 수량은 1~500 사이로 입력해 주세요'); return false; }
       if (!validDeadline(dlIn.value)) { toast('마감일은 오늘 이후 날짜로 선택해 주세요'); return false; }
-      state.targetQuantity = qtyIn.value; state.deadline = dlIn.value;
+      nstate.basePrice = priceIn.value; nstate.targetQuantity = qtyIn.value; nstate.deadline = dlIn.value;
       return true;
     });
   }
 
   /* ---- 리워드 ---- */
   function openRewardForm() {
-    var draft = state.rewardTiers.map(function (t) { return Object.assign({}, t); });
+    var draft = nstate.rewardTiers.map(function (t) { return Object.assign({}, t); });
     var listEl;
     openOver('리워드', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
-        '후원자가 선택할 선물(리워드) 구성입니다. 가격은 창작자가 직접 정합니다.' + (state.delegated ? ' 대리 개설은 비워 두면 승인 단계에서 함께 구성합니다.' : ' 최소 1개가 필요합니다.')));
+        '후원자가 선택할 선물(리워드) 구성입니다. 가격은 창작자가 직접 정합니다. 최소 1개가 필요합니다.'));
       listEl = W.el('div', {});
       renderTiers();
       body.appendChild(listEl);
       var addBtn = W.el('button', { class: 'wc-addtier', type: 'button', html: IC.plus + '<span>리워드 추가</span>' });
       addBtn.addEventListener('click', function () {
         if (draft.length >= 12) { toast('리워드는 최대 12개까지 추가할 수 있어요'); return; }
-        draft.push({ title: '', price: '', description: '', stockLimit: '' });
+        draft.push({ title: '', price: '', desc: '', stock: '' });
         renderTiers();
       });
       body.appendChild(addBtn);
@@ -499,11 +565,11 @@
           titleIn.addEventListener('input', function () { t.title = titleIn.value; });
           var priceIn = input({ type: 'number', value: t.price, min: '0', placeholder: '가격(원)' });
           priceIn.addEventListener('input', function () { t.price = priceIn.value; });
-          var stockIn = input({ type: 'number', value: t.stockLimit, min: '1', placeholder: '한정 수량(선택)' });
-          stockIn.addEventListener('input', function () { t.stockLimit = stockIn.value; });
+          var stockIn = input({ type: 'number', value: t.stock, min: '1', placeholder: '한정 수량(선택)' });
+          stockIn.addEventListener('input', function () { t.stock = stockIn.value; });
           var descIn = textarea({ maxlength: '500', placeholder: '리워드 설명(구성품 등)' });
-          descIn.value = t.description || '';
-          descIn.addEventListener('input', function () { t.description = descIn.value; });
+          descIn.value = t.desc || '';
+          descIn.addEventListener('input', function () { t.desc = descIn.value; });
 
           g.append(
             field('제목', true, titleIn),
@@ -525,19 +591,19 @@
         cleaned.push({
           title: String(t.title).trim(),
           price: Math.floor(Number(t.price)),
-          description: String(t.description || '').trim(),
-          stockLimit: (t.stockLimit !== '' && t.stockLimit != null && Number(t.stockLimit) >= 1) ? Math.floor(Number(t.stockLimit)) : null,
+          desc: String(t.desc || '').trim(),
+          stock: (t.stock !== '' && t.stock != null && Number(t.stock) >= 1) ? Math.floor(Number(t.stock)) : null,
         });
       }
-      if (!state.delegated && cleaned.length === 0) { toast('직접 개설은 리워드가 최소 1개 필요합니다'); return false; }
-      state.rewardTiers = cleaned;
+      if (cleaned.length === 0) { toast('직접 개설은 리워드가 최소 1개 필요합니다'); return false; }
+      nstate.rewardTiers = cleaned;
       return true;
     });
   }
 
   /* ---- 스토리 ---- */
   function openStoryForm() {
-    var draft = state.storyBlocks.map(function (b) { return Object.assign({}, b); });
+    var draft = nstate.storyBlocks.map(function (b) { return Object.assign({}, b); });
     var listEl;
     openOver('스토리', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
@@ -587,7 +653,7 @@
         else if (b.type === 'image' && b.value) cleaned.push({ type: 'image', value: b.value });
       });
       if (!cleaned.length) { toast('스토리에 최소 1개 블록을 작성해 주세요'); return false; }
-      state.storyBlocks = cleaned;
+      nstate.storyBlocks = cleaned;
       return true;
     });
   }
@@ -599,14 +665,14 @@
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
         '정책 항목은 별도 저장 필드가 없어, 입력 시 스토리 본문 끝에 함께 저장됩니다.'));
       refundIn = textarea({ maxlength: '2000', placeholder: '교환·환불 기준, 배송 지연 시 처리 방법 등' });
-      refundIn.value = state.refundPolicy || '';
+      refundIn.value = nstate.refundPolicy || '';
       body.appendChild(field('교환·환불 정책', false, refundIn));
       legalIn = textarea({ maxlength: '2000', placeholder: '제품 소재·치수, 제조국, A/S 안내 등 정보 고시' });
-      legalIn.value = state.legalNotice || '';
+      legalIn.value = nstate.legalNotice || '';
       body.appendChild(field('상품 정보 고시', false, legalIn));
     }, function () {
-      state.refundPolicy = refundIn.value.trim();
-      state.legalNotice = legalIn.value.trim();
+      nstate.refundPolicy = refundIn.value.trim();
+      nstate.legalNotice = legalIn.value.trim();
       return true;
     });
   }
@@ -618,22 +684,19 @@
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
         '메이커 정보는 별도 저장 필드가 없어, 입력 시 스토리 본문 끝에 함께 저장됩니다.'));
       introIn = textarea({ maxlength: '1000', placeholder: '메이커(팀) 소개' });
-      introIn.value = state.makerIntro || '';
+      introIn.value = nstate.makerIntro || '';
       body.appendChild(field('메이커 소개', false, introIn));
       contactIn = input({ type: 'text', maxlength: '200', placeholder: '문의 이메일 또는 오픈채팅 링크' });
-      contactIn.value = state.makerContact || '';
+      contactIn.value = nstate.makerContact || '';
       body.appendChild(field('문의처', false, contactIn, '후원자 문의를 받을 연락 수단입니다.'));
     }, function () {
-      state.makerIntro = introIn.value.trim();
-      state.makerContact = contactIn.value.trim();
+      nstate.makerIntro = introIn.value.trim();
+      nstate.makerContact = contactIn.value.trim();
       return true;
     });
   }
 
-  /* =====================================================================
-   * AI 가상피팅 모달 (별도 — 메인 흐름 임베드 금지)
-   * POST /api/ai/try-on { imageDataUrls:[dataUrl], modelType, background } -> { tryOnDataUrl }
-   * ===================================================================== */
+  /* ---- AI 가상피팅 모달(별도) ---- */
   function openAiModal() {
     var modal = W.el('div', { class: 'wc-modal' });
     var dim = W.el('div', { class: 'wc-modal__dim' });
@@ -709,7 +772,7 @@
         .catch(function (err) {
           genBtn.disabled = false;
           statusEl.className = 'wc-modal__status is-err';
-          var msg = (err && err.status === 404)
+          var msg = (err && (err.status === 404 || err.status === 503))
             ? 'AI 기능이 현재 연결되어 있지 않습니다. 나중에 다시 시도해 주세요.'
             : ((err && err.message) ? err.message : 'AI 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
           statusEl.textContent = msg;
@@ -717,8 +780,8 @@
     });
     useBtn.addEventListener('click', function () {
       if (!resultState) return;
-      state.tryonImage = resultState;
-      state.coverImage = state.coverImage || resultState;
+      nstate.tryonImage = resultState;
+      nstate.coverImage = nstate.coverImage || resultState;
       close();
       refreshStudio();
       toast('AI 피팅 결과를 대표 이미지로 적용했습니다');
@@ -733,54 +796,255 @@
     function close() { if (modal.parentNode) modal.parentNode.removeChild(modal); }
   }
 
-  /* =====================================================================
-   * 제출
-   * ===================================================================== */
-  function submit() {
+  /* ---- 일반 제출 ---- */
+  function submitNormal() {
     if (!allRequiredDone()) { toast('필수 항목을 모두 작성해 주세요'); return; }
 
-    // contentBlocks 구성: 스토리 본문 + (정책/메이커 = 저장 필드 없음 -> 텍스트로 합침)
-    var blocks = state.storyBlocks.slice();
-    var extra = [];
-    if (state.refundPolicy) extra.push('[교환·환불 정책]\n' + state.refundPolicy);
-    if (state.legalNotice) extra.push('[상품 정보 고시]\n' + state.legalNotice);
-    if (state.makerIntro) extra.push('[메이커 소개]\n' + state.makerIntro);
-    if (state.makerContact) extra.push('[문의처]\n' + state.makerContact);
-    if (extra.length) blocks.push({ type: 'text', value: extra.join('\n\n') });
-
-    var payload = {
-      title: state.title,
-      description: state.description,
-      category: state.category,
-      targetQuantity: Math.floor(Number(state.targetQuantity)),
-      deadline: state.deadline,
-      delegated: state.delegated,
-      rewardTiers: state.rewardTiers,
-      contentBlocks: blocks,
-    };
-    var cover = state.coverImage || state.tryonImage;
-    if (cover) payload.designImageDataUrl = cover;
-    if (state.tryonImage) payload.tryOnImages = [state.tryonImage];
-
     var btn = root.querySelector('.wc-submit .wz-btn');
-    if (btn) { btn.disabled = true; btn.textContent = '제출 중...'; }
 
-    window.api.post('/funds', payload)
-      .then(function (res) {
-        toast('프로젝트가 제출되었습니다');
-        var id = res && res.id;
-        setTimeout(function () { location.href = id ? ('/detail.html?id=' + encodeURIComponent(id)) : '/profile.html?tab=funds'; }, 500);
-      })
-      .catch(function (err) {
-        if (btn) { btn.disabled = false; btn.textContent = '오픈 예약하기'; }
-        var msg = (err && err.message) ? err.message : '제출에 실패했습니다. 잠시 후 다시 시도해 주세요.';
-        toast(msg);
+    function disable() { if (btn) { btn.disabled = true; btn.textContent = '제출 중...'; } }
+    function restore() { if (btn) { btn.disabled = false; btn.textContent = '오픈 예약하기'; } }
+
+    // 창작자 약관 동의 후 제출
+    Promise.resolve(window.WZConsent && window.WZConsent.requireCreator ? window.WZConsent.requireCreator() : true)
+      .then(function (agreed) {
+        if (!agreed) { toast('창작자 약관에 동의해야 프로젝트를 만들 수 있어요'); return; }
+        disable();
+
+        // contentBlocks: API 계약 {type:"text"|"image", text?, url?}
+        var blocks = nstate.storyBlocks.map(function (b) {
+          return b.type === 'image' ? { type: 'image', url: b.value } : { type: 'text', text: b.value };
+        });
+        var extra = [];
+        if (nstate.refundPolicy) extra.push('[교환·환불 정책]\n' + nstate.refundPolicy);
+        if (nstate.legalNotice) extra.push('[상품 정보 고시]\n' + nstate.legalNotice);
+        if (nstate.makerIntro) extra.push('[메이커 소개]\n' + nstate.makerIntro);
+        if (nstate.makerContact) extra.push('[문의처]\n' + nstate.makerContact);
+        if (extra.length) blocks.push({ type: 'text', text: extra.join('\n\n') });
+
+        // rewardTiers: API 계약 {title, price, desc, stock?}
+        var rewards = nstate.rewardTiers.map(function (t) {
+          var r = { title: t.title, price: t.price, desc: t.desc || '' };
+          if (t.stock != null) r.stock = t.stock;
+          return r;
+        });
+
+        var payload = {
+          mode: 'normal',
+          title: nstate.title,
+          description: nstate.description,
+          category: nstate.category,
+          basePrice: Math.floor(Number(nstate.basePrice)),
+          targetQuantity: Math.floor(Number(nstate.targetQuantity)),
+          deadline: deadlineToIso(nstate.deadline),
+          contentBlocks: blocks,
+          rewardTiers: rewards,
+        };
+        // 대표 이미지: 업로드 data URL 우선 -> 없으면 AI 피팅 결과
+        var cover = nstate.coverImage || nstate.tryonImage;
+        if (cover) payload.designImageDataUrl = cover;
+        // designFee 는 서버 계산. 클라가 보내지 않음.
+
+        return window.api.post('/funds', payload)
+          .then(function (res) {
+            toast('프로젝트가 제출되었습니다');
+            var id = res && res.id;
+            setTimeout(function () {
+              location.href = id ? ('/detail.html?id=' + encodeURIComponent(id)) : '/profile.html?tab=funds';
+            }, 500);
+          })
+          .catch(function (err) {
+            restore();
+            toast((err && err.message) ? err.message : '제출에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+          });
       });
+  }
+
+  /* =====================================================================
+   * 대리 개설
+   * ===================================================================== */
+  var pstate;
+  function startProxy() {
+    pstate = { title: '', category: '', contactPhone: '', requestNote: '', targetQuantity: '', deadline: '' };
+    renderProxyForm();
+  }
+
+  function renderProxyForm() {
+    root.replaceChildren();
+    var wrap = W.el('div', { class: 'wc-proxy' });
+
+    var head = W.el('div', { class: 'wc-proxy__head' });
+    head.append(
+      W.el('p', { class: 'wc-proxy__steplabel' }, '대리 개설 신청'),
+      W.el('h1', { class: 'wc-proxy__title' }, '두띵이 대신 프로젝트를 만들어 드립니다'),
+      W.el('p', { class: 'wc-proxy__sub' }, '필수 정보 몇 가지만 알려주시면 담당자가 검토 후 연락드립니다. 상세 기획·이미지·리워드 구성은 두띵이 대신 작성합니다.'),
+    );
+    wrap.appendChild(head);
+
+    var notice = W.el('div', { class: 'wc-proxy__notice' });
+    notice.append(
+      W.el('span', { class: 'wc-proxy__notice-ic', html: IC.info }),
+      W.el('p', {}, '대리 개설은 정산 수수료가 직접 개설보다 더 부과되며(참고: ' + MODE_INFO.proxy.feeHint + ' 수준), 상세 기획·이미지·리워드 구성은 두띵이 대신 작성합니다. 정확한 수수료는 검토 단계에서 안내됩니다.'),
+    );
+    wrap.appendChild(notice);
+
+    var formCard = W.el('div', { class: 'wc-proxy__card' });
+
+    /* 제목 */
+    var titleIn = input({ type: 'text', value: pstate.title, maxlength: '80', placeholder: '예: 컴퓨터공학부 25학번 과잠' });
+    formCard.appendChild(field('제목', true, titleIn, '만들고 싶은 굿즈를 짧게 적어 주세요. 최대 80자.'));
+
+    /* 카테고리 select */
+    var catSel = W.el('select', { class: 'wc-select' });
+    catSel.appendChild(W.el('option', { value: '' }, '카테고리 선택'));
+    (window.DT_CATEGORIES || []).forEach(function (c) {
+      var opt = W.el('option', { value: c.slug }, c.label);
+      if (pstate.category === c.slug) opt.setAttribute('selected', 'selected');
+      catSel.appendChild(opt);
+    });
+    formCard.appendChild(field('카테고리', true, catSel));
+
+    /* 연락처(숫자만 + 자동 하이픈) */
+    var phoneIn = input({ type: 'tel', value: pstate.contactPhone, maxlength: '13', inputmode: 'numeric', placeholder: '010-1234-5678' });
+    phoneIn.addEventListener('input', function () {
+      var pos = phoneIn.selectionStart;
+      var before = phoneIn.value;
+      var formatted = formatPhone(phoneIn.value);
+      phoneIn.value = formatted;
+      // 커서 보정(끝에서 입력하는 일반적 케이스 위주)
+      if (pos === before.length) phoneIn.setSelectionRange(formatted.length, formatted.length);
+    });
+    formCard.appendChild(field('연락처', true, phoneIn, '담당자가 연락드릴 휴대폰 번호입니다. 숫자만 입력하면 자동으로 하이픈이 들어갑니다.'));
+
+    /* 요청 사항 */
+    var noteIn = textarea({ maxlength: '2000', placeholder: '원하는 굿즈 종류·디자인 컨셉·예상 수량·필요한 일정 등을 자유롭게 적어 주세요.' });
+    noteIn.value = pstate.requestNote || '';
+    formCard.appendChild(field('요청 사항', true, noteIn, '구체적으로 적어 주실수록 빠르게 진행할 수 있습니다.'));
+
+    /* 선택: 희망 목표 수량 / 마감일 */
+    var optionalWrap = W.el('div', { class: 'wc-proxy__optional' });
+    optionalWrap.appendChild(W.el('p', { class: 'wc-proxy__optional-title' }, '희망 사항 (선택)'));
+    var grid2 = W.el('div', { class: 'wc-proxy__grid2' });
+    var qtyIn = input({ type: 'number', value: pstate.targetQuantity, min: '1', max: '500', placeholder: '예: 50' });
+    var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
+    var minDate = tomorrow.toISOString().slice(0, 10);
+    var dlIn = input({ type: 'date', value: pstate.deadline, min: minDate });
+    grid2.append(field('희망 목표 수량', false, qtyIn), field('희망 마감일', false, dlIn));
+    optionalWrap.appendChild(grid2);
+    formCard.appendChild(optionalWrap);
+
+    wrap.appendChild(formCard);
+
+    /* 액션 */
+    var actions = W.el('div', { class: 'wc-proxy__actions' });
+    var backBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wz-btn--lg', type: 'button' }, '이전');
+    backBtn.addEventListener('click', function () {
+      // 입력 보존
+      pstate.title = titleIn.value; pstate.category = catSel.value; pstate.contactPhone = phoneIn.value;
+      pstate.requestNote = noteIn.value; pstate.targetQuantity = qtyIn.value; pstate.deadline = dlIn.value;
+      renderPick();
+    });
+    var submitBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '대리 개설 신청하기');
+    submitBtn.addEventListener('click', function () {
+      pstate.title = titleIn.value.trim();
+      pstate.category = catSel.value;
+      pstate.contactPhone = phoneIn.value.trim();
+      pstate.requestNote = noteIn.value.trim();
+      pstate.targetQuantity = qtyIn.value;
+      pstate.deadline = dlIn.value;
+      submitProxy(submitBtn);
+    });
+    actions.append(backBtn, submitBtn);
+    wrap.appendChild(actions);
+
+    root.appendChild(wrap);
+  }
+
+  function submitProxy(btn) {
+    if (!pstate.title) { toast('제목을 입력해 주세요'); return; }
+    if (!pstate.category) { toast('카테고리를 선택해 주세요'); return; }
+    var phoneDigits = pstate.contactPhone.replace(/\D/g, '');
+    if (phoneDigits.length < 10 || phoneDigits.length > 11) { toast('연락처를 정확히 입력해 주세요'); return; }
+    if (!pstate.requestNote) { toast('요청 사항을 입력해 주세요'); return; }
+    if (pstate.targetQuantity !== '' && !validQty(pstate.targetQuantity)) { toast('희망 목표 수량은 1~500 사이로 입력해 주세요'); return; }
+    if (pstate.deadline !== '' && !validDeadline(pstate.deadline)) { toast('희망 마감일은 오늘 이후 날짜로 선택해 주세요'); return; }
+
+    function disable() { if (btn) { btn.disabled = true; btn.textContent = '신청 중...'; } }
+    function restore() { if (btn) { btn.disabled = false; btn.textContent = '대리 개설 신청하기'; } }
+
+    Promise.resolve(window.WZConsent && window.WZConsent.requireCreator ? window.WZConsent.requireCreator() : true)
+      .then(function (agreed) {
+        if (!agreed) { toast('창작자 약관에 동의해야 신청할 수 있어요'); return; }
+        disable();
+
+        var payload = {
+          mode: 'proxy',
+          title: pstate.title,
+          category: pstate.category,
+          contactPhone: pstate.contactPhone,
+          requestNote: pstate.requestNote,
+        };
+        if (pstate.targetQuantity !== '') payload.targetQuantity = Math.floor(Number(pstate.targetQuantity));
+        if (pstate.deadline !== '') payload.deadline = deadlineToIso(pstate.deadline);
+
+        window.api.post('/funds', payload)
+          .then(function () { renderProxyDone(); })
+          .catch(function (err) {
+            restore();
+            toast((err && err.message) ? err.message : '신청에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+          });
+      });
+  }
+
+  function renderProxyDone() {
+    root.replaceChildren();
+    var box = W.el('div', { class: 'wc-done' });
+    var ic = W.el('div', { class: 'wc-done__ic', html: IC.check });
+    box.appendChild(ic);
+    box.appendChild(W.el('h1', { class: 'wc-done__title' }, '대리 개설 신청이 접수되었습니다'));
+    box.appendChild(W.el('p', { class: 'wc-done__sub' }, '담당자가 요청 내용을 검토한 뒤 입력하신 연락처로 연락드립니다. 상세 기획·이미지·리워드 구성은 두띵이 함께 준비하겠습니다.'));
+
+    var card = W.el('div', { class: 'wc-done__card' });
+    card.appendChild(DoneRow('제목', pstate.title));
+    var cat = window.dtCategory ? window.dtCategory(pstate.category) : null;
+    card.appendChild(DoneRow('카테고리', cat ? cat.label : pstate.category));
+    card.appendChild(DoneRow('연락처', pstate.contactPhone));
+    if (pstate.targetQuantity !== '') card.appendChild(DoneRow('희망 목표 수량', pstate.targetQuantity + '개'));
+    if (pstate.deadline !== '') card.appendChild(DoneRow('희망 마감일', pstate.deadline));
+    box.appendChild(card);
+
+    var actions = W.el('div', { class: 'wc-done__actions' });
+    actions.appendChild(W.el('a', { class: 'wz-btn wz-btn--primary wz-btn--lg', href: '/main.html' }, '홈으로'));
+    actions.appendChild(W.el('a', { class: 'wz-btn wz-btn--outline wz-btn--lg', href: '/profile.html?tab=funds' }, '내 프로젝트 보기'));
+    box.appendChild(actions);
+
+    root.appendChild(box);
+  }
+
+  function DoneRow(k, v) {
+    var row = W.el('div', { class: 'wc-done__row' });
+    row.append(W.el('span', { class: 'wc-done__k' }, k), W.el('span', { class: 'wc-done__v' }, String(v == null ? '' : v)));
+    return row;
   }
 
   /* =====================================================================
    * 유틸
    * ===================================================================== */
+  function formatPhone(v) {
+    var d = String(v || '').replace(/\D/g, '').slice(0, 11);
+    if (d.length < 4) return d;
+    if (d.length < 7) return d.slice(0, 3) + '-' + d.slice(3);
+    if (d.length < 11) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
+    return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7);
+  }
+
+  // 'YYYY-MM-DD' -> ISO (마감일 끝, 로컬 23:59:59 기준)
+  function deadlineToIso(s) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return s;
+    var p = s.split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2], 23, 59, 59).toISOString();
+  }
+
   function readImage(file, cb) {
     if (!file) return;
     if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { toast('PNG·JPG·WEBP 이미지만 업로드할 수 있어요'); return; }

@@ -168,59 +168,59 @@ syncUserState();
 
 
 /**
- * 백엔드(/api/groupbuys)에서 상품 목록을 가져와 MOCK_PRODUCTS 를 덮어씀.
- * 실패 시 기존 mock 데이터 유지 (페이지 동작 보장).
+ * 백엔드(GET /api/groupbuys)에서 공구 목록을 가져와 window.MOCK_PRODUCTS 로 매핑.
+ * 백엔드 <목록 아이템> 계약:
+ *   { id, title, creatorId, creatorName, creatorSlug, category, coverImageUrl,
+ *     currentQuantity, targetQuantity, achievementRate, deadline, status, createdAt }
+ * 프론트 매핑: imageUrl=coverImageUrl, author=creatorName, creatorSlug, creatorId.
+ * 실패/빈 결과 시 빈 배열(자연스러운 빈 상태). 더미 시드 없음.
  */
 async function loadProductsFromBackend() {
+  let items = [];
   try {
     const base = window.API_BASE_URL || (window.location.origin + '/api');
     const res = await fetch(base + '/groupbuys?sort=popular&limit=20', {
       credentials: 'include',
     });
-    if (!res.ok) {
-      console.warn('백엔드 상품 조회 실패:', res.status);
-      return false;
+    if (res.ok) {
+      const data = await res.json();
+      if (data && Array.isArray(data.items)) items = data.items;
+    } else {
+      console.warn('백엔드 공구 조회 실패:', res.status);
     }
-    const data = await res.json();
-    if (!data || !Array.isArray(data.items) || data.items.length === 0) return false;
-
-    MOCK_PRODUCTS = data.items.map(function (p) {
-      return {
-        id: p.id,
-        creatorId: p.creatorId || null,  // 제작한 펀딩 필터용 (내 userId 와 비교)
-        imageUrl: p.imageUrl || _JACKET_IMGS[0],
-        author: p.author || '익명',
-        authorAvatar: p.authorAvatar || ('https://picsum.photos/seed/avatar-' + encodeURIComponent(p.id) + '/48/48'),
-        department: p.department || '',
-        title: p.title,
-        price: p.price ?? 0,
-        priceText: p.priceText || (p.price ? p.price.toLocaleString('ko-KR') + '원' : ''),
-        description: p.description || '',
-        targetQuantity: p.targetQuantity || 0,
-        currentQuantity: p.currentQuantity || 0,
-        likeCount: p.likeCount || 0,
-        meta: p.meta || '',
-        deadline: p.deadline || '',
-        isLiked: false,
-        isReserved: false,
-        isPaid: false,
-        sizeType: p.sizeType || 'multiple',
-        category: p.category || '',
-        createdAt: p.createdAt || '',
-      };
-    });
-    window.MOCK_PRODUCTS = MOCK_PRODUCTS;
-
-    // localStorage 의 좋아요/예약/결제 플래그를 실데이터에 반영 (좋아요·참여한 펀딩 탭이 채워지도록)
-    if (typeof syncUserState === 'function') syncUserState();
-
-    // 외부 리스너에 데이터 갱신 알림
-    window.dispatchEvent(new CustomEvent('mockproducts:updated', { detail: { items: MOCK_PRODUCTS } }));
-    return true;
   } catch (err) {
-    console.warn('백엔드 상품 조회 에러:', err);
-    return false;
+    console.warn('백엔드 공구 조회 에러:', err);
   }
+
+  MOCK_PRODUCTS = items.map(function (p) {
+    return {
+      id: p.id,
+      creatorId: p.creatorId || null,          // 제작한 펀딩 필터용 (내 userId 와 비교)
+      creatorSlug: p.creatorSlug || null,       // 메이커 페이지 링크용
+      imageUrl: p.coverImageUrl || '',          // 없으면 카테고리 아이콘 폴백(fillThumb)
+      author: p.creatorName || '익명',
+      title: p.title || '',
+      targetQuantity: p.targetQuantity || 0,
+      currentQuantity: p.currentQuantity || 0,
+      achievementRate: (typeof p.achievementRate === 'number') ? p.achievementRate : null,
+      likeCount: 0,                             // 서버 좋아요 수 미제공 — localStorage delta 로 보강
+      deadline: p.deadline || '',
+      status: p.status || '',
+      isLiked: false,
+      isReserved: false,
+      isPaid: false,
+      category: p.category || '',
+      createdAt: p.createdAt || '',
+    };
+  });
+  window.MOCK_PRODUCTS = MOCK_PRODUCTS;
+
+  // localStorage 의 좋아요/예약/결제 플래그를 실데이터에 반영 (좋아요·참여한 펀딩 탭이 채워지도록)
+  if (typeof syncUserState === 'function') syncUserState();
+
+  // 외부 리스너에 데이터 갱신 알림 (빈 배열이어도 발행 → 빈 상태 렌더)
+  window.dispatchEvent(new CustomEvent('mockproducts:updated', { detail: { items: MOCK_PRODUCTS } }));
+  return items.length > 0;
 }
 
 window.MOCK_PRODUCTS = MOCK_PRODUCTS;

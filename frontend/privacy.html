@@ -6,453 +6,162 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <title>개인정보 처리방침 - 두띵</title>
-  <link rel="stylesheet" href="style.css">
-  <style>
-    .privacy-wrap {
-      max-width: 800px;
-      margin: 0 auto;
-      padding: 24px 20px 80px;
-      color: #1f2937;
-    }
-    .privacy-head {
-      padding-bottom: 16px;
-      border-bottom: 2px solid #1a1a1a;
-      margin-bottom: 24px;
-    }
-    .privacy-head h1 {
-      font-size: 24px;
-      font-weight: 800;
-      color: #1a1a1a;
-      letter-spacing: -0.3px;
-    }
-    .privacy-head .updated {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 6px;
-    }
-    .privacy-intro {
-      background: #f9fafb;
-      border-left: 4px solid #8b5cf6;
-      padding: 14px 16px;
-      border-radius: 4px;
-      font-size: 14px;
-      line-height: 1.8;
-      color: #374151;
-      margin-bottom: 28px;
-    }
-    .privacy-section {
-      margin-bottom: 32px;
-    }
-    .privacy-section h2 {
-      font-size: 17px;
-      font-weight: 800;
-      color: #1a1a1a;
-      margin-bottom: 12px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    .privacy-section h3 {
-      font-size: 14px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-top: 16px;
-      margin-bottom: 8px;
-    }
-    .privacy-section p,
-    .privacy-section li {
-      font-size: 14px;
-      line-height: 1.85;
-      color: #374151;
-    }
-    .privacy-section ul {
-      list-style: disc;
-      padding-left: 22px;
-      margin: 6px 0 12px;
-    }
-    .privacy-section ol {
-      list-style: decimal;
-      padding-left: 22px;
-      margin: 6px 0 12px;
-    }
-    .privacy-section table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 10px 0 16px;
-      font-size: 13px;
-    }
-    .privacy-section th,
-    .privacy-section td {
-      border: 1px solid #d1d5db;
-      padding: 10px 12px;
-      text-align: left;
-      vertical-align: top;
-      line-height: 1.7;
-    }
-    .privacy-section th {
-      background: #f3f4f6;
-      font-weight: 700;
-      color: #1a1a1a;
-    }
-    .privacy-section .note {
-      font-size: 12px;
-      color: #6b7280;
-      margin-top: 6px;
-    }
-    .toc {
-      background: #fff;
-      border: 1px solid #e5e7eb;
-      border-radius: 10px;
-      padding: 16px 20px;
-      margin-bottom: 28px;
-    }
-    .toc-title {
-      font-size: 13px;
-      font-weight: 700;
-      color: #6b7280;
-      margin-bottom: 8px;
-      letter-spacing: 0.05em;
-      text-transform: uppercase;
-    }
-    .toc ol {
-      list-style: decimal;
-      padding-left: 20px;
-      margin: 0;
-    }
-    .toc a {
-      color: #8b5cf6;
-      text-decoration: none;
-      font-size: 13px;
-      line-height: 1.9;
-    }
-    .toc a:hover { text-decoration: underline; }
-    .topbar-back {
-      background: #fff;
-      padding: 14px 20px;
-      border-bottom: 1px solid #e5e7eb;
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-    .topbar-back a {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      color: #8b5cf6;
-      text-decoration: none;
-      font-size: 14px;
-    }
-  </style>
+  <title>개인정보 처리방침 · 두띵</title>
   <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="main.css">
+  <link rel="stylesheet" href="wz.css">
+  <link rel="stylesheet" href="wz-consent.css">
 </head>
-<body class="main-page" data-page="sub">
-  <div id="app"></div>
-  <div class="topbar-back">
-    <a href="javascript:history.back()">← 뒤로가기</a>
-  </div>
+<body class="wz-body">
+  <div id="wz-header"></div>
 
-  <main class="privacy-wrap">
-    <div class="privacy-head">
-      <h1>개인정보 처리방침</h1>
-      <div class="updated">시행일: 2026년 5월 14일 · 최종 개정: 2026년 5월 14일</div>
-    </div>
+  <main>
+    <article class="wzc-doc">
+      <span class="wzc-doc__eyebrow">두띵 개인정보 처리방침</span>
+      <h1 class="wzc-doc__title">개인정보 처리방침</h1>
+      <p class="wzc-doc__meta"><span>시행일</span> 2026년 6월 1일 · <span>최종 개정일</span> 2026년 5월 31일</p>
 
-    <div class="privacy-intro">
-      국민대학교 공동구매 플랫폼 <strong>"두띵(Doothing)"</strong>(이하 "서비스")은 이용자의 개인정보를 소중하게 생각하며,
-      「개인정보 보호법」, 「정보통신망 이용촉진 및 정보보호 등에 관한 법률」, 「전자상거래 등에서의 소비자보호에 관한 법률」 등
-      관련 법령을 준수하기 위해 본 개인정보 처리방침을 수립·공개합니다.
-    </div>
+      <p>두띵(doothing, 이하 "회사")은 「개인정보 보호법」 등 관련 법령을 준수하며, 이용자의 개인정보를 안전하게 보호하기 위하여 다음과 같이 개인정보 처리방침을 수립·공개합니다. 본 방침은 국민대학교 굿즈 크라우드펀딩 플랫폼 두띵 서비스에 적용됩니다.</p>
 
-    <nav class="toc">
-      <div class="toc-title">목차</div>
-      <ol>
-        <li><a href="#s1">수집하는 개인정보의 항목 및 수집 방법</a></li>
-        <li><a href="#s2">개인정보의 수집 및 이용 목적</a></li>
-        <li><a href="#s3">개인정보의 제3자 제공</a></li>
-        <li><a href="#s4">개인정보의 처리위탁</a></li>
-        <li><a href="#s5">개인정보의 보유 및 이용기간</a></li>
-        <li><a href="#s6">개인정보의 파기 절차 및 방법</a></li>
-        <li><a href="#s7">이용자의 권리와 행사 방법</a></li>
-        <li><a href="#s8">개인정보의 안전성 확보 조치</a></li>
-        <li><a href="#s9">개인정보 보호책임자 및 문의처</a></li>
-        <li><a href="#s10">개인정보 처리방침의 변경</a></li>
-      </ol>
-    </nav>
+      <nav class="wzc-toc" aria-label="목차">
+        <p class="wzc-toc__h">목차</p>
+        <ol>
+          <li><a href="#p1">1. 수집하는 개인정보 항목</a></li>
+          <li><a href="#p2">2. 개인정보의 수집 방법</a></li>
+          <li><a href="#p3">3. 개인정보의 이용 목적</a></li>
+          <li><a href="#p4">4. 개인정보의 보유 및 이용기간</a></li>
+          <li><a href="#p5">5. 개인정보의 제3자 제공</a></li>
+          <li><a href="#p6">6. 개인정보 처리의 위탁</a></li>
+          <li><a href="#p7">7. 개인정보의 파기</a></li>
+          <li><a href="#p8">8. 이용자의 권리와 행사 방법</a></li>
+          <li><a href="#p9">9. 만 14세 미만 아동의 개인정보</a></li>
+          <li><a href="#p10">10. 쿠키 등 자동수집 장치</a></li>
+          <li><a href="#p11">11. 개인정보의 안전성 확보조치</a></li>
+          <li><a href="#p12">12. 개인정보 보호책임자</a></li>
+          <li><a href="#p13">13. 방침의 변경</a></li>
+        </ol>
+      </nav>
 
-    <section class="privacy-section" id="s1">
-      <h2>1. 수집하는 개인정보의 항목 및 수집 방법</h2>
-      <h3>가. 수집 항목</h3>
-      <p>서비스는 회원가입, 공동구매 참여, 결제 및 배송을 위해 다음과 같은 최소한의 개인정보를 수집합니다.</p>
-      <table>
-        <thead>
-          <tr>
-            <th style="width:30%;">구분</th>
-            <th>수집 항목</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>회원가입 (필수)</td>
-            <td>이름, 소속(국민대학교 학과/학번), 학교 이메일</td>
-          </tr>
-          <tr>
-            <td>공동구매 참여 (필수)</td>
-            <td>수령인 이름, 연락처(휴대전화 번호), 배송지 주소(우편번호, 도로명/지번, 상세주소)</td>
-          </tr>
-          <tr>
-            <td>결제 (필수)</td>
-            <td>입금자명, 입금 금액, 주문번호 (※ 무통장 입금 방식이며 카드/계좌 정보는 수집하지 않습니다)</td>
-          </tr>
-          <tr>
-            <td>고객 상담 (선택)</td>
-            <td>상담 내용, 첨부 자료, 회신 받을 연락처 또는 이메일</td>
-          </tr>
-          <tr>
-            <td>자동 수집 항목</td>
-            <td>서비스 이용 기록, 접속 로그, IP 주소, 쿠키, 디바이스 정보 (브라우저 종류 등)</td>
-          </tr>
-        </tbody>
-      </table>
+      <h2 id="p1">1. 수집하는 개인정보 항목</h2>
+      <p>회사는 회원가입, 서비스 이용, 결제 및 배송 과정에서 다음의 개인정보를 수집합니다.</p>
+      <div class="wzc-table-wrap">
+        <table>
+          <thead>
+            <tr><th>구분</th><th>수집 항목</th><th>근거</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>회원가입(필수)</td><td>학교 이메일, 이름, 소속 학교 도메인, 프로필 이미지, 닉네임</td><td>이용계약 이행(동의)</td></tr>
+            <tr><td>프로필(선택)</td><td>자기소개, 웹사이트, 커버 이미지, 테마색, 연락처</td><td>동의</td></tr>
+            <tr><td>주문·배송(필수)</td><td>수령인 이름, 휴대전화번호, 배송지 주소</td><td>계약 이행</td></tr>
+            <tr><td>결제</td><td>결제 수단 정보, 결제 승인 내역(결제 대행사 처리)</td><td>계약 이행</td></tr>
+            <tr><td>대리 제작 문의</td><td>연락처, 요청 내용</td><td>동의</td></tr>
+            <tr><td>자동 수집</td><td>접속 로그, 기기·브라우저 정보, 쿠키, 서비스 이용 기록</td><td>정당한 이익·동의</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3>나. 수집 방법</h3>
+      <h2 id="p2">2. 개인정보의 수집 방법</h2>
       <ul>
-        <li>홈페이지 회원가입 및 서비스 이용 과정에서 이용자가 직접 입력</li>
-        <li>공동구매 참여 시 결제 페이지를 통한 입력</li>
-        <li>고객센터 문의·상담 과정에서의 수집</li>
-        <li>서비스 이용 과정에서 자동 생성되어 수집되는 정보(쿠키, 접속 로그)</li>
+        <li>학교 계정(Google OAuth 등) 인증을 통한 회원가입 및 로그인 과정에서의 입력·수신</li>
+        <li>프로필 설정, 프로젝트 개설, 후원·결제, 주소 등록, 고객 문의 과정에서의 직접 입력</li>
+        <li>서비스 이용 과정에서 자동 생성·수집되는 정보(쿠키, 접속 로그)</li>
       </ul>
-    </section>
 
-    <section class="privacy-section" id="s2">
-      <h2>2. 개인정보의 수집 및 이용 목적</h2>
-      <p>서비스는 수집한 개인정보를 다음의 목적을 위해서만 이용하며, 목적 외의 용도로는 이용하지 않습니다.</p>
+      <h2 id="p3">3. 개인정보의 이용 목적</h2>
       <ul>
-        <li><strong>회원 식별 및 본인 확인</strong>: 학교 이메일을 통한 재학 여부 확인, 회원제 서비스 제공</li>
-        <li><strong>공동구매 참여 처리</strong>: 펀딩 참여 의사 확인, 목표 인원 집계, 사이즈/수량 옵션 관리</li>
-        <li><strong>결제 처리</strong>: 무통장 입금 내역 대조 및 확인, 입금자명·금액·주문번호 매칭</li>
-        <li><strong>상품 배송</strong>: 수령인 정보 및 배송지 주소를 이용한 택배 발송, 운송장 생성</li>
-        <li><strong>고객 상담 및 분쟁 처리</strong>: 문의 응대, 환불·교환 요청 처리, 분쟁 발생 시 사실관계 확인</li>
-        <li><strong>서비스 운영 및 개선</strong>: 부정 이용 방지, 통계 분석, 신규 기능 개발 및 사용자 경험 개선</li>
-        <li><strong>법적 의무 이행</strong>: 관련 법령에 따른 거래 기록 보관 및 의무 이행</li>
+        <li><strong>회원 관리</strong>: 본인 확인, 학교 구성원 여부 확인(학교 도메인), 부정 이용 방지, 고지사항 전달</li>
+        <li><strong>서비스 제공</strong>: 프로젝트 개설·후원·결제 중개, 리워드 제공, 콘텐츠·맞춤형 추천 제공</li>
+        <li><strong>주문·배송</strong>: 결제 처리, 굿즈 배송, 배송 현황 안내, 청약철회·환불 처리</li>
+        <li><strong>고객 지원</strong>: 문의 응대, 분쟁 조정 협조, 공지·알림 발송</li>
+        <li><strong>마케팅(선택 동의 시)</strong>: 신규 프로젝트·이벤트·혜택 정보 안내</li>
       </ul>
-    </section>
 
-    <section class="privacy-section" id="s3">
-      <h2>3. 개인정보의 제3자 제공</h2>
-      <p>
-        서비스는 원칙적으로 이용자의 개인정보를 제1조 및 제2조에서 명시한 범위 내에서 처리하며,
-        이용자의 사전 동의 없이는 개인정보를 외부에 제공하지 않습니다.
-        다만, 다음의 경우 개인정보를 제3자에게 제공합니다.
-      </p>
-      <h3>가. 배송 위탁을 위한 제3자 제공</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>제공받는 자</th>
-            <th>제공 항목</th>
-            <th>이용 목적</th>
-            <th>보유·이용 기간</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>택배사 (CJ대한통운, 우체국택배 등)</td>
-            <td>수령인 이름, 연락처, 배송지 주소</td>
-            <td>주문 상품의 배송 및 배송 추적</td>
-            <td>배송 완료 후 6개월 (택배사 자체 정책에 따름)</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="note">
-        ※ 실제 이용되는 택배사는 펀딩별로 달라질 수 있으며, 변경 시 본 방침을 통해 사전 공지합니다.
-      </p>
+      <h2 id="p4">4. 개인정보의 보유 및 이용기간</h2>
+      <p>회사는 원칙적으로 개인정보 수집·이용 목적이 달성되면 지체 없이 파기합니다. 다만 관련 법령에 따라 다음 정보는 명시된 기간 동안 보관합니다.</p>
+      <div class="wzc-table-wrap">
+        <table>
+          <thead>
+            <tr><th>보관 정보</th><th>보관 기간</th><th>근거 법령</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>계약 또는 청약철회 등에 관한 기록</td><td>5년</td><td>전자상거래법</td></tr>
+            <tr><td>대금결제 및 재화 등의 공급에 관한 기록</td><td>5년</td><td>전자상거래법</td></tr>
+            <tr><td>소비자 불만 또는 분쟁처리에 관한 기록</td><td>3년</td><td>전자상거래법</td></tr>
+            <tr><td>접속에 관한 기록(로그인 기록)</td><td>3개월</td><td>통신비밀보호법</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-      <h3>나. 법령에 따른 제공</h3>
+      <h2 id="p5">5. 개인정보의 제3자 제공</h2>
+      <p>회사는 이용자의 개인정보를 본 방침에서 고지한 범위를 초과하여 이용하거나 제3자에게 제공하지 않습니다. 다만 다음의 경우는 예외로 합니다.</p>
       <ul>
-        <li>법령에 특별한 규정이 있거나 수사·재판 목적으로 적법한 절차에 따라 정부기관이 요구하는 경우</li>
-        <li>이용자의 생명·신체에 급박한 위험이 있어 동의를 받을 시간적 여유가 없는 경우</li>
+        <li>이용자가 사전에 동의한 경우</li>
+        <li><strong>배송 처리를 위해 창작자(판매자) 또는 배송 위탁사에 수령인 정보를 제공하는 경우</strong> (제공 항목: 수령인 이름·연락처·주소 / 이용 목적: 굿즈 배송 / 보유 기간: 배송 완료 후 관련 법령에 따른 기간)</li>
+        <li>법령에 근거하거나 수사기관이 적법한 절차에 따라 요청한 경우</li>
       </ul>
-    </section>
 
-    <section class="privacy-section" id="s4">
-      <h2>4. 개인정보의 처리위탁</h2>
-      <p>서비스는 원활한 운영을 위해 다음과 같이 개인정보 처리 업무를 위탁할 수 있습니다.</p>
-      <table>
-        <thead>
-          <tr>
-            <th>수탁자</th>
-            <th>위탁 업무</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>Amazon Web Services, Inc.</td>
-            <td>서비스 인프라(클라우드 서버, 데이터베이스) 운영 및 데이터 저장</td>
-          </tr>
-          <tr>
-            <td>해당 없음 (자체 인증 처리)</td>
-            <td>서비스 로그인/세션 인증 처리</td>
-          </tr>
-          <tr>
-            <td>택배사 (CJ대한통운, 우체국택배 등)</td>
-            <td>주문 상품 배송 및 배송 추적</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="note">
-        ※ 위탁 계약 시 「개인정보 보호법」 제26조에 따라 개인정보가 안전하게 관리될 수 있도록 필요한 사항을 규정합니다.
-      </p>
-    </section>
+      <h2 id="p6">6. 개인정보 처리의 위탁</h2>
+      <p>회사는 원활한 서비스 제공을 위해 다음과 같이 개인정보 처리 업무를 외부에 위탁할 수 있습니다. 위탁 시 관련 법령에 따라 수탁사가 개인정보를 안전하게 처리하도록 관리·감독합니다.</p>
+      <div class="wzc-table-wrap">
+        <table>
+          <thead>
+            <tr><th>수탁 업무</th><th>위탁 대상(예시)</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>결제 처리</td><td>전자결제 대행사(PG)</td></tr>
+            <tr><td>클라우드 인프라·데이터 보관</td><td>클라우드 서비스 제공사</td></tr>
+            <tr><td>굿즈 배송</td><td>택배·물류 위탁사</td></tr>
+            <tr><td>알림·메일 발송</td><td>메시지 발송 대행사</td></tr>
+          </tbody>
+        </table>
+      </div>
 
-    <section class="privacy-section" id="s5">
-      <h2>5. 개인정보의 보유 및 이용기간</h2>
-      <p>
-        서비스는 원칙적으로 개인정보의 수집·이용 목적이 달성된 후에는 해당 정보를 지체 없이 파기합니다.
-        다만, 다음의 정보에 대해서는 관련 법령에 따라 명시된 기간 동안 보존합니다.
-      </p>
-      <h3>가. 회원 정보</h3>
-      <ul>
-        <li>회원 탈퇴 시까지 보유. 단, 부정이용 방지를 위해 탈퇴 후 30일 동안 일부 정보(이메일, 탈퇴 사유)는 별도 보관 후 파기</li>
-      </ul>
-      <h3>나. 전자상거래법 등 관련 법령에 따른 보존</h3>
-      <table>
-        <thead>
-          <tr>
-            <th>보존 항목</th>
-            <th>근거 법령</th>
-            <th>보존 기간</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td>계약 또는 청약철회 등에 관한 기록</td>
-            <td>전자상거래 등에서의 소비자보호에 관한 법률 제6조</td>
-            <td>5년</td>
-          </tr>
-          <tr>
-            <td>대금결제 및 재화 등의 공급에 관한 기록</td>
-            <td>전자상거래 등에서의 소비자보호에 관한 법률 제6조</td>
-            <td>5년</td>
-          </tr>
-          <tr>
-            <td>소비자의 불만 또는 분쟁처리에 관한 기록</td>
-            <td>전자상거래 등에서의 소비자보호에 관한 법률 제6조</td>
-            <td>3년</td>
-          </tr>
-          <tr>
-            <td>표시·광고에 관한 기록</td>
-            <td>전자상거래 등에서의 소비자보호에 관한 법률 제6조</td>
-            <td>6개월</td>
-          </tr>
-          <tr>
-            <td>웹사이트 방문 기록 (로그인 기록)</td>
-            <td>통신비밀보호법 제15조의2</td>
-            <td>3개월</td>
-          </tr>
-        </tbody>
-      </table>
-    </section>
+      <h2 id="p7">7. 개인정보의 파기</h2>
+      <p>보유기간이 경과하거나 처리 목적이 달성된 개인정보는 지체 없이 파기합니다. 전자적 파일은 복구·재생이 불가능한 방법으로 영구 삭제하고, 출력물 등은 분쇄 또는 소각합니다.</p>
 
-    <section class="privacy-section" id="s6">
-      <h2>6. 개인정보의 파기 절차 및 방법</h2>
-      <h3>가. 파기 절차</h3>
-      <ol>
-        <li>이용자가 입력한 개인정보는 목적 달성 후 별도의 데이터베이스로 옮겨져, 내부 방침 및 관련 법령에 따라 일정 기간 저장된 후 파기됩니다.</li>
-        <li>별도 보관되는 개인정보는 법령에 명시된 보관 목적 외의 다른 용도로 이용되지 않습니다.</li>
-      </ol>
-      <h3>나. 파기 방법</h3>
+      <h2 id="p8">8. 이용자의 권리와 행사 방법</h2>
+      <p>이용자는 언제든지 자신의 개인정보를 조회·수정하거나 삭제·처리정지를 요청할 수 있으며, 동의를 철회할 수 있습니다.</p>
       <ul>
-        <li><strong>전자적 파일 형태</strong>: 복원이 불가능한 기술적 방법(예: Secure Erase)을 사용하여 영구 삭제</li>
-        <li><strong>종이 문서 형태</strong>: 분쇄기로 분쇄하거나 소각</li>
+        <li>개인정보 조회·수정: 설정 화면의 프로필 관리에서 직접 변경</li>
+        <li>동의 철회·회원 탈퇴: 설정 화면의 회원 탈퇴 또는 고객지원 문의</li>
+        <li>마케팅 수신 동의: 설정 화면의 알림 설정에서 언제든지 변경</li>
       </ul>
-    </section>
 
-    <section class="privacy-section" id="s7">
-      <h2>7. 이용자의 권리와 행사 방법</h2>
-      <p>이용자는 개인정보 주체로서 다음과 같은 권리를 행사할 수 있습니다.</p>
-      <ul>
-        <li><strong>열람 요구</strong>: 본인의 개인정보 처리 현황에 대한 열람 요구</li>
-        <li><strong>정정·삭제 요구</strong>: 잘못된 정보의 정정 및 삭제 요구 (단, 법령에 따른 보존 의무가 있는 경우 제외)</li>
-        <li><strong>처리 정지 요구</strong>: 개인정보 처리 정지 요구</li>
-        <li><strong>동의 철회</strong>: 개인정보 수집·이용 동의 철회 (회원 탈퇴를 통해 즉시 가능)</li>
-      </ul>
-      <h3>행사 방법</h3>
-      <ol>
-        <li>로그인 후 「설정 &gt; 내 정보 관리」 메뉴에서 직접 열람·수정·삭제 가능</li>
-        <li>개인정보 보호책임자에게 서면, 전자우편 등을 통해 요청 시 지체 없이 조치</li>
-        <li>대리인을 통한 요청 시 위임장을 제출하여야 합니다.</li>
-      </ol>
-      <p class="note">
-        ※ 이용자의 권리 행사는 「개인정보 보호법」 제35조 등에 따라 제한될 수 있습니다.
-      </p>
-    </section>
+      <h2 id="p9">9. 만 14세 미만 아동의 개인정보</h2>
+      <div class="wzc-callout">
+        <strong>두띵은 만 14세 이상만 가입·이용할 수 있습니다.</strong> 회사는 만 14세 미만 아동의 개인정보를 수집하지 않으며, 가입 시 만 14세 이상임에 동의하도록 하고 있습니다.
+      </div>
 
-    <section class="privacy-section" id="s8">
-      <h2>8. 개인정보의 안전성 확보 조치</h2>
-      <p>서비스는 개인정보의 안전성 확보를 위해 다음의 조치를 취하고 있습니다.</p>
-      <h3>가. 관리적 조치</h3>
-      <ul>
-        <li>개인정보 취급 직원의 최소화 및 정기적인 교육</li>
-        <li>내부관리계획의 수립 및 시행</li>
-      </ul>
-      <h3>나. 기술적 조치</h3>
-      <ul>
-        <li>전송 구간 암호화 (HTTPS, TLS) 적용</li>
-        <li>데이터베이스 접근 통제 및 SSL 보안 연결 사용 (AWS RDS)</li>
-        <li>해킹 등에 대비한 방화벽, 침입 차단·탐지 시스템 운영</li>
-        <li>로그인 세션 관리 및 비정상 접근 차단</li>
-      </ul>
-      <h3>다. 물리적 조치</h3>
-      <ul>
-        <li>전산실, 자료보관실 등 개인정보 보관 장소의 접근 통제</li>
-      </ul>
-    </section>
+      <h2 id="p10">10. 쿠키 등 자동수집 장치</h2>
+      <p>회사는 로그인 유지, 보안, 서비스 이용 분석을 위해 쿠키를 사용합니다. 인증은 httpOnly 쿠키 방식으로 처리되어 스크립트로 접근할 수 없도록 보호됩니다. 이용자는 브라우저 설정을 통해 쿠키 저장을 거부할 수 있으나, 이 경우 로그인 등 일부 서비스 이용에 제한이 있을 수 있습니다.</p>
 
-    <section class="privacy-section" id="s9">
-      <h2>9. 개인정보 보호책임자 및 문의처</h2>
-      <p>서비스는 이용자의 개인정보를 보호하고 관련 불만을 처리하기 위해 다음과 같이 개인정보 보호책임자를 지정하고 있습니다.</p>
-      <table>
-        <tbody>
-          <tr>
-            <th style="width:30%;">개인정보 보호책임자</th>
-            <td>두띵(Doothing) 운영팀</td>
-          </tr>
-          <tr>
-            <th>소속</th>
-            <td>국민대학교 소프트웨어학부</td>
-          </tr>
-          <tr>
-            <th>문의 이메일</th>
-            <td>cnrtnsms@kookmin.ac.kr</td>
-          </tr>
-        </tbody>
-      </table>
-      <p class="note">
-        ※ 개인정보 침해에 대한 신고나 상담이 필요한 경우 아래 기관에 문의하실 수 있습니다.
-      </p>
+      <h2 id="p11">11. 개인정보의 안전성 확보조치</h2>
       <ul>
-        <li>개인정보 침해신고센터: 국번 없이 <strong>118</strong> (privacy.kisa.or.kr)</li>
-        <li>개인정보 분쟁조정위원회: 1833-6972 (kopico.go.kr)</li>
-        <li>대검찰청 사이버수사과: 국번 없이 1301 (spo.go.kr)</li>
-        <li>경찰청 사이버수사국: 국번 없이 182 (ecrm.cyber.go.kr)</li>
+        <li><strong>관리적 조치</strong>: 내부관리계획 수립, 개인정보 취급자 최소화 및 접근 권한 관리</li>
+        <li><strong>기술적 조치</strong>: 전송 구간 암호화(HTTPS), 비밀번호·토큰의 안전한 저장, 접근통제 및 침입 방지</li>
+        <li><strong>물리적 조치</strong>: 인프라 접근 통제 및 로그 보관</li>
       </ul>
-    </section>
 
-    <section class="privacy-section" id="s10">
-      <h2>10. 개인정보 처리방침의 변경</h2>
-      <p>
-        본 개인정보 처리방침은 시행일로부터 적용되며, 법령 및 방침에 따른 변경이 있는 경우에는
-        변경사항의 시행 7일 전부터 본 페이지를 통해 공지합니다.
-        다만, 이용자의 권리에 중요한 변경이 있는 경우에는 최소 30일 전에 공지하며 필요 시 동의를 다시 받습니다.
-      </p>
+      <h2 id="p12">12. 개인정보 보호책임자</h2>
+      <p>회사는 개인정보 처리에 관한 업무를 총괄하고 이용자의 불만 처리 및 피해 구제를 위하여 개인정보 보호책임자를 두고 있습니다. 개인정보 관련 문의는 두띵 고객지원을 통해 접수할 수 있습니다.</p>
       <ul>
-        <li>공고일: 2026년 5월 14일</li>
-        <li>시행일: 2026년 5월 14일</li>
+        <li>개인정보 보호책임자: 두띵 운영팀</li>
+        <li>문의 접수: 서비스 내 1:1 문의(고객지원)</li>
       </ul>
-    </section>
+
+      <h2 id="p13">13. 방침의 변경</h2>
+      <p>본 개인정보 처리방침은 법령·서비스 정책의 변경에 따라 개정될 수 있으며, 변경 시 시행일자 및 변경 내용을 서비스 화면에 공지합니다.</p>
+
+      <p class="wzc-doc__updated">본 방침은 2026년 6월 1일부터 시행됩니다. 회사는 사업자 등록 및 정식 운영 시 법무 검토를 거쳐 본 방침을 보완·고지할 수 있습니다.</p>
+    </article>
   </main>
+
+  <div id="wz-footer"></div>
+
+  <script src="api.js"></script>
+  <script src="categories.js"></script>
   <script src="category-icons.js"></script>
-  <script src="main.js"></script>
+  <script src="mock-data.js"></script>
+  <script src="wz-core.js"></script>
+  <script src="wz-consent.js"></script>
 </body>
 </html>
