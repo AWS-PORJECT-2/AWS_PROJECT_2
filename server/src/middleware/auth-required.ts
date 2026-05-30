@@ -58,3 +58,21 @@ export function createAuthRequired(tokenService: TokenService, userRepo: UserRep
     next();
   };
 }
+
+/**
+ * 인증 선택(optional) 미들웨어 — 유효 토큰이 있으면 req.userId 를 채우고, 없거나 무효여도 통과.
+ * 공개 + 로그인 시 추가정보(예: 팔로우 여부)가 필요한 라우트용. DB 조회 비용 절약 위해 토큰 검증만.
+ */
+export function createOptionalAuth(tokenService: TokenService) {
+  return (req: Request, _res: Response, next: NextFunction): void => {
+    const token = req.cookies?.accessToken;
+    if (token) {
+      const payload = tokenService.verifyAccessToken(token);
+      if (payload) {
+        req.userId = payload.userId;
+        req.userEmail = payload.email;
+      }
+    }
+    next();
+  };
+}

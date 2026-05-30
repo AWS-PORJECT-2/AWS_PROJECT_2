@@ -401,6 +401,7 @@ async function renderDetail() {
             <span class="author-name">${escapeHTML(currentProduct.author)}</span>
             <span class="author-dept">${escapeHTML(currentProduct.department)}</span>
           </div>
+          <div id="creatorFollowBox" style="margin-left:auto;"></div>
         </div>
 
         <h1 class="info-title">${escapeHTML(currentProduct.title)}</h1>
@@ -509,6 +510,41 @@ async function renderDetail() {
 
 /* 게시글 본문 렌더 — GET /api/groupbuys/:id 의 contentBlocks(글/사진) 를 순서대로 표시.
    실패하거나 블록이 없으면 한 줄 소개(description)만 남긴다. 가짜 문단/이미지는 생성하지 않음. */
+/* 창작자 팔로우 버튼 + 팔로워 수 (항목 6) */
+async function renderCreatorFollow(creatorId) {
+  const box = document.getElementById('creatorFollowBox');
+  if (!box || !window.api) return;
+  let st;
+  try { st = await window.api.get('/users/' + encodeURIComponent(creatorId) + '/follow', { silentAuthFail: true }); }
+  catch (e) { return; }
+  function paint() {
+    box.innerHTML = '';
+    const cnt = document.createElement('span');
+    cnt.style.cssText = 'font-size:12px;color:#9ca3af;margin-right:8px;';
+    cnt.textContent = '팔로워 ' + (st.followerCount || 0);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = st.following ? '팔로잉' : '팔로우';
+    btn.style.cssText = 'padding:7px 14px;border-radius:999px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid ' +
+      (st.following ? '#e5e7eb;background:#fff;color:#6b7280;' : '#8b5cf6;background:#8b5cf6;color:#fff;');
+    btn.addEventListener('click', async function () {
+      btn.disabled = true;
+      try {
+        st = st.following
+          ? await window.api.del('/users/' + encodeURIComponent(creatorId) + '/follow')
+          : await window.api.post('/users/' + encodeURIComponent(creatorId) + '/follow', {});
+        paint();
+      } catch (e2) {
+        if (e2 && e2.status === 401) return; // 로그인으로
+        btn.disabled = false;
+        alert('처리 실패: ' + ((e2 && e2.message) || ''));
+      }
+    });
+    box.appendChild(cnt); box.appendChild(btn);
+  }
+  paint();
+}
+
 /* 펀드 상태 배지 — open 이외(심사중/반려 등)일 때 제목 위에 표시 + 후원 차단 안내 */
 function renderFundStatusBadge(status) {
   const wrap = document.getElementById('detailInfo');
@@ -686,6 +722,7 @@ async function renderStoryBody(id) {
   try {
     const fund = await window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true });
     renderFundStatusBadge(fund && fund.status);
+    if (fund && fund.creatorId) renderCreatorFollow(fund.creatorId);
     renderRewardTiers(fund && fund.rewardTiers);
     const blocks = fund && Array.isArray(fund.contentBlocks) ? fund.contentBlocks : [];
     const desc = (fund && fund.description) || currentProduct.description || '';

@@ -29,7 +29,9 @@ import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
   createAdminDepositsListHandler, createAdminConfirmDepositHandler,
 } from './routes/reward-orders.js';
-import { createAuthRequired } from './middleware/auth-required.js';
+import { createAuthRequired, createOptionalAuth } from './middleware/auth-required.js';
+import { PgFollowRepository } from './repositories/pg-follow-repository.js';
+import { createFollowStatusHandler, createFollowHandler, createUnfollowHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
 import { GeminiImageService } from './services/ai/gemini-image-service.js';
@@ -302,6 +304,13 @@ export function createApp(
   // --- 사용자 관리 (항목 10) ---
   app.get('/api/admin/users', authRequired, requireAdmin, createAdminUsersListHandler(userRepository));
   app.post('/api/admin/users/:id/role', authRequired, requireAdmin, createAdminSetUserRoleHandler(userRepository));
+
+  // --- 팔로우 (항목 6) ---
+  const followRepository = new PgFollowRepository(pool);
+  const optionalAuth = createOptionalAuth(tokenService);
+  app.get('/api/users/:id/follow', optionalAuth, createFollowStatusHandler(followRepository));
+  app.post('/api/users/:id/follow', authRequired, createFollowHandler(followRepository));
+  app.delete('/api/users/:id/follow', authRequired, createUnfollowHandler(followRepository));
 
   // --- Email Notification Service (export for socket/scheduler use) ---
   const emailService = createEmailService();
