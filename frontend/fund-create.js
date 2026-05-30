@@ -6,7 +6,7 @@
  *  2. 프로젝트 작업실 — 상단 요약(대표이미지·[카테고리]·제목·"기획중·N% 완료") +
  *     섹션 카드 그리드(기본정보 / 목표·일정 / 선물구성 / 프로젝트계획 / 창작자정보 / 신뢰와안전).
  *     각 카드 클릭 → 슬라이드오버 폼 패널. AI 가상피팅은 "별도 모달"로만 진입(메인 흐름 임베드 금지).
- *  3. 모든 섹션 충족 시 "검토 후 개설하기" → 검토 모달 → 제출(POST /funds).
+ *  3. 모든 필수 섹션 충족 시 하단 "오픈 예약하기" → 검토 모달 → 제출(POST /funds).
  *
  * 보존(기존 그대로 유지):
  *  - 제출 페이로드: title/description/department/category/rewardTiers/delegated/
@@ -194,41 +194,61 @@
     });
   }
 
+  // 동그란 체크 아이콘(미완료=빈 원, 완료=체크) — 정적 SVG.
+  const CHECK_DONE_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M8.5 12.2l2.4 2.4 4.6-4.8"/></svg>';
+  const CHECK_TODO_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/></svg>';
+
+  // 와디즈 "작성 현황": 동그란 체크 + 제목 + 작성 전/작성 완료 + 우측 "작성하기" 버튼 (세로 리스트)
   function buildSectionGrid() {
-    const grid = document.getElementById('fcSectionGrid');
-    if (!grid) return;
-    grid.innerHTML = '';
+    const list = document.getElementById('fcSectionGrid');
+    if (!list) return;
+    list.innerHTML = '';
     activeSections().forEach(function (sec) {
-      const card = document.createElement('button');
-      card.type = 'button';
-      card.className = 'fc-sec-card';
-      card.dataset.section = sec.id;
+      const item = document.createElement('li');
+      item.className = 'fc-status-item';
+      item.dataset.section = sec.id;
 
-      const ic = document.createElement('span');
-      ic.className = 'fc-sec-card__ic';
-      ic.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + sec.icon + '</svg>';
+      const check = document.createElement('span');
+      check.className = 'fc-status-item__check';
+      check.dataset.checkFor = sec.id;
+      check.innerHTML = CHECK_TODO_SVG;
 
-      const body = document.createElement('span');
-      body.className = 'fc-sec-card__body';
+      const body = document.createElement('div');
+      body.className = 'fc-status-item__body';
       const title = document.createElement('span');
-      title.className = 'fc-sec-card__title';
+      title.className = 'fc-status-item__title';
       title.textContent = sec.label;
-      const desc = document.createElement('span');
-      desc.className = 'fc-sec-card__desc';
-      desc.textContent = sec.desc;
-      body.appendChild(title);
-      body.appendChild(desc);
-
+      const optional = REQUIRED_SECTIONS.indexOf(sec.id) === -1;
+      if (optional) {
+        const opt = document.createElement('span');
+        opt.className = 'fc-status-item__opt';
+        opt.textContent = '선택';
+        title.appendChild(document.createTextNode(' '));
+        title.appendChild(opt);
+      }
       const status = document.createElement('span');
-      status.className = 'fc-sec-card__status';
+      status.className = 'fc-status-item__status';
       status.dataset.statusFor = sec.id;
-      status.textContent = '0% 작성완료';
+      status.textContent = '작성 전';
+      body.appendChild(title);
+      body.appendChild(status);
 
-      card.appendChild(ic);
-      card.appendChild(body);
-      card.appendChild(status);
-      card.addEventListener('click', function () { openPanel(sec.id); });
-      grid.appendChild(card);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'fc-status-item__btn';
+      btn.dataset.btnFor = sec.id;
+      btn.textContent = '작성하기';
+      btn.addEventListener('click', function () { openPanel(sec.id); });
+
+      item.appendChild(check);
+      item.appendChild(body);
+      item.appendChild(btn);
+      // 행 전체 클릭으로도 패널 열기(버튼 외 영역)
+      item.addEventListener('click', function (e) {
+        if (e.target.closest('.fc-status-item__btn')) return;
+        openPanel(sec.id);
+      });
+      list.appendChild(item);
     });
   }
 
@@ -253,7 +273,7 @@
       } else {
         thumb.classList.add('is-empty');
         const ic = document.createElement('div');
-        ic.className = 'fc-ws-head__thumb-ic';
+        ic.className = 'fc-ws-summary__thumb-ic';
         const key = catObj ? catObj.key : 'etc';
         ic.innerHTML = (typeof window.categoryIconSvg === 'function') ? window.categoryIconSvg(key) : '';
         thumb.appendChild(ic);
@@ -326,14 +346,20 @@
       const complete = isSectionComplete(sec.id);
       if (complete) done++;
       const statusEl = document.querySelector('[data-status-for="' + sec.id + '"]');
-      const card = document.querySelector('.fc-sec-card[data-section="' + sec.id + '"]');
-      if (statusEl) statusEl.textContent = complete ? '100% 작성완료' : '0% 작성완료';
-      if (card) card.classList.toggle('is-done', complete);
+      const item = document.querySelector('.fc-status-item[data-section="' + sec.id + '"]');
+      const checkEl = document.querySelector('[data-check-for="' + sec.id + '"]');
+      const btnEl = document.querySelector('[data-btn-for="' + sec.id + '"]');
+      if (statusEl) statusEl.textContent = complete ? '작성 완료' : '작성 전';
+      if (item) item.classList.toggle('is-done', complete);
+      if (checkEl) checkEl.innerHTML = complete ? CHECK_DONE_SVG : CHECK_TODO_SVG;
+      if (btnEl) btnEl.textContent = complete ? '수정하기' : '작성하기';
     });
     const pct = secs.length ? Math.round((done / secs.length) * 100) : 0;
 
     const bar = document.getElementById('fcWsProgressBar');
     if (bar) bar.style.width = pct + '%';
+    const pctEl = document.getElementById('fcWsProgressPct');
+    if (pctEl) pctEl.textContent = pct + '%';
     const status = document.getElementById('fcWsStatus');
     if (status) status.textContent = pct >= 100 ? ('준비 완료 · ' + pct + '% 완료') : ('기획중 · ' + pct + '% 완료');
 

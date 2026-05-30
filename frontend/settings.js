@@ -1,12 +1,22 @@
 /**
- * 설정 (스펙 §3.5) — 탭(프로필/계정/결제수단/배송지/알림) + 행 UI.
+ * 설정 (와디즈 설정 — 세로 리스트형, 부록2 §설정).
  *
- * API 로직은 기존을 그대로 보존하고 UI만 탭/행 구조로 재배치한다.
- *  - 프로필/계정 수정: PATCH /api/me  (nickname / realName / phone / picture)
+ * 레이아웃(와디즈 그대로):
+ *   카드 중앙 아바타(연필 편집 배지) + 행 리스트
+ *     닉네임 / 이메일 / 국가·지역
+ *     [구분]
+ *     비밀번호 설정 / 알림 설정 / 전화번호 설정 / 생일 정보 / 친구 관리
+ *     [구분]
+ *     SNS 계정 연동
+ *   각 행 = 라벨(작은 회색) + 값(굵게) + 우측 ">" / 인라인 편집 / 토글.
+ *
+ * API 로직은 기존을 보존하고 UI만 와디즈 리스트형으로 재배치한다.
+ *  - 닉네임/전화번호 수정: PATCH /api/me  (nickname / phone)
+ *  - 프로필 사진 변경: PATCH /api/me  (picture)
+ *  - 알림 설정: 행 클릭 → 토글 시트(localStorage push/펀딩/배송/마케팅)
+ *  - 로그아웃: window.handleLogout (main.js)
  *  - 회원 탈퇴: DELETE /api/me
- *  - 배송지: GET/POST/PATCH/DELETE /api/addresses  (window.api)
- *  - 결제수단: GET /api/payment-methods (없으면 빈상태)
- *  - 알림: localStorage pushEnabled 토글
+ *  - 백엔드 없는 항목(국가·지역/비밀번호/생일/친구 관리/SNS) = 행은 그리되 클릭 시 "준비 중".
  *
  * XSS: DOM 생성 + textContent 로 사용자 데이터 처리(innerHTML 에 사용자값 직접 보간 금지).
  */
@@ -34,161 +44,58 @@
     return node;
   }
 
+  /* ---------- 인라인 SVG 아이콘(stroke=currentColor, 이모지 금지) ---------- */
+  const ICON = {
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>',
+    chevron: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18l6-6-6-6"/></svg>',
+    logout: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>',
+  };
+
   document.addEventListener('DOMContentLoaded', init);
 
   async function init() {
     try { me = await window.api.get('/auth/me'); }
     catch (e) { return; } // 401 → api 래퍼가 로그인으로 보냄
-    bindTabs();
-    renderProfile();
+    renderCard();
     renderAccount();
-    renderPayment();
-    renderAddress();
-    renderNoti();
-
-    // ?tab= 쿼리로 진입 시 해당 탭 활성화
-    try {
-      const t = new URLSearchParams(location.search).get('tab');
-      if (t && document.querySelector('.set-tab[data-tab="' + t + '"]')) activateTab(t);
-    } catch (_) { /* ignore */ }
   }
 
-  /* ===== 탭 ===== */
-  const PANES = { profile: 'setProfile', account: 'setAccount', payment: 'setPayment', address: 'setAddress', noti: 'setNoti' };
-
-  function activateTab(tab) {
-    Object.keys(PANES).forEach((k) => { document.getElementById(PANES[k]).hidden = (k !== tab); });
-    document.querySelectorAll('.set-tab').forEach((b) => {
-      b.classList.toggle('is-active', b.dataset.tab === tab);
-    });
-  }
-  function bindTabs() {
-    document.querySelectorAll('.set-tab').forEach((b) => {
-      b.addEventListener('click', () => activateTab(b.dataset.tab));
-    });
-    activateTab('profile');
-  }
-
-  /* ===== 행 빌더(라벨 굵게 + 값/빈문구 + 우측 변경 pill) ===== */
-  function buildRow(label, valueNode, opts) {
-    opts = opts || {};
-    const row = h('div', { class: 'set-row' });
-    row.appendChild(h('div', { class: 'set-row__label' }, label));
-    const valWrap = h('div', { class: 'set-row__value' + (opts.empty ? ' is-empty' : '') });
-    if (typeof valueNode === 'string') valWrap.textContent = valueNode;
-    else if (valueNode) valWrap.appendChild(valueNode);
-    row.appendChild(valWrap);
-    const action = h('div', { class: 'set-row__action' });
-    if (opts.actionNode) action.appendChild(opts.actionNode);
-    else {
-      const btn = h('button', { type: 'button', class: 'set-pill' }, opts.btnLabel || '변경');
-      if (opts.disabled) { btn.disabled = true; btn.title = opts.disabledHint || ''; }
-      if (typeof opts.onChange === 'function') btn.addEventListener('click', () => opts.onChange(row, valWrap, btn));
-      action.appendChild(btn);
-    }
-    row.appendChild(action);
-    return row;
-  }
-
-  /* ===== 프로필 탭 ===== */
-  function renderProfile() {
-    const pane = document.getElementById('setProfile');
-    pane.replaceChildren();
-
-    const layout = h('div', { class: 'set-profile' });
-    const rows = h('div', { class: 'set-rows' });
-
-    // 프로필 사진
-    const pic = (me && me.picture) || '';
+  /* ===== 중앙 아바타(연필 편집 배지) ===== */
+  function renderAvatar() {
+    const wrap = h('div', { class: 'set-avwrap' });
     const avatar = h('div', { class: 'set-avatar' });
+    const pic = (me && me.picture) || '';
     if (pic) {
-      const img = h('img', { alt: '프로필' });
+      const img = h('img', { alt: '프로필 사진' });
       img.src = pic;
+      img.addEventListener('error', () => {
+        img.remove();
+        avatar.appendChild(avatarInitial());
+      });
       avatar.appendChild(img);
     } else {
-      const initial = (((me && (me.nickname || me.name)) || 'U') + '').slice(0, 1);
-      avatar.appendChild(h('span', { class: 'set-avatar__initial' }, initial));
+      avatar.appendChild(avatarInitial());
     }
-    const picBtn = h('button', { type: 'button', class: 'set-pill' }, '변경');
+
+    // 연필 편집 배지 — 클릭 시 파일 선택 → PATCH /me { picture }
+    const editBadge = h('button', { type: 'button', class: 'set-avatar__edit', 'aria-label': '프로필 사진 변경' });
+    editBadge.innerHTML = ICON.pencil;
     const picInput = h('input', { type: 'file', accept: 'image/*', hidden: 'hidden' });
-    picBtn.addEventListener('click', () => picInput.click());
+    editBadge.addEventListener('click', () => picInput.click());
     picInput.addEventListener('change', onPicSelected);
-    const picAction = h('div', { class: 'set-row__action' }, picBtn, picInput);
-    rows.appendChild(buildRow('프로필 사진', avatar, { actionNode: picAction }));
 
-    // 이름(닉네임 — PATCH 가능)
-    const nameVal = (me && me.nickname) || (me && me.name) || '';
-    rows.appendChild(buildRow('이름', nameVal || '등록된 이름이 없어요', {
-      empty: !nameVal,
-      onChange: (row, valWrap, btn) => openInlineEdit(row, valWrap, btn, {
-        value: nameVal, placeholder: '이름(닉네임)', field: 'nickname', required: true,
-      }),
-    }));
+    avatar.appendChild(editBadge);
+    wrap.append(avatar, picInput);
 
-    // 사용자이름(URL) — 백엔드 미지원: 빈상태 + 준비중
-    rows.appendChild(buildRow('사용자이름', '아직 등록할 수 없어요', {
-      empty: true, disabled: true, disabledHint: '준비 중인 기능입니다',
-    }));
-
-    // 소개 — 백엔드 미지원
-    rows.appendChild(buildRow('소개', '등록된 소개가 없어요', {
-      empty: true, disabled: true, disabledHint: '준비 중인 기능입니다',
-    }));
-
-    // 웹사이트 — 백엔드 미지원
-    rows.appendChild(buildRow('웹사이트', '등록된 웹사이트가 없어요', {
-      empty: true, disabled: true, disabledHint: '준비 중인 기능입니다',
-    }));
-
-    layout.appendChild(rows);
-
-    // 안내 카드
-    const aside = h('aside', { class: 'set-aside' });
-    aside.appendChild(h('h2', { class: 'set-aside__title' }, '어떤 정보가 프로필에 공개되나요?'));
-    aside.appendChild(h('p', { class: 'set-aside__text' },
-      '프로필 사진과 이름은 내가 개설하거나 후원한 프로젝트에 공개돼요. 이메일·연락처·배송지 등 민감한 정보는 공개되지 않습니다.'));
-    layout.appendChild(aside);
-
-    pane.appendChild(layout);
+    const name = (me && (me.nickname || me.name)) || '회원';
+    wrap.appendChild(h('p', { class: 'set-avwrap__name' }, name));
+    if (me && me.email) wrap.appendChild(h('p', { class: 'set-avwrap__email' }, me.email));
+    return wrap;
   }
 
-  /** 인라인 편집기 열기 — 행의 값/버튼을 입력 폼으로 교체, 저장 시 PATCH /me */
-  function openInlineEdit(row, valWrap, btn, cfg) {
-    if (row.querySelector('.set-edit')) return;
-    btn.style.display = 'none';
-    valWrap.style.display = 'none';
-
-    const wrap = h('div', { class: 'set-edit' });
-    const input = h('input', { class: 'dt-input', type: cfg.type || 'text', placeholder: cfg.placeholder || '' });
-    input.value = cfg.value || '';
-    const msg = h('p', { class: 'set-msg' });
-    const saveBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--dark', style: 'height:42px;' }, '저장');
-    const cancelBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--ghost', style: 'height:42px;' }, '취소');
-    const rowEl = h('div', { class: 'set-edit__row' }, input);
-    const btns = h('div', { class: 'set-edit__btns' }, saveBtn, cancelBtn);
-    wrap.append(rowEl, btns, msg);
-    row.querySelector('.set-row__value').after(wrap);
-
-    function cleanup() { wrap.remove(); valWrap.style.display = ''; btn.style.display = ''; }
-    cancelBtn.addEventListener('click', cleanup);
-    saveBtn.addEventListener('click', async () => {
-      const v = input.value.trim();
-      if (cfg.required && !v) { msg.className = 'set-msg set-msg--err'; msg.textContent = '값을 입력해 주세요.'; return; }
-      saveBtn.disabled = true; saveBtn.textContent = '저장 중…';
-      try {
-        const body = {}; body[cfg.field] = v;
-        const res = await window.api.patch('/me', body);
-        me = Object.assign(me || {}, res);
-        cleanup();
-        renderProfile();
-        renderAccount();
-      } catch (err) {
-        msg.className = 'set-msg set-msg--err';
-        msg.textContent = (err && err.message) || '저장에 실패했습니다.';
-        saveBtn.disabled = false; saveBtn.textContent = '저장';
-      }
-    });
-    input.focus();
+  function avatarInitial() {
+    const initial = (((me && (me.nickname || me.name)) || 'U') + '').slice(0, 1);
+    return h('span', { class: 'set-avatar__initial' }, initial);
   }
 
   /** 프로필 사진 선택 → PATCH /me { picture } (기존 로직 보존) */
@@ -202,118 +109,168 @@
       try {
         const res = await window.api.patch('/me', { picture: reader.result });
         me = Object.assign(me || {}, res);
-        renderProfile();
+        renderCard();
       } catch (err) { alert('사진 변경 실패: ' + ((err && err.message) || '')); }
     };
     reader.readAsDataURL(f);
   }
 
-  /* ===== 계정 탭 ===== */
-  function renderAccount() {
-    const pane = document.getElementById('setAccount');
-    pane.replaceChildren();
-    const wrap = h('div', { class: 'set-single' });
-
-    // 이메일 (학교 도메인 = 인증된 메일로 간주, 그 외엔 미인증 빨강 표기)
-    const email = (me && me.email) || '';
-    const verified = !!email && /@kookmin\.ac\.kr$/i.test(email);
-    const emailBlock = h('div', { class: 'set-block' });
-    const emailTop = h('div', { class: 'set-block__top' });
-    const emailLeft = h('div', {});
-    emailLeft.appendChild(h('div', { class: 'set-block__label' }, '이메일'));
-    emailLeft.appendChild(h('div', { class: 'set-block__value' }, email || '-'));
-    if (email && !verified) {
-      emailLeft.appendChild(h('div', { class: 'set-block__value is-danger', style: 'margin-top:2px;' }, '미인증 이메일'));
-    }
-    emailTop.appendChild(emailLeft);
-    emailBlock.appendChild(emailTop);
-    wrap.appendChild(emailBlock);
-
-    // 비밀번호 (소셜 로그인 — 별도 비밀번호 없음)
-    const pwBlock = h('div', { class: 'set-block' });
-    const pwTop = h('div', { class: 'set-block__top' });
-    const pwLeft = h('div', {});
-    pwLeft.appendChild(h('div', { class: 'set-block__label' }, '비밀번호'));
-    pwLeft.appendChild(h('div', { class: 'set-block__value' }, '소셜 로그인 사용 중'));
-    pwLeft.appendChild(h('div', { class: 'set-block__sub' }, '구글 계정으로 로그인하므로 별도 비밀번호가 없습니다.'));
-    pwTop.appendChild(pwLeft);
-    pwBlock.appendChild(pwTop);
-    wrap.appendChild(pwBlock);
-
-    // 연락처 (PATCH 가능)
-    const phone = (me && me.phone) || '';
-    const phoneBlock = h('div', { class: 'set-block' });
-    const phoneTop = h('div', { class: 'set-block__top' });
-    const phoneLeft = h('div', {});
-    phoneLeft.appendChild(h('div', { class: 'set-block__label' }, '연락처'));
-    const phoneVal = h('div', { class: 'set-block__value' + (phone ? '' : '') }, phone || '등록된 연락처가 없어요');
-    if (!phone) phoneVal.style.color = 'var(--c-text-faint)';
-    phoneLeft.appendChild(phoneVal);
-    phoneTop.appendChild(phoneLeft);
-    const phoneBtn = h('button', { type: 'button', class: 'set-pill' }, '변경');
-    phoneBtn.addEventListener('click', () => openAccountPhoneEdit(phoneBlock, phone));
-    phoneTop.appendChild(phoneBtn);
-    phoneBlock.appendChild(phoneTop);
-    wrap.appendChild(phoneBlock);
-
-    // 소셜 계정 연동 (구글 연동중)
-    const socialBlock = h('div', { class: 'set-block' });
-    const socialTop = h('div', { class: 'set-block__top' });
-    const socialLeft = h('div', {});
-    socialLeft.appendChild(h('div', { class: 'set-block__label' }, '소셜 계정 연동'));
-    const socialVal = h('div', { class: 'set-block__value' });
-    socialVal.appendChild(document.createTextNode('Google '));
-    socialVal.appendChild(h('span', { class: 'dt-badge dt-badge--success' }, '연동중'));
-    socialLeft.appendChild(socialVal);
-    socialTop.appendChild(socialLeft);
-    socialBlock.appendChild(socialTop);
-    wrap.appendChild(socialBlock);
-
-    // 로그아웃
-    const logoutBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--outline dt-btn--block', style: 'margin:8px 0 4px;' }, '로그아웃');
-    logoutBtn.addEventListener('click', () => {
-      if (typeof window.handleLogout === 'function') window.handleLogout();
-      else { fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => { location.href = '/main.html'; }); }
+  /* ===== 행 빌더 — 라벨(작은 회색) + 값(굵게) + 우측 ">"/토글/인라인 ===== */
+  /**
+   * @param {string} label  좌측 라벨(작은 회색)
+   * @param {string} value  값(굵게). 빈값이면 opts.empty 권장.
+   * @param {object} opts
+   *   - empty:boolean      값 없음(회색 톤 + 안내 문구)
+   *   - chevron:boolean    우측 ">" 표시(클릭형 행)
+   *   - disabled:boolean   준비 중(흐림 + 클릭 시 토스트)
+   *   - rightNode:Node     우측 커스텀 노드(토글/배지 등). chevron 대체.
+   *   - onClick:fn(row)    행 클릭 핸들러
+   */
+  function buildRow(label, value, opts) {
+    opts = opts || {};
+    const clickable = !!(opts.onClick || opts.chevron) && !opts.disabled;
+    const row = h('div', {
+      class: 'set-row'
+        + (clickable ? ' is-clickable' : '')
+        + (opts.disabled ? ' is-disabled' : ''),
     });
-    wrap.appendChild(logoutBtn);
 
-    // 회원 탈퇴
-    const dz = h('div', { class: 'set-danger-zone' });
-    dz.appendChild(h('h3', { class: 'set-danger-zone__title' }, '회원 탈퇴'));
-    dz.appendChild(h('p', { class: 'set-danger-zone__text' },
-      '탈퇴 시 계정·배송지·후원 내역이 삭제되며 되돌릴 수 없습니다. 진행 중인 펀드·주문이 있으면 탈퇴가 제한됩니다.'));
-    const delBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--danger' }, '회원 탈퇴');
-    delBtn.addEventListener('click', onDeleteAccount);
-    dz.appendChild(delBtn);
-    wrap.appendChild(dz);
+    const text = h('div', { class: 'set-row__text' });
+    text.appendChild(h('span', { class: 'set-row__label' }, label));
+    const valEl = h('span', { class: 'set-row__value' + (opts.empty ? ' is-empty' : '') });
+    valEl.textContent = value;
+    text.appendChild(valEl);
+    row.appendChild(text);
 
-    pane.appendChild(wrap);
+    const right = h('div', { class: 'set-row__right' });
+    if (opts.rightNode) {
+      right.appendChild(opts.rightNode);
+    } else if (opts.disabled) {
+      right.appendChild(h('span', { class: 'set-row__soon' }, '준비 중'));
+    } else if (opts.chevron) {
+      const chev = h('span', { class: 'set-row__chevron', 'aria-hidden': 'true' });
+      chev.innerHTML = ICON.chevron;
+      right.appendChild(chev);
+    }
+    row.appendChild(right);
+
+    if (opts.disabled) {
+      row.addEventListener('click', () => toast('준비 중인 기능입니다.'));
+    } else if (typeof opts.onClick === 'function') {
+      row.addEventListener('click', (e) => {
+        // 인라인 편집/토글이 이미 열려있으면 행 자체 클릭 무시
+        if (e.target.closest('.set-edit') || e.target.closest('.set-row__right .set-toggle')) return;
+        opts.onClick(row, valEl);
+      });
+    }
+    return row;
   }
 
-  /** 연락처 인라인 편집 — PATCH /me { phone } */
-  function openAccountPhoneEdit(block, current) {
-    if (block.querySelector('.set-edit')) return;
-    const top = block.querySelector('.set-block__top');
-    top.style.display = 'none';
+  function group(...rows) {
+    return h('div', { class: 'set-group' }, ...rows.filter(Boolean));
+  }
+
+  /* ===== 메인 카드(아바타 + 세로 리스트) ===== */
+  function renderCard() {
+    const card = document.getElementById('setCard');
+    if (!card) return;
+    card.replaceChildren();
+
+    card.appendChild(renderAvatar());
+
+    const nickname = (me && me.nickname) || (me && me.name) || '';
+    const email = (me && me.email) || '';
+    const phone = (me && me.phone) || '';
+
+    // ── 그룹1: 닉네임 / 이메일 / 국가·지역 ─────────────────────────
+    const g1 = group(
+      // 닉네임 — PATCH /me { nickname } (인라인 편집)
+      buildRow('닉네임', nickname || '등록된 닉네임이 없어요', {
+        empty: !nickname,
+        chevron: true,
+        onClick: (row, valEl) => openInlineEdit(row, valEl, {
+          value: nickname, placeholder: '닉네임', field: 'nickname', required: true, type: 'text',
+        }),
+      }),
+      // 이메일 — 변경 불가(로그인 계정), 인증 배지
+      (function emailRow() {
+        const verified = !!email && /@kookmin\.ac\.kr$/i.test(email);
+        const badge = h('span', { class: 'dt-badge ' + (verified ? 'dt-badge--success' : 'dt-badge--danger') },
+          verified ? '인증됨' : '미인증');
+        return buildRow('이메일', email || '-', { rightNode: badge });
+      })(),
+      // 국가·지역 — 백엔드 미지원. 행은 그리되 클릭 시 준비 중.
+      buildRow('국가·지역', '대한민국', { disabled: true })
+    );
+    card.appendChild(g1);
+
+    // ── 구분선 ───────────────────────────────────────────────────
+    card.appendChild(h('div', { class: 'set-divider' }));
+
+    // ── 그룹2: 비밀번호 / 알림 / 전화번호 / 생일 / 친구 관리 ──────────
+    const g2 = group(
+      // 비밀번호 설정 — 소셜 로그인(별도 비밀번호 없음). 준비 중.
+      buildRow('비밀번호 설정', '구글 로그인 사용 중', { disabled: true }),
+      // 알림 설정 — 토글 시트(localStorage)
+      buildRow('알림 설정', notiSummary(), {
+        chevron: true,
+        onClick: (row) => openNotiSheet(row),
+      }),
+      // 전화번호 설정 — PATCH /me { phone } (인라인 편집)
+      buildRow('전화번호 설정', phone || '등록된 전화번호가 없어요', {
+        empty: !phone,
+        chevron: true,
+        onClick: (row, valEl) => openInlineEdit(row, valEl, {
+          value: phone, placeholder: '휴대폰 번호 (예: 010-1234-5678)', field: 'phone', required: false, type: 'tel',
+        }),
+      }),
+      // 생일 정보 — 백엔드 미지원. 준비 중.
+      buildRow('생일 정보', '등록된 생일 정보가 없어요', { empty: true, disabled: true }),
+      // 친구 관리 — 백엔드 미지원. 준비 중.
+      buildRow('친구 관리', '준비 중인 기능이에요', { empty: true, disabled: true })
+    );
+    card.appendChild(g2);
+
+    // ── 구분선 ───────────────────────────────────────────────────
+    card.appendChild(h('div', { class: 'set-divider' }));
+
+    // ── 그룹3: SNS 계정 연동 ─────────────────────────────────────
+    const googleBadge = h('span', { class: 'dt-badge dt-badge--open' }, '연동중');
+    const g3 = group(
+      buildRow('SNS 계정 연동', 'Google 계정', { rightNode: googleBadge })
+    );
+    card.appendChild(g3);
+  }
+
+  /* ===== 인라인 편집 — 행 펼쳐서 입력 폼, 저장 시 PATCH /me ===== */
+  function openInlineEdit(row, valEl, cfg) {
+    if (row.querySelector('.set-edit')) return;
+    row.classList.add('is-editing');
 
     const wrap = h('div', { class: 'set-edit' });
-    const input = h('input', { class: 'dt-input', type: 'tel', placeholder: '휴대폰 번호 (예: 010-1234-5678)' });
-    input.value = current || '';
+    const input = h('input', { class: 'dt-input', type: cfg.type || 'text', placeholder: cfg.placeholder || '' });
+    input.value = cfg.value || '';
     const msg = h('p', { class: 'set-msg' });
     const saveBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--dark', style: 'height:42px;' }, '저장');
     const cancelBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--ghost', style: 'height:42px;' }, '취소');
-    wrap.append(h('div', { class: 'set-edit__row' }, input), h('div', { class: 'set-edit__btns' }, saveBtn, cancelBtn), msg);
-    block.appendChild(wrap);
+    const inputRow = h('div', { class: 'set-edit__row' }, input);
+    const btns = h('div', { class: 'set-edit__btns' }, saveBtn, cancelBtn);
+    wrap.append(inputRow, btns, msg);
+    row.appendChild(wrap);
 
-    function cleanup() { wrap.remove(); top.style.display = ''; }
-    cancelBtn.addEventListener('click', cleanup);
-    saveBtn.addEventListener('click', async () => {
+    function cleanup() { wrap.remove(); row.classList.remove('is-editing'); }
+    cancelBtn.addEventListener('click', (e) => { e.stopPropagation(); cleanup(); });
+    saveBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const v = input.value.trim();
+      if (cfg.required && !v) { msg.className = 'set-msg set-msg--err'; msg.textContent = '값을 입력해 주세요.'; return; }
       saveBtn.disabled = true; saveBtn.textContent = '저장 중…';
       try {
-        const res = await window.api.patch('/me', { phone: input.value.trim() });
+        const body = {}; body[cfg.field] = v;
+        const res = await window.api.patch('/me', body);
         me = Object.assign(me || {}, res);
         cleanup();
-        renderAccount();
+        renderCard();
       } catch (err) {
         msg.className = 'set-msg set-msg--err';
         msg.textContent = (err && err.message) || '저장에 실패했습니다.';
@@ -321,6 +278,81 @@
       }
     });
     input.focus();
+  }
+
+  /* ===== 알림 설정 — 토글 시트(localStorage) ===== */
+  const NOTI_ITEMS = [
+    { key: 'pushEnabled', title: '푸시 알림', desc: '달성·결제·배송 알림 받기', defaultOn: true },
+    { key: 'notiFunding', title: '펀딩 소식', desc: '내가 후원한 프로젝트의 달성·업데이트 알림', defaultOn: true },
+    { key: 'notiOrder', title: '결제·배송 알림', desc: '입금 확인·제작·발송 단계 알림', defaultOn: true },
+    { key: 'notiMarketing', title: '마케팅·혜택 알림', desc: '이벤트·추천 프로젝트 등 마케팅 정보 수신', defaultOn: false },
+  ];
+
+  function notiOn(item) {
+    const stored = localStorage.getItem(item.key);
+    return stored == null ? item.defaultOn : (stored !== '0');
+  }
+
+  /** 알림 행 우측 요약("3개 켜짐") */
+  function notiSummary() {
+    const on = NOTI_ITEMS.filter(notiOn).length;
+    return on + '개 켜짐';
+  }
+
+  /** 알림 설정 시트 — 행 아래로 펼쳐지는 토글 목록 */
+  function openNotiSheet(row) {
+    const existing = row.querySelector('.set-noti');
+    if (existing) { existing.remove(); row.classList.remove('is-editing'); return; }
+    row.classList.add('is-editing');
+
+    const sheet = h('div', { class: 'set-noti' });
+    NOTI_ITEMS.forEach((item) => {
+      const line = h('div', { class: 'set-noti__row' });
+      const left = h('div', { class: 'set-noti__text' });
+      left.appendChild(h('span', { class: 'set-noti__title' }, item.title));
+      left.appendChild(h('span', { class: 'set-noti__desc' }, item.desc));
+      line.appendChild(left);
+
+      const on = notiOn(item);
+      const toggle = h('button', { type: 'button', class: 'set-toggle', 'aria-pressed': String(on), 'aria-label': item.title });
+      toggle.appendChild(h('span', { class: 'set-toggle__knob' }));
+      toggle.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cur = toggle.getAttribute('aria-pressed') === 'true';
+        const next = !cur;
+        localStorage.setItem(item.key, next ? '1' : '0');
+        toggle.setAttribute('aria-pressed', String(next));
+        // 행 우측 요약 갱신
+        const valEl = row.querySelector('.set-row__value');
+        if (valEl) valEl.textContent = notiSummary();
+      });
+      line.appendChild(toggle);
+      sheet.appendChild(line);
+    });
+    row.appendChild(sheet);
+  }
+
+  /* ===== 하단 계정 액션 — 로그아웃 / 회원 탈퇴 (기존 API 보존) ===== */
+  function renderAccount() {
+    const pane = document.getElementById('setAccount');
+    if (!pane) return;
+    pane.replaceChildren();
+
+    // 로그아웃
+    const logoutBtn = h('button', { type: 'button', class: 'set-account__logout' });
+    const lic = h('span', { class: 'set-account__logout-ic', 'aria-hidden': 'true' });
+    lic.innerHTML = ICON.logout;
+    logoutBtn.append(lic, h('span', {}, '로그아웃'));
+    logoutBtn.addEventListener('click', () => {
+      if (typeof window.handleLogout === 'function') window.handleLogout();
+      else { fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).finally(() => { location.href = '/main.html'; }); }
+    });
+    pane.appendChild(logoutBtn);
+
+    // 회원 탈퇴
+    const delBtn = h('button', { type: 'button', class: 'set-account__withdraw' }, '회원 탈퇴');
+    delBtn.addEventListener('click', onDeleteAccount);
+    pane.appendChild(delBtn);
   }
 
   async function onDeleteAccount() {
@@ -336,294 +368,14 @@
     }
   }
 
-  /* ===== 결제수단 탭 ===== */
-  async function renderPayment() {
-    const pane = document.getElementById('setPayment');
-    pane.replaceChildren();
-    const wrap = h('div', { class: 'set-single' });
-    pane.appendChild(wrap);
-
-    // 무통장입금 안내(현행 결제 방식)
-    const info = h('div', { class: 'set-block' });
-    info.appendChild(h('div', { class: 'set-block__value' }, '무통장입금(계좌이체)'));
-    info.appendChild(h('p', { class: 'set-block__sub' },
-      '현재 후원은 무통장입금으로 진행됩니다. 후원 시 안내되는 계좌로 입금 후 입금자명을 제출하면 관리자 확인 후 후원이 확정됩니다.'));
-    wrap.appendChild(info);
-
-    // 등록된 카드/계좌 목록 (없으면 빈상태)
-    const listHead = h('div', { class: 'set-list-head' });
-    listHead.appendChild(h('h2', { class: 'set-block__value', style: 'margin:0;' }, '등록된 결제수단'));
-    wrap.appendChild(listHead);
-
-    const listBox = h('div', {});
-    wrap.appendChild(listBox);
-
-    let methods = [];
-    try {
-      const r = await window.api.get('/payment-methods', { silentAuthFail: true });
-      methods = Array.isArray(r) ? r : (r && r.items) || [];
-    } catch (_) { methods = []; }
-
-    if (!methods.length) {
-      const empty = h('div', { class: 'set-empty' });
-      const img = h('img', { alt: '' });
-      img.src = '/assets/empty-backings.png';
-      img.addEventListener('error', () => img.remove());
-      empty.appendChild(img);
-      empty.appendChild(h('p', { class: 'set-empty__text' }, '등록된 카드·계좌가 없어요. 카드 결제는 준비 중입니다.'));
-      listBox.appendChild(empty);
-      return;
-    }
-
-    methods.forEach((m) => {
-      const card = h('div', { class: 'set-block' });
-      const top = h('div', { class: 'set-block__top' });
-      const left = h('div', {});
-      const name = (m.cardName || channelLabel(m.channelType) || '결제수단')
-        + (m.cardLastFour ? ' ****' + m.cardLastFour : '');
-      const nameVal = h('div', { class: 'set-block__value' }, name);
-      if (m.isDefault) nameVal.appendChild(h('span', { class: 'dt-badge dt-badge--open', style: 'margin-left:8px;' }, '기본'));
-      left.appendChild(nameVal);
-      top.appendChild(left);
-      card.appendChild(top);
-      listBox.appendChild(card);
-    });
-  }
-
-  function channelLabel(t) {
-    return ({ TOSSPAY: '토스페이', KAKAOPAY: '카카오페이', NAVERPAY: '네이버페이', CARD_DIRECT: '카드' })[t] || '';
-  }
-
-  /* ===== 배송지 탭 ===== */
-  function renderAddress() {
-    const pane = document.getElementById('setAddress');
-    pane.replaceChildren();
-    const wrap = h('div', { class: 'set-single' });
-
-    const head = h('div', { class: 'set-list-head' });
-    head.appendChild(h('span', { class: 'set-list-head__count', id: 'addrCount' }, ''));
-    const addBtn = h('button', { type: 'button', class: 'dt-btn dt-btn--outline', style: 'height:40px;' }, '배송지 추가');
-    addBtn.addEventListener('click', () => openAddrModal());
-    head.appendChild(addBtn);
-    wrap.appendChild(head);
-
-    const list = h('div', { id: 'addrList' });
-    wrap.appendChild(list);
-    pane.appendChild(wrap);
-
-    loadAddresses();
-  }
-
-  async function loadAddresses() {
-    const list = document.getElementById('addrList');
-    const count = document.getElementById('addrCount');
-    if (!list) return;
-    list.replaceChildren();
-
-    let items = [];
-    try {
-      const r = await window.api.get('/addresses');
-      items = Array.isArray(r) ? r : (r && r.items) || [];
-    } catch (err) {
-      if (err && err.status === 401) return;
-      const e = h('div', { class: 'set-empty' });
-      e.appendChild(h('p', { class: 'set-empty__text' }, '배송지를 불러오지 못했어요.'));
-      list.appendChild(e);
-      return;
-    }
-
-    if (count) count.textContent = '총 ' + items.length + '개';
-
-    if (!items.length) {
-      const empty = h('div', { class: 'set-empty' });
-      const img = h('img', { alt: '' });
-      img.src = '/assets/empty-backings.png';
-      img.addEventListener('error', () => img.remove());
-      empty.appendChild(img);
-      empty.appendChild(h('p', { class: 'set-empty__text' }, '등록된 배송지가 없어요. 후원하려면 배송지를 추가해 주세요.'));
-      const cta = h('button', { type: 'button', class: 'dt-btn dt-btn--dark' }, '배송지 추가');
-      cta.addEventListener('click', () => openAddrModal());
-      empty.appendChild(cta);
-      list.appendChild(empty);
-      return;
-    }
-
-    items.forEach((a) => list.appendChild(renderAddrCard(a)));
-  }
-
-  function renderAddrCard(a) {
-    const card = h('div', { class: 'set-addr' + (a.isDefault ? ' is-default' : '') });
-    const head = h('div', { class: 'set-addr__head' });
-    head.appendChild(h('span', { class: 'set-addr__label' }, a.label || '배송지'));
-    if (a.isDefault) head.appendChild(h('span', { class: 'dt-badge dt-badge--open' }, '기본 배송지'));
-    card.appendChild(head);
-
-    card.appendChild(h('div', { class: 'set-addr__line' },
-      (a.recipientName || '') + (a.recipientPhone ? ' · ' + a.recipientPhone : '')));
-    const addrLine = '(' + (a.postalCode || '') + ') ' + (a.roadAddress || '')
-      + (a.detailAddress ? ' ' + a.detailAddress : '');
-    card.appendChild(h('div', { class: 'set-addr__line' }, addrLine));
-
-    const actions = h('div', { class: 'set-addr__actions' });
-    if (!a.isDefault) {
-      const setDef = h('button', { type: 'button', class: 'set-link-btn' }, '기본으로 설정');
-      setDef.addEventListener('click', () => setDefaultAddr(a.id));
-      actions.appendChild(setDef);
-    }
-    const del = h('button', { type: 'button', class: 'set-link-btn set-link-btn--danger' }, '삭제');
-    del.addEventListener('click', () => deleteAddr(a.id, a.label));
-    actions.appendChild(del);
-    card.appendChild(actions);
-    return card;
-  }
-
-  async function setDefaultAddr(id) {
-    try { await window.api.patch('/addresses/' + encodeURIComponent(id) + '/default'); await loadAddresses(); }
-    catch (err) { alert((err && err.message) || '기본 배송지 변경에 실패했습니다.'); }
-  }
-  async function deleteAddr(id, label) {
-    if (!confirm('「' + (label || '배송지') + '」 배송지를 삭제할까요?')) return;
-    try { await window.api.del('/addresses/' + encodeURIComponent(id)); await loadAddresses(); }
-    catch (err) { alert((err && err.message) || '삭제에 실패했습니다.'); }
-  }
-
-  /* ===== 배송지 추가 모달 ===== */
-  let _addrModal = null;
-  function openAddrModal() {
-    if (!_addrModal) _addrModal = buildAddrModal();
-    const form = _addrModal.querySelector('form');
-    form.reset();
-    _addrModal.querySelector('.set-modal__msg').textContent = '';
-    _addrModal.classList.add('is-open');
-    const first = form.querySelector('input[name="recipientName"]');
-    if (first) first.focus();
-  }
-  function closeAddrModal() { if (_addrModal) _addrModal.classList.remove('is-open'); }
-
-  function buildAddrModal() {
-    const modal = h('div', { class: 'set-modal' });
-    const box = h('div', { class: 'set-modal__box' });
-
-    const head = h('div', { class: 'set-modal__head' });
-    head.appendChild(h('h3', { class: 'set-modal__title' }, '배송지 추가'));
-    const closeBtn = h('button', { type: 'button', class: 'set-modal__close', 'aria-label': '닫기' }, '×');
-    closeBtn.addEventListener('click', closeAddrModal);
-    head.appendChild(closeBtn);
-    box.appendChild(head);
-
-    const form = h('form', { class: 'set-modal__form' });
-
-    function field(labelText, name, type, placeholder) {
-      const f = h('div', { class: 'set-modal__field' });
-      f.appendChild(h('label', { class: 'dt-field-label' }, labelText));
-      const input = h('input', { class: 'dt-input', type: type || 'text', name: name, placeholder: placeholder || '' });
-      f.appendChild(input);
-      return f;
-    }
-
-    form.appendChild(field('배송지 이름', 'label', 'text', '예: 우리집, 학교'));
-    form.appendChild(field('받는 사람', 'recipientName', 'text', '받는 분 성함'));
-    form.appendChild(field('휴대폰', 'recipientPhone', 'tel', '010-1234-5678'));
-    form.appendChild(field('우편번호', 'postalCode', 'text', '예: 02707'));
-    form.appendChild(field('주소', 'roadAddress', 'text', '도로명 주소'));
-    form.appendChild(field('상세 주소', 'detailAddress', 'text', '동·호수 등 (선택)'));
-
-    const defField = h('label', { class: 'set-modal__check' });
-    const defInput = h('input', { type: 'checkbox', name: 'isDefault' });
-    defField.appendChild(defInput);
-    defField.appendChild(h('span', {}, '기본 배송지로 설정'));
-    form.appendChild(defField);
-
-    const agreeField = h('label', { class: 'set-modal__check' });
-    const agreeInput = h('input', { type: 'checkbox', name: 'agree' });
-    agreeField.appendChild(agreeInput);
-    agreeField.appendChild(h('span', { class: 'set-modal__agree' },
-      '배송을 위해 입력한 개인정보(이름·연락처·주소)의 수집·이용에 동의합니다.'));
-    form.appendChild(agreeField);
-
-    const msg = h('p', { class: 'set-modal__msg' });
-    form.appendChild(msg);
-
-    const submit = h('button', { type: 'submit', class: 'dt-btn dt-btn--dark dt-btn--block' }, '등록 완료');
-    form.appendChild(submit);
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      msg.className = 'set-modal__msg';
-      const payload = {
-        label: form.label.value.trim(),
-        recipientName: form.recipientName.value.trim(),
-        recipientPhone: form.recipientPhone.value.trim(),
-        postalCode: form.postalCode.value.trim(),
-        roadAddress: form.roadAddress.value.trim(),
-        detailAddress: form.detailAddress.value.trim() || null,
-      };
-      if (!payload.label || !payload.recipientName || !payload.recipientPhone || !payload.postalCode || !payload.roadAddress) {
-        msg.classList.add('set-msg--err'); msg.textContent = '필수 항목(배송지 이름·받는 사람·휴대폰·우편번호·주소)을 모두 입력해 주세요.';
-        return;
-      }
-      if (!agreeInput.checked) {
-        msg.classList.add('set-msg--err'); msg.textContent = '개인정보 수집·이용에 동의해 주세요.';
-        return;
-      }
-      submit.disabled = true; submit.textContent = '등록 중…';
-      try {
-        const created = await window.api.post('/addresses', payload);
-        if (defInput.checked && created && created.id) {
-          try { await window.api.patch('/addresses/' + encodeURIComponent(created.id) + '/default'); } catch (_) { /* 비치명적 */ }
-        }
-        closeAddrModal();
-        await loadAddresses();
-      } catch (err) {
-        msg.classList.add('set-msg--err'); msg.textContent = (err && err.message) || '등록에 실패했습니다.';
-      } finally {
-        submit.disabled = false; submit.textContent = '등록 완료';
-      }
-    });
-
-    box.appendChild(form);
-    modal.appendChild(box);
-    modal.addEventListener('click', (e) => { if (e.target === modal) closeAddrModal(); });
-    document.body.appendChild(modal);
-    return modal;
-  }
-
-  /* ===== 알림 탭 ===== */
-  const NOTI_ITEMS = [
-    { key: 'pushEnabled', title: '푸시 알림', desc: '달성·결제·배송 알림 받기', defaultOn: true },
-    { key: 'notiFunding', title: '펀딩 소식', desc: '내가 후원한 프로젝트의 달성·업데이트 알림', defaultOn: true },
-    { key: 'notiOrder', title: '결제·배송 알림', desc: '입금 확인·제작·발송 단계 알림', defaultOn: true },
-    { key: 'notiMarketing', title: '마케팅·혜택 알림', desc: '이벤트·추천 프로젝트 등 마케팅 정보 수신', defaultOn: false },
-  ];
-
-  function renderNoti() {
-    const pane = document.getElementById('setNoti');
-    pane.replaceChildren();
-    const wrap = h('div', { class: 'set-single' });
-
-    NOTI_ITEMS.forEach((item) => {
-      const block = h('div', { class: 'set-block' });
-      const rowEl = h('div', { class: 'set-toggle-row' });
-      const left = h('div', {});
-      left.appendChild(h('div', { class: 'set-block__value' }, item.title));
-      left.appendChild(h('div', { class: 'set-block__sub' }, item.desc));
-      rowEl.appendChild(left);
-
-      const stored = localStorage.getItem(item.key);
-      const on = stored == null ? item.defaultOn : (stored !== '0');
-      const toggle = h('button', { type: 'button', class: 'set-toggle', 'aria-pressed': String(on), 'aria-label': item.title });
-      toggle.appendChild(h('span', { class: 'set-toggle__knob' }));
-      toggle.addEventListener('click', () => {
-        const cur = toggle.getAttribute('aria-pressed') === 'true';
-        const next = !cur;
-        localStorage.setItem(item.key, next ? '1' : '0');
-        toggle.setAttribute('aria-pressed', String(next));
-      });
-      rowEl.appendChild(toggle);
-      block.appendChild(rowEl);
-      wrap.appendChild(block);
-    });
-
-    pane.appendChild(wrap);
+  /* ===== 간단 토스트(준비 중 안내) ===== */
+  let _toastTimer = null;
+  function toast(text) {
+    let t = document.querySelector('.set-toast');
+    if (!t) { t = h('div', { class: 'set-toast' }); document.body.appendChild(t); }
+    t.textContent = text;
+    t.classList.add('is-show');
+    if (_toastTimer) clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => t.classList.remove('is-show'), 1800);
   }
 })();

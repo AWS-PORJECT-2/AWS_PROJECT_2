@@ -25,19 +25,11 @@
   <main class="set-page dt-wrap">
     <h1 class="set-page__title">설정</h1>
 
-    <div class="set-tabs" id="setTabs" role="tablist">
-      <button class="set-tab is-active" data-tab="profile" role="tab">프로필</button>
-      <button class="set-tab" data-tab="account" role="tab">계정</button>
-      <button class="set-tab" data-tab="payment" role="tab">결제수단</button>
-      <button class="set-tab" data-tab="address" role="tab">배송지</button>
-      <button class="set-tab" data-tab="noti" role="tab">알림</button>
-    </div>
+    <!-- 와디즈식 세로 리스트: 중앙 아바타(연필 편집) + 행 리스트 -->
+    <section class="set-card" id="setCard"></section>
 
-    <section id="setProfile" class="set-pane"></section>
-    <section id="setAccount" class="set-pane" hidden></section>
-    <section id="setPayment" class="set-pane" hidden></section>
-    <section id="setAddress" class="set-pane" hidden></section>
-    <section id="setNoti" class="set-pane" hidden></section>
+    <!-- 하단 계정 액션(로그아웃 / 회원 탈퇴) — 기존 API 보존 -->
+    <section class="set-account" id="setAccount"></section>
   </main>
 </body>
 </html>

@@ -50,19 +50,27 @@
     <!-- 화면 2: 프로젝트 작업실(워크스페이스)                       -->
     <!-- ========================================================= -->
     <section id="fcWorkspace" class="fc-workspace dt-wrap" hidden>
-      <!-- 상단 요약 헤더 -->
-      <div class="fc-ws-head">
-        <button type="button" id="fcBackToChoose" class="fc-ws-head__back" aria-label="유형 다시 선택">← 유형 변경</button>
-        <div class="fc-ws-head__main">
-          <div class="fc-ws-head__thumb" id="fcWsThumb" aria-hidden="true"></div>
-          <div class="fc-ws-head__info">
-            <span class="dt-badge dt-badge--cat" id="fcWsCat">카테고리</span>
-            <h1 class="fc-ws-head__title" id="fcWsTitle">내 프로젝트</h1>
-            <span class="fc-ws-head__status" id="fcWsStatus">기획중 · 0% 완료</span>
-          </div>
+      <!-- 작성 현황 상단: 뒤로 + 프로젝트 요약 + 제목/안내/진행바 카드 (와디즈 "작성 현황") -->
+      <button type="button" id="fcBackToChoose" class="fc-ws-back" aria-label="유형 다시 선택">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        <span>유형 변경</span>
+      </button>
+
+      <div class="fc-ws-summary">
+        <div class="fc-ws-summary__thumb" id="fcWsThumb" aria-hidden="true"></div>
+        <div class="fc-ws-summary__info">
+          <span class="dt-badge dt-badge--cat" id="fcWsCat">카테고리</span>
+          <h1 class="fc-ws-summary__title" id="fcWsTitle">내 프로젝트</h1>
+          <span class="fc-ws-summary__status" id="fcWsStatus">기획중 · 0% 완료</span>
         </div>
-        <div class="fc-ws-head__progress">
+      </div>
+
+      <div class="fc-status-head">
+        <h2 class="fc-status-head__title">작성 현황</h2>
+        <p class="fc-status-head__sub">프로젝트를 공개하는 데 필요한 내용을 작성해 주세요.</p>
+        <div class="fc-status-head__bar">
           <div class="dt-progress"><div class="dt-progress__fill" id="fcWsProgressBar" style="width:0%"></div></div>
+          <span class="fc-status-head__pct" id="fcWsProgressPct">0%</span>
         </div>
       </div>
 
@@ -75,13 +83,13 @@
         <button type="button" id="fcOpenAi" class="dt-btn dt-btn--outline">AI 가상피팅 생성</button>
       </div>
 
-      <!-- 섹션 카드 그리드 -->
-      <div id="fcSectionGrid" class="fc-sec-grid"></div>
+      <!-- 작성 현황 세로 카드 리스트 (와디즈 톤) -->
+      <ul id="fcSectionGrid" class="fc-status-list"></ul>
 
-      <!-- 하단 검토 CTA -->
+      <!-- 하단 오픈 예약 CTA -->
       <div class="fc-ws-foot">
         <p class="fc-ws-foot__hint" id="fcWsFootHint"></p>
-        <button type="button" id="fcReview" class="dt-btn dt-btn--dark dt-btn--lg dt-btn--block" disabled>검토 후 개설하기</button>
+        <button type="button" id="fcReview" class="dt-btn dt-btn--dark dt-btn--lg dt-btn--block" disabled>오픈 예약하기</button>
       </div>
     </section>
 

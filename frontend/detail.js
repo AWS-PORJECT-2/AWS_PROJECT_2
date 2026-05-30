@@ -1,13 +1,19 @@
 /**
- * 상세(게시글) 페이지 — 스펙 §3.3 (스크린샷3·4) 재구축.
+ * 상세(프로젝트) 페이지 — 부록2 "와디즈 클론" 상세 레이아웃 재구축.
  *
- * 레이아웃(마크업/스타일만 재배치, 데이터·결제·후원·찜 로직은 보존):
- *   상단 2단: 좌(대표 이미지 정사각 + 썸네일 스트립) / 우(요약·후원 패널)
- *   하단 2단: 좌(탭 + 서브탭 + 스토리) / 우 sticky(창작자 카드 + 리워드)
- *   모바일(<=767): 1단 + 하단 고정 후원 바
+ * 화면 구성(와디즈 상세 그대로):
+ *   상단 탭(이미지 위): 스토리(active) / 업데이트 / 커뮤니티 / 후기
+ *   좌(약 55%): 큰 정사각 이미지 캐러셀(좌/우 화살표 + "1/N", 1장이면 화살표 숨김) + 썸네일 스트립
+ *   우(약 45%): 카테고리 랭킹 pill(데이터 없으면 생략) -> 메이커(아바타+이름) -> 제목
+ *               -> "NNN% 달성 · N일 남음"(% 보라 굵게) -> "NNN원 달성 · N명 참여"
+ *               -> 혜택 박스 -> 공유·찜·응원 행 -> "펀딩하기" 큰 보라 버튼
+ *               -> "N명이 응원했어요" 카드 -> 메이커 카드(팔로우 버튼+문의)
+ *   하단: "프로젝트 스토리"(contentBlocks) + 펀딩/환불 안내 카드. 우 sticky: 리워드 선택. TOP 플로팅.
+ *   모바일(<=767): 1단 + 하단 고정 "펀딩하기" 바.
  *
  * 헤더는 main.js 의 App() 가 #app 에 Header() 를 렌더, 푸터는 renderGlobalFooter() 자동.
- * 데이터: 기존 /api/groupbuys/:id, /api/users/:id/follow, /api/funds/:id/back 등 그대로 사용.
+ * 보존 로직: /api/groupbuys/:id, backFlow(POST /funds/:id/back), 찜(toggleLike),
+ *           팔로우(/users/:id/follow). 응원/지지서명 등 백엔드 없는 기능은 UI만 + "준비 중" 안내.
  */
 
 let currentProduct = null;
@@ -40,6 +46,21 @@ function dEl(tag, props, ...children) {
   }
   return node;
 }
+
+/* ===== 인라인 SVG 아이콘 (stroke=currentColor, 이모지 금지) ===== */
+const ICON = {
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
+  heartFill: '<svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>',
+  share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
+  cheer: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 00-3-3l-4 9v11h11.3a2 2 0 002-1.7l1.4-9a2 2 0 00-2-2.3z"/><path d="M7 22H4a2 2 0 01-2-2v-7a2 2 0 012-2h3"/></svg>',
+  arrowLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  arrowRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>',
+  imgPlaceholder: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg>',
+  shield: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
+  card: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>',
+};
 
 /* ===== 결제 상태 (기존 보존) ===== */
 async function fetchPaymentStatus(productId) {
@@ -95,7 +116,7 @@ function calcRaisedAmount(p) {
   const price = Number(p.price) || 0;
   const qty = Number(p.currentQuantity) || 0;
   const total = price * qty;
-  return total.toLocaleString() + '원';
+  return total.toLocaleString();
 }
 
 /* 카테고리 라벨 — categories.js(dtCategory) 우선 */
@@ -108,16 +129,14 @@ function categoryLabel(cat) {
   return cat;
 }
 
-/* ===== 좋아요 버튼 (하트/공유 아이콘 두 곳: PC 패널 + 모바일 바) ===== */
-const HEART_OUTLINE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>';
-const HEART_FILLED = '<svg viewBox="0 0 24 24" fill="#ef4444" stroke="#ef4444" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/></svg>';
-
+/* ===== 좋아요 버튼 갱신 (우측 패널 + 모바일 바) ===== */
 function updateLikeButton() {
   if (!currentProduct) return;
   const liked = isLiked(currentProduct.id);
   document.querySelectorAll('.dt-iconbtn--like').forEach((btn) => {
     const cntEl = btn.querySelector('.dt-iconbtn__count');
-    btn.querySelector('.dt-iconbtn__ic').innerHTML = liked ? HEART_FILLED : HEART_OUTLINE;
+    const icEl = btn.querySelector('.dt-iconbtn__ic');
+    if (icEl) icEl.innerHTML = liked ? ICON.heartFill : ICON.heart;
     if (cntEl) cntEl.textContent = String(currentProduct.likeCount);
     btn.classList.toggle('liked', liked);
     btn.setAttribute('aria-pressed', liked ? 'true' : 'false');
@@ -143,6 +162,11 @@ function handleShare() {
   } else {
     alert(url);
   }
+}
+
+/* ===== 응원/지지서명 — 백엔드 없음. UI만, 클릭 시 "준비 중" 안내 ===== */
+function handleCheer() {
+  alert('응원하기 기능은 준비 중입니다.');
 }
 
 /* ===== 모달 (포커스 트래핑 포함 — 기존 보존) ===== */
@@ -340,21 +364,76 @@ function saveRecentFund(p) {
   } catch (_) { /* 무시 */ }
 }
 
-/* 액션 버튼(검정 CTA, .dt-btn--dark) HTML — 4단계 분기 (기존 로직 보존) */
-function buildActionButtonHtml() {
+/* 펀딩하기 CTA(보라 .dt-btn--primary) — 4단계 분기 (기존 로직 보존) */
+function buildActionButtonHtml(blockClass) {
+  const block = blockClass ? (' ' + blockClass) : '';
   const paymentState = localStorage.getItem('paid_' + currentProduct.id);
   const rate = getAchievement(currentProduct);
   const isAchieved = rate >= 100;
   if (paymentState === 'pending') {
-    return '<button class="dt-btn dt-btn--lg btn-join" disabled>입금 확인 중</button>';
+    return '<button class="dt-btn dt-btn--lg btn-join' + block + '" disabled>입금 확인 중</button>';
   } else if (currentProduct.isPaid || paymentState === '1') {
-    return '<button class="dt-btn dt-btn--dark dt-btn--lg btn-join" onclick="goToPayment()">결제하기</button>';
+    return '<button class="dt-btn dt-btn--primary dt-btn--lg btn-join' + block + '" onclick="goToPayment()">결제하기</button>';
   } else if (currentProduct.isReserved && isAchieved) {
-    return '<button class="dt-btn dt-btn--dark dt-btn--lg btn-join" onclick="goToPayment()">결제하기</button>';
+    return '<button class="dt-btn dt-btn--primary dt-btn--lg btn-join' + block + '" onclick="goToPayment()">결제하기</button>';
   } else if (currentProduct.isReserved) {
-    return '<button class="dt-btn dt-btn--outline dt-btn--lg btn-join" onclick="handleCancelReservation()">참여 완료</button>';
+    return '<button class="dt-btn dt-btn--outline dt-btn--lg btn-join' + block + '" onclick="handleCancelReservation()">참여 완료</button>';
   }
-  return '<button class="dt-btn dt-btn--dark dt-btn--lg btn-join" onclick="handleJoinClick()">후원하기</button>';
+  return '<button class="dt-btn dt-btn--primary dt-btn--lg btn-join' + block + '" onclick="handleJoinClick()">펀딩하기</button>';
+}
+
+/* ===== 이미지 캐러셀 상태 ===== */
+let _galleryImgs = [];
+let _galleryIdx = 0;
+
+function buildGalleryHtml(imgs) {
+  if (!imgs || imgs.length === 0) {
+    return `<div class="dt-gallery__viewport dt-gallery__viewport--empty">
+      <div class="dt-gallery__empty-ic">${ICON.imgPlaceholder}</div>
+    </div>`;
+  }
+  const multi = imgs.length > 1;
+  const slides = imgs.map((u, i) =>
+    `<div class="dt-gallery__slide${i === 0 ? ' is-active' : ''}" data-idx="${i}"><img src="${escapeHTML(u)}" alt="${escapeHTML((currentProduct && currentProduct.title) || '')}"></div>`
+  ).join('');
+  const arrows = multi
+    ? `<button type="button" class="dt-gallery__arrow dt-gallery__arrow--prev" onclick="galleryStep(-1)" aria-label="이전 이미지">${ICON.arrowLeft}</button>
+       <button type="button" class="dt-gallery__arrow dt-gallery__arrow--next" onclick="galleryStep(1)" aria-label="다음 이미지">${ICON.arrowRight}</button>`
+    : '';
+  const counter = multi
+    ? `<div class="dt-gallery__counter"><span id="galleryCur">1</span>/${imgs.length}</div>`
+    : '';
+  const strip = multi
+    ? `<div class="dt-gallery__strip">${imgs.map((u, i) =>
+        `<button type="button" class="dt-gallery__thumb${i === 0 ? ' is-active' : ''}" data-idx="${i}" onclick="galleryGo(${i})"><img src="${escapeHTML(u)}" alt=""></button>`
+      ).join('')}</div>`
+    : '';
+  return `
+    <div class="dt-gallery__viewport">
+      <div class="dt-gallery__track" id="galleryTrack">${slides}</div>
+      ${arrows}
+      ${counter}
+    </div>
+    ${strip}
+  `;
+}
+
+function galleryGo(i) {
+  if (!_galleryImgs.length) return;
+  const n = _galleryImgs.length;
+  _galleryIdx = ((i % n) + n) % n;
+  document.querySelectorAll('.dt-gallery__slide').forEach((s) => {
+    s.classList.toggle('is-active', Number(s.dataset.idx) === _galleryIdx);
+  });
+  document.querySelectorAll('.dt-gallery__thumb').forEach((t) => {
+    t.classList.toggle('is-active', Number(t.dataset.idx) === _galleryIdx);
+  });
+  const cur = document.getElementById('galleryCur');
+  if (cur) cur.textContent = String(_galleryIdx + 1);
+}
+
+function galleryStep(delta) {
+  galleryGo(_galleryIdx + delta);
 }
 
 /* ===== 메인 렌더링 ===== */
@@ -377,20 +456,17 @@ async function renderDetail() {
   const rate = getAchievement(p);
   const days = daysUntil(p.deadline);
   const raised = calcRaisedAmount(p);
+  const backers = Number(p.currentQuantity) || 0;
   const container = document.getElementById('detailContainer');
 
-  // 마감 정보
-  let deadlineText;
-  if (days === null) deadlineText = p.deadline || '미정';
-  else if (days < 0) deadlineText = '마감됨';
-  else if (days === 0) deadlineText = '오늘 마감';
-  else deadlineText = days + '일 남음';
+  // 남은 기간 텍스트 (와디즈: "N일 남음")
+  let remainText;
+  if (days === null) remainText = '상시';
+  else if (days < 0) remainText = '마감';
+  else if (days === 0) remainText = '오늘 마감';
+  else remainText = days + '일 남음';
 
-  const remainBadge = (days !== null && days >= 0)
-    ? (days === 0 ? '오늘 마감' : days + '일 남음')
-    : '마감';
-
-  const paymentTimingText = '펀딩 성공 시';
+  const paymentTimingText = '펀딩 성공 시 결제';
 
   // 예상 발송일 — 마감일 + 14일
   let expectedDeliveryText;
@@ -409,141 +485,161 @@ async function renderDetail() {
   const catLabel = categoryLabel(p.category);
   const actionBtnHtml = buildActionButtonHtml();
 
-  // 대표 이미지 + 썸네일 후보(중복 제거). product 에는 imageUrl 만 있으므로 보통 1장.
-  const imgs = [];
+  // 대표 이미지 + 캐러셀 후보(중복 제거)
+  _galleryImgs = [];
   [p.imageUrl, p.tryonImageUrl, p.designImageUrl].forEach((u) => {
-    if (u && imgs.indexOf(u) === -1) imgs.push(u);
+    if (u && _galleryImgs.indexOf(u) === -1) _galleryImgs.push(u);
   });
-  const heroSrc = imgs[0] || '';
-
-  const galleryEmptyIc = '<div class="dt-gallery__empty-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="M21 15l-5-5L5 21"/></svg></div>';
-
-  const stripHtml = imgs.length > 1
-    ? `<div class="dt-gallery__strip">${imgs.map((u, i) =>
-        `<button type="button" class="dt-gallery__thumb${i === 0 ? ' is-active' : ''}" data-src="${escapeHTML(u)}" onclick="selectHeroImage(this)"><img src="${escapeHTML(u)}" alt=""></button>`
-      ).join('')}</div>`
-    : '';
+  _galleryIdx = 0;
 
   container.innerHTML = `
-    <!-- ===== 상단 2단 ===== -->
-    <section class="dt-detail-top">
-      <!-- 좌: 대표 이미지 + 썸네일 -->
-      <div class="dt-detail-gallery">
-        <div class="dt-gallery__main${heroSrc ? '' : ' dt-gallery__main--empty'}" id="galleryMain">
-          ${heroSrc ? `<img src="${escapeHTML(heroSrc)}" alt="${escapeHTML(p.title)}" id="heroImg">` : galleryEmptyIc}
-        </div>
-        ${stripHtml}
+    <!-- ===== 이미지 위 탭 (와디즈) ===== -->
+    <nav class="dt-toptabs" id="detailTabs" aria-label="프로젝트 탭">
+      <button class="dt-toptabs__tab is-active" data-tab="story" onclick="selectTab('story')">스토리</button>
+      <button class="dt-toptabs__tab" data-tab="updates" onclick="selectTab('updates')">업데이트</button>
+      <button class="dt-toptabs__tab" data-tab="community" onclick="selectTab('community')">커뮤니티</button>
+      <button class="dt-toptabs__tab" data-tab="reviews" onclick="selectTab('reviews')">후기</button>
+    </nav>
+
+    <!-- ===== 히어로 2단 (좌 캐러셀 / 우 요약·펀딩 패널) ===== -->
+    <section class="dt-hero">
+      <!-- 좌: 큰 정사각 이미지 캐러셀 + 썸네일 -->
+      <div class="dt-gallery" id="detailGallery">
+        ${buildGalleryHtml(_galleryImgs)}
       </div>
 
-      <!-- 우: 후원 요약 -->
-      <aside class="dt-detail-summary" id="detailInfo">
-        <nav class="dt-sum__breadcrumb" aria-label="카테고리">
-          <a href="/feed.html?category=${encodeURIComponent(p.category || 'etc')}">${escapeHTML(catLabel)}</a>
-        </nav>
+      <!-- 우: 요약 / 펀딩 -->
+      <aside class="dt-summary" id="detailInfo">
+        <!-- 카테고리 랭킹 pill (랭킹 데이터 없음 -> 생략) -->
+        <span class="dt-summary__rankpill" id="rankPill" style="display:none;"></span>
 
-        <a class="dt-sum__creator" id="creatorTag" href="#">
-          <span class="dt-badge dt-badge--verified">좋은창작자</span>
-          <span class="dt-sum__creator-name">${escapeHTML(p.author || '익명')}</span>
+        <a class="dt-summary__maker" id="creatorTag" href="#">
+          <span class="dt-summary__maker-avatar" id="makerAvatar">${ICON.user}</span>
+          <span class="dt-summary__maker-name">${escapeHTML(p.author || '익명')}</span>
         </a>
 
-        <h1 class="dt-sum__title">${escapeHTML(p.title)}</h1>
+        <h1 class="dt-summary__title">${escapeHTML(p.title)}</h1>
 
-        <!-- 모인금액 / 후원자 -->
-        <div class="dt-sum__raised">
-          <div class="dt-sum__raised-main">
-            <span class="dt-sum__raised-label">모인금액</span>
-            <span class="dt-sum__raised-value">${escapeHTML(raised)}</span>
-          </div>
-          <div class="dt-sum__backers">
-            <span class="dt-sum__backers-label">후원자</span>
-            <span class="dt-sum__backers-value">${Number(p.currentQuantity) || 0}명</span>
-          </div>
-        </div>
+        <!-- NNN% 달성 · N일 남음 (% 보라 굵게) -->
+        <p class="dt-summary__rateline">
+          <span class="dt-summary__rate">${rate}%</span><span class="dt-summary__rate-suffix"> 달성</span>
+          <span class="dt-summary__dot">·</span>
+          <span class="dt-summary__remain">${escapeHTML(remainText)}</span>
+        </p>
 
-        <div class="dt-sum__progress">
+        <div class="dt-summary__progress">
           <div class="dt-progress"><div class="dt-progress__fill${rate >= 100 ? ' dt-progress__fill--over' : ''}" style="width:${Math.min(rate, 100)}%"></div></div>
         </div>
 
-        <!-- 달성률 / 남은기간 / 유형 -->
-        <div class="dt-sum__triple">
-          <div class="cell"><span class="cell-label">달성률</span><span class="cell-value cell-value--rate">${rate}%</span></div>
-          <div class="cell"><span class="cell-label">남은 기간</span><span class="cell-value">${escapeHTML((days !== null && days >= 0) ? (days === 0 ? '오늘' : days + '일') : '마감')}</span></div>
-          <div class="cell"><span class="cell-label">유형</span><span class="cell-value">${escapeHTML(catLabel)}</span></div>
+        <!-- NNN원 달성 · N명 참여 -->
+        <p class="dt-summary__moneyline">
+          <span class="dt-summary__money">${escapeHTML(raised)}원</span> 달성
+          <span class="dt-summary__dot">·</span>
+          <span class="dt-summary__count">${backers}명</span> 참여
+        </p>
+
+        <!-- 혜택 박스 (정적 안내) -->
+        <div class="dt-summary__benefit">
+          <div class="dt-summary__benefit-item">
+            <span class="dt-summary__benefit-ic">${ICON.shield}</span>
+            <div>
+              <p class="dt-summary__benefit-title">안심 후원</p>
+              <p class="dt-summary__benefit-desc">펀딩 성공 시에만 결제돼요. 목표 미달 시 결제되지 않습니다.</p>
+            </div>
+          </div>
+          <div class="dt-summary__benefit-item">
+            <span class="dt-summary__benefit-ic">${ICON.card}</span>
+            <div>
+              <p class="dt-summary__benefit-title">결제 안내</p>
+              <p class="dt-summary__benefit-desc">${escapeHTML(paymentTimingText)} · 예상 발송 ${escapeHTML(expectedDeliveryText)}</p>
+            </div>
+          </div>
         </div>
 
-        <!-- 상세 행 -->
-        <div class="dt-sum__rows">
-          <div class="dt-sum__row"><span class="dt-sum__row-label">목표 금액</span><span class="dt-sum__row-value">${escapeHTML(goalAmountText)}</span></div>
-          <div class="dt-sum__row"><span class="dt-sum__row-label">펀딩 기간</span><span class="dt-sum__row-value"><span class="dt-badge dt-badge--ending">${escapeHTML(remainBadge)}</span></span></div>
-          <div class="dt-sum__row"><span class="dt-sum__row-label">결제 안내</span><span class="dt-sum__row-value">${escapeHTML(paymentTimingText)}</span></div>
-          <div class="dt-sum__row"><span class="dt-sum__row-label">예상 발송일</span><span class="dt-sum__row-value">${escapeHTML(expectedDeliveryText)}</span></div>
-        </div>
-
-        <!-- 하트 · 공유 · 후원하기 -->
-        <div class="dt-sum__actions">
-          <button class="dt-iconbtn dt-iconbtn--like" onclick="handleLike()" aria-label="좋아요" aria-pressed="false">
-            <span class="dt-iconbtn__ic">${HEART_OUTLINE}</span>
-            <span class="dt-iconbtn__count">${Number(p.likeCount) || 0}</span>
-          </button>
+        <!-- 공유 · 찜 · 응원 -->
+        <div class="dt-summary__icons">
           <button class="dt-iconbtn" onclick="handleShare()" aria-label="공유">
-            <span class="dt-iconbtn__ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg></span>
+            <span class="dt-iconbtn__ic">${ICON.share}</span>
             <span>공유</span>
           </button>
-          ${actionBtnHtml}
+          <button class="dt-iconbtn dt-iconbtn--like" onclick="handleLike()" aria-label="찜" aria-pressed="false">
+            <span class="dt-iconbtn__ic">${ICON.heart}</span>
+            <span class="dt-iconbtn__count">${Number(p.likeCount) || 0}</span>
+          </button>
+          <button class="dt-iconbtn" onclick="handleCheer()" aria-label="응원">
+            <span class="dt-iconbtn__ic">${ICON.cheer}</span>
+            <span>응원</span>
+          </button>
+        </div>
+
+        <!-- 펀딩하기 큰 보라 버튼 -->
+        <div class="dt-summary__cta">${actionBtnHtml.replace('dt-btn--lg', 'dt-btn--block dt-btn--lg')}</div>
+
+        <!-- N명이 응원했어요 카드 (응원 데이터 없음 -> 0명/응원 버튼) -->
+        <div class="dt-cheer-card">
+          <div class="dt-cheer-card__avatars">
+            <span class="dt-cheer-card__avatar">${ICON.user}</span>
+            <span class="dt-cheer-card__avatar">${ICON.user}</span>
+            <span class="dt-cheer-card__avatar">${ICON.user}</span>
+          </div>
+          <p class="dt-cheer-card__text"><strong>0명</strong>이 응원했어요</p>
+          <button type="button" class="dt-btn dt-btn--outline dt-cheer-card__btn" onclick="handleCheer()">
+            <span class="dt-cheer-card__btn-ic">${ICON.cheer}</span>응원하기
+          </button>
+        </div>
+
+        <!-- 메이커 카드 (팔로우 버튼 + 문의) -->
+        <div class="dt-maker-card" id="creatorCard">
+          <div class="dt-maker-card__top">
+            <span class="dt-maker-card__avatar dt-maker-card__avatar--ghost" id="creatorAvatar">${ICON.user}</span>
+            <div class="dt-maker-card__meta">
+              <span class="dt-maker-card__label">메이커</span>
+              <span class="dt-maker-card__name">${escapeHTML(p.author || '익명')}</span>
+            </div>
+          </div>
+          <div class="dt-maker-card__stats" id="creatorStats" style="display:none;"></div>
+          <div class="dt-maker-card__btns">
+            <span id="creatorFollowBox" class="dt-maker-card__follow"></span>
+            <a class="dt-btn dt-btn--outline dt-maker-card__inquiry" href="/support.html">문의하기</a>
+          </div>
         </div>
       </aside>
     </section>
 
-    <!-- ===== 하단 2단 ===== -->
+    <!-- ===== 하단 2단 (좌 스토리 / 우 sticky 리워드) ===== -->
     <section class="dt-detail-bottom">
-      <!-- 좌: 탭 + 서브탭 + 스토리 -->
       <div class="dt-detail-content">
-        <div class="dt-tabs" id="detailTabs">
-          <button class="dt-tabs__tab is-active" data-tab="story" onclick="selectTab('story')">프로젝트 계획</button>
-          <button class="dt-tabs__tab" data-tab="updates" onclick="selectTab('updates')">업데이트</button>
-          <button class="dt-tabs__tab" data-tab="community" onclick="selectTab('community')">커뮤니티</button>
-          <button class="dt-tabs__tab" data-tab="reviews" onclick="selectTab('reviews')">후기</button>
+        <!-- 탭 패널: 스토리 -->
+        <div class="dt-tabsection" id="tabStory">
+          <h2 class="dt-section-title">프로젝트 스토리</h2>
+          <div class="dt-story" id="storyFlow">
+            <p>${escapeHTML(p.description || '')}</p>
+          </div>
+
+          <!-- 펀딩 안내 카드 -->
+          <div class="dt-info-card">
+            <h3 class="dt-info-card__title">펀딩 안내</h3>
+            <ul class="dt-info-card__list">
+              <li><span class="dt-info-card__k">목표 금액</span><span class="dt-info-card__v">${escapeHTML(goalAmountText)}</span></li>
+              <li><span class="dt-info-card__k">펀딩 기간</span><span class="dt-info-card__v">${escapeHTML(remainText)}</span></li>
+              <li><span class="dt-info-card__k">결제</span><span class="dt-info-card__v">${escapeHTML(paymentTimingText)}</span></li>
+              <li><span class="dt-info-card__k">예상 발송일</span><span class="dt-info-card__v">${escapeHTML(expectedDeliveryText)}</span></li>
+            </ul>
+          </div>
+
+          <!-- 환불 안내 카드 -->
+          <div class="dt-info-card">
+            <h3 class="dt-info-card__title">환불 정책</h3>
+            <p class="dt-info-card__desc">목표 금액 달성 전에는 언제든지 후원을 취소하고 환불받을 수 있어요. 다만 주문 제작 특성상 <strong>달성률 100% 도달 또는 제작 시작 이후에는 환불·교환이 어렵습니다.</strong> 자세한 내용은 펀딩 전 꼭 확인해 주세요.</p>
+          </div>
         </div>
 
-        <div class="dt-subtabs" id="detailSubtabs">
-          <button class="dt-subtabs__pill is-active" data-sub="intro" onclick="selectSubtab('intro')">소개</button>
-          <button class="dt-subtabs__pill" data-sub="reward" onclick="selectSubtab('reward')">선물 설명</button>
-          <button class="dt-subtabs__pill" data-sub="budget" onclick="selectSubtab('budget')">예산</button>
-          <button class="dt-subtabs__pill" data-sub="schedule" onclick="selectSubtab('schedule')">일정</button>
-          <button class="dt-subtabs__pill" data-sub="team" onclick="selectSubtab('team')">팀 소개</button>
-          <button class="dt-subtabs__pill" data-sub="trust" onclick="selectSubtab('trust')">신뢰와 안전</button>
-        </div>
-
-        <!-- 스토리 본문 (story 탭) -->
-        <div class="dt-story" id="storyFlow">
-          <p>${escapeHTML(p.description || '')}</p>
-        </div>
-
-        <!-- 그 외 탭 패널 (기본 숨김) -->
-        <div class="dt-tabpanel" id="tabPanelOther" style="display:none;"></div>
+        <!-- 탭 패널: 업데이트/커뮤니티/후기 (기본 숨김, 빈 상태) -->
+        <div class="dt-tabsection" id="tabPanelOther" style="display:none;"></div>
       </div>
 
-      <!-- 우 sticky: 창작자 카드 + 리워드 -->
+      <!-- 우 sticky: 선물(리워드) 선택 -->
       <aside class="dt-detail-side">
-        <div class="dt-creator-card" id="creatorCard">
-          <div class="dt-creator-card__top">
-            <span class="dt-creator-card__avatar dt-creator-card__avatar--ghost" id="creatorAvatar">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            </span>
-            <div class="dt-creator-card__meta">
-              <div class="dt-creator-card__badge-row"><span class="dt-badge dt-badge--verified">좋은창작자</span></div>
-              <span class="dt-creator-card__name">${escapeHTML(p.author || '익명')}</span>
-            </div>
-          </div>
-          <!-- 통계: API 응답에 있는 항목만(팔로워 등) renderCreatorFollow 가 채움 -->
-          <div class="dt-creator-card__stats" id="creatorStats" style="display:none;"></div>
-          <div class="dt-creator-card__btns">
-            <a class="dt-btn dt-btn--outline" href="/support.html">창작자 문의</a>
-            <span id="creatorFollowBox" style="flex:1;display:flex;"></span>
-          </div>
-        </div>
-
-        <!-- 선물 선택 (리워드) — renderRewardTiers 가 채움 -->
         <div class="dt-rewards" id="rewardTierBox">
           <p class="dt-rewards__empty">선물 정보를 불러오는 중…</p>
         </div>
@@ -553,15 +649,15 @@ async function renderDetail() {
     <div class="dt-detail-bottom-spacer"></div>
   `;
 
-  // 모바일 하단 고정 바
+  // 모바일 하단 고정 바 (펀딩하기)
   const mobileBar = document.getElementById('mobileBar');
   if (mobileBar) {
     mobileBar.innerHTML = `
-      <button class="dt-iconbtn dt-iconbtn--like" onclick="handleLike()" aria-label="좋아요" aria-pressed="false">
-        <span class="dt-iconbtn__ic">${HEART_OUTLINE}</span>
+      <button class="dt-iconbtn dt-iconbtn--like" onclick="handleLike()" aria-label="찜" aria-pressed="false">
+        <span class="dt-iconbtn__ic">${ICON.heart}</span>
         <span class="dt-iconbtn__count">${Number(p.likeCount) || 0}</span>
       </button>
-      ${actionBtnHtml.replace('dt-btn--lg', 'dt-btn--block dt-btn--lg')}
+      ${buildActionButtonHtml('dt-btn--block')}
     `;
   }
 
@@ -576,54 +672,43 @@ async function renderDetail() {
   }
 
   updateLikeButton();
+  _activeTab = 'story';
   document.title = p.title + ' - doothing';
 
   // 게시글 본문 + 리워드 + 팔로우 — 서버 데이터로 채움
   renderStoryBody(p.id);
 }
 
-/* 썸네일 클릭 → 대표 이미지 교체 */
-function selectHeroImage(btn) {
-  const src = btn.dataset.src;
-  const hero = document.getElementById('heroImg');
-  if (hero && src) hero.src = src;
-  document.querySelectorAll('.dt-gallery__thumb').forEach((t) => t.classList.toggle('is-active', t === btn));
-}
-
-/* ===== 탭 / 서브탭 ===== */
+/* ===== 탭 (이미지 위 탭) ===== */
 let _activeTab = 'story';
 const TAB_EMPTY = {
-  updates: '아직 등록된 업데이트가 없어요.',
-  community: '아직 등록된 커뮤니티 글이 없어요.',
-  reviews: '아직 등록된 후기가 없어요.',
+  updates: ['아직 등록된 업데이트가 없어요.', '메이커가 새소식을 올리면 여기에 표시됩니다.'],
+  community: ['아직 등록된 커뮤니티 글이 없어요.', '서포터들과 나누는 이야기가 여기에 표시됩니다.'],
+  reviews: ['아직 등록된 후기가 없어요.', '리워드를 받은 서포터의 후기가 여기에 표시됩니다.'],
 };
 
 function selectTab(tab) {
   _activeTab = tab;
-  document.querySelectorAll('.dt-tabs__tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === tab));
-  const story = document.getElementById('storyFlow');
-  const subtabs = document.getElementById('detailSubtabs');
+  document.querySelectorAll('.dt-toptabs__tab').forEach((t) => t.classList.toggle('is-active', t.dataset.tab === tab));
+  const story = document.getElementById('tabStory');
   const other = document.getElementById('tabPanelOther');
   if (!story || !other) return;
   if (tab === 'story') {
     story.style.display = '';
-    if (subtabs) subtabs.style.display = '';
     other.style.display = 'none';
   } else {
     story.style.display = 'none';
-    if (subtabs) subtabs.style.display = 'none';
     other.style.display = '';
-    other.innerHTML = '<div class="dt-tabpanel__empty">' + escapeHTML(TAB_EMPTY[tab] || '준비 중입니다.') + '</div>';
+    const msg = TAB_EMPTY[tab] || ['준비 중입니다.', ''];
+    other.innerHTML = `<div class="dt-tabpanel__empty">
+      <img src="/assets/empty-feed.png" alt="" onerror="this.style.display='none'">
+      <p class="dt-tabpanel__empty-title">${escapeHTML(msg[0])}</p>
+      <p class="dt-tabpanel__empty-sub">${escapeHTML(msg[1])}</p>
+    </div>`;
   }
-}
-
-/* 서브탭 — 스토리 본문 내 해당 섹션으로 스크롤(현재는 활성 표시만; 본문 분절 데이터 없으면 소개 유지) */
-function selectSubtab(sub) {
-  document.querySelectorAll('.dt-subtabs__pill').forEach((t) => t.classList.toggle('is-active', t.dataset.sub === sub));
-  const target = document.querySelector('[data-story-section="' + sub + '"]');
-  if (target && typeof target.scrollIntoView === 'function') {
-    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
+  // 하단으로 살짝 스크롤 — 탭 전환 맥락 유지
+  const bottom = document.querySelector('.dt-detail-bottom');
+  if (bottom && tab !== 'story') bottom.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 /* 창작자 팔로우 버튼 + 팔로워 수 (응답에 있는 통계만 표시) */
@@ -636,14 +721,14 @@ async function renderCreatorFollow(creatorId) {
   try { st = await window.api.get('/users/' + encodeURIComponent(creatorId) + '/follow', { silentAuthFail: true }); }
   catch (e) { return; }
 
-  // 팔로워 통계 — 응답에 있을 때만 stats 영역 노출 (만족도/누적후원자/누적후원액은 응답에 없으므로 숨김)
+  // 팔로워 통계 — 응답에 있을 때만 stats 영역 노출
   const statsBox = document.getElementById('creatorStats');
   if (statsBox && st && typeof st.followerCount === 'number') {
     statsBox.style.display = '';
     statsBox.innerHTML = '';
-    const stat = dEl('div', { class: 'dt-creator-card__stat' },
-      dEl('span', { class: 'dt-creator-card__stat-value' }, String(st.followerCount || 0)),
-      dEl('span', { class: 'dt-creator-card__stat-label' }, '팔로워'),
+    const stat = dEl('div', { class: 'dt-maker-card__stat' },
+      dEl('span', { class: 'dt-maker-card__stat-value' }, String(st.followerCount || 0)),
+      dEl('span', { class: 'dt-maker-card__stat-label' }, '팔로워'),
     );
     statsBox.appendChild(stat);
   }
@@ -653,7 +738,6 @@ async function renderCreatorFollow(creatorId) {
     const btn = dEl('button', {
       type: 'button',
       class: 'dt-btn ' + (st.following ? 'dt-btn--outline' : 'dt-btn--primary'),
-      style: 'flex:1;height:42px;',
     }, st.following ? '팔로잉' : '팔로우');
     btn.addEventListener('click', async function () {
       btn.disabled = true;
@@ -661,9 +745,8 @@ async function renderCreatorFollow(creatorId) {
         st = st.following
           ? await window.api.del('/users/' + encodeURIComponent(creatorId) + '/follow')
           : await window.api.post('/users/' + encodeURIComponent(creatorId) + '/follow', {});
-        // 통계 갱신
         if (statsBox && st && typeof st.followerCount === 'number') {
-          const v = statsBox.querySelector('.dt-creator-card__stat-value');
+          const v = statsBox.querySelector('.dt-maker-card__stat-value');
           if (v) v.textContent = String(st.followerCount || 0);
         }
         paint();
@@ -691,18 +774,14 @@ function renderFundStatusBadge(status) {
     cancelled: ['취소된 펀드', 'dt-badge--proxy'],
   };
   const m = MAP[status]; if (!m) return;
-  if (wrap.querySelector('.dt-sum__status')) return;
+  if (wrap.querySelector('.dt-summary__status')) return;
   const bar = document.createElement('div');
-  bar.className = 'dt-sum__status dt-badge ' + m[1];
-  bar.style.cssText = 'align-self:flex-start;';
+  bar.className = 'dt-summary__status dt-badge ' + m[1];
   bar.textContent = m[0];
-  // breadcrumb 다음(2번째) 위치에 삽입
-  const bc = wrap.querySelector('.dt-sum__breadcrumb');
-  if (bc && bc.nextSibling) wrap.insertBefore(bar, bc.nextSibling);
-  else wrap.insertBefore(bar, wrap.firstChild);
+  wrap.insertBefore(bar, wrap.firstChild);
 }
 
-/* 선물(리워드) 선택 + 후원하기 (기존 로직 보존, 마크업만 재배치) */
+/* 선물(리워드) 선택 + 펀딩하기 (기존 로직 보존, 마크업만 재배치) */
 let _selectedTierId = null;
 
 function renderRewardTiers(tiers) {
@@ -713,12 +792,9 @@ function renderRewardTiers(tiers) {
     return;
   }
 
-  // 리워드가 있으면 상단 패널의 단순 참여 버튼은 리워드 후원으로 일원화 → 숨김
-  document.querySelectorAll('.dt-sum__actions .btn-join, .dt-mobile-bar .btn-join').forEach((b) => {
-    if (b.textContent.indexOf('후원') !== -1 || b.textContent.indexOf('참여') !== -1) {
-      // 후원하기/참여 버튼만 숨기고 결제하기/입금확인중은 유지
-      if (/후원하기/.test(b.textContent)) b.style.display = 'none';
-    }
+  // 리워드가 있으면 상단 패널의 단순 참여 버튼은 리워드 후원으로 일원화 -> 숨김
+  document.querySelectorAll('.dt-summary__cta .btn-join, .dt-mobile-bar .btn-join').forEach((b) => {
+    if (/펀딩하기/.test(b.textContent)) b.style.display = 'none';
   });
 
   box.innerHTML = '';
@@ -752,8 +828,8 @@ function renderRewardTiers(tiers) {
 
   const backBtn = dEl('button', {
     type: 'button',
-    class: 'dt-btn dt-btn--dark dt-btn--block dt-btn--lg dt-rewards__cta',
-  }, '후원하기');
+    class: 'dt-btn dt-btn--primary dt-btn--block dt-btn--lg dt-rewards__cta',
+  }, '펀딩하기');
   backBtn.addEventListener('click', function () { backFlow(currentProduct.id); });
   box.appendChild(backBtn);
 }
@@ -815,7 +891,7 @@ function showDepositInfo(res) {
   const input = dEl('input', { type: 'text', placeholder: '입금자명', class: 'dt-deposit__input' });
   wrap.appendChild(input);
 
-  const report = dEl('button', { type: 'button', class: 'dt-btn dt-btn--dark dt-btn--block dt-btn--lg' }, '입금자명 제출');
+  const report = dEl('button', { type: 'button', class: 'dt-btn dt-btn--primary dt-btn--block dt-btn--lg' }, '입금자명 제출');
   report.addEventListener('click', async function () {
     var name = input.value.trim();
     if (!name) { alert('입금자명을 입력해 주세요.'); return; }
@@ -846,13 +922,13 @@ async function renderStoryBody(id) {
     flow.innerHTML = '';
     if (blocks.length === 0) {
       if (desc) {
-        const p = document.createElement('p');
-        p.textContent = desc; // textContent — XSS 방어
-        flow.appendChild(p);
+        const para = document.createElement('p');
+        para.textContent = desc; // textContent — XSS 방어
+        flow.appendChild(para);
       } else {
         const empty = document.createElement('div');
         empty.className = 'dt-story__empty';
-        empty.innerHTML = '<img src="/assets/empty-feed.png" alt="" onerror="this.style.display=\'none\'"><p>아직 등록된 소개 내용이 없어요.</p>';
+        empty.innerHTML = '<img src="/assets/empty-feed.png" alt="" onerror="this.style.display=\'none\'"><p>아직 등록된 스토리 내용이 없어요.</p>';
         flow.appendChild(empty);
       }
       return;
@@ -860,16 +936,16 @@ async function renderStoryBody(id) {
 
     blocks.forEach((b) => {
       if (b.type === 'text') {
-        const p = document.createElement('p');
-        p.textContent = b.value;
-        p.style.whiteSpace = 'pre-wrap';
-        flow.appendChild(p);
+        const para = document.createElement('p');
+        para.textContent = b.value;
+        para.style.whiteSpace = 'pre-wrap';
+        flow.appendChild(para);
       } else if (b.type === 'image' && typeof b.value === 'string') {
         const fig = document.createElement('figure');
         fig.className = 'dt-story__figure';
         const img = document.createElement('img');
         img.src = b.value; // 작성자 본인이 올린 이미지
-        img.alt = '게시글 이미지';
+        img.alt = '스토리 이미지';
         img.loading = 'lazy';
         fig.appendChild(img);
         flow.appendChild(fig);
@@ -879,13 +955,13 @@ async function renderStoryBody(id) {
     const desc = currentProduct.description || '';
     flow.innerHTML = '';
     if (desc) {
-      const p = document.createElement('p');
-      p.textContent = desc;
-      flow.appendChild(p);
+      const para = document.createElement('p');
+      para.textContent = desc;
+      flow.appendChild(para);
     } else {
       const empty = document.createElement('div');
       empty.className = 'dt-story__empty';
-      empty.innerHTML = '<img src="/assets/empty-feed.png" alt="" onerror="this.style.display=\'none\'"><p>아직 등록된 소개 내용이 없어요.</p>';
+      empty.innerHTML = '<img src="/assets/empty-feed.png" alt="" onerror="this.style.display=\'none\'"><p>아직 등록된 스토리 내용이 없어요.</p>';
       flow.appendChild(empty);
     }
   }
