@@ -13,7 +13,7 @@ export type { AllowedDomainRepository } from './allowed-domain-repository.js';
 // Payment repositories
 export type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions, DeleteRequestItem,
-  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions,
+  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyAnalytics,
 } from './groupbuy-repository.js';
 export { PgGroupBuyRepository } from './pg-groupbuy-repository.js';
 export type { ParticipationRepository } from './participation-repository.js';

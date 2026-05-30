@@ -25,6 +25,10 @@
     const shelves = W.el('div', { class: 'wz-shelves' });
     home.appendChild(shelves);
 
+    // 공개 예정 — GET /api/groupbuys/scheduled 결과 있을 때만 채움(없으면 미표시)
+    const scheduledWrap = W.el('div', { class: 'wz-scheduledwrap' });
+    home.appendChild(scheduledWrap);
+
     // 팔로우한 창작자의 프로젝트 — 로그인 시에만 채움(비로그인은 미표시)
     const followingWrap = W.el('div', { class: 'wz-following' });
     home.appendChild(followingWrap);
@@ -55,6 +59,9 @@
     // 팔로잉 피드는 MOCK_PRODUCTS 와 독립 — 1회만 로드
     buildFollowing(followingWrap);
 
+    // 공개 예정 섹션 — GET /api/groupbuys/scheduled (있을 때만 표시), 1회 로드
+    buildScheduled(scheduledWrap);
+
     // 헤더 내비/카테고리 클릭 → 홈 그리드만 갱신
     window.addEventListener('wz:browse', (e) => {
       const d = e.detail || {};
@@ -83,24 +90,44 @@
   ];
 
   function Hero() {
-    // 둘러보기로 이동하는 클릭 가능한 캐러셀(기존 동작 유지: 홈 그리드 = 인기순)
+    // 클릭 가능한 캐러셀. 기본 배너(둘러보기로 이동) + Boost 프로젝트 커버(상세로 이동)를 교차 노출.
     const a = W.el('a', { class: 'wz-hero', href: '/feed.html', 'aria-label': '두띵 — 대학생 굿즈 크라우드펀딩' });
-    a.addEventListener('click', (e) => { e.preventDefault(); W.go({ sort: 'popular' }); });
-
     const track = W.el('div', { class: 'wz-hero__track' });
     const dotsRow = W.el('div', { class: 'wz-hero__dots' });
     const slides = [];
     const dots = [];
+    // 슬라이드별 목적지: null = 기본(둘러보기 인기순), 문자열 = 해당 detail.html URL
+    const slideHrefs = [];
 
-    HERO_IMAGES.forEach((src, i) => {
-      const slide = W.el('div', { class: 'wz-hero__slide' + (i === 0 ? ' is-active' : '') });
-      const img = W.el('img', { class: 'wz-hero__img', src, alt: '', loading: i === 0 ? 'eager' : 'lazy' });
-      // 이미지 로드 실패 시 해당 슬라이드와 점을 함께 제거
+    // 활성 슬라이드의 목적지에 따라 이동(기본 배너=둘러보기, Boost=상세)
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      const href = slideHrefs[cur];
+      if (href) location.href = href;
+      else W.go({ sort: 'popular' });
+    });
+
+    // 슬라이드 1장을 만들어 트랙/점에 추가. href 가 있으면 클릭 시 그 detail 로.
+    function addSlide(src, opts) {
+      opts = opts || {};
+      const isFirst = slides.length === 0;
+      const slide = W.el('div', { class: 'wz-hero__slide' + (isFirst ? ' is-active' : '') + (opts.boost ? ' is-boost' : '') });
+      const img = W.el('img', { class: 'wz-hero__img', src, alt: opts.alt || '', loading: isFirst ? 'eager' : 'lazy' });
       img.addEventListener('error', () => removeSlide(slide));
       slide.appendChild(img);
+      // Boost 슬라이드는 좌하단에 프로젝트 제목/창작자 라벨(가독용 그라데이션 위)
+      if (opts.boost && opts.label) {
+        const lab = W.el('div', { class: 'wz-hero__boostlab' });
+        lab.appendChild(W.el('span', { class: 'wz-hero__boosttag' }, 'BOOST'));
+        const txt = W.el('div', { class: 'wz-hero__boosttxt' });
+        txt.appendChild(W.el('strong', {}, opts.label));
+        if (opts.sub) txt.appendChild(W.el('span', {}, opts.sub));
+        lab.appendChild(txt);
+        slide.appendChild(lab);
+      }
       track.appendChild(slide);
 
-      const dot = W.el('button', { class: 'wz-hero__dot' + (i === 0 ? ' is-active' : ''), type: 'button', 'aria-label': (i + 1) + '번째 배너' });
+      const dot = W.el('button', { class: 'wz-hero__dot' + (isFirst ? ' is-active' : ''), type: 'button', 'aria-label': (slides.length + 1) + '번째 배너' });
       dot.addEventListener('click', (e) => {
         e.preventDefault(); e.stopPropagation();
         const idx = slides.indexOf(slide);
@@ -111,12 +138,18 @@
 
       slides.push(slide);
       dots.push(dot);
-    });
+      slideHrefs.push(opts.href || null);
+      // 슬라이드 수 변동에 맞춰 점/자동전환 상태 갱신
+      dotsRow.style.display = slides.length > 1 ? '' : 'none';
+      start();
+    }
+
+    HERO_IMAGES.forEach((src) => addSlide(src, {}));
 
     a.append(track, dotsRow);
 
     const cap = W.el('div', { class: 'wz-hero__cap' });
-    // 로운님 글씨 이미지(보라 그라데이션). 실패 시 기존 텍스트 캡션으로 폴백.
+    // 로운님 글씨 이미지(보라 그라데이션) — 배너 위에 또렷이. 실패 시 텍스트 캡션 폴백.
     const capImg = W.el('img', { class: 'wz-hero__captext', src: '/assets/left%20text%20renew.png', alt: '우리의 상상을 현실로', loading: 'eager' });
     capImg.addEventListener('error', () => {
       capImg.remove();
@@ -150,6 +183,7 @@
       dots[idx].remove();
       slides.splice(idx, 1);
       dots.splice(idx, 1);
+      slideHrefs.splice(idx, 1);
       if (!slides.length) { stop(); a.remove(); return; } // 모두 실패하면 히어로 자체 제거
       if (slides.length === 1) { dotsRow.style.display = 'none'; stop(); }
       show(cur >= slides.length ? 0 : cur); // 인덱스 보정 후 활성 슬라이드 재적용
@@ -162,6 +196,24 @@
     if (slides.length <= 1) dotsRow.style.display = 'none';
     show(0);
     start();
+
+    // Boost 요금제 프로젝트 커버를 히어로에 합류(상단 페이지 노출 혜택). 비면 기본 배너만.
+    window.api.get('/groupbuys/boost-banners', { silentAuthFail: true })
+      .then((data) => {
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        items.forEach((b) => {
+          if (!b || !b.coverImageUrl || b.id == null) return; // 커버 없으면 스킵(빈 슬라이드 금지)
+          addSlide(b.coverImageUrl, {
+            boost: true,
+            href: '/detail.html?id=' + encodeURIComponent(b.id),
+            label: b.title || '',
+            sub: b.creatorName || '',
+            alt: b.title || '',
+          });
+        });
+      })
+      .catch(() => {}); // 실패하면 기본 배너 유지
+
     return a;
   }
 
@@ -345,6 +397,60 @@
     card.appendChild(th);
     const rateVal = (typeof p.achievementRate === 'number') ? p.achievementRate : W.rate(p);
     card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, rateVal + '% 달성'));
+    card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
+    card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || '익명'));
+    return card;
+  }
+
+  /* ---- 공개 예정 ----
+   * GET /api/groupbuys/scheduled → 카드 가로 한 줄(open_at 오름차순=곧 공개 순).
+   * 결과 없으면 섹션 미표시. 각 카드 클릭 시 상세(상세에서 알림신청). 비로그인도 노출. */
+  function buildScheduled(wrap) {
+    window.api.get('/groupbuys/scheduled?limit=12', { silentAuthFail: true })
+      .then((data) => {
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        if (!items.length) { wrap.replaceChildren(); return; }
+        wrap.replaceChildren(ScheduledSection(items));
+      })
+      .catch(() => { wrap.replaceChildren(); });
+  }
+
+  /* open_at(ISO|YYYY-MM-DD) → "오늘 공개"/"내일 공개"/"N일 후 공개"/날짜. 없으면 "공개 예정". */
+  function openLabel(openAt) {
+    if (!openAt) return '공개 예정';
+    const t = new Date(openAt).getTime();
+    if (!t || isNaN(t)) return '공개 예정';
+    const now = Date.now();
+    if (t <= now) return '곧 공개';
+    const days = Math.ceil((t - now) / 86400000);
+    if (days <= 1) return '내일 공개';
+    if (days <= 14) return days + '일 후 공개';
+    const d = new Date(t);
+    return (d.getMonth() + 1) + '월 ' + d.getDate() + '일 공개';
+  }
+
+  function ScheduledSection(items) {
+    // 전체보기 링크는 두지 않음 — feed.html 은 scheduled 피드를 지원하지 않아(일반 목록으로 빠짐) 생략.
+    const sec = W.el('section', { class: 'wz-shelf wz-scheduled' });
+    const head = W.el('div', { class: 'wz-shelf__head' });
+    const titles = W.el('div', {});
+    titles.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '공개 예정'));
+    titles.appendChild(W.el('p', { class: 'wz-shelf__sub' }, '곧 만나볼 수 있어요 — 알림 신청하고 놓치지 마세요'));
+    head.appendChild(titles);
+    sec.appendChild(head);
+    const scroll = W.el('div', { class: 'wz-shelf__scroll' });
+    items.forEach((p) => scroll.appendChild(ScheduledCard(p)));
+    sec.appendChild(scroll);
+    return sec;
+  }
+
+  /* 공개 예정 카드 — 공개 카드 직렬화(coverImageUrl/creatorName) 매핑. open_at 기준 공개 배지. */
+  function ScheduledCard(p) {
+    const card = W.el('a', { class: 'wz-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+    const th = W.el('div', { class: 'wz-pcard__thumb' });
+    W.fillThumb(th, { imageUrl: p.coverImageUrl || '', title: p.title, category: p.category });
+    th.appendChild(W.el('span', { class: 'wz-soon' }, openLabel(p.openAt)));
+    card.appendChild(th);
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || '익명'));
     return card;

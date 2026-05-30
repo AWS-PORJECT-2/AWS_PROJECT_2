@@ -47,6 +47,8 @@ export function createGroupBuyDetailHandler(repo: GroupBuyRepository) {
         res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '공동구매를 찾을 수 없습니다' });
         return;
       }
+      // 분석용 조회수 — best-effort, 비차단(실패해도 응답은 정상). 결과를 기다리지 않음.
+      void repo.incrementViewCount(id);
       res.json(detail);
     } catch (err) {
       logger.error({ err, id }, '공구 상세 조회 실패');

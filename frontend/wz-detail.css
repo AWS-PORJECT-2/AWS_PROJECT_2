@@ -21,10 +21,12 @@ body.wz-detail-page .wz-hd { position: static; }
 /* 상단 메타 행: 카테고리 + D-day 배지 */
 .wz-d-metarow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
 .wz-d-metarow .wz-d-cat { margin: 0; }
-/* D-day 강조 배지 — 기본 보라 톤. 임박/오늘은 채워진 보라, 마감은 회색. */
-.wz-d-dday { display: inline-flex; align-items: center; font-size: 12px; font-weight: 800; letter-spacing: .2px; line-height: 1; padding: 5px 10px; border-radius: 999px; color: var(--c-primary-700); background: var(--c-primary-50); border: 1px solid var(--c-primary-200); }
+/* D-day 강조 배지 — 기본 보라 톤. 임박/오늘은 채워진 보라, 마감은 회색. 또렷하게 보이도록 크게. */
+.wz-d-dday { display: inline-flex; align-items: center; font-size: 14px; font-weight: 800; letter-spacing: .2px; line-height: 1; padding: 7px 14px; border-radius: 999px; color: var(--c-primary-700); background: var(--c-primary-50); border: 1.5px solid var(--c-primary-200); }
 .wz-d-dday.is-urgent { color: #fff; background: var(--c-primary-600); border-color: var(--c-primary-600); box-shadow: 0 0 0 3px var(--c-primary-100); animation: wz-d-ddaypulse 1.6s ease-in-out infinite; }
 .wz-d-dday.is-ended { color: var(--c-text-muted); background: var(--c-divider); border-color: var(--c-border); }
+/* 공개예정 D-day — 채워진 보라(공개 카운트다운 강조) */
+.wz-d-dday.is-scheduled { color: #fff; background: var(--c-primary-600); border-color: var(--c-primary-600); box-shadow: 0 0 0 3px var(--c-primary-100); }
 @keyframes wz-d-ddaypulse { 0%, 100% { box-shadow: 0 0 0 0 var(--c-primary-100); } 50% { box-shadow: 0 0 0 4px var(--c-primary-100); } }
 .wz-d-tabs__inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 30px; }
 .wz-d-tab { appearance: none; background: none; border: 0; font-family: inherit; cursor: pointer; padding: 16px 2px; font-size: 16px; font-weight: 700; color: var(--c-text-muted); border-bottom: 2.5px solid transparent; margin-bottom: -1px; white-space: nowrap; }
@@ -62,6 +64,34 @@ body.wz-detail-page .wz-hd { position: static; }
 .wz-d-story__text { font-size: 16px; line-height: 1.8; color: var(--c-text-sub); white-space: pre-wrap; word-break: break-word; }
 .wz-d-story__img { width: 100%; border-radius: 10px; display: block; }
 .wz-d-story__empty { padding: 40px 0; text-align: center; color: var(--c-text-muted); font-size: 14px; }
+
+/* 스토리 더보기: 길면 접고 하단 그라데이션 + 버튼. is-clamped 일 때만 높이 제한·overflow 숨김. */
+.wz-d-story__clamp { position: relative; }
+.wz-d-story__clamp.is-clamped { max-height: 720px; overflow: hidden; }
+.wz-d-story__clamp.is-open { max-height: none; overflow: visible; }
+.wz-d-story__fade { position: relative; height: 96px; margin-top: -96px; pointer-events: none; background: linear-gradient(to bottom, rgba(255,255,255,0), #fff 86%); }
+.wz-d-story__more { display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin: 14px auto 0; min-width: 220px; }
+.wz-d-story__more-ic { display: inline-flex; width: 16px; height: 16px; transform: rotate(90deg); }
+.wz-d-story__more-ic svg { width: 100%; height: 100%; }
+
+/* ---------- 끝 섹션: 교환·환불 정책 / 안내사항 ---------- */
+.wz-d-policy { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--c-divider); }
+.wz-d-policy__h2 { font-size: 18px; font-weight: 800; color: var(--c-text); margin: 0 0 14px; }
+.wz-d-policy__text { font-size: 14px; line-height: 1.75; color: var(--c-text-sub); margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+/* ---------- 끝 섹션: 창작자(메이커) 정보 ---------- */
+.wz-d-makerinfo { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--c-divider); }
+.wz-d-makerinfo__h2 { font-size: 18px; font-weight: 800; color: var(--c-text); margin: 0 0 14px; }
+.wz-d-makerinfo__card { border: 1px solid var(--c-border); border-radius: 14px; padding: 20px; background: var(--c-bg); }
+.wz-d-makerinfo__head { display: flex; align-items: center; gap: 14px; text-decoration: none; color: inherit; }
+a.wz-d-makerinfo__head:hover .wz-d-makerinfo__name { color: var(--c-primary-700); text-decoration: underline; }
+.wz-d-makerinfo__av { width: 56px; height: 56px; border-radius: 50%; background: var(--c-divider); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--c-text-faint); }
+.wz-d-makerinfo__av img { width: 100%; height: 100%; object-fit: cover; }
+.wz-d-makerinfo__av svg { width: 56%; height: 56%; }
+.wz-d-makerinfo__meta { min-width: 0; }
+.wz-d-makerinfo__name { font-size: 16px; font-weight: 800; color: var(--c-text); margin: 0; }
+.wz-d-makerinfo__region { font-size: 13px; font-weight: 600; color: var(--c-primary-700); margin: 4px 0 0; }
+.wz-d-makerinfo__intro { font-size: 14px; line-height: 1.7; color: var(--c-text-sub); margin: 16px 0 0; padding-top: 16px; border-top: 1px solid var(--c-divider); white-space: pre-wrap; word-break: break-word; }
 
 /* ---------- 댓글 섹션 ---------- */
 .wz-d-comments { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--c-divider); }
@@ -118,6 +148,22 @@ body.wz-detail-page .wz-hd { position: static; }
 @keyframes wz-d-heartpop { 0% { transform: scale(1); } 30% { transform: scale(.78); } 60% { transform: scale(1.28); } 100% { transform: scale(1); } }
 
 .wz-d-cta { margin-bottom: 14px; }
+
+/* 조회수(소유자/관리자 전용, 작게) */
+.wz-d-viewcount { font-size: 12px; color: var(--c-text-muted); margin: -2px 0 12px; }
+.wz-d-viewcount b { color: var(--c-text-sub); font-weight: 700; }
+
+/* ---------- 공개예정 알림신청 박스 ---------- */
+.wz-d-subscribe { margin-bottom: 14px; }
+.wz-d-subscribe__when { display: flex; gap: 9px; align-items: flex-start; border: 1px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: 12px; padding: 13px 15px; margin-bottom: 14px; }
+.wz-d-subscribe__when-ic { width: 18px; height: 18px; flex-shrink: 0; color: var(--c-primary-600); margin-top: 1px; }
+.wz-d-subscribe__when-ic svg { width: 100%; height: 100%; }
+.wz-d-subscribe__when span { font-size: 13px; line-height: 1.55; color: var(--c-text-sub); }
+.wz-d-subscribe__when b { color: var(--c-primary-700); font-weight: 800; }
+.wz-d-subscribe .wz-d-cta { margin-bottom: 8px; }
+.wz-d-subscribe .wz-d-cta.is-on { color: var(--c-primary-700); }
+.wz-d-subscribe__count { font-size: 13px; color: var(--c-text-muted); margin: 0; text-align: center; }
+.wz-d-subscribe__count b { color: var(--c-text); font-weight: 800; }
 
 /* 메이커 카드 */
 .wz-d-maker { border: 1px solid var(--c-border); border-radius: 12px; padding: 18px 16px; margin-bottom: 18px; }

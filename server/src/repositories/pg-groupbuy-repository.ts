@@ -3,8 +3,9 @@ import type { PoolClient } from 'pg';
 import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
-  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyUpdateFields,
+  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyUpdateFields, GroupBuyAnalytics,
 } from './groupbuy-repository.js';
+import { logger } from '../logger.js';
 
 // content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱
 function parseContentBlocks(raw: unknown): ContentBlock[] | null {
@@ -110,8 +111,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, plan, video_url, creator_info, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, plan, video_url, creator_info, open_at, refund_policy, legal_notice, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -125,6 +126,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.coverImageUrl ?? null, groupbuy.mode ?? 'normal',
         groupbuy.plan ?? 'start', groupbuy.videoUrl ?? null,
         groupbuy.creatorInfo ? JSON.stringify(groupbuy.creatorInfo) : null,
+        groupbuy.openAt ?? null, groupbuy.refundPolicy ?? null, groupbuy.legalNotice ?? null,
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -205,6 +207,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       plan: 'plan',
       videoUrl: 'video_url',
       creatorInfo: 'creator_info',
+      refundPolicy: 'refund_policy',
+      legalNotice: 'legal_notice',
     };
 
     const sets: string[] = [];
@@ -441,7 +445,11 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               (SELECT COUNT(*)::int FROM follows f WHERE f.creator_id = g.creator_id) AS maker_follower_count,
               CASE WHEN $2::uuid IS NULL THEN FALSE
                    ELSE EXISTS (SELECT 1 FROM follows f WHERE f.creator_id = g.creator_id AND f.follower_id = $2::uuid)
-              END AS maker_is_following
+              END AS maker_is_following,
+              (SELECT COUNT(*)::int FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id) AS subscriber_count,
+              CASE WHEN $2::uuid IS NULL THEN FALSE
+                   ELSE EXISTS (SELECT 1 FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id AND ps.user_id = $2::uuid)
+              END AS is_subscribed
          FROM groupbuys g
          LEFT JOIN "user" u ON u.id = g.creator_id
         WHERE g.id = $1`,
@@ -449,6 +457,12 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
     if (res.rows.length === 0) return null;
     const r = res.rows[0];
+
+    // 방어적: open_at 이 지난 scheduled 는 상세에서 open 으로 노출(스케줄러 전환 전 표시 보정).
+    const openAt = r.open_at ? new Date(r.open_at as string) : null;
+    const effectiveStatus = (r.status === 'scheduled' && openAt && openAt.getTime() <= Date.now())
+      ? 'open'
+      : (r.status as GroupBuyStatus);
 
     const card: GroupBuyCardItem = toCardItem({
       id: r.id,
@@ -458,7 +472,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       current_quantity: r.current_quantity,
       target_quantity: r.target_quantity,
       deadline: r.deadline,
-      status: r.status,
+      status: effectiveStatus,
       created_at: r.created_at,
       cover_image_url: r.cover_image_url_resolved,
       creator_name: r.maker_name,
@@ -476,6 +490,12 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       plan: (r.plan as string) ?? 'start',
       videoUrl: (r.video_url as string | null) ?? null,
       creatorInfo: parseCreatorInfo(r.creator_info),
+      refundPolicy: (r.refund_policy as string | null) ?? null,
+      legalNotice: (r.legal_notice as string | null) ?? null,
+      openAt: openAt ? openAt.toISOString() : null,
+      viewCount: Number(r.view_count) || 0,
+      isSubscribed: Boolean(r.is_subscribed),
+      subscriberCount: Number(r.subscriber_count) || 0,
       contentBlocks: contentBlocksToContract(parseContentBlocks(r.content_blocks)),
       rewardTiers: rewardTiersToContract(parseRewardTiers(r.reward_tiers)),
       maker: {
@@ -486,6 +506,148 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         followerCount: Number(r.maker_follower_count) || 0,
         isFollowing: Boolean(r.maker_is_following) && viewerId !== (r.creator_id as string),
       },
+    };
+  }
+
+  // ─── 요금제 기능 3종 (023_plan_features) ───
+
+  // 공개예정 목록 — status=scheduled AND open_at>now, open_at 오름차순.
+  async findScheduled(limit = 20, offset = 0): Promise<{ total: number; rows: GroupBuyCardItem[] }> {
+    const lim = Math.min(Math.max(limit, 1), 100);
+    const off = Math.max(offset, 0);
+    const listQuery = `
+      SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
+             g.deadline, g.status, g.created_at,
+             COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
+             u.name AS creator_name, u.slug AS creator_slug
+        FROM groupbuys g
+        LEFT JOIN "user" u ON u.id = g.creator_id
+       WHERE g.status = 'scheduled' AND g.open_at IS NOT NULL AND g.open_at > NOW()
+       ORDER BY g.open_at ASC
+       LIMIT $1 OFFSET $2
+    `;
+    const countQuery = `
+      SELECT COUNT(*)::int AS cnt FROM groupbuys g
+       WHERE g.status = 'scheduled' AND g.open_at IS NOT NULL AND g.open_at > NOW()
+    `;
+    const [listRes, countRes] = await Promise.all([
+      this.pool.query(listQuery, [lim, off]),
+      this.pool.query(countQuery),
+    ]);
+    return { total: Number(countRes.rows[0].cnt) || 0, rows: listRes.rows.map(toCardItem) };
+  }
+
+  // Boost 배너 — plan='boost' AND status='open' 펀드. 달성순(현재수량) → 최신순.
+  async findBoostBanners(limit = 5): Promise<Array<{ id: string; title: string; coverImageUrl: string | null; creatorName: string | null }>> {
+    const lim = Math.min(Math.max(limit, 1), 20);
+    const res = await this.pool.query(
+      `SELECT g.id, g.title,
+              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
+              u.name AS creator_name
+         FROM groupbuys g
+         LEFT JOIN "user" u ON u.id = g.creator_id
+        WHERE g.plan = 'boost' AND g.status = 'open'
+        ORDER BY g.current_quantity DESC, g.created_at DESC
+        LIMIT $1`,
+      [lim],
+    );
+    return res.rows.map((r) => ({
+      id: r.id as string,
+      title: r.title as string,
+      coverImageUrl: (r.cover_image_url as string | null) ?? null,
+      creatorName: (r.creator_name as string | null) ?? null,
+    }));
+  }
+
+  // 공개예정 알림 구독(UPSERT) → 구독자 수.
+  async subscribe(userId: string, groupbuyId: string): Promise<number> {
+    await this.pool.query(
+      `INSERT INTO project_subscriptions (user_id, groupbuy_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [userId, groupbuyId],
+    );
+    return this.subscriberCount(groupbuyId);
+  }
+
+  // 공개예정 알림 구독 취소 → 구독자 수.
+  async unsubscribe(userId: string, groupbuyId: string): Promise<number> {
+    await this.pool.query(
+      `DELETE FROM project_subscriptions WHERE user_id = $1 AND groupbuy_id = $2`,
+      [userId, groupbuyId],
+    );
+    return this.subscriberCount(groupbuyId);
+  }
+
+  private async subscriberCount(groupbuyId: string): Promise<number> {
+    const r = await this.pool.query(
+      'SELECT COUNT(*)::int AS c FROM project_subscriptions WHERE groupbuy_id = $1',
+      [groupbuyId],
+    );
+    return r.rows[0]?.c ?? 0;
+  }
+
+  // 상세 조회수 += 1 (best-effort, 비차단). 실패해도 throw 하지 않음.
+  async incrementViewCount(id: string): Promise<void> {
+    try {
+      await this.pool.query('UPDATE groupbuys SET view_count = view_count + 1 WHERE id = $1', [id]);
+    } catch (err) {
+      logger.warn({ err, id }, '조회수 증가 실패(무시)');
+    }
+  }
+
+  // open_at <= now 인 scheduled → open 전환. 전환된 펀드 id 목록 반환.
+  async promoteScheduledToOpen(now: Date): Promise<string[]> {
+    const res = await this.pool.query(
+      `UPDATE groupbuys
+          SET status = 'open', updated_at = NOW()
+        WHERE status = 'scheduled' AND open_at IS NOT NULL AND open_at <= $1
+        RETURNING id`,
+      [now],
+    );
+    return res.rows.map((r) => r.id as string);
+  }
+
+  // 본인 펀드 분석 — 본인 소유가 아니면 null. reward_orders 실제 컬럼 집계.
+  async getAnalytics(id: string, ownerId: string): Promise<GroupBuyAnalytics | null> {
+    const gRes = await this.pool.query(
+      `SELECT view_count, current_quantity, target_quantity
+         FROM groupbuys WHERE id = $1 AND creator_id = $2`,
+      [id, ownerId],
+    );
+    if (gRes.rows.length === 0) return null; // 없거나 본인 소유 아님 → 404
+    const g = gRes.rows[0];
+    const target = Number(g.target_quantity) || 0;
+    const current = Number(g.current_quantity) || 0;
+
+    // 후원 집계 — reward_orders(awaiting_deposit+confirmed=유효 후원), confirmed=입금확정.
+    const aggRes = await this.pool.query(
+      `SELECT
+          COUNT(*) FILTER (WHERE status IN ('awaiting_deposit','confirmed'))::int AS backer_count,
+          COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed_count,
+          COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS total_amount
+         FROM reward_orders WHERE fund_id = $1`,
+      [id],
+    );
+    const agg = aggRes.rows[0] ?? {};
+
+    // 최근 14일 일자별 후원 건수 — created_at 기준(awaiting_deposit+confirmed).
+    const dailyRes = await this.pool.query(
+      `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS date, COUNT(*)::int AS backers
+         FROM reward_orders
+        WHERE fund_id = $1
+          AND status IN ('awaiting_deposit','confirmed')
+          AND created_at >= NOW() - INTERVAL '14 days'
+        GROUP BY 1 ORDER BY 1 ASC`,
+      [id],
+    );
+
+    return {
+      viewCount: Number(g.view_count) || 0,
+      backerCount: Number(agg.backer_count) || 0,
+      confirmedCount: Number(agg.confirmed_count) || 0,
+      totalAmount: Number(agg.total_amount) || 0,
+      achievementRate: achievementRate(current, target),
+      subscriberCount: await this.subscriberCount(id),
+      daily: dailyRes.rows.map((d) => ({ date: d.date as string, backers: Number(d.backers) || 0 })),
     };
   }
 
@@ -519,6 +681,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       plan: (row.plan as string | undefined) ?? 'start',
       videoUrl: (row.video_url as string | null) ?? null,
       creatorInfo: parseCreatorInfo(row.creator_info),
+      openAt: row.open_at ? new Date(row.open_at as string) : null,
+      refundPolicy: (row.refund_policy as string | null) ?? null,
+      legalNotice: (row.legal_notice as string | null) ?? null,
+      viewCount: Number(row.view_count) || 0,
       createdAt: new Date(row.created_at as string),
       updatedAt: new Date(row.updated_at as string),
     };

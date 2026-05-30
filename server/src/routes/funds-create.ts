@@ -45,6 +45,25 @@ const CREATOR_NAME_MAX = 20;
 const CREATOR_INTRO_MAX = 300;
 const CREATOR_REGION_MAX = 30;
 
+// 정책(교환·반품 refundPolicy / 정보고시 legalNotice) — 스토리(contentBlocks)와 분리 저장(023).
+const POLICY_MAX = 5000;
+
+// 정책 텍스트 필드 — 문자열만, 상한 슬라이스. 빈 값은 null(과거 데이터 호환: 서버는 빈 값 허용).
+function policyField(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return t ? t.slice(0, POLICY_MAX) : null;
+}
+
+// 공개예정 오픈 예정시각(openAt) — 미래 ISO/날짜(YYYY-MM-DD)만 허용. 과거/무효는 null.
+function futureDateField(v: unknown): Date | null {
+  if (typeof v !== 'string' || !v) return null;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(v);
+  const dt = dateOnly ? new Date(v + 'T00:00:00') : new Date(v);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.getTime() > Date.now() ? dt : null;
+}
+
 // 대표 영상(videoUrl) — data:video/(mp4|webm|quicktime);base64, 또는 http(s) URL.
 // 영상 data URL 은 크므로 별도 상한(base64 약 36MB). app.ts express.json limit 은 50mb 로 상향.
 const MAX_VIDEO_CHARS = 48_000_000;
@@ -120,6 +139,11 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   const plan = resolvePlan(body.plan);        // start|run|boost (수수료율 5/9/15%)
   const videoUrl = videoField(body.videoUrl); // 대표 영상(선택)
   const creatorInfo = creatorInfoField(body.creatorInfo); // 창작자 정보(선택)
+  // 정책: 스토리(contentBlocks)에 합치지 않고 별도 컬럼에 저장(023). 빈 값 허용(과거 데이터 호환).
+  const refundPolicy = policyField(body.refundPolicy); // 교환·반품 정책(선택)
+  const legalNotice = policyField(body.legalNotice);   // 정보고시/법적 고지(선택)
+  // 공개예정: plan 이 run|boost 이고 openAt(미래)가 오면 scheduled, 그 외는 기존대로 pending.
+  const openAt = (plan === 'run' || plan === 'boost') ? futureDateField(body.openAt) : null;
 
   const errors: string[] = [];
   if (!title || title.length > TITLE_MAX) errors.push('title');
@@ -162,7 +186,8 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     targetQuantity: targetQuantity as number,
     currentQuantity: 0,
     deadline: parseDeadline(deadline),
-    status: 'pending', // 관리자 승인 전까지 비공개(심사중). 승인 시 'open'.
+    // 공개예정(Run/Boost + 미래 openAt) 이면 scheduled, 그 외엔 기존대로 pending(관리자 승인 전 비공개).
+    status: openAt ? 'scheduled' : 'pending',
     designImageUrl: cover ?? thumbnail,
     tryonImageUrl: null,
     contentBlocks,
@@ -171,6 +196,9 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     plan,
     videoUrl,
     creatorInfo,
+    openAt,
+    refundPolicy, // 정책: 스토리와 분리된 별도 컬럼
+    legalNotice,
     createdAt: now,
     updatedAt: now,
   };
@@ -211,9 +239,11 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
     }
   }
   const contentBlocks: ContentBlock[] | null = blocks.length ? blocks : null;
-  // 대리 의뢰에도 대표 영상/창작자 정보는 선택 허용(있으면 저장).
+  // 대리 의뢰에도 대표 영상/창작자 정보/정책은 선택 허용(있으면 저장).
   const videoUrl = videoField(body.videoUrl);
   const creatorInfo = creatorInfoField(body.creatorInfo);
+  const refundPolicy = policyField(body.refundPolicy);
+  const legalNotice = policyField(body.legalNotice);
 
   return {
     id: randomUUID(),
@@ -242,6 +272,9 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
     plan: 'start', // 대리는 요금제 개념 없음 — 기본값.
     videoUrl,
     creatorInfo,
+    openAt: null, // 대리는 공개예정 개념 없음.
+    refundPolicy,
+    legalNotice,
     createdAt: now,
     updatedAt: now,
   };

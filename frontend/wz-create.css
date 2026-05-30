@@ -358,6 +358,21 @@
 .wc-vlink__ic svg { width: 26px; height: 26px; }
 .wc-vlink__url { font-size: 13px; color: var(--c-text-sub); word-break: break-all; line-height: 1.4; padding-right: 36px; }
 
+/* =================== 공개 예정 등록(Run·Boost) — 일정 단계 =================== */
+.wc-sched { margin-top: 18px; border: 1px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: var(--r-md); padding: 16px 18px; }
+.wc-sched__row { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+.wc-sched__text { min-width: 0; }
+.wc-sched__title { font-size: 14px; font-weight: 800; color: var(--c-primary-700); margin: 0; }
+.wc-sched__desc { font-size: 12px; color: var(--c-text-muted); margin: 4px 0 0; line-height: 1.55; }
+.wc-sched__date { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--c-primary-200); }
+.wc-sched__date .wc-fld { margin-bottom: 0; }
+
+/* 토글 스위치(공통) */
+.wc-toggle { flex-shrink: 0; width: 46px; height: 26px; border: 0; border-radius: var(--r-full); background: var(--c-border); cursor: pointer; padding: 0; position: relative; transition: background .15s; }
+.wc-toggle.is-on { background: var(--c-primary-500); }
+.wc-toggle__knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 50%; background: #fff; box-shadow: var(--sh-1); transition: transform .18s; }
+.wc-toggle.is-on .wc-toggle__knob { transform: translateX(20px); }
+
 /* =================== 창작자 정보 — 지역 select =================== */
 .wc-region { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .wc-preview--avatar { width: 140px; height: 140px; border-radius: 50%; }

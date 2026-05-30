@@ -274,6 +274,8 @@
       basePrice: '',
       targetQuantity: '',
       deadline: '',
+      openScheduled: false,   // 공개 예정으로 등록(run·boost 전용)
+      openAt: '',             // 공개 예정일 'YYYY-MM-DD' (openScheduled 일 때만 사용)
       rewardTiers: [],        // [{title, price, desc, stock}]
       storyBlocks: [],        // [{type:'text'|'image', value}]
       refundPolicy: '',
@@ -387,13 +389,13 @@
         open: openCreatorForm,
       },
       {
-        key: 'policy', name: '정책', required: false,
-        done: function () { return !!nstate.refundPolicy.trim() || !!nstate.legalNotice.trim(); },
+        key: 'policy', name: '정책', required: true,
+        done: function () { return !!nstate.refundPolicy.trim() && !!nstate.legalNotice.trim(); },
         open: openPolicyForm,
       },
       {
-        key: 'maker', name: '메이커 정보', required: false,
-        done: function () { return !!nstate.makerIntro.trim() || !!nstate.makerContact.trim(); },
+        key: 'maker', name: '메이커 정보', required: true,
+        done: function () { return !!nstate.makerIntro.trim() && !!nstate.makerContact.trim(); },
         open: openMakerForm,
       },
     ];
@@ -410,6 +412,8 @@
     return dt.getTime() > today.getTime();
   }
   function validTier(t) { return !!String(t.title || '').trim() && Number.isFinite(Number(t.price)) && Number(t.price) >= 0; }
+  // 공개 예정일: 마감일과 동일하게 오늘 이후 날짜만 허용(미래 검증).
+  function validOpenAt(s) { return validDeadline(s); }
 
   function progressPct() {
     var reqs = sections().filter(function (s) { return s.required; });
@@ -556,7 +560,7 @@
     wrap.appendChild(btn);
     wrap.appendChild(W.el('p', { class: 'wc-submit__hint' },
       ready ? '제출하면 창작자 약관 동의 후 관리자 심사를 거쳐 프로젝트가 공개됩니다.'
-            : '필수 항목(기본 정보 · 요금제 · 기본가/목표/일정 · 스토리 · 리워드 · 창작자 정보)을 모두 작성해 주세요.'));
+            : '필수 항목(기본 정보 · 요금제 · 기본가/목표/일정 · 스토리 · 리워드 · 창작자 정보 · 정책 · 메이커 정보)을 모두 작성해 주세요.'));
     return wrap;
   }
 
@@ -585,7 +589,7 @@
 
     var b3 = W.el('div', { class: 'wc-banner' });
     b3.appendChild(W.el('p', { class: 'wc-banner__title', html: IC.shield + '<span>심사 안내</span>' }));
-    b3.appendChild(W.el('p', { class: 'wc-banner__text' }, '제출된 프로젝트는 관리자 심사 후 공개됩니다. 가격과 수수료는 서버에서 최종 계산됩니다. 정책·메이커 정보 등 일부 항목은 스토리 본문에 함께 저장됩니다.'));
+    b3.appendChild(W.el('p', { class: 'wc-banner__text' }, '제출된 프로젝트는 관리자 심사 후 공개됩니다. 가격과 수수료는 서버에서 최종 계산됩니다. 교환·환불 정책과 상품 정보 고시는 스토리와 별도로 저장되어 상세 페이지 맨 끝에 따로 표시됩니다.'));
     b3.appendChild(W.el('a', { class: 'wc-banner__link', href: '/review-policy.html' }, '프로젝트 심사 기준 보기'));
     aside.appendChild(b3);
 
@@ -860,13 +864,17 @@
       }
     }, function () {
       nstate.plan = picked;
+      // Start 요금제는 공개 예정 옵션이 없으므로 예약 상태를 해제.
+      if (picked !== 'run' && picked !== 'boost') { nstate.openScheduled = false; nstate.openAt = ''; }
       return true;
     });
   }
 
   /* ---- 기본가 · 목표 · 일정 ---- */
   function openGoalForm() {
-    var priceIn, qtyIn, dlIn;
+    var priceIn, qtyIn, dlIn, openToggle, openDateIn;
+    var schedulable = nstate.plan === 'run' || nstate.plan === 'boost';
+    var scheduled = schedulable && !!nstate.openScheduled;
     var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     var minDate = tomorrow.toISOString().slice(0, 10);
     openOver('기본가 · 목표 · 일정', function (body) {
@@ -881,11 +889,46 @@
 
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
         '최종 판매가와 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)는 서버에서 계산됩니다. 입력하신 기본가는 산정 기준값으로만 사용됩니다.'));
+
+      // ---- 공개 예정 등록(Run·Boost 전용, 선택) ----
+      if (schedulable) {
+        var sched = W.el('div', { class: 'wc-sched' });
+        var schedRow = W.el('div', { class: 'wc-sched__row' });
+        var schedText = W.el('div', { class: 'wc-sched__text' });
+        schedText.append(
+          W.el('p', { class: 'wc-sched__title' }, '공개 예정으로 등록 (선택)'),
+          W.el('p', { class: 'wc-sched__desc' }, '공개 예정으로 올리면 오픈 전 알림신청을 받을 수 있어요. 설정한 날짜 전까지는 공개 예정 페이지로 노출됩니다.'),
+        );
+        openToggle = W.el('button', { class: 'wc-toggle' + (scheduled ? ' is-on' : ''), type: 'button', role: 'switch', 'aria-checked': scheduled ? 'true' : 'false', 'aria-label': '공개 예정으로 등록' });
+        openToggle.appendChild(W.el('span', { class: 'wc-toggle__knob' }));
+        schedRow.append(schedText, openToggle);
+        sched.appendChild(schedRow);
+
+        var dateWrap = W.el('div', { class: 'wc-sched__date' });
+        openDateIn = input({ type: 'date', value: nstate.openAt, min: minDate });
+        dateWrap.appendChild(field('공개 예정일', true, openDateIn, '이 날짜에 프로젝트가 자동으로 공개됩니다. 마감일보다 앞서야 합니다.'));
+        dateWrap.style.display = scheduled ? '' : 'none';
+        sched.appendChild(dateWrap);
+
+        openToggle.addEventListener('click', function () {
+          scheduled = !scheduled;
+          openToggle.classList.toggle('is-on', scheduled);
+          openToggle.setAttribute('aria-checked', scheduled ? 'true' : 'false');
+          dateWrap.style.display = scheduled ? '' : 'none';
+        });
+        body.appendChild(sched);
+      }
     }, function () {
       if (!validPrice(priceIn.value)) { toast('기본가를 0원 이상으로 입력해 주세요'); return false; }
       if (!validQty(qtyIn.value)) { toast('목표 수량은 1~500 사이로 입력해 주세요'); return false; }
       if (!validDeadline(dlIn.value)) { toast('마감일은 오늘 이후 날짜로 선택해 주세요'); return false; }
+      if (schedulable && scheduled) {
+        if (!validOpenAt(openDateIn.value)) { toast('공개 예정일은 오늘 이후 날짜로 선택해 주세요'); return false; }
+        if (openDateIn.value >= dlIn.value) { toast('공개 예정일은 마감일보다 앞선 날짜여야 합니다'); return false; }
+      }
       nstate.basePrice = priceIn.value; nstate.targetQuantity = qtyIn.value; nstate.deadline = dlIn.value;
+      nstate.openScheduled = schedulable && scheduled;
+      nstate.openAt = (schedulable && scheduled) ? openDateIn.value : '';
       return true;
     });
   }
@@ -1214,17 +1257,20 @@
   function openPolicyForm() {
     var refundIn, legalIn;
     openOver('정책', function (body) {
-      body.appendChild(W.el('div', { class: 'wc-fld__notice' },
-        '정책 항목은 별도 저장 필드가 없어, 입력 시 스토리 본문 끝에 함께 저장됩니다.'));
-      refundIn = textarea({ maxlength: '2000', placeholder: '교환·환불 기준, 배송 지연 시 처리 방법 등' });
+      body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
+        '교환·환불 정책과 상품 정보 고시는 스토리와 별도로 저장되어, 상세 페이지 맨 끝에 따로 표시됩니다. 두 항목 모두 필수입니다.'));
+      refundIn = textarea({ maxlength: '5000', placeholder: '교환·환불 기준, 배송 지연 시 처리 방법 등' });
       refundIn.value = nstate.refundPolicy || '';
-      body.appendChild(field('교환·환불 정책', false, refundIn));
-      legalIn = textarea({ maxlength: '2000', placeholder: '제품 소재·치수, 제조국, A/S 안내 등 정보 고시' });
+      body.appendChild(field('교환·환불 정책', true, refundIn, '후원자가 알아야 할 교환·환불·배송 지연 처리 기준을 적어 주세요. 최대 5000자.'));
+      legalIn = textarea({ maxlength: '5000', placeholder: '제품 소재·치수, 제조국, A/S 안내 등 정보 고시' });
       legalIn.value = nstate.legalNotice || '';
-      body.appendChild(field('상품 정보 고시', false, legalIn));
+      body.appendChild(field('상품 정보 고시', true, legalIn, '제품 소재·치수·제조국·A/S 등 법정 정보 고시 내용을 적어 주세요. 최대 5000자.'));
     }, function () {
-      nstate.refundPolicy = refundIn.value.trim();
-      nstate.legalNotice = legalIn.value.trim();
+      var refund = refundIn.value.trim(), legal = legalIn.value.trim();
+      if (!refund) { toast('교환·환불 정책을 입력해 주세요'); return false; }
+      if (!legal) { toast('상품 정보 고시를 입력해 주세요'); return false; }
+      nstate.refundPolicy = refund;
+      nstate.legalNotice = legal;
       return true;
     });
   }
@@ -1233,17 +1279,20 @@
   function openMakerForm() {
     var introIn, contactIn;
     openOver('메이커 정보', function (body) {
-      body.appendChild(W.el('div', { class: 'wc-fld__notice' },
-        '메이커 정보는 별도 저장 필드가 없어, 입력 시 스토리 본문 끝에 함께 저장됩니다.'));
+      body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
+        '메이커 정보는 스토리와 별도로 저장되어, 상세 페이지 맨 끝에 따로 표시됩니다. 소개와 문의처 모두 필수입니다.'));
       introIn = textarea({ maxlength: '1000', placeholder: '메이커(팀) 소개' });
       introIn.value = nstate.makerIntro || '';
-      body.appendChild(field('메이커 소개', false, introIn));
+      body.appendChild(field('메이커 소개', true, introIn, '어떤 메이커(팀)가 만드는지 후원자에게 소개해 주세요. 최대 1000자.'));
       contactIn = input({ type: 'text', maxlength: '200', placeholder: '문의 이메일 또는 오픈채팅 링크' });
       contactIn.value = nstate.makerContact || '';
-      body.appendChild(field('문의처', false, contactIn, '후원자 문의를 받을 연락 수단입니다.'));
+      body.appendChild(field('문의처', true, contactIn, '후원자 문의를 받을 연락 수단입니다.'));
     }, function () {
-      nstate.makerIntro = introIn.value.trim();
-      nstate.makerContact = contactIn.value.trim();
+      var intro = introIn.value.trim(), contact = contactIn.value.trim();
+      if (!intro) { toast('메이커 소개를 입력해 주세요'); return false; }
+      if (!contact) { toast('문의처를 입력해 주세요'); return false; }
+      nstate.makerIntro = intro;
+      nstate.makerContact = contact;
       return true;
     });
   }
@@ -1365,15 +1414,10 @@
         disable();
 
         // contentBlocks: API 계약 {type:"text"|"image", text?, url?}
+        // 정책·메이커 정보는 스토리에 합치지 않고 별도 필드로 전송(상세에서 따로 표시).
         var blocks = nstate.storyBlocks.map(function (b) {
           return b.type === 'image' ? { type: 'image', url: b.value } : { type: 'text', text: b.value };
         });
-        var extra = [];
-        if (nstate.refundPolicy) extra.push('[교환·환불 정책]\n' + nstate.refundPolicy);
-        if (nstate.legalNotice) extra.push('[상품 정보 고시]\n' + nstate.legalNotice);
-        if (nstate.makerIntro) extra.push('[메이커 소개]\n' + nstate.makerIntro);
-        if (nstate.makerContact) extra.push('[문의처]\n' + nstate.makerContact);
-        if (extra.length) blocks.push({ type: 'text', text: extra.join('\n\n') });
 
         // rewardTiers: API 계약 {title, price, desc, stock?}
         var rewards = nstate.rewardTiers.map(function (t) {
@@ -1393,14 +1437,21 @@
           deadline: deadlineToIso(nstate.deadline),
           contentBlocks: blocks,
           rewardTiers: rewards,
+          // 정책: 스토리와 분리된 별도 필드(서버가 refund_policy/legal_notice 컬럼에 저장).
+          refundPolicy: String(nstate.refundPolicy || '').trim(),
+          legalNotice: String(nstate.legalNotice || '').trim(),
         };
+        // 공개 예정(run·boost 전용): openAt 을 보내면 서버가 status=scheduled 로 처리.
+        if ((nstate.plan === 'run' || nstate.plan === 'boost') && nstate.openScheduled && nstate.openAt) {
+          payload.openAt = nstate.openAt;
+        }
         // 대표 이미지: 업로드 data URL 우선 -> 없으면 AI 피팅 결과
         var cover = nstate.coverImage || nstate.tryonImage;
         if (cover) payload.designImageDataUrl = cover;
         // 대표 영상(선택): 서버 검증 형태만
         var video = normalizeVideo(nstate.videoUrl);
         if (video) payload.videoUrl = video;
-        // 창작자 정보(선택 필드 모음) — 유효한 값만 추려 보냄
+        // 창작자·메이커 정보(별도 JSONB) — 유효한 값만 추려 보냄
         var creator = buildCreatorInfo();
         if (creator) payload.creatorInfo = creator;
         // designFee·platformFee 는 서버 계산. 클라가 보내지 않음.
@@ -1423,7 +1474,7 @@
       });
   }
 
-  // 창작자 정보 payload — 서버 검증 한도에 맞춰 유효 필드만. 하나도 없으면 null.
+  // 창작자·메이커 정보 payload(별도 JSONB) — 서버 검증 한도에 맞춰 유효 필드만. 하나도 없으면 null.
   function buildCreatorInfo() {
     var out = {};
     var name = String(nstate.creatorName || '').trim();
@@ -1436,6 +1487,11 @@
     if (sigungu) out.sigungu = sigungu.slice(0, 30);
     var img = String(nstate.creatorImage || '').trim();
     if (img && (/^data:image\/(png|jpe?g|webp);base64,/.test(img) || /^https?:\/\//.test(img)) && img.length <= 12000000) out.image = img;
+    // 메이커 정보(필수 단계) — 창작자 정보와 동일한 JSONB 에 함께 보관.
+    var makerIntro = String(nstate.makerIntro || '').trim();
+    if (makerIntro) out.makerIntro = makerIntro.slice(0, 1000);
+    var makerContact = String(nstate.makerContact || '').trim();
+    if (makerContact) out.makerContact = makerContact.slice(0, 200);
     return Object.keys(out).length ? out : null;
   }
 

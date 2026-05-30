@@ -23,7 +23,7 @@ import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler } from './routes/admin-insights.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
-import { createMeFundsHandler, createMeFundUpdateHandler, createFollowingFeedHandler } from './routes/me-funds.js';
+import { createMeFundsHandler, createMeFundUpdateHandler, createFollowingFeedHandler, createMeFundAnalyticsHandler } from './routes/me-funds.js';
 import {
   createUpdateMeHandler, createDeleteMeHandler,
   createUpdateNotificationsHandler, createConsentHandler,
@@ -40,6 +40,10 @@ import {
   createGroupBuysListHandler as createGroupBuysListV2Handler,
   createGroupBuyDetailHandler,
 } from './routes/groupbuys-routes.js';
+import {
+  createScheduledListHandler, createBoostBannersHandler,
+  createSubscribeHandler, createUnsubscribeHandler,
+} from './routes/groupbuys-plan-routes.js';
 import { PgCommentRepository } from './repositories/pg-comment-repository.js';
 import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
@@ -285,6 +289,12 @@ export function createApp(
 
   // 공용: 공동구매 목록 + 단일 상세 (공개; 상세는 soft-auth 로 maker.isFollowing 채움)
   app.get('/api/groupbuys', createGroupBuysListV2Handler(groupBuyRepository));
+  // 요금제 기능 — 고정 경로(/scheduled, /boost-banners)는 '/:id' 보다 먼저 등록(라우트 섀도잉 방지).
+  app.get('/api/groupbuys/scheduled', createScheduledListHandler(groupBuyRepository));   // 공개예정 목록
+  app.get('/api/groupbuys/boost-banners', createBoostBannersHandler(groupBuyRepository)); // Boost 배너(홈 히어로)
+  // 공개예정 알림 구독/취소 — :id 하위 고정 세그먼트(/subscribe)라 :id 충돌 없음.
+  app.post('/api/groupbuys/:id/subscribe', authRequired, createSubscribeHandler(groupBuyRepository));
+  app.delete('/api/groupbuys/:id/subscribe', authRequired, createUnsubscribeHandler(groupBuyRepository));
   app.get('/api/groupbuys/:id', optionalAuth, createGroupBuyDetailHandler(groupBuyRepository));
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
   app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
@@ -347,6 +357,8 @@ export function createApp(
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
   // 창작자 본인 펀드 수정 — 기본정보·스토리만(화이트리스트). creatorId/가격/상태/일정 등은 변경 불가.
   app.patch('/api/me/funds/:id', authRequired, writeRateLimit, createMeFundUpdateHandler(groupBuyRepository));
+  // 본인 펀드 분석(요금제 분석 기능) — 본인 소유 아니면 404.
+  app.get('/api/me/funds/:id/analytics', authRequired, createMeFundAnalyticsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
 
   // --- 만들기 폼 임시저장(project_drafts) — 본인 것만 CRUD ---

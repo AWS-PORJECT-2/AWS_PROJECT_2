@@ -1,4 +1,4 @@
-export type GroupBuyStatus = 'pending' | 'pending_review' | 'rejected' | 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
+export type GroupBuyStatus = 'pending' | 'pending_review' | 'rejected' | 'open' | 'scheduled' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
 export type OrderStatus = 'pending' | 'paid' | 'shipping_ready' | 'shipping' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
 export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
@@ -37,6 +37,10 @@ export interface GroupBuy {
   plan?: string;                  // 직접개설 요금제 'start'|'run'|'boost' (수수료율 5/9/15%) — 022_create_extras
   videoUrl?: string | null;       // 대표 영상(데이터 URL 또는 http) — 022_create_extras
   creatorInfo?: CreatorInfo | null; // 창작자 정보 {name,image,intro,sido,sigungu} — 022_create_extras
+  openAt?: Date | null;           // 공개예정(scheduled) 오픈 예정시각 — 023_plan_features
+  refundPolicy?: string | null;   // 교환·반품 정책(스토리와 분리) — 023_plan_features
+  legalNotice?: string | null;    // 정보고시/법적 고지(스토리와 분리) — 023_plan_features
+  viewCount?: number;             // 상세 조회수(분석) — 023_plan_features
   createdAt: Date;
   updatedAt: Date;
 }

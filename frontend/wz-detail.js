@@ -76,6 +76,43 @@
     if (!info) return null;
     return W.el('span', { class: 'wz-d-dday is-' + info.state }, info.label);
   }
+
+  /* ---------- 공개예정(scheduled) 판정 ----------
+   * 백엔드 계약: detail.status='scheduled' 또는 openAt(ISO)이 미래면 공개예정.
+   * (서버는 open_at 이 지난 scheduled 의 status 를 'open' 으로 노출하므로 둘 다 본다.) */
+  function openAtDate(f) {
+    if (!f || !f.openAt) return null;
+    const d = new Date(f.openAt);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  function isScheduled(f) {
+    if (!f) return false;
+    if (f.status === 'scheduled') return true;
+    const d = openAtDate(f);
+    return !!(d && d.getTime() > Date.now());
+  }
+  /* 공개까지 남은 일수(올림). 과거/없음이면 null. */
+  function openInDays(f) {
+    const d = openAtDate(f);
+    if (!d) return null;
+    const today = new Date(); today.setHours(0, 0, 0, 0);
+    const open = new Date(d); open.setHours(0, 0, 0, 0);
+    const n = Math.round((open - today) / 86400000);
+    return n < 0 ? null : n;
+  }
+  /* 공개예정 D-day 라벨(공개 기준). openAt 없으면 'OPEN' 폴백. */
+  function openDdayLabel(f) {
+    const n = openInDays(f);
+    if (n == null) return 'OPEN 예정';
+    if (n === 0) return '오늘 공개';
+    return '공개 D-' + n;
+  }
+  function openWhenText(f) {
+    const n = openInDays(f);
+    if (n == null) return '곧 공개됩니다';
+    if (n === 0) return '오늘 공개됩니다';
+    return n + '일 후 공개됩니다';
+  }
   /* contentBlocks 이미지 url 추출 (계약: {type:"image", url}). 구버전 value 도 허용. */
   function blockImageUrl(b) {
     if (!b || b.type !== 'image') return '';
@@ -196,7 +233,15 @@
     const galleryEl = video ? VideoHero(video, f.title) : Gallery(imgs, f.title);
     const storyEl = Story(f);
     const commentsEl = Comments(f);
+    /* 끝 섹션: 펀딩/환불 안내 → 교환·환불 정책 → 안내사항 → 창작자(메이커) 정보.
+     * 정책은 스토리(contentBlocks)와 분리된 별도 컬럼(refundPolicy/legalNotice)에서만 렌더한다. */
     mainCol.append(galleryEl, storyEl, commentsEl, FundingNotice());
+    const policyEl = PolicySection('교환·환불 정책', f.refundPolicy);
+    if (policyEl) mainCol.appendChild(policyEl);
+    const legalEl = PolicySection('안내사항', f.legalNotice);
+    if (legalEl) mainCol.appendChild(legalEl);
+    const makerInfoEl = MakerInfoSection(f);
+    if (makerInfoEl) mainCol.appendChild(makerInfoEl);
 
     /* ----- 우측 sticky 후원 패널 ----- */
     const sideCol = W.el('aside', { class: 'wz-d-side' });
@@ -334,8 +379,85 @@
       wrap.appendChild(W.el('p', { class: 'wz-d-story__text' }, f.description));
       rendered++;
     }
-    if (!rendered) wrap.appendChild(W.el('div', { class: 'wz-d-story__empty' }, '아직 등록된 스토리가 없어요.'));
-    sec.appendChild(wrap);
+    if (!rendered) { wrap.appendChild(W.el('div', { class: 'wz-d-story__empty' }, '아직 등록된 스토리가 없어요.')); sec.appendChild(wrap); return sec; }
+
+    /* 스토리 더보기: 일정 높이(STORY_CLAMP_PX)를 넘으면 접고 그라데이션 + "스토리 더보기" 버튼.
+     * 짧으면 버튼 미표시. 클릭 시 전체 펼침(clamp 해제로 페이지가 늘어난다). */
+    const STORY_CLAMP_PX = 720;
+    const clamp = W.el('div', { class: 'wz-d-story__clamp' });
+    clamp.appendChild(wrap);
+    const fade = W.el('div', { class: 'wz-d-story__fade', 'aria-hidden': 'true' });
+    const moreBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-d-story__more', type: 'button' },
+      W.el('span', {}, '스토리 더보기'),
+      W.el('span', { class: 'wz-d-story__more-ic', html: SVG.chevR }));
+    moreBtn.addEventListener('click', () => {
+      clamp.classList.add('is-open');
+      fade.remove();
+      moreBtn.remove();
+    });
+    sec.append(clamp, fade, moreBtn);
+
+    // 렌더(이미지 로드) 후 실제 높이로 더보기 노출 여부 결정. 이미지 로드 지연 대비 재측정.
+    function measure() {
+      if (clamp.classList.contains('is-open')) return;
+      const tall = wrap.scrollHeight > STORY_CLAMP_PX + 80; // 여유 80px: 살짝 넘는 글은 그냥 노출
+      clamp.classList.toggle('is-clamped', tall);
+      fade.style.display = tall ? '' : 'none';
+      moreBtn.style.display = tall ? '' : 'none';
+    }
+    requestAnimationFrame(measure);
+    wrap.querySelectorAll('img').forEach((im) => {
+      im.addEventListener('load', () => requestAnimationFrame(measure));
+    });
+    return sec;
+  }
+
+  /* ---------- 끝 섹션: 교환·환불 정책 / 안내사항 ----------
+   * 백엔드 계약 키(refundPolicy/legalNotice)를 스토리와 분리해 페이지 끝에 표시.
+   * 값(문자열)이 없으면 null 반환 → 호출부에서 섹션 생략. */
+  function PolicySection(title, value) {
+    const text = (value == null) ? '' : String(value).trim();
+    if (!text) return null;
+    const sec = W.el('section', { class: 'wz-d-policy' });
+    sec.appendChild(W.el('h2', { class: 'wz-d-policy__h2' }, title));
+    sec.appendChild(W.el('p', { class: 'wz-d-policy__text' }, text));
+    return sec;
+  }
+
+  /* ---------- 끝 섹션: 창작자(메이커) 정보 ----------
+   * creatorInfo(이름·프로필·소개·지역)를 텀블벅처럼 페이지 끝에 표시. 값 없으면 null. */
+  function MakerInfoSection(f) {
+    const ci = creatorInfoOf(f);
+    const maker = makerOf(f);
+    const name = (ci && ci.name) || maker.name;
+    const region = creatorRegion(ci);
+    const intro = ci && ci.intro;
+    const image = (ci && ci.image) || maker.picture;
+    if (!name && !region && !intro && !image) return null;
+
+    const sec = W.el('section', { class: 'wz-d-makerinfo' });
+    sec.appendChild(W.el('h2', { class: 'wz-d-makerinfo__h2' }, '창작자 정보'));
+    const card = W.el('div', { class: 'wz-d-makerinfo__card' });
+
+    const href = makerHref(maker);
+    const head = href
+      ? W.el('a', { class: 'wz-d-makerinfo__head', href })
+      : W.el('div', { class: 'wz-d-makerinfo__head' });
+    const av = W.el('span', { class: 'wz-d-makerinfo__av', html: SVG.user });
+    if (image) {
+      const im = W.el('img', { src: image, alt: '' });
+      im.addEventListener('error', () => { im.remove(); av.innerHTML = SVG.user; });
+      av.innerHTML = '';
+      av.appendChild(im);
+    }
+    const info = W.el('div', { class: 'wz-d-makerinfo__meta' });
+    info.appendChild(W.el('p', { class: 'wz-d-makerinfo__name' }, name || makerName(maker)));
+    if (region) info.appendChild(W.el('p', { class: 'wz-d-makerinfo__region' }, region));
+    head.append(av, info);
+    card.appendChild(head);
+
+    if (intro) card.appendChild(W.el('p', { class: 'wz-d-makerinfo__intro' }, intro));
+    sec.appendChild(card);
     return sec;
   }
 
@@ -381,10 +503,14 @@
   function buildSide(sideCol, f, ctx) {
     const { rate, backers, dleft, tiers } = ctx;
     const owner = isOwner(f);
+    const scheduled = isScheduled(f);
 
-    /* 상단 메타 행: 카테고리 + D-day 강조 배지(보라, 마감임박 강조 / 지난 건 '마감') */
+    /* 상단 메타 행: 카테고리 + D-day 강조 배지.
+     * 공개예정이면 "공개 D-N"(보라 강조), 그 외엔 마감 기준 D-day(임박 강조 / 지난 건 '마감'). */
     const cat = window.dtCategory && window.dtCategory(f.category);
-    const dday = DdayBadge(f.deadline);
+    const dday = scheduled
+      ? W.el('span', { class: 'wz-d-dday is-scheduled' }, openDdayLabel(f))
+      : DdayBadge(f.deadline);
     if (cat || dday) {
       const metaRow = W.el('div', { class: 'wz-d-metarow' });
       if (cat) metaRow.appendChild(W.el('span', { class: 'wz-d-cat' }, cat.label));
@@ -408,6 +534,14 @@
     statsLine.append(W.el('b', {}, backers.toLocaleString() + '명'), document.createTextNode(' 참여'));
     if (dtext) statsLine.append(document.createTextNode(' · '), W.el('b', {}, dtext));
     sideCol.appendChild(statsLine);
+
+    /* 조회수: 서버가 상세 GET 시 자동 집계(view_count++)하므로 프론트 추가 호출 불필요.
+     * detail.viewCount 가 오면 소유자/관리자에게만 작게 표시(운영 참고용). */
+    if ((owner || isAdmin()) && typeof f.viewCount === 'number') {
+      const vc = W.el('p', { class: 'wz-d-viewcount' });
+      vc.append(document.createTextNode('조회수 '), W.el('b', {}, f.viewCount.toLocaleString()));
+      sideCol.appendChild(vc);
+    }
 
     /* 모인 금액 · 달성률 */
     const amount = W.el('div', { class: 'wz-d-amount' });
@@ -469,6 +603,9 @@
       sideCol.appendChild(editBtn);
       sideCol.appendChild(W.el('p', { class: 'wz-d-ownernote' },
         '리워드 · 금액 · 일정은 이 화면에서 수정할 수 없어요. 제목 · 소개 · 카테고리 · 대표 이미지/영상 · 스토리 · 창작자 정보만 수정됩니다.'));
+    } else if (scheduled) {
+      /* 공개예정: 펀딩 대신 "공개 알림신청" 버튼 + "N일 후 공개" 안내. */
+      sideCol.appendChild(SubscribeBox(f));
     } else {
       /* 펀딩하기 큰 버튼 */
       const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
@@ -487,6 +624,64 @@
     if (isAdmin()) {
       sideCol.appendChild(AdminDanger(f));
     }
+  }
+
+  /* ---------- 공개예정 알림신청 박스 ----------
+   * "N일 후 공개" 안내 + "공개 알림신청" 버튼(POST /api/groupbuys/:id/subscribe).
+   * 이미 구독 중(isSubscribed)이면 "알림신청됨" + 다시 누르면 해제(DELETE).
+   * 구독자 수(subscriberCount)를 함께 표시. 미인증(401)이면 로그인으로 이동. */
+  function SubscribeBox(f) {
+    const box = W.el('div', { class: 'wz-d-subscribe' });
+
+    /* 공개 일정 안내 */
+    const when = W.el('div', { class: 'wz-d-subscribe__when' });
+    when.append(
+      W.el('span', { class: 'wz-d-subscribe__when-ic', html: SVG.alert }),
+      W.el('span', {}, W.el('b', {}, openWhenText(f)),
+        document.createTextNode(' 공개 전 미리 알림을 신청해 두세요.')));
+    box.appendChild(when);
+
+    let subscribed = !!f.isSubscribed;
+    let count = Number(f.subscriberCount) || 0;
+
+    const countEl = W.el('p', { class: 'wz-d-subscribe__count' });
+    function paintCount() {
+      countEl.replaceChildren(W.el('b', {}, count.toLocaleString()),
+        document.createTextNode('명이 알림을 신청했어요'));
+    }
+    paintCount();
+
+    const btn = W.el('button', { class: 'wz-btn wz-btn--lg wz-btn--block wz-d-cta', type: 'button' });
+    function paintBtn() {
+      btn.replaceChildren(
+        W.el('span', { class: 'wz-d-cta__ic', html: subscribed ? SVG.shield : SVG.alert }),
+        W.el('span', {}, subscribed ? '알림신청됨' : '공개 알림신청'));
+      btn.classList.toggle('wz-btn--primary', !subscribed);
+      btn.classList.toggle('wz-btn--outline', subscribed);
+      btn.classList.toggle('is-on', subscribed);
+    }
+    paintBtn();
+
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      const path = '/groupbuys/' + encodeURIComponent(f.id) + '/subscribe';
+      try {
+        const res = subscribed
+          ? await window.api.del(path)
+          : await window.api.post(path, {});
+        subscribed = !!(res && res.subscribed);
+        if (res && typeof res.count === 'number') count = res.count;
+        paintBtn(); paintCount();
+        toast(subscribed ? '공개되면 알림을 보내드릴게요' : '알림신청을 해제했어요');
+      } catch (e) {
+        if (e && e.status === 401) { location.href = '/login.html'; return; }
+        if (e && e.status === 404) { toast('이미 종료되었거나 존재하지 않는 프로젝트예요'); return; }
+        toast((e && e.message) ? e.message : '처리에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      } finally { btn.disabled = false; }
+    });
+
+    box.append(btn, countEl);
+    return box;
   }
 
   /* ---------- 관리자 게시글 삭제 영역 ---------- */
@@ -780,6 +975,15 @@
       const edit = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '기본정보 · 스토리 수정');
       edit.addEventListener('click', () => openEditModal(f));
       bar.append(like, edit);
+    } else if (isScheduled(f)) {
+      /* 공개예정: 펀딩 대신 알림신청. 클릭 시 우측 패널의 알림신청 버튼으로 위임(상태 동기화). */
+      const alarm = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' },
+        f.isSubscribed ? '알림신청됨' : '공개 알림신청');
+      alarm.addEventListener('click', () => {
+        const sideBtn = document.querySelector('.wz-d-subscribe .wz-d-cta');
+        if (sideBtn) { sideBtn.click(); sideBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+      });
+      bar.append(like, alarm);
     } else {
       const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
       fund.addEventListener('click', () => backFlow(f));

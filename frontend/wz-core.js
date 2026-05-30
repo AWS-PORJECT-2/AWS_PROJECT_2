@@ -299,7 +299,8 @@
       const sec = el('div', { class: 'wz-menu__grp' });
       g.forEach(([l, h]) => {
         if (l === '__notif__') {
-          const it = el('button', { class: 'wz-menu__item', type: 'button' }, h);
+          /* 알림: 다른 항목과 동일한 텍스트 링크형(.wz-menu__item). 페이지 이동 대신 wz 알림 패널 오픈. */
+          const it = el('a', { class: 'wz-menu__item', href: '#' }, h);
           it.addEventListener('click', (ev) => { ev.preventDefault(); closeAllPops(); if (typeof window.openNotification === 'function') window.openNotification(); });
           sec.appendChild(it);
         } else {
@@ -413,8 +414,18 @@
   }
 
   /* 자동 마운트: #wz-header / #wz-footer 있으면 채움 */
+  /* 파비콘 — 브라우저 탭에 두띵 로고 마크 주입(1회). 이미 있으면 스킵. */
+  function injectFavicon() {
+    if (document.querySelector('link[rel="icon"]')) return;
+    const head = document.head || document.getElementsByTagName('head')[0];
+    if (!head) return;
+    head.appendChild(el('link', { rel: 'icon', type: 'image/png', href: '/assets/logo-mark.png' }));
+    head.appendChild(el('link', { rel: 'apple-touch-icon', href: '/assets/logo-mark.png' }));
+  }
+
   function mount() {
     document.body.classList.add('wz-body');
+    injectFavicon();
     const h = document.getElementById('wz-header'); if (h && !h.dataset.done) { h.dataset.done = '1'; h.appendChild(Header()); }
     // 2줄 헤더의 실제 높이를 CSS 변수로 노출 — 상세 등 sticky 오프셋 계산에 사용(겹침 방지)
     function setHeaderH() { const hh = document.getElementById('wz-header'); if (hh) document.documentElement.style.setProperty('--wz-hd-h', hh.offsetHeight + 'px'); }

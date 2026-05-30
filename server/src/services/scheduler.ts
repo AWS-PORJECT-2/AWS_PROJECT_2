@@ -71,6 +71,7 @@ export class PaymentScheduler {
 
     this.isRunning = true;
     try {
+      await this.promoteScheduledGroupBuys();
       await this.processExpiredGroupBuys();
       await this.processRetries();
     } catch (err) {
@@ -78,6 +79,19 @@ export class PaymentScheduler {
     } finally {
       this.isRunning = false;
       await lock.release();
+    }
+  }
+
+  // 공개예정(scheduled) → open 전환: open_at <= now 인 펀드를 공개로 전환(023_plan_features).
+  // 구독자 알림은 best-effort(없으면 상태전환만). 전환 실패는 다음 tick 에서 재시도.
+  private async promoteScheduledGroupBuys(): Promise<void> {
+    try {
+      const opened = await this.groupBuyRepo.promoteScheduledToOpen(new Date());
+      if (opened.length > 0) {
+        logger.info({ count: opened.length, ids: opened }, '공개예정 → 공개 전환');
+      }
+    } catch (err) {
+      logger.error({ err }, '공개예정 → 공개 전환 실패');
     }
   }
 

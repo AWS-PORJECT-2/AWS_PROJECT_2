@@ -88,6 +88,48 @@
 .wz-mp-card__like { position: absolute; top: 8px; right: 8px; width: 26px; height: 26px; border-radius: 50%; background: #fff; display: flex; align-items: center; justify-content: center; box-shadow: var(--sh-1); }
 .wz-mp-card__like svg { width: 15px; height: 15px; color: #F472A8; fill: #F472A8; }
 
+/* 개설한 프로젝트 카드 — "분석 보기" 버튼 */
+.wz-mp-card__analyze { display: inline-flex; align-items: center; gap: 5px; margin-top: 9px; padding: 6px 11px; border: 1px solid var(--c-primary-200); border-radius: 8px; background: var(--c-primary-50); color: var(--c-primary-700); font-family: inherit; font-size: 12px; font-weight: 700; cursor: pointer; transition: background .14s, border-color .14s; }
+.wz-mp-card__analyze:hover { background: var(--c-primary-100); border-color: var(--c-primary-300); }
+.wz-mp-card__analyze svg { width: 14px; height: 14px; }
+
+/* =================== 메이커 분석 대시보드(모달) =================== */
+.wz-mp-amodal { position: fixed; inset: 0; z-index: 1000; background: rgba(17, 12, 34, .5); display: flex; align-items: center; justify-content: center; padding: 24px; }
+.wz-mp-amodal__panel { width: 100%; max-width: 560px; max-height: 88vh; overflow-y: auto; background: #fff; border-radius: 16px; box-shadow: var(--sh-2); }
+.wz-mp-amodal__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 22px 24px 16px; border-bottom: 1px solid var(--c-divider); position: sticky; top: 0; background: #fff; border-radius: 16px 16px 0 0; }
+.wz-mp-amodal__titlewrap { min-width: 0; }
+.wz-mp-amodal__eyebrow { font-size: 12px; font-weight: 800; color: var(--c-primary-600); letter-spacing: .02em; margin: 0 0 4px; }
+.wz-mp-amodal__title { font-size: 19px; font-weight: 800; color: var(--c-text); margin: 0; line-height: 1.35; word-break: break-all; }
+.wz-mp-amodal__close { flex-shrink: 0; width: 36px; height: 36px; display: inline-flex; align-items: center; justify-content: center; border: 0; border-radius: 8px; background: var(--c-divider); color: var(--c-text-sub); cursor: pointer; transition: background .14s, color .14s; }
+.wz-mp-amodal__close:hover { background: var(--c-primary-50); color: var(--c-primary-700); }
+.wz-mp-amodal__close svg { width: 18px; height: 18px; }
+.wz-mp-amodal__body { padding: 20px 24px 26px; }
+
+/* 요약 스탯 그리드 */
+.wz-mp-amodal__stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 24px; }
+.wz-mp-astat { border: 1px solid var(--c-border); border-radius: 12px; padding: 14px 14px; background: #fff; display: flex; flex-direction: column; gap: 6px; }
+.wz-mp-astat__label { font-size: 12px; color: var(--c-text-muted); font-weight: 600; }
+.wz-mp-astat__value { font-size: 19px; font-weight: 800; color: var(--c-primary-700); line-height: 1.15; word-break: break-all; }
+
+/* 달성률 진행 바 */
+.wz-mp-amodal__rate { margin-bottom: 26px; }
+.wz-mp-amodal__rate-head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 8px; }
+.wz-mp-amodal__rate-label { font-size: 13px; font-weight: 700; color: var(--c-text-sub); }
+.wz-mp-amodal__rate-val { font-size: 14px; font-weight: 800; color: var(--c-primary-700); }
+.wz-mp-amodal__rate-track { height: 10px; border-radius: 999px; background: var(--c-divider); overflow: hidden; }
+.wz-mp-amodal__rate-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c-primary-400), var(--c-primary-600)); min-width: 0; }
+
+/* 최근 14일 후원 추이 차트 */
+.wz-mp-amodal__chart-title { font-size: 14px; font-weight: 800; color: var(--c-text); margin: 0 0 12px; }
+.wz-mp-amodal__chart-empty { font-size: 13px; color: var(--c-text-muted); margin: 0; padding: 24px 0; text-align: center; border: 1px dashed var(--c-border); border-radius: 12px; }
+.wz-mp-bars__wrap { border: 1px solid var(--c-border); border-radius: 12px; padding: 14px 14px 10px; background: #fff; }
+.wz-mp-bars__box { height: 120px; }
+.wz-mp-bars { width: 100%; height: 100%; display: block; }
+.wz-mp-bars__bar { fill: var(--c-primary-500); transition: fill .14s; }
+.wz-mp-bars__bar:hover { fill: var(--c-primary-700); }
+.wz-mp-bars__bar.is-zero { fill: var(--c-divider); }
+.wz-mp-bars__axis { display: flex; justify-content: space-between; margin-top: 8px; font-size: 11px; color: var(--c-text-faint); font-weight: 600; }
+
 /* =================== 친구 패널(검색 / 팔로잉 / 팔로워) =================== */
 .wz-mp-friends { max-width: 620px; }
 /* 탭 바 */
@@ -148,12 +190,16 @@
 
 /* 안내 배너 (메인 하단) */
 .wz-mp-banner { display: flex; align-items: center; gap: 16px; margin-top: 40px; padding: 22px 24px; border-radius: 14px; background: linear-gradient(120deg, var(--c-primary-50), var(--c-primary-100)); border: 1px solid var(--c-primary-200); }
-.wz-mp-banner__ic { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; color: var(--c-primary-600); box-shadow: var(--sh-1); }
+.wz-mp-banner__ic { flex-shrink: 0; width: 44px; height: 44px; border-radius: 12px; background: #fff; display: flex; align-items: center; justify-content: center; color: var(--c-primary-600); box-shadow: var(--sh-1); overflow: hidden; }
 .wz-mp-banner__ic svg { width: 24px; height: 24px; }
+.wz-mp-banner__logo { width: 28px; height: 28px; object-fit: contain; display: block; }
 .wz-mp-banner__body { min-width: 0; flex: 1; }
 .wz-mp-banner__title { font-size: 15px; font-weight: 800; color: var(--c-text); margin: 0 0 3px; }
 .wz-mp-banner__desc { font-size: 13px; color: var(--c-text-sub); margin: 0; }
 .wz-mp-banner__cta { flex-shrink: 0; }
+/* "프로젝트 만들기" 버튼: 보라 채움 + 글자·아이콘 흰색 확실히 */
+.wz-mp-banner__cta .wz-btn--primary { color: #fff; }
+.wz-mp-banner__cta .wz-btn--primary svg { color: #fff; }
 
 /* 패널 진입 시 상단 뒤로 영역 */
 .wz-mp-panelhead { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }
@@ -197,4 +243,7 @@
   .wz-mp-draft { flex-direction: column; align-items: stretch; gap: 12px; }
   .wz-mp-draft__actions { justify-content: space-between; }
   .wz-mp-draft__go { flex: 1; justify-content: center; }
+  .wz-mp-amodal { padding: 0; align-items: flex-end; }
+  .wz-mp-amodal__panel { max-width: none; max-height: 92vh; border-radius: 16px 16px 0 0; }
+  .wz-mp-amodal__stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
