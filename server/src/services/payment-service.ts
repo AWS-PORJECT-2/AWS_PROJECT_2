@@ -157,6 +157,16 @@ export class PaymentServiceImpl implements PaymentService {
       throw new AppError('INVALID_REFUND_AMOUNT');
     }
 
+    // 멱등성: 이미 완료된 환불이 있으면 PG 를 재호출하지 않고 그 결과를 반환(이중환불 방지).
+    //  (부분쓰기 후 재시도 시 order 가 'paid' 로 남아 L153 가드를 통과해도 여기서 차단)
+    const existingRefunds = await this.refundRepo.findByOrderId(orderId);
+    const doneRefund = existingRefunds.find((r) => r.status === 'completed');
+    if (doneRefund) {
+      // 환불은 끝났는데 order 상태만 'paid' 로 남은 부분쓰기 상황도 함께 보정.
+      if (order.status === 'paid') { try { await this.orderRepo.updateStatus(orderId, 'refunded'); } catch { /* 무시 */ } }
+      return { refundId: doneRefund.id, status: 'completed', amount: doneRefund.amount };
+    }
+
     // Find the payment for this order
     const payments = await this.paymentRepo.findByOrderId(orderId);
     const paidPayment = payments.find(p => p.status === 'paid');

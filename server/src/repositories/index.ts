@@ -8,7 +8,6 @@ export type { OAuthStateRepository } from './oauth-state-repository.js';
 export { PgOAuthStateRepository } from './pg-oauth-state-repository.js';
 export type { RefreshTokenRepository } from './refresh-token-repository.js';
 export { PgRefreshTokenRepository } from './pg-refresh-token-repository.js';
-export type { AllowedDomainRepository } from './allowed-domain-repository.js';
 
 // Payment repositories
 export type {

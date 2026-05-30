@@ -112,8 +112,6 @@ import { PgChatRepository } from './repositories/pg-chat-repository.js';
 import { createAnnouncementsRouter } from './routes/announcements.js';
 import { createChatRouter } from './routes/chat.js';
 import { createRequireAdmin } from './middleware/require-admin.js';
-import { createEmailService } from './services/email-notification.js';
-export type { EmailNotificationService } from './services/email-notification.js';
 
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
@@ -429,9 +427,6 @@ export function createApp(
   // 공개 프로필(가장 일반적인 패턴이므로 위 구체 경로들 뒤에 등록) — soft-auth.
   app.get('/api/users/:idOrSlug', optionalAuth, createPublicProfileHandler(userRepository));
 
-  // --- Email Notification Service (export for socket/scheduler use) ---
-  const emailService = createEmailService();
-  (app as any).emailService = emailService;
   (app as any).chatRepository = chatRepository;
 
   // Start scheduler (only in non-test environments)

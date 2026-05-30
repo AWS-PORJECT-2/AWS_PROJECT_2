@@ -1,6 +1,6 @@
 export type { User, UserRole, NotificationPrefs } from './user.js';
 export type { Comment, CommentTargetType } from './comment.js';
-export type { Follow, FollowUser } from './follow.js';
+export type { FollowUser } from './follow.js';
 export type { PublicProfile, ProfileBadge, UserSearchItem } from './public-profile.js';
 export type { OAuthState } from './oauth-state.js';
 export type { RefreshToken } from './refresh-token.js';

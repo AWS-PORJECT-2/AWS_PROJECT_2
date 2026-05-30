@@ -49,21 +49,16 @@ export function createOrderConfirmHandler(orderRepo: OrderRepository, pgClient: 
         throw new AppError('PRICE_MISMATCH', '결제 금액이 일치하지 않습니다');
       }
 
-      // Step 5: 토스페이먼츠 최종 승인 API 호출
-      // TODO: pgClient.confirmPayment(paymentKey, orderId, amount) 연결. 현재는 skip 후 바로 PAID 전이.
-
-      // Step 6: 주문 상태를 PAID로 전이
-      await orderRepo.updateStatus(orderId, 'paid', paymentKey);
-
-      logger.info({ orderId, paymentKey, amount }, '결제 승인 완료');
-
-      res.status(200).json({
-        success: true,
-        orderId,
-        paymentKey,
-        amount,
-        status: 'paid',
-      });
+      // Step 5: 토스페이먼츠 최종 승인 — PG(confirmPayment)가 구현/연동되지 않았다.
+      // ⚠️ 보안(A04 결제 우회): PG 승인 검증 없이 주문을 PAID 로 전이하면, 임의 paymentKey 와
+      //   서버 계산 amount 만 echo 해서 실제 결제 없이 결제완료가 된다(인증 사용자가 자기 pending 주문으로).
+      //   따라서 fail-closed: 주문을 PAID 로 바꾸지 않고 차단한다. 실제 후원은 무통장입금
+      //   (/api/funds/:id/back + 관리자 입금확인) 경로를 사용한다.
+      //   토스 단건결제를 도입하려면 pgClient 에 confirmPayment 를 구현해, 토스 /v2/payments/confirm
+      //   응답 status==='DONE' 이고 totalAmount===order.amount 일 때만 updateStatus(...,'paid',...) 할 것.
+      void pgClient; // (PG 연동 시 사용) — 현재는 미사용
+      logger.warn({ orderId, userId }, '미연동 PG 단건결제 confirm 차단(fail-closed)');
+      res.status(501).json({ error: 'PAYMENT_NOT_CONFIGURED', message: '카드 결제는 현재 지원하지 않습니다. 무통장입금으로 후원해 주세요.' });
     } catch (err) {
       next(err);
     }

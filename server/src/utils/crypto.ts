@@ -50,27 +50,4 @@ export function encryptBillingKey(plaintext: string): string {
   ].join(':');
 }
 
-/**
- * 암호화된 빌링키를 복호화.
- * @param ciphertext "base64(iv):base64(authTag):base64(encrypted)" 형식
- * @returns 원본 빌링키 문자열
- */
-export function decryptBillingKey(ciphertext: string): string {
-  const key = getEncryptionKey();
-  const parts = ciphertext.split(':');
-  if (parts.length !== 3) {
-    throw new Error(
-      `암호화된 빌링키 형식이 올바르지 않습니다. 예상: base64(iv):base64(authTag):base64(ciphertext) (3 segments), 실제: ${parts.length} segments`,
-    );
-  }
-
-  const iv = Buffer.from(parts[0], 'base64');
-  const authTag = Buffer.from(parts[1], 'base64');
-  const encrypted = Buffer.from(parts[2], 'base64');
-
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
-  decipher.setAuthTag(authTag);
-
-  const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]);
-  return decrypted.toString('utf8');
-}
+// decryptBillingKey 는 미사용으로 제거됨(빌링키 자동결제 도입 시 재추가). encryptBillingKey 만 사용 중.

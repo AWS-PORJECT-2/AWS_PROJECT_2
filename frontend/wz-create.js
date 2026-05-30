@@ -537,15 +537,24 @@
     return list;
   }
 
+  // 카테고리 타입에 따라 AI 기능을 분기: 의류(apparel)=가상 피팅(모델 착용), 그 외(굿즈/기타)=가상 전시(제품 연출).
+  function aiIsApparel() {
+    return (typeof window.dtCategoryType === 'function') && window.dtCategoryType(nstate.category) === 'apparel';
+  }
+  function aiLabel() { return aiIsApparel() ? 'AI 가상 피팅' : 'AI 가상 전시'; }
+
   function AiFittingCard() {
+    var apparel = aiIsApparel();
     var card = W.el('div', { class: 'wc-aicard' });
     var ic = W.el('div', { class: 'wc-aicard__ic', html: IC.sparkle });
     var body = W.el('div', { class: 'wc-aicard__body' });
     body.append(
-      W.el('p', { class: 'wc-aicard__name' }, 'AI 가상 피팅 (선택)'),
-      W.el('p', { class: 'wc-aicard__desc' }, '디자인 이미지를 모델 착용 사진으로 만들어 대표 이미지로 사용할 수 있습니다.'),
+      W.el('p', { class: 'wc-aicard__name' }, aiLabel() + ' (선택)'),
+      W.el('p', { class: 'wc-aicard__desc' }, apparel
+        ? '디자인 이미지를 모델 착용 사진으로 만들어 대표 이미지로 사용할 수 있습니다.'
+        : '디자인 이미지를 멋진 전시·연출 사진으로 만들어 대표 이미지로 사용할 수 있습니다.'),
     );
-    var btn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, 'AI 피팅 열기');
+    var btn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, apparel ? 'AI 피팅 열기' : 'AI 전시 열기');
     btn.addEventListener('click', openAiModal);
     card.append(ic, body, btn);
     return card;
@@ -1299,19 +1308,23 @@
     });
   }
 
-  /* ---- AI 가상피팅 모달(별도) ---- */
+  /* ---- AI 가상 피팅/전시 모달(별도) — 카테고리에 따라 분기 ---- */
   function openAiModal() {
+    var apparel = aiIsApparel();
+    var label = aiLabel();
     var modal = W.el('div', { class: 'wc-modal' });
     var dim = W.el('div', { class: 'wc-modal__dim' });
     dim.addEventListener('click', close);
-    var box = W.el('div', { class: 'wc-modal__box', role: 'dialog', 'aria-label': 'AI 가상 피팅' });
+    var box = W.el('div', { class: 'wc-modal__box', role: 'dialog', 'aria-label': label });
 
     var head = W.el('div', { class: 'wc-modal__head' });
     var closeBtn = W.el('button', { class: 'wc-modal__close', type: 'button', 'aria-label': '닫기', html: IC.close });
     closeBtn.addEventListener('click', close);
-    head.append(W.el('h2', { class: 'wc-modal__title' }, 'AI 가상 피팅'), closeBtn);
+    head.append(W.el('h2', { class: 'wc-modal__title' }, label), closeBtn);
     box.appendChild(head);
-    box.appendChild(W.el('p', { class: 'wc-modal__sub' }, '디자인(굿즈·의류) 이미지를 업로드하면 모델 착용/전시 이미지를 생성합니다. 결과는 대표 이미지로 사용할 수 있습니다.'));
+    box.appendChild(W.el('p', { class: 'wc-modal__sub' }, apparel
+      ? '디자인(의류) 이미지를 업로드하면 모델 착용 사진을 생성합니다. 결과는 대표 이미지로 사용할 수 있습니다.'
+      : '디자인 이미지를 업로드하면 제품 전시·연출 사진을 생성합니다. 결과는 대표 이미지로 사용할 수 있습니다.'));
 
     var sourceState = null, resultState = null;
     var previewWrap = W.el('div', {});
@@ -1340,13 +1353,15 @@
     box.appendChild(field('디자인 이미지', false, previewWrap));
 
     var opts = W.el('div', { class: 'wc-opts' });
+    // 모델 선택은 의류(가상 피팅)일 때만. 굿즈(가상 전시)는 배경만 고른다.
     var modelSel = W.el('select', { class: 'wc-select' });
     [['female', '여성 모델'], ['male', '남성 모델'], ['female_athletic', '여성(운동)'], ['male_athletic', '남성(운동)']]
       .forEach(function (o) { modelSel.appendChild(W.el('option', { value: o[0] }, o[1])); });
     var bgSel = W.el('select', { class: 'wc-select' });
     [['studio', '스튜디오'], ['campus', '캠퍼스'], ['classroom', '강의실'], ['outdoor', '야외']]
       .forEach(function (o) { bgSel.appendChild(W.el('option', { value: o[0] }, o[1])); });
-    opts.append(field('모델', false, modelSel), field('배경', false, bgSel));
+    if (apparel) opts.append(field('모델', false, modelSel), field('배경', false, bgSel));
+    else opts.append(field('배경', false, bgSel));
     box.appendChild(opts);
 
     var statusEl = W.el('div', {});
@@ -1354,7 +1369,7 @@
     box.append(statusEl, resultWrap);
 
     var foot = W.el('div', { class: 'wc-over__foot', style: 'border:0;padding:18px 0 0' });
-    var genBtn = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, 'AI 피팅 생성');
+    var genBtn = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, apparel ? 'AI 피팅 생성' : 'AI 전시 생성');
     var useBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, '대표 이미지로 사용');
     useBtn.disabled = true;
     genBtn.addEventListener('click', function () {
@@ -1362,14 +1377,17 @@
       statusEl.className = 'wc-modal__status';
       statusEl.replaceChildren(W.el('div', { class: 'wc-spin' }), document.createTextNode('AI가 이미지를 생성하고 있어요. 잠시만 기다려 주세요.'));
       genBtn.disabled = true;
-      window.api.post('/ai/try-on', { imageDataUrls: [sourceState], modelType: modelSel.value, background: bgSel.value })
+      // category 전달 → 서버가 의류=착용 / 굿즈=전시 모드로 생성. 굿즈는 modelType 생략.
+      var aiBody = { imageDataUrls: [sourceState], background: bgSel.value, category: nstate.category };
+      if (apparel) aiBody.modelType = modelSel.value;
+      window.api.post('/ai/try-on', aiBody)
         .then(function (res) {
           var url = res && res.tryOnDataUrl;
           if (!url) throw new Error('NO_RESULT');
           resultState = url;
           statusEl.replaceChildren();
           resultWrap.style.display = '';
-          resultWrap.replaceChildren(W.el('img', { src: url, alt: 'AI 피팅 결과' }));
+          resultWrap.replaceChildren(W.el('img', { src: url, alt: label + ' 결과' }));
           useBtn.disabled = false;
           genBtn.disabled = false;
         })
@@ -1388,7 +1406,7 @@
       nstate.coverImage = nstate.coverImage || resultState;
       close();
       refreshStudio();
-      toast('AI 피팅 결과를 대표 이미지로 적용했습니다');
+      toast(label + ' 결과를 대표 이미지로 적용했습니다');
     });
     foot.append(genBtn, useBtn);
     box.appendChild(foot);

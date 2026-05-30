@@ -1,4 +1,4 @@
-import type { Request, Response } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 import type { OrderRepository } from '../repositories/order-repository.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -26,7 +26,7 @@ export interface TrackingResult {
  * 주문의 운송장 번호로 택배 추적 정보 조회
  */
 export function createOrderTrackingHandler(orderRepo: OrderRepository) {
-  return async (req: Request, res: Response): Promise<void> => {
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     const userId = req.userId;
     if (!userId) {
       res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED')));
@@ -34,7 +34,9 @@ export function createOrderTrackingHandler(orderRepo: OrderRepository) {
     }
 
     const { id } = req.params;
-    const order = await orderRepo.findById(id);
+    let order;
+    try { order = await orderRepo.findById(id); }
+    catch (err) { next(err); return; } // DB 오류 → errorHandler 위임(무한로딩 방지)
 
     if (!order) {
       res.status(404).json(createErrorResponse(new AppError('ORDER_NOT_FOUND')));
@@ -100,34 +102,38 @@ export function createOrderTrackingHandler(orderRepo: OrderRepository) {
  * body: { carrierId: string, trackingNumber: string }
  */
 export function createOrderTrackingUpdateHandler(orderRepo: OrderRepository) {
-  return async (req: Request, res: Response): Promise<void> => {
-    const userId = req.userId;
-    if (!userId) {
-      res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED')));
-      return;
+  return async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.userId;
+      if (!userId) {
+        res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED')));
+        return;
+      }
+
+      const { id } = req.params;
+      const { carrierId, trackingNumber } = req.body as { carrierId?: string; trackingNumber?: string };
+
+      if (!carrierId || !trackingNumber) {
+        res.status(400).json({ error: 'MISSING_REQUIRED_FIELD', message: 'carrierId와 trackingNumber가 필요합니다' });
+        return;
+      }
+
+      const order = await orderRepo.findById(id);
+      if (!order) {
+        res.status(404).json(createErrorResponse(new AppError('ORDER_NOT_FOUND')));
+        return;
+      }
+
+      if (order.userId !== userId) {
+        res.status(403).json({ error: 'FORBIDDEN', message: '해당 주문에 대한 권한이 없습니다' });
+        return;
+      }
+
+      await orderRepo.updateTracking(id, carrierId, trackingNumber);
+      logger.info({ orderId: id, carrierId, trackingNumber }, '운송장 등록');
+      res.json({ success: true, carrierId, trackingNumber });
+    } catch (err) {
+      next(err); // DB 오류 → errorHandler 위임(무한로딩 방지)
     }
-
-    const { id } = req.params;
-    const { carrierId, trackingNumber } = req.body as { carrierId?: string; trackingNumber?: string };
-
-    if (!carrierId || !trackingNumber) {
-      res.status(400).json({ error: 'MISSING_REQUIRED_FIELD', message: 'carrierId와 trackingNumber가 필요합니다' });
-      return;
-    }
-
-    const order = await orderRepo.findById(id);
-    if (!order) {
-      res.status(404).json(createErrorResponse(new AppError('ORDER_NOT_FOUND')));
-      return;
-    }
-
-    if (order.userId !== userId) {
-      res.status(403).json({ error: 'FORBIDDEN', message: '해당 주문에 대한 권한이 없습니다' });
-      return;
-    }
-
-    await orderRepo.updateTracking(id, carrierId, trackingNumber);
-    logger.info({ orderId: id, carrierId, trackingNumber }, '운송장 등록');
-    res.json({ success: true, carrierId, trackingNumber });
   };
 }

@@ -36,6 +36,41 @@ export class PgRewardOrderRepository {
     return mapRow(res.rows[0]);
   }
 
+  /**
+   * 한정수량 리워드의 "재고 확인 + 후원 INSERT" 를 한 트랜잭션으로 원자 처리(TOCTOU 초과판매 방지).
+   * groupbuys 행을 FOR UPDATE 로 잠가 같은 펀드의 동시 후원 신청을 직렬화한다.
+   * stockLimit == null 이면 무제한 → 단순 INSERT. 재고가 한도에 도달했으면 null 반환(SOLD_OUT).
+   */
+  async createWithStockGuard(o: RewardOrder, stockLimit: number | null): Promise<RewardOrder | null> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // 펀드 행 잠금 — reward_tier 별 재고가 groupbuys JSON 컬럼에 있어 펀드 단위 직렬화로 충분.
+      await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [o.fundId]);
+      if (stockLimit != null) {
+        const cnt = await client.query(
+          `SELECT COUNT(*)::int AS cnt FROM reward_orders
+            WHERE fund_id = $1 AND reward_tier_id = $2 AND status IN ('awaiting_deposit','confirmed')`,
+          [o.fundId, o.rewardTierId],
+        );
+        const taken = Number(cnt.rows[0]?.cnt) || 0;
+        if (taken >= stockLimit) { await client.query('ROLLBACK'); return null; }
+      }
+      const res = await client.query(
+        `INSERT INTO reward_orders (id, fund_id, reward_tier_id, reward_title, user_id, address_id, depositor_name, amount, status, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
+        [o.id, o.fundId, o.rewardTierId, o.rewardTitle, o.userId, o.addressId, o.depositorName, o.amount, o.status, o.createdAt],
+      );
+      await client.query('COMMIT');
+      return mapRow(res.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   async findById(id: string): Promise<RewardOrder | null> {
     const res = await this.pool.query('SELECT * FROM reward_orders WHERE id = $1', [id]);
     return res.rows.length ? mapRow(res.rows[0]) : null;
@@ -177,13 +212,4 @@ export class PgRewardOrderRepository {
     return res.rows.map((r) => r.user_id as string);
   }
 
-  // 특정 티어의 확정 수량(재고 차감 계산용)
-  async confirmedCountForTier(fundId: string, rewardTierId: string): Promise<number> {
-    const res = await this.pool.query(
-      `SELECT COUNT(*)::int AS cnt FROM reward_orders
-        WHERE fund_id = $1 AND reward_tier_id = $2 AND status IN ('awaiting_deposit','confirmed')`,
-      [fundId, rewardTierId],
-    );
-    return res.rows[0]?.cnt ?? 0;
-  }
 }

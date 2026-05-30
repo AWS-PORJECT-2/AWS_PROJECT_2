@@ -22,34 +22,5 @@ export function createFollowStatusHandler(repo: PgFollowRepository) {
   };
 }
 
-/** POST /api/users/:id/follow — 팔로우 (인증 필수) */
-export function createFollowHandler(repo: PgFollowRepository) {
-  return async (req: Request, res: Response): Promise<void> => {
-    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
-    const creatorId = req.params.id;
-    if (!UUID_RE.test(creatorId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
-    if (creatorId === req.userId) { res.status(400).json({ error: 'SELF', message: '자기 자신은 팔로우할 수 없습니다' }); return; }
-    try {
-      await repo.follow(req.userId, creatorId);
-      res.json({ following: true, followerCount: await repo.followerCount(creatorId) });
-    } catch (err) {
-      logger.error({ err, creatorId }, '팔로우 실패');
-      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
-    }
-  };
-}
-
-/** DELETE /api/users/:id/follow — 언팔로우 (인증 필수) */
-export function createUnfollowHandler(repo: PgFollowRepository) {
-  return async (req: Request, res: Response): Promise<void> => {
-    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
-    const creatorId = req.params.id;
-    try {
-      await repo.unfollow(req.userId, creatorId);
-      res.json({ following: false, followerCount: await repo.followerCount(creatorId) });
-    } catch (err) {
-      logger.error({ err, creatorId }, '언팔로우 실패');
-      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
-    }
-  };
-}
+// 팔로우/언팔로우 핸들러는 routes/users-routes.ts(createFollowHandler/createUnfollowHandler)로 일원화됨.
+// 이 파일은 상태조회(createFollowStatusHandler)만 제공한다.

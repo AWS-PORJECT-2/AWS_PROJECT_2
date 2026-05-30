@@ -50,15 +50,9 @@ export function createBackingHandler(
         res.status(400).json({ error: 'INVALID_ADDRESS', message: '유효한 배송지를 선택해 주세요' }); return;
       }
 
-      // 재고(한정수량) 체크 — 대기+확정 합이 한도 미만이어야
-      if (tier.stockLimit != null) {
-        const taken = await rewardOrderRepo.confirmedCountForTier(fund.id, tier.id);
-        if (taken >= tier.stockLimit) {
-          res.status(409).json({ error: 'SOLD_OUT', message: '해당 리워드가 마감되었습니다' }); return;
-        }
-      }
-
-      const order = await rewardOrderRepo.create({
+      // 재고(한정수량) 체크 + INSERT 를 한 트랜잭션으로 원자 처리 — 동시 후원 시 초과판매(TOCTOU) 방지.
+      // (이전엔 confirmedCountForTier 별도 SELECT 후 create 라 동시 요청이 모두 통과해 한도 초과 가능)
+      const order = await rewardOrderRepo.createWithStockGuard({
         id: randomUUID(),
         fundId: fund.id,
         rewardTierId: tier.id,
@@ -70,7 +64,11 @@ export function createBackingHandler(
         status: 'awaiting_deposit',
         createdAt: new Date(),
         confirmedAt: null,
-      });
+      }, tier.stockLimit ?? null);
+
+      if (!order) {
+        res.status(409).json({ error: 'SOLD_OUT', message: '해당 리워드가 마감되었습니다' }); return;
+      }
 
       logger.info({ orderId: order.id, userId, fundId: fund.id, amount: order.amount }, '리워드 후원 신청(입금대기)');
 

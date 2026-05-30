@@ -3,7 +3,7 @@
  * 운영 환경(NODE_ENV=production)에서는 절대 등록되지 않는다.
  * app.ts 에서 if (process.env.NODE_ENV !== 'production') 가드 안에서만 마운트.
  *
- * 프론트엔드의 login-dev.html, main.js, payment-api.js 가 이 엔드포인트를 사용.
+ * 프론트엔드의 login-dev.html 이 이 엔드포인트를 사용(개발 전용 로그인 페이지).
  */
 import { Router } from 'express';
 import type { Request, Response } from 'express';
