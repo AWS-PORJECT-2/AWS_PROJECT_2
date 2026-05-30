@@ -3,6 +3,8 @@ import type { UserRepository } from '../repositories/user-repository.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
+import { pool } from '../db.js';
+import { logAudit } from '../services/audit-log.js';
 
 /** GET /api/admin/users — 사용자 목록 (관리자) */
 export function createAdminUsersListHandler(userRepo: UserRepository) {
@@ -38,6 +40,7 @@ export function createAdminSetUserRoleHandler(userRepo: UserRepository) {
       if (!target) { res.status(404).json({ error: 'USER_NOT_FOUND', message: '사용자를 찾을 수 없습니다' }); return; }
       await userRepo.setRole(targetId, role);
       logger.info({ targetId, role, adminId: req.userId }, '관리자 권한 변경');
+      void logAudit(pool, { level: 'info', source: 'admin', message: '사용자 권한 변경', meta: { targetId, role }, userId: req.userId ?? null });
       res.json({ id: targetId, role });
     } catch (err) {
       logger.error({ err, targetId }, '권한 변경 실패');

@@ -400,7 +400,7 @@
     var b3 = W.el('div', { class: 'wc-banner' });
     b3.appendChild(W.el('p', { class: 'wc-banner__title', html: IC.shield + '<span>심사 안내</span>' }));
     b3.appendChild(W.el('p', { class: 'wc-banner__text' }, '제출된 프로젝트는 관리자 심사 후 공개됩니다. 가격과 수수료는 서버에서 최종 계산됩니다. 정책·메이커 정보 등 일부 항목은 스토리 본문에 함께 저장됩니다.'));
-    b3.appendChild(W.el('a', { class: 'wc-banner__link', href: '/support.html' }, '프로젝트 심사 기준 보기'));
+    b3.appendChild(W.el('a', { class: 'wc-banner__link', href: '/review-policy.html' }, '프로젝트 심사 기준 보기'));
     aside.appendChild(b3);
 
     return aside;
@@ -486,12 +486,13 @@
           var up = W.el('label', { class: 'wc-upload' });
           up.appendChild(W.el('div', { html: IC.upload }));
           up.appendChild(W.el('div', { class: 'wc-upload__text' }, '대표 이미지 업로드'));
-          up.appendChild(W.el('div', { class: 'wc-upload__hint' }, 'PNG · JPG · WEBP (최대 8MB)'));
+          up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · PNG · JPG · WEBP (최대 8MB)'));
           var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
           fileIn.addEventListener('change', function () {
             readImage(fileIn.files && fileIn.files[0], function (dataUrl) { coverState = dataUrl; renderCover(); });
           });
           up.appendChild(fileIn);
+          enableDrop(up, function (dataUrl) { coverState = dataUrl; renderCover(); });
           previewWrap.appendChild(up);
         }
       }
@@ -625,6 +626,9 @@
       add.append(addText, addImg);
       body.appendChild(add);
 
+      // 모달 전체에 이미지를 끌어다 놓으면 이미지 블록으로 추가
+      enableDrop(body, function (dataUrl) { draft.push({ type: 'image', value: dataUrl }); renderBlocks(); }, true);
+
       function renderBlocks() {
         listEl.replaceChildren();
         draft.forEach(function (b, i) {
@@ -725,10 +729,11 @@
         var up = W.el('label', { class: 'wc-upload' });
         up.appendChild(W.el('div', { html: IC.upload }));
         up.appendChild(W.el('div', { class: 'wc-upload__text' }, '디자인 이미지 업로드'));
-        up.appendChild(W.el('div', { class: 'wc-upload__hint' }, 'PNG · JPG · WEBP (최대 8MB)'));
+        up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · PNG · JPG · WEBP (최대 8MB)'));
         var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
         fileIn.addEventListener('change', function () { readImage(fileIn.files && fileIn.files[0], function (d) { sourceState = d; renderSource(); }); });
         up.appendChild(fileIn);
+        enableDrop(up, function (d) { sourceState = d; renderSource(); });
         previewWrap.appendChild(up);
       }
     }
@@ -865,7 +870,7 @@
    * ===================================================================== */
   var pstate;
   function startProxy() {
-    pstate = { title: '', category: '', contactPhone: '', requestNote: '', targetQuantity: '', deadline: '' };
+    pstate = { title: '', category: '', contactPhone: '', requestNote: '', targetQuantity: '', deadline: '', attachments: [] };
     renderProxyForm();
   }
 
@@ -933,6 +938,43 @@
     optionalWrap.appendChild(grid2);
     formCard.appendChild(optionalWrap);
 
+    /* 첨부 파일 (선택) — 디자인 시안·로고·참고 이미지. 드래그앤드롭 지원. */
+    if (!Array.isArray(pstate.attachments)) pstate.attachments = [];
+    var attachWrap = W.el('div', { class: 'wc-proxy__attach' });
+    attachWrap.appendChild(W.el('p', { class: 'wc-proxy__optional-title' }, '첨부 파일 (선택)'));
+    var attachGrid = W.el('div', { class: 'wc-attach-grid' });
+    function renderAttach() {
+      attachGrid.replaceChildren();
+      pstate.attachments.forEach(function (src, i) {
+        var pv = W.el('div', { class: 'wc-attach-item' });
+        pv.appendChild(W.el('img', { src: src, alt: '첨부 이미지' }));
+        var del = W.el('button', { class: 'wc-preview__del', type: 'button', 'aria-label': '첨부 삭제', html: IC.close });
+        del.addEventListener('click', function () { pstate.attachments.splice(i, 1); renderAttach(); });
+        pv.appendChild(del);
+        attachGrid.appendChild(pv);
+      });
+      if (pstate.attachments.length < 6) {
+        var up = W.el('label', { class: 'wc-upload wc-attach-add' });
+        up.appendChild(W.el('div', { html: IC.upload }));
+        up.appendChild(W.el('div', { class: 'wc-upload__text' }, '파일 추가'));
+        up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기'));
+        var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', multiple: 'multiple', style: 'display:none' });
+        function addFiles(files) {
+          files.slice(0, 6).forEach(function (f) {
+            readImage(f, function (d) { if (pstate.attachments.length < 6) { pstate.attachments.push(d); renderAttach(); } });
+          });
+        }
+        fileIn.addEventListener('change', function () { addFiles(Array.prototype.slice.call(fileIn.files || [])); fileIn.value = ''; });
+        up.appendChild(fileIn);
+        enableDrop(up, function (d) { if (pstate.attachments.length < 6) { pstate.attachments.push(d); renderAttach(); } }, true);
+        attachGrid.appendChild(up);
+      }
+    }
+    renderAttach();
+    attachWrap.appendChild(attachGrid);
+    attachWrap.appendChild(W.el('p', { class: 'wc-fld__help' }, '디자인 시안·로고·참고 이미지를 첨부하면 더 빠르게 진행됩니다. 이미지 최대 6장.'));
+    formCard.appendChild(attachWrap);
+
     wrap.appendChild(formCard);
 
     /* 액션 */
@@ -986,6 +1028,7 @@
         };
         if (pstate.targetQuantity !== '') payload.targetQuantity = Math.floor(Number(pstate.targetQuantity));
         if (pstate.deadline !== '') payload.deadline = deadlineToIso(pstate.deadline);
+        if (Array.isArray(pstate.attachments) && pstate.attachments.length) payload.attachments = pstate.attachments.slice(0, 6);
 
         window.api.post('/funds', payload)
           .then(function () { renderProxyDone(); })
@@ -1053,6 +1096,23 @@
     r.onload = function () { cb(String(r.result)); };
     r.onerror = function () { toast('이미지를 읽지 못했습니다'); };
     r.readAsDataURL(file);
+  }
+
+  // 드래그앤드롭: 대상 요소에 부착 → 파일을 떨어뜨리면 readImage 로 처리.
+  // multi=true 면 떨어뜨린 파일을 모두(최대 6장) 콜백으로 넘긴다.
+  function enableDrop(el, cb, multi) {
+    if (!el) return el;
+    el.classList.add('wc-drop');
+    el.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); el.classList.add('is-drag'); });
+    el.addEventListener('dragleave', function (e) { e.preventDefault(); e.stopPropagation(); el.classList.remove('is-drag'); });
+    el.addEventListener('drop', function (e) {
+      e.preventDefault(); e.stopPropagation(); el.classList.remove('is-drag');
+      var files = (e.dataTransfer && e.dataTransfer.files) ? Array.prototype.slice.call(e.dataTransfer.files) : [];
+      if (!files.length) return;
+      if (multi) files.slice(0, 6).forEach(function (f) { readImage(f, cb); });
+      else readImage(files[0], cb);
+    });
+    return el;
   }
 
   var _toastTimer;

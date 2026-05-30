@@ -14,7 +14,10 @@
 .wz-d-state p { font-size: 14px; margin: 0 0 18px; }
 
 /* ---------- 상단 탭바 (메인/스토리/댓글) — 2줄 헤더 높이만큼 아래에 sticky 고정 ---------- */
-.wz-d-tabs { position: sticky; top: var(--wz-hd-h, 110px); z-index: 60; background: #fff; border-bottom: 1px solid var(--c-border); margin: 0 -24px 28px; }
+.wz-d-tabs { position: sticky; top: 0; z-index: 210; background: #fff; border-bottom: 1px solid var(--c-border); margin: 0 -24px 28px; }
+/* 상세에선 전역 헤더를 비고정으로 — 스크롤 시 헤더가 사라지고 탭바가 맨 위에 붙는다 */
+body.wz-detail-page .wz-hd { position: static; }
+.wz-d-cat { font-size: 13px; font-weight: 600; color: var(--c-text-muted); margin: 0 0 6px; }
 .wz-d-tabs__inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; gap: 30px; }
 .wz-d-tab { appearance: none; background: none; border: 0; font-family: inherit; cursor: pointer; padding: 16px 2px; font-size: 16px; font-weight: 700; color: var(--c-text-muted); border-bottom: 2.5px solid transparent; margin-bottom: -1px; white-space: nowrap; }
 .wz-d-tab:hover { color: var(--c-text); }
@@ -23,7 +26,7 @@
 /* ---------- 본문 2단 레이아웃 ---------- */
 .wz-d-grid { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 40px; align-items: start; }
 .wz-d-main { min-width: 0; }
-.wz-d-side { position: sticky; top: calc(var(--wz-hd-h, 110px) + 56px); min-width: 0; }
+.wz-d-side { position: sticky; top: 64px; min-width: 0; }
 
 /* 탭 패널 (스토리 외) */
 .wz-d-panel { padding: 64px 20px; text-align: center; color: var(--c-text-muted); }
@@ -167,7 +170,7 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 @media (max-width: 1023px) {
   .wz-d-grid { grid-template-columns: 1fr; gap: 30px; }
   .wz-d-side { position: static; top: auto; border-top: 1px solid var(--c-divider); padding-top: 28px; }
-  .wz-d-tabs { top: var(--wz-hd-h, 96px); }
+  .wz-d-tabs { top: 0; }
 }
 @media (max-width: 767px) {
   #wz-detail { padding: 0 16px 90px; }

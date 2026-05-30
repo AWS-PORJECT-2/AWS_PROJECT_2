@@ -93,22 +93,33 @@ async function loadHistory() {
   _lastDay = null;
 
   try {
+    // 1) 방 조회/생성 — 서버는 room 객체를 그대로 반환한다
     const res = await fetch('/api/chat/me/room', { credentials: 'include' });
     if (res.status === 401) {
       location.href = '/';
       return;
     }
     if (!res.ok) throw new Error('대화 내역 로드 실패');
-    const data = await res.json();
+    const room = await res.json();
+    _roomId = (room && (room.id || room.roomId)) || null;
 
-    _roomId = data.room.id;
-    if (!data.messages || data.messages.length === 0) {
+    // 2) 메시지는 별도 엔드포인트에서 (배열 반환)
+    let messages = [];
+    try {
+      const mres = await fetch('/api/chat/me/messages?limit=100', { credentials: 'include' });
+      if (mres.ok) {
+        const body = await mres.json();
+        messages = Array.isArray(body) ? body : (body.messages || body.items || []);
+      }
+    } catch (_) { /* 메시지 로드 실패는 무시 — 안내 메시지로 대체 */ }
+
+    if (!messages.length) {
       const sys = document.createElement('div');
       sys.className = 'system-msg';
       sys.textContent = '안녕하세요! 두띵 고객센터입니다. 무엇을 도와드릴까요?';
       container.appendChild(sys);
     } else {
-      data.messages.forEach((m) => appendMessage(m));
+      messages.forEach((m) => appendMessage(m));
     }
   } catch (err) {
     container.innerHTML = '';

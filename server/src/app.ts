@@ -21,6 +21,7 @@ import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
+import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler } from './routes/admin-insights.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
 import { createMeFundsHandler } from './routes/me-funds.js';
 import {
@@ -342,6 +343,11 @@ export function createApp(
   // --- 사용자 관리 (항목 10) ---
   app.get('/api/admin/users', authRequired, requireAdmin, createAdminUsersListHandler(userRepository));
   app.post('/api/admin/users/:id/role', authRequired, requireAdmin, createAdminSetUserRoleHandler(userRepository));
+
+  // --- 관리자 통계 + 로그/오류 (콘솔 진입 가드 포함) ---
+  app.get('/api/admin/me', authRequired, requireAdmin, createAdminMeHandler(userRepository));
+  app.get('/api/admin/stats', authRequired, requireAdmin, createAdminStatsHandler(pool));
+  app.get('/api/admin/logs', authRequired, requireAdmin, createAdminLogsHandler(pool));
 
   // --- 유저/메이커 공개 + 팔로우 + 댓글 (소셜 계약) ---
   const followRepository = new PgFollowRepository(pool);

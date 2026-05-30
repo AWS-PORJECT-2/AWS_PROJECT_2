@@ -106,6 +106,7 @@
     const tiers = Array.isArray(f.rewardTiers) ? f.rewardTiers : [];
 
     root.replaceChildren();
+    document.body.classList.add('wz-detail-page'); // 상세: 헤더 비고정 → 탭바가 맨 위에 sticky
 
     /* ----- 상단 탭바 (메인 / 스토리 / 댓글 — 섹션 스크롤) ----- */
     const tabs = W.el('div', { class: 'wz-d-tabs' });
@@ -129,8 +130,8 @@
     const tabBtns = {};
     function setActive(key) { Object.keys(tabBtns).forEach((k) => tabBtns[k].classList.toggle('is-active', k === key)); }
     function stickyOffset() {
-      const hd = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--wz-hd-h'), 10) || 0;
-      return hd + (tabs.offsetHeight || 50) + 12;
+      // 상세에선 헤더가 스크롤되어 사라지고 탭바만 top:0 으로 고정되므로 탭바 높이만 보정
+      return (tabs.offsetHeight || 50) + 12;
     }
     function goSection(key) {
       const el = sections[key];
@@ -277,25 +278,13 @@
   function buildSide(sideCol, f, ctx) {
     const { rate, backers, dleft, tiers } = ctx;
 
-    /* 카테고리 랭킹 pill — 데이터 없으면 숨김. 카테고리명 pill 로 표기. */
+    /* 카테고리 — 아이콘/배경 없이 plain 텍스트 */
     const cat = window.dtCategory && window.dtCategory(f.category);
     if (cat) {
-      sideCol.appendChild(W.el('span', { class: 'wz-d-rankpill', html: SVG.trophy },
-        document.createTextNode(cat.label + ' 카테고리')));
+      sideCol.appendChild(W.el('p', { class: 'wz-d-cat' }, cat.label));
     }
 
-    /* 메이커 (아바타 + 이름) — 클릭 시 메이커 공개 프로필로 이동 */
-    const maker = makerOf(f);
-    const makerRow = W.el('a', { class: 'wz-d-maker-row', href: makerHref(maker) });
-    const av = W.el('span', { class: 'wz-d-avatar', html: SVG.user });
-    if (maker.picture) {
-      const im = W.el('img', { src: maker.picture, alt: '' });
-      im.addEventListener('error', () => { im.remove(); av.innerHTML = SVG.user; });
-      av.innerHTML = '';
-      av.appendChild(im);
-    }
-    makerRow.append(av, W.el('span', { class: 'wz-d-maker-row__name' }, makerName(maker)));
-    sideCol.appendChild(makerRow);
+    /* (상단 메이커 행은 제거 — 하단 메이커 카드와 중복) */
 
     /* 제목 */
     sideCol.appendChild(W.el('h1', { class: 'wz-d-title' }, f.title || '제목 없음'));

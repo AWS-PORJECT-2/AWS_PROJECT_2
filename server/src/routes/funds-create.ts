@@ -146,11 +146,17 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
   const now = new Date();
   // 마감 기본값: 미입력 시 30일 후
   const deadline = deadlineRaw ? parseDeadline(deadlineRaw) : new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-  // 의뢰 메모/연락처를 본문 텍스트 블록으로 보존(관리자 검토용).
+  // 의뢰 메모/연락처를 본문 텍스트 블록으로 보존(관리자 검토용) + 첨부 이미지(있으면).
   const noteParts = [requestNote, `연락처: ${contactPhone}`].filter(Boolean);
-  const contentBlocks: ContentBlock[] | null = noteParts.length
-    ? [{ type: 'text', value: noteParts.join('\n\n') }]
-    : null;
+  const blocks: ContentBlock[] = [];
+  if (noteParts.length) blocks.push({ type: 'text', value: noteParts.join('\n\n') });
+  if (Array.isArray(body.attachments)) {
+    for (const raw of (body.attachments as unknown[]).slice(0, 6)) {
+      const img = imageField(raw);
+      if (img) blocks.push({ type: 'image', value: img });
+    }
+  }
+  const contentBlocks: ContentBlock[] | null = blocks.length ? blocks : null;
 
   return {
     id: randomUUID(),

@@ -20,6 +20,7 @@
     { key: 'account', hash: '#account', label: '계정' },
     { key: 'payment', hash: '#payment', label: '결제수단' },
     { key: 'address', hash: '#address', label: '배송지' },
+    { key: 'friends', hash: '#friends', label: '친구' },
     { key: 'notification', hash: '#notification', label: '알림' },
   ];
 
@@ -263,9 +264,10 @@
       img.addEventListener('error', function () { img.remove(); avatar.innerHTML = SVG.user; });
       avatar.appendChild(img);
     } else { avatar.innerHTML = SVG.user; }
+    enablePictureDrop(avatar);
     var picRow = el('div', { class: 'wzs-row' },
       avatar,
-      el('div', { class: 'wzs-row__main' }, el('div', { class: 'wzs-row__label' }, '프로필 사진')),
+      el('div', { class: 'wzs-row__main' }, el('div', { class: 'wzs-row__label' }, '프로필 사진'), el('div', { class: 'wzs-row__sub' }, '클릭 또는 사진을 끌어다 놓아 변경')),
       el('div', { class: 'wzs-row__action' }, miniBtn('변경', pickPicture)));
     list.appendChild(picRow);
 
@@ -276,17 +278,17 @@
       successMsg: '이름이 변경되었습니다',
     }));
 
-    /* 사용자 이름 / URL (slug) */
+    /* 닉네임 (프로필 주소 = slug). 한글 허용. */
     list.appendChild(editableRow({
-      label: '사용자 이름 (URL)', field: 'slug',
-      value: me.slug || '', displayValue: me.slug ? ('http://두띵/u/' + me.slug) : '미설정',
-      placeholder: 'my-name', prefix: 'http://두띵/u/', lower: true,
+      label: '닉네임', field: 'slug',
+      value: me.slug || '', displayValue: me.slug ? ('두띵/u/' + me.slug) : '미설정',
+      placeholder: '예: 김국민', prefix: '두띵/u/', lower: true,
       validate: function (v) {
-        if (!v) return '사용자 이름을 입력해 주세요';
-        if (!/^[a-z0-9](?:[a-z0-9-]{0,48}[a-z0-9])?$/.test(v)) return '소문자/숫자/하이픈, 2~50자 (양끝은 영문·숫자)';
+        if (!v) return '닉네임을 입력해 주세요';
+        if (!/^[가-힣a-z0-9](?:[가-힣a-z0-9-]{0,48}[가-힣a-z0-9])?$/.test(v)) return '한글/영문/숫자/하이픈, 2~50자 (양끝은 한글·영문·숫자)';
         return null;
       },
-      successMsg: 'URL이 변경되었습니다',
+      successMsg: '닉네임이 변경되었습니다',
     }));
 
     /* 소개 */
@@ -361,27 +363,40 @@
     return row;
   }
 
-  // 프로필 사진 선택 -> data URL -> PATCH /api/me {picture}
+  // 프로필 사진 파일 처리 -> data URL -> PATCH /api/me {picture}
+  function applyPictureFile(fi) {
+    if (!fi) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(fi.type)) { toast('PNG·JPG·WEBP 이미지만 가능합니다'); return; }
+    if (fi.size > 3 * 1024 * 1024) { toast('이미지는 3MB 이하만 가능합니다'); return; }
+    var reader = new FileReader();
+    reader.onload = function () {
+      toast('업로드 중...');
+      patchMe({ picture: String(reader.result || '') })
+        .then(function () { rerenderPanel(); toast('프로필 사진이 변경되었습니다'); })
+        .catch(function (e) { toast((e && e.message) || '사진 변경에 실패했습니다'); });
+    };
+    reader.onerror = function () { toast('이미지를 읽지 못했습니다'); };
+    reader.readAsDataURL(fi);
+  }
   function pickPicture() {
     var inp = document.createElement('input');
     inp.type = 'file';
     inp.accept = 'image/png,image/jpeg,image/webp';
-    inp.addEventListener('change', function () {
-      var fi = inp.files && inp.files[0];
-      if (!fi) return;
-      if (!/^image\/(png|jpe?g|webp)$/.test(fi.type)) { toast('PNG·JPG·WEBP 이미지만 가능합니다'); return; }
-      if (fi.size > 3 * 1024 * 1024) { toast('이미지는 3MB 이하만 가능합니다'); return; }
-      var reader = new FileReader();
-      reader.onload = function () {
-        toast('업로드 중...');
-        patchMe({ picture: String(reader.result || '') })
-          .then(function () { rerenderPanel(); toast('프로필 사진이 변경되었습니다'); })
-          .catch(function (e) { toast((e && e.message) || '사진 변경에 실패했습니다'); });
-      };
-      reader.onerror = function () { toast('이미지를 읽지 못했습니다'); };
-      reader.readAsDataURL(fi);
-    });
+    inp.addEventListener('change', function () { applyPictureFile(inp.files && inp.files[0]); });
     inp.click();
+  }
+  // 아바타에 드래그앤드롭 + 클릭 업로드 부착
+  function enablePictureDrop(avatar) {
+    if (!avatar) return;
+    avatar.classList.add('wzs-avatar--drop');
+    avatar.addEventListener('click', pickPicture);
+    avatar.addEventListener('dragover', function (e) { e.preventDefault(); avatar.classList.add('is-drag'); });
+    avatar.addEventListener('dragleave', function (e) { e.preventDefault(); avatar.classList.remove('is-drag'); });
+    avatar.addEventListener('drop', function (e) {
+      e.preventDefault(); avatar.classList.remove('is-drag');
+      var f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+      if (f) applyPictureFile(f);
+    });
   }
 
   /* =====================================================================
@@ -983,6 +998,103 @@
   }
 
   /* =====================================================================
+   * 탭: 친구 (팔로잉/팔로워 관리 + 검색해서 팔로우)
+   *   - 검색  GET /api/users/search?q=
+   *   - 팔로잉 GET /api/users/:myId/following   · 팔로워 GET /api/users/:myId/followers
+   *   - 팔로우 POST /api/users/:id/follow        · 언팔  DELETE /api/users/:id/follow
+   * ===================================================================== */
+  function renderFriends(panel) {
+    panel.appendChild(el('h2', { class: 'wzs-sec__title' }, '친구 관리'));
+    panel.appendChild(el('p', { class: 'wzs-sec__desc' }, '이름이나 닉네임으로 친구를 찾아 팔로우하고, 내 팔로잉·팔로워를 관리하세요.'));
+
+    var myId = state.me && state.me.userId;
+
+    function makerHref(u) {
+      return '/maker.html?' + (u.slug ? 'slug=' + encodeURIComponent(u.slug) : 'id=' + encodeURIComponent(u.userId));
+    }
+
+    function followBtn(u) {
+      var btn = miniBtn(u.isFollowing ? '팔로잉' : '팔로우', function () {
+        if (btn.hasAttribute('disabled')) return;
+        btn.setAttribute('disabled', '');
+        var req = u.isFollowing
+          ? api.del('/users/' + encodeURIComponent(u.userId) + '/follow')
+          : api.post('/users/' + encodeURIComponent(u.userId) + '/follow', {});
+        req.then(function (r) {
+          u.isFollowing = r ? !!r.following : !u.isFollowing;
+          btn.textContent = u.isFollowing ? '팔로잉' : '팔로우';
+          btn.classList.toggle('wzs-mini--ghost', u.isFollowing);
+          btn.removeAttribute('disabled');
+          loadFollowing();
+        }).catch(function (e) {
+          btn.removeAttribute('disabled');
+          toast((e && e.message) || '처리에 실패했습니다');
+        });
+      }, u.isFollowing ? 'wzs-mini--ghost' : '');
+      return btn;
+    }
+
+    function friendRow(u) {
+      var href = makerHref(u);
+      var av = el('a', { class: 'wzs-friend__av', href: href, 'aria-label': u.name || '프로필' });
+      if (u.picture) av.appendChild(el('img', { src: u.picture, alt: '' }));
+      else av.appendChild(el('span', { class: 'wzs-friend__avic', html: SVG.user }));
+      var meta = el('a', { class: 'wzs-friend__meta', href: href });
+      meta.appendChild(el('p', { class: 'wzs-friend__name' }, u.name || u.nickname || '사용자'));
+      if (u.slug) meta.appendChild(el('p', { class: 'wzs-friend__sub' }, '두띵/u/' + u.slug));
+      return el('div', { class: 'wzs-friend' }, av, meta, followBtn(u));
+    }
+
+    /* 검색 */
+    var searchIn = input({ type: 'search', placeholder: '이름 또는 닉네임으로 검색', autocomplete: 'off' });
+    var resultWrap = el('div', { class: 'wzs-friend-list' });
+    panel.appendChild(field({ label: '친구 찾기', control: searchIn }));
+    panel.appendChild(resultWrap);
+
+    var searchTimer;
+    searchIn.addEventListener('input', function () {
+      clearTimeout(searchTimer);
+      var q = searchIn.value.trim();
+      if (!q) { resultWrap.replaceChildren(); return; }
+      searchTimer = setTimeout(function () {
+        api.get('/users/search?q=' + encodeURIComponent(q)).then(function (rows) {
+          rows = (Array.isArray(rows) ? rows : []).filter(function (u) { return u.userId !== myId; });
+          if (!rows.length) { resultWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '검색 결과가 없습니다.')); return; }
+          resultWrap.replaceChildren.apply(resultWrap, rows.map(friendRow));
+        }).catch(function () { resultWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '검색에 실패했습니다.')); });
+      }, 300);
+    });
+
+    /* 팔로잉 / 팔로워 */
+    var followingTitle = el('h3', { class: 'wzs-friend-grouptitle' }, '팔로잉');
+    var followingWrap = el('div', { class: 'wzs-friend-list' });
+    var followersTitle = el('h3', { class: 'wzs-friend-grouptitle' }, '팔로워');
+    var followersWrap = el('div', { class: 'wzs-friend-list' });
+    panel.append(followingTitle, followingWrap, followersTitle, followersWrap);
+
+    function loadFollowing() {
+      if (!myId) return;
+      api.get('/users/' + encodeURIComponent(myId) + '/following').then(function (rows) {
+        rows = Array.isArray(rows) ? rows : [];
+        followingTitle.textContent = '팔로잉 ' + rows.length;
+        if (!rows.length) { followingWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '아직 팔로우한 사람이 없어요.')); return; }
+        followingWrap.replaceChildren.apply(followingWrap, rows.map(function (u) { u.isFollowing = true; return friendRow(u); }));
+      }).catch(function () { followingWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '팔로잉을 불러오지 못했습니다.')); });
+    }
+    function loadFollowers() {
+      if (!myId) return;
+      api.get('/users/' + encodeURIComponent(myId) + '/followers').then(function (rows) {
+        rows = Array.isArray(rows) ? rows : [];
+        followersTitle.textContent = '팔로워 ' + rows.length;
+        if (!rows.length) { followersWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '아직 나를 팔로우한 사람이 없어요.')); return; }
+        followersWrap.replaceChildren.apply(followersWrap, rows.map(friendRow));
+      }).catch(function () { followersWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '팔로워를 불러오지 못했습니다.')); });
+    }
+    loadFollowing();
+    loadFollowers();
+  }
+
+  /* =====================================================================
    * 탭 렌더링 디스패치
    * ===================================================================== */
   var RENDERERS = {
@@ -990,6 +1102,7 @@
     account: renderAccount,
     payment: renderPayment,
     address: renderAddress,
+    friends: renderFriends,
     notification: renderNotification,
   };
 

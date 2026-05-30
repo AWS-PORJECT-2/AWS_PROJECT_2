@@ -5,6 +5,8 @@ import type { RewardTier } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
+import { pool } from '../db.js';
+import { logAudit } from '../services/audit-log.js';
 
 // 관리자 리워드 입력 검증 — id/soldCount 는 서버 부여, 가격/수량 범위 검증.
 function sanitizeTiers(v: unknown): RewardTier[] {
@@ -79,6 +81,7 @@ function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected'
       }
       await repo.updateStatus(id, next);
       logger.info({ id, adminId: req.userId, next }, `관리자 펀드 ${label}`);
+      void logAudit(pool, { level: 'info', source: 'admin', message: `펀드 ${label}`, meta: { fundId: id, next }, userId: req.userId ?? null });
       res.json({ id, status: next });
     } catch (err) {
       logger.error({ err, id }, `관리자 펀드 ${label} 실패`);
@@ -138,6 +141,7 @@ export function createAdminFundDeleteHandler(
       const result = await rewardOrderRepo.cancelAllForFund(id);
       await repo.cancelFund(id);
       logger.info({ id, adminId: req.userId, cancelled: result.cancelledCount, refundable: result.refundable.length }, '관리자 펀드 삭제 처리');
+      void logAudit(pool, { level: 'info', source: 'admin', message: '펀드 삭제 처리', meta: { fundId: id, cancelledBackings: result.cancelledCount, refundable: result.refundable.length }, userId: req.userId ?? null });
       res.json({ id, status: 'cancelled', cancelledBackings: result.cancelledCount, refundable: result.refundable });
     } catch (err) {
       logger.error({ err, id }, '펀드 삭제 처리 실패');

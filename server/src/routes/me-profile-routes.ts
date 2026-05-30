@@ -13,7 +13,7 @@ const INTRO_MAX = 500;
 const WEBSITE_MAX = 255;
 const SLUG_MAX = 50;
 const PHONE_RE = /^[0-9\-+ ]{7,20}$/;
-const SLUG_RE = /^[a-z0-9](?:[a-z0-9-]{1,48}[a-z0-9])?$/; // 소문자/숫자/하이픈, 2~50자, 양끝 영숫자
+const SLUG_RE = /^[가-힣a-z0-9](?:[가-힣a-z0-9-]{0,48}[가-힣a-z0-9])?$/; // 닉네임: 한글/소문자/숫자/하이픈, 1~50자, 양끝 한글·영숫자
 const THEME_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 const MAX_PICTURE_CHARS = 4_000_000;  // 프로필 이미지 data URL 약 3MB
 const MAX_COVER_CHARS = 8_000_000;    // 커버 이미지 data URL 약 6MB
@@ -69,8 +69,9 @@ export function createUpdateMeHandler(userRepo: UserRepository) {
       patch.phone = v;
     }
     if (typeof body.slug === 'string') {
+      // 닉네임(프로필 주소). 영문은 소문자로 정규화하되 한글은 그대로 허용.
       const v = body.slug.trim().toLowerCase();
-      if (!SLUG_RE.test(v) || v.length > SLUG_MAX) { bad('슬러그는 소문자/숫자/하이픈 2~50자입니다'); return; }
+      if (!SLUG_RE.test(v) || v.length > SLUG_MAX) { bad('닉네임은 한글/영문/숫자/하이픈 2~50자입니다'); return; }
       patch.slug = v;
     }
     if (typeof body.picture === 'string') {

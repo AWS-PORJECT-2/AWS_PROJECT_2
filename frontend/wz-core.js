@@ -294,7 +294,7 @@
     const f = el('footer', { class: 'wz-footer' });
     const inner = el('div', { class: 'wz-footer__inner' });
     const links = el('div', { class: 'wz-footer__links' });
-    [['이용약관', '/terms.html'], ['개인정보처리방침', '/privacy.html'], ['프로젝트 심사 기준', '/support.html'], ['공지사항', '/announcements.html'], ['고객지원', '/support.html']]
+    [['이용약관', '/terms.html'], ['개인정보처리방침', '/privacy.html'], ['프로젝트 심사 기준', '/review-policy.html'], ['공지사항', '/announcements.html'], ['고객지원', '/support.html']]
       .forEach(([l, h]) => links.appendChild(el('a', { href: h }, l)));
     inner.appendChild(links);
     inner.appendChild(el('div', {}, '두띵(doothing) · 국민대학교 굿즈 크라우드펀딩 플랫폼'));

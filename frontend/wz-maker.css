@@ -46,7 +46,7 @@
 
 /* 정보 줄: 아바타가 커버 위로 살짝 올라옴 */
 .wz-mk-hero__inner {
-  display: flex; align-items: flex-end; gap: 24px;
+  display: flex; align-items: flex-start; gap: 24px;
   padding-top: 0; padding-bottom: 24px;
   position: relative;
 }
@@ -61,7 +61,8 @@
 .wz-mk-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .wz-mk-avatar svg { width: 46%; height: 46%; color: var(--c-text-faint); }
 
-.wz-mk-hero__main { min-width: 0; flex: 1; padding-bottom: 2px; }
+/* 이름 묶음은 커버 아래로 내려서 아바타 하단과 나란히 (너무 위로 붙지 않게) */
+.wz-mk-hero__main { min-width: 0; flex: 1; padding-top: 56px; padding-bottom: 2px; }
 .wz-mk-hero__namerow { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
 .wz-mk-name { font-size: 24px; font-weight: 800; color: var(--c-text); margin: 0; line-height: 1.2; word-break: break-all; }
 .wz-mk-nick { font-size: 14px; font-weight: 600; color: var(--c-text-muted); }
@@ -95,7 +96,7 @@
 .wz-mk-stat__num { font-size: 20px; font-weight: 800; color: var(--c-text); line-height: 1.1; }
 .wz-mk-stat__label { font-size: 12px; color: var(--c-text-muted); font-weight: 600; }
 
-.wz-mk-hero__actions { flex-shrink: 0; display: flex; align-items: center; gap: 10px; padding-bottom: 2px; }
+.wz-mk-hero__actions { flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 56px; padding-bottom: 2px; }
 .wz-mk-share, .wz-mk-editbtn, .wz-mk-follow { gap: 6px; }
 .wz-mk-share svg, .wz-mk-editbtn svg, .wz-mk-follow__ic svg { width: 16px; height: 16px; }
 .wz-mk-follow { min-width: 116px; }
@@ -247,10 +248,10 @@
   .wz-mk-cover { height: 168px; }
   .wz-mk-hero__inner { flex-direction: column; align-items: flex-start; gap: 14px; padding-bottom: 20px; }
   .wz-mk-avatar { width: 96px; height: 96px; margin-top: -44px; }
-  .wz-mk-hero__main { width: 100%; }
+  .wz-mk-hero__main { width: 100%; padding-top: 0; }
   .wz-mk-name { font-size: 21px; }
   .wz-mk-stats { gap: 22px; }
-  .wz-mk-hero__actions { width: 100%; }
+  .wz-mk-hero__actions { width: 100%; margin-top: 4px; }
   .wz-mk-hero__actions .wz-btn { flex: 1; }
   .wz-mk-follow { min-width: 0; }
   .wz-mk-tab { height: 48px; font-size: 14px; padding: 0 12px; }

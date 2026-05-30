@@ -48,6 +48,7 @@
 }
 .wzs-row__value { font-size: 14px; color: var(--c-text-sub); margin-top: 5px; word-break: break-all; line-height: 1.5; }
 .wzs-row__value--muted { color: var(--c-text-faint); }
+.wzs-row__sub { font-size: 12px; color: var(--c-text-muted); margin-top: 4px; }
 .wzs-row__action { flex-shrink: 0; }
 
 /* 작은 우측 버튼 */
@@ -70,6 +71,9 @@
 }
 .wzs-avatar img { width: 100%; height: 100%; object-fit: cover; }
 .wzs-avatar svg { width: 30px; height: 30px; color: var(--c-text-faint); }
+.wzs-avatar--drop { cursor: pointer; transition: box-shadow .12s; }
+.wzs-avatar--drop:hover { box-shadow: 0 0 0 2px var(--c-primary-200); }
+.wzs-avatar--drop.is-drag { box-shadow: 0 0 0 3px var(--c-primary-400); }
 
 /* ===== 배지 ===== */
 .wzs-badge {
@@ -141,6 +145,19 @@ textarea.wzs-input { height: auto; min-height: 80px; padding: 10px 12px; resize:
 }
 .wzs-add:hover { background: var(--c-primary-100); }
 .wzs-add svg { width: 18px; height: 18px; }
+
+/* ===== 친구 탭 ===== */
+.wzs-friend-grouptitle { font-size: 15px; font-weight: 800; color: var(--c-text); margin: 28px 0 12px; padding-top: 18px; border-top: 1px solid var(--c-divider); }
+.wzs-friend-list { display: flex; flex-direction: column; gap: 2px; }
+.wzs-friend { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-radius: var(--r-sm); transition: background .12s; }
+.wzs-friend:hover { background: var(--c-bg); }
+.wzs-friend__av { width: 46px; height: 46px; border-radius: 50%; overflow: hidden; flex-shrink: 0; background: var(--c-divider); display: flex; align-items: center; justify-content: center; }
+.wzs-friend__av img { width: 100%; height: 100%; object-fit: cover; }
+.wzs-friend__avic svg { width: 24px; height: 24px; color: var(--c-text-faint); }
+.wzs-friend__meta { flex: 1; min-width: 0; text-decoration: none; }
+.wzs-friend__name { font-size: 14px; font-weight: 700; color: var(--c-text); margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wzs-friend__sub { font-size: 12px; color: var(--c-text-muted); margin: 2px 0 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wzs-friend .wzs-mini { flex-shrink: 0; }
 
 /* ===== 회원탈퇴 영역 ===== */
 .wzs-danger { margin-top: 28px; padding-top: 22px; border-top: 1px solid var(--c-divider); }
