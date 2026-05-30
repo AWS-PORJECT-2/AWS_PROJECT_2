@@ -70,7 +70,8 @@ async function openTrackingModal() {
   document.body.appendChild(modal);
 
   try {
-    var orders = await window.api.get('/me/orders', { silentAuthFail: true });
+    var ordersResp = await window.api.get('/me/orders', { silentAuthFail: true });
+    var orders = Array.isArray(ordersResp) ? ordersResp : ((ordersResp && ordersResp.orders) || []);
     var container = document.getElementById('trackingContent');
     if (!container) return;
     if (!orders || orders.length === 0) {

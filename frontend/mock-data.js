@@ -43,11 +43,17 @@ function sortByLikes(products) {
  */
 function toggleLike(productId) {
   const product = MOCK_PRODUCTS.find((p) => p.id === productId);
-  if (!product) return false;
-
   const flagKey = 'liked_' + productId;
   const deltaKey = 'liked_delta_' + productId;
   const currentDelta = Number(localStorage.getItem(deltaKey)) || 0;
+
+  // MOCK 목록에 없는 펀드(상세 API 직접 진입) — localStorage 단독으로 토글
+  if (!product) {
+    const nowLiked = localStorage.getItem(flagKey) !== '1';
+    localStorage.setItem(flagKey, nowLiked ? '1' : '0');
+    localStorage.setItem(deltaKey, String(currentDelta + (nowLiked ? 1 : -1)));
+    return nowLiked;
+  }
 
   if (product.isLiked) {
     // 좋아요 해제
@@ -81,10 +87,20 @@ function isLiked(productId) {
  */
 function setReserved(productId, value) {
   const product = MOCK_PRODUCTS.find((p) => p.id === productId);
-  if (!product) return;
-
   const flagKey = 'reserved_' + productId;
   const deltaKey = 'reserved_delta_' + productId;
+
+  // MOCK 목록에 없는 펀드(상세 API 직접 진입) — localStorage 단독 처리
+  if (!product) {
+    if (value) {
+      localStorage.setItem(flagKey, '1');
+    } else {
+      localStorage.removeItem(flagKey);
+      localStorage.removeItem(deltaKey);
+      localStorage.removeItem('selectedSize_' + productId);
+    }
+    return true;
+  }
 
   if (value && !product.isReserved) {
     // 새로 참여

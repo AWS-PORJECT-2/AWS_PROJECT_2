@@ -212,8 +212,7 @@ function Header() {
     if (it.cat) a.addEventListener('click', (e) => { e.preventDefault(); buildAndOpenMenu(); });
     navLeft.appendChild(a);
   });
-  const creatorBtn = el('a', { class: 'dt-hd__creator', href: '/profile.html?tab=funds' }, '창작자센터');
-  navInner.append(navLeft, creatorBtn);
+  navInner.append(navLeft);
   navbar.appendChild(navInner);
 
   header.appendChild(topbar);
@@ -1022,7 +1021,6 @@ function App() {
   const featuredWrap = el('section', { class: 'dt-home-sec' });
   wrap.appendChild(featuredWrap);
   wrap.appendChild(RecentlyViewed());
-  wrap.appendChild(HowItWorks());
   root.appendChild(wrap);
 
   function buildHome() {

@@ -32,12 +32,24 @@ let currentKeyword = '';
     if (q) currentKeyword = String(q).trim();
 
     const s = params.get('sort');
-    if (s === 'latest' || s === 'popular') currentSort = s;
+    if (s === 'latest' || s === 'popular' || s === 'ending') currentSort = s;
   } catch (_) { /* ignore */ }
 })();
 
 /* ===== 초기화 ===== */
 document.addEventListener('DOMContentLoaded', () => {
+  // 정렬 select 표시값을 현재 정렬과 동기화 (헤더 신규/인기/마감임박 진입 시 불일치 방지)
+  const sel = document.getElementById('sortSelect');
+  if (sel) sel.value = currentSort;
+  // 추천칩 active 동기화
+  const recRow = document.getElementById('recommendRow');
+  if (recRow) {
+    recRow.querySelectorAll('.rec-chip').forEach((c) => c.classList.remove('rec-active'));
+    const want = currentSort === 'latest' ? '신규' : 'all';
+    const target = [...recRow.querySelectorAll('.rec-chip')].find((c) => c.getAttribute('data-rec') === want)
+      || recRow.querySelector('.rec-chip');
+    if (target) target.classList.add('rec-active');
+  }
   renderCategoryChips();
   renderFeedList();
 });
@@ -96,11 +108,14 @@ function getProcessedProducts() {
     });
   }
 
-  // 3. 정렬
+  // 3. 정렬 (인기=달성률 desc / 신규=최신 / 마감임박=마감일 임박순)
+  const rate = (p) => (typeof calcAchievementRate === 'function' ? calcAchievementRate(p) : 0);
   if (currentSort === 'latest') {
     filtered.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+  } else if (currentSort === 'ending') {
+    filtered.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
   } else {
-    filtered.sort((a, b) => (b.likeCount || 0) - (a.likeCount || 0));
+    filtered.sort((a, b) => rate(b) - rate(a));
   }
 
   return filtered;
@@ -166,14 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
     recRow.querySelectorAll('.rec-chip').forEach((c) => c.classList.remove('rec-active'));
     btn.classList.add('rec-active');
-    // 추천 키워드는 검색 키워드로 위임 (mock-data 에 없는 태그라 전체 노출)
-    // 실제 백엔드 연결 시 GET /api/products?recommend=화사한 같은 식으로 확장 가능
+    // 추천칩은 '정렬'로 위임 (인기=달성률 desc, 신규=최신). 키워드 필터로 쓰면 빈 결과가 되므로 금지.
     const rec = btn.getAttribute('data-rec');
-    if (rec === 'all') {
-      currentKeyword = '';
-    } else {
-      currentKeyword = rec;
-    }
+    currentKeyword = '';
+    currentSort = (rec === '신규') ? 'latest' : 'popular';
+    const sel = document.getElementById('sortSelect');
+    if (sel) sel.value = currentSort === 'latest' ? 'latest' : 'popular';
     renderFeedList();
   });
 });

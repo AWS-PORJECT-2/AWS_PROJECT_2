@@ -657,7 +657,13 @@
       })
       .catch(function (err) {
         console.error('try-on error', err);
-        alert('AI 가상피팅 실패: ' + ((err && err.message) || '알 수 없는 오류'));
+        var msg = (err && err.message) || '';
+        var st = err && err.status;
+        if (st === 404 || st === 503 || /not found|준비|unavailable/i.test(msg)) {
+          alert('AI 가상피팅 기능이 아직 준비되지 않았어요. 대표이미지는 직접 업로드해 주세요.');
+        } else {
+          alert('AI 가상피팅 실패: ' + (msg || '잠시 후 다시 시도해 주세요.'));
+        }
       })
       .finally(function () {
         btn.disabled = false;
@@ -940,6 +946,16 @@
     btn.textContent = '등록 중...';
 
     try {
+      // 게시글 본문 블록(글/사진) — 비어있는 텍스트 제외
+      var blocks = state.contentBlocks
+        .filter(function (b) { return b.type === 'image' || (b.value && b.value.trim()); });
+      // 창작자 정보(선택)는 서버 전용 컬럼이 없으므로 본문 블록으로 합쳐 저장(유실 방지)
+      var c = state.creator || {};
+      var creatorLines = [];
+      if (c.intro && c.intro.trim()) creatorLines.push('창작자 소개\n' + c.intro.trim());
+      if (c.contact && c.contact.trim()) creatorLines.push('문의: ' + c.contact.trim());
+      if (creatorLines.length) blocks.push({ type: 'text', value: creatorLines.join('\n\n') });
+
       const res = await api.post('/funds', {
         title: state.formValues.title,
         description: state.formValues.description,
@@ -951,8 +967,7 @@
         deadline: state.formValues.deadline,
         designImageDataUrl: state.coverImage || state.designImages[0] || null,  // 대표/디자인 사진(있으면)
         tryOnImages: state.tryOnImage ? [state.tryOnImage] : [],                // AI 미리보기 사진(있으면)
-        contentBlocks: state.contentBlocks                                       // 게시글 본문 (글/사진 블록)
-          .filter(function (b) { return b.type === 'image' || (b.value && b.value.trim()); }),
+        contentBlocks: blocks,
       });
       window.location.href = '/detail.html?id=' + encodeURIComponent(res.id);
     } catch (err) {
