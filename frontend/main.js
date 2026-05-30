@@ -910,38 +910,73 @@ function ProjectCard(p, badge) {
 }
 
 /* 인기 프로젝트 랭킹 (스크린샷1 우측) */
-function RankList(items) {
+/* 실시간 베스트 랭킹 (와디즈) — 탭(인기/신규/마감임박) + 1~6위 */
+function RankList(products) {
+  products = Array.isArray(products) ? products : [];
+  const rate = (p) => (typeof calcAchievementRate === 'function') ? calcAchievementRate(p) : 0;
   const sec = el('section', { class: 'dt-rank' });
   const head = el('div', { class: 'dt-rank__head' });
-  head.appendChild(el('h2', { class: 'dt-rank__title' }, '인기 프로젝트'));
+  head.appendChild(el('h2', { class: 'dt-rank__title' }, '실시간 베스트'));
   head.appendChild(el('a', { class: 'dt-rank__more', href: '/feed.html?sort=popular' }, '전체보기'));
   sec.appendChild(head);
-  sec.appendChild(el('p', { class: 'dt-rank__time' }, '실시간 인기 순'));
 
-  if (!items || items.length === 0) {
+  const tabsRow = el('div', { class: 'dt-rank__tabs' });
+  const TABS = [['popular', '인기'], ['latest', '신규'], ['ending', '마감임박']];
+  const listWrap = el('div', { class: 'dt-rank__listwrap' });
+
+  function emptyBlock() {
     const empty = el('div', { class: 'dt-rank__empty' });
     empty.appendChild(el('p', {}, '아직 진행 중인 프로젝트가 없어요'));
-    empty.appendChild(el('a', { class: 'dt-btn dt-btn--outline', href: '/fund-create.html' }, '프로젝트 올리기'));
-    sec.appendChild(empty);
-    return sec;
+    empty.appendChild(el('a', { class: 'dt-btn dt-btn--outline', href: '/fund-create.html' }, '프로젝트 만들기'));
+    return empty;
   }
-  const list = el('ol', { class: 'dt-rank__list' });
-  items.slice(0, 6).forEach((p, i) => {
-    const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(p) : 0;
-    const li = el('a', { class: 'dt-rank__item', href: '/detail.html?id=' + encodeURIComponent(p.id) });
-    const thumb = el('div', { class: 'dt-rank__thumb' });
-    fillThumb(thumb, p);
-    thumb.appendChild(el('span', { class: 'dt-rank__num' + (i < 3 ? ' is-top' : '') }, String(i + 1)));
-    li.appendChild(thumb);
-    const info = el('div', { class: 'dt-rank__info' });
-    info.appendChild(el('p', { class: 'dt-rank__author' }, p.author || p.creatorName || '익명'));
-    info.appendChild(el('p', { class: 'dt-rank__name' }, p.title || ''));
-    info.appendChild(el('p', { class: 'dt-rank__rate' }, rate + '% 달성'));
-    li.appendChild(info);
-    list.appendChild(li);
+  function render(sortKey) {
+    let arr = [...products];
+    if (sortKey === 'latest') arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    else if (sortKey === 'ending') arr.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
+    else arr.sort((a, b) => rate(b) - rate(a));
+    arr = arr.slice(0, 6);
+    if (!arr.length) { listWrap.replaceChildren(emptyBlock()); return; }
+    const list = el('ol', { class: 'dt-rank__list' });
+    arr.forEach((p, i) => {
+      const li = el('a', { class: 'dt-rank__item', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+      li.appendChild(el('span', { class: 'dt-rank__rankno' + (i < 3 ? ' is-top' : '') }, String(i + 1)));
+      const thumb = el('div', { class: 'dt-rank__thumb' });
+      fillThumb(thumb, p);
+      li.appendChild(thumb);
+      const info = el('div', { class: 'dt-rank__info' });
+      info.appendChild(el('p', { class: 'dt-rank__author' }, p.author || p.creatorName || '익명'));
+      info.appendChild(el('p', { class: 'dt-rank__name' }, p.title || ''));
+      info.appendChild(el('p', { class: 'dt-rank__rate' }, rate(p) + '% 달성'));
+      li.appendChild(info);
+      list.appendChild(li);
+    });
+    listWrap.replaceChildren(list);
+  }
+  TABS.forEach(([key, label], idx) => {
+    const b = el('button', { class: 'dt-rank__tab' + (idx === 0 ? ' is-active' : ''), type: 'button' }, label);
+    b.addEventListener('click', () => {
+      tabsRow.querySelectorAll('.dt-rank__tab').forEach((x) => x.classList.remove('is-active'));
+      b.classList.add('is-active');
+      render(key);
+    });
+    tabsRow.appendChild(b);
   });
-  sec.appendChild(list);
+  sec.appendChild(tabsRow);
+  sec.appendChild(listWrap);
+  render('popular');
   return sec;
+}
+
+/* 텍스트 카테고리 메뉴 바 (와디즈 홈 — 검색바 아래) */
+function CategoryMenuBar() {
+  const bar = el('nav', { class: 'dt-catmenu', 'aria-label': '카테고리' });
+  const inner = el('div', { class: 'dt-catmenu__inner' });
+  (window.DT_CATEGORIES || []).forEach((c) => {
+    inner.appendChild(el('a', { class: 'dt-catmenu__link', href: '/feed.html?category=' + encodeURIComponent(c.slug) }, c.label));
+  });
+  bar.appendChild(inner);
+  return bar;
 }
 
 /* 홈 히어로 배너 — hero-main.png 큰 배너 + 좌측 카피 오버레이 (스크린샷1 좌측) */
@@ -1008,12 +1043,13 @@ function App() {
   root.appendChild(Header());
 
   const wrap = el('div', { class: 'dt-home' });
+  wrap.appendChild(CategoryGrid());        // 원형 카테고리 (검색바 아래)
+  wrap.appendChild(CategoryMenuBar());     // 텍스트 카테고리 바
   const top = el('div', { class: 'dt-home__top' });
   const heroCol = el('div', { class: 'dt-home__hero' }, HomeHero());
   const rankCol = el('aside', { class: 'dt-home__rank' });
   top.append(heroCol, rankCol);
   wrap.appendChild(top);
-  wrap.appendChild(CategoryGrid());
   const featuredWrap = el('section', { class: 'dt-home-sec' });
   wrap.appendChild(featuredWrap);
   wrap.appendChild(RecentlyViewed());
@@ -1021,11 +1057,9 @@ function App() {
 
   function buildHome() {
     const products = (Array.isArray(window.MOCK_PRODUCTS)) ? window.MOCK_PRODUCTS : [];
-    const rate = (p) => (p.targetQuantity > 0 ? p.currentQuantity / p.targetQuantity : 0);
-    const popular = [...products].sort((a, b) => rate(b) - rate(a)).slice(0, 6);
     const fresh = [...products].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 8);
-    rankCol.replaceChildren(RankList(popular));
-    featuredWrap.replaceChildren(HomeProjectSection('주목할 만한 프로젝트', fresh, null));
+    rankCol.replaceChildren(RankList(products));
+    featuredWrap.replaceChildren(HomeProjectSection('취향 맞춤 프로젝트', fresh, null));
   }
   buildHome();
   window.addEventListener('mockproducts:updated', buildHome);
