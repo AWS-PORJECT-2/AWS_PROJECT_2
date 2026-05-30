@@ -213,6 +213,7 @@
       actions.appendChild(actionBtn('리워드 설정', '#fff', '#7c3aed', function () { setRewards(f.id); }, '#c4b5fd'));
     }
     if (f.status === 'pending') {
+      actions.appendChild(actionBtn('검토', '#fff', '#4b5563', function () { openReviewModal(f.id); }, '#e5e7eb'));
       actions.appendChild(actionBtn('승인', '#8b5cf6', '#fff', function () { review(f.id, 'approve', wrap); }));
       actions.appendChild(actionBtn('반려', '#fff', '#ef4444', function () { review(f.id, 'reject', wrap); }, '#ef4444'));
     } else {
@@ -269,6 +270,89 @@
       alert('리워드 ' + tiers.length + '종 설정 완료. 이제 승인하면 공개됩니다.');
       load();
     } catch (e) { alert('리워드 설정 실패: ' + ((e && e.message) || '')); }
+  }
+
+  // 펀드 검토 모달 (H4) — 승인 전 내용(리워드·본문·이미지) 확인 후 승인/반려
+  async function openReviewModal(id) {
+    var back = document.createElement('div');
+    back.style.cssText = 'position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+    var box = document.createElement('div');
+    box.style.cssText = 'background:#fff;border-radius:16px;max-width:640px;width:100%;max-height:86vh;overflow-y:auto;padding:24px;';
+    box.innerHTML = '<div style="color:#9ca3af;text-align:center;padding:40px;">불러오는 중…</div>';
+    back.appendChild(box);
+    back.addEventListener('click', function (e) { if (e.target === back) back.remove(); });
+    document.body.appendChild(back);
+
+    var f;
+    try { f = await window.api.get('/groupbuys/' + encodeURIComponent(id)); }
+    catch (e) { box.innerHTML = '<div style="color:#ef4444;text-align:center;padding:40px;">불러오기 실패</div>'; return; }
+
+    var catLabel = (typeof window.dtCategory === 'function' && window.dtCategory(f.category)) ? window.dtCategory(f.category).label : (f.category || '-');
+    box.innerHTML = '';
+    var head = document.createElement('div');
+    head.style.cssText = 'display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:16px;';
+    var ht = document.createElement('div');
+    var cat = document.createElement('span'); cat.className = 'dt-badge dt-badge--cat'; cat.textContent = catLabel;
+    if (f.delegated) { var pb = document.createElement('span'); pb.className = 'dt-badge dt-badge--proxy'; pb.style.marginLeft = '6px'; pb.textContent = '대리'; cat.after && ht.appendChild(cat); ht.appendChild(pb); } else { ht.appendChild(cat); }
+    var ttl = document.createElement('h2'); ttl.style.cssText = 'font-size:20px;font-weight:800;margin:8px 0 0;'; ttl.textContent = f.title || '';
+    ht.appendChild(ttl);
+    var x = document.createElement('button'); x.type = 'button'; x.textContent = '×'; x.setAttribute('aria-label', '닫기');
+    x.style.cssText = 'background:none;border:none;font-size:24px;cursor:pointer;color:#9ca3af;line-height:1;';
+    x.addEventListener('click', function () { back.remove(); });
+    head.appendChild(ht); head.appendChild(x); box.appendChild(head);
+
+    if (f.description) {
+      var d = document.createElement('p'); d.style.cssText = 'color:#4b5563;font-size:14px;margin:0 0 16px;'; d.textContent = f.description; box.appendChild(d);
+    }
+
+    var thumb = f.tryonImageUrl || f.designImageUrl;
+    if (thumb) {
+      var im = document.createElement('img'); im.src = thumb; im.alt = '대표 이미지';
+      im.style.cssText = 'width:100%;max-height:280px;object-fit:contain;background:#f3f4f6;border-radius:10px;margin-bottom:16px;'; box.appendChild(im);
+    }
+
+    // 리워드
+    var rw = document.createElement('div'); rw.style.marginBottom = '16px';
+    rw.innerHTML = '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">리워드</div>';
+    var tiers = Array.isArray(f.rewardTiers) ? f.rewardTiers : [];
+    if (!tiers.length) { rw.innerHTML += '<div style="color:#9ca3af;font-size:13px;">리워드 미설정' + (f.delegated ? ' (대리 — 관리자가 설정 필요)' : '') + '</div>'; }
+    else tiers.forEach(function (t) {
+      var r = document.createElement('div'); r.style.cssText = 'display:flex;justify-content:space-between;border:1px solid #eee;border-radius:8px;padding:8px 12px;margin-bottom:6px;font-size:13px;';
+      var a = document.createElement('span'); a.textContent = t.title + (t.stockLimit ? ' (한정 ' + t.stockLimit + ')' : '');
+      var b = document.createElement('span'); b.style.fontWeight = '700'; b.textContent = Number(t.price || 0).toLocaleString('ko-KR') + '원';
+      r.appendChild(a); r.appendChild(b); rw.appendChild(r);
+    });
+    box.appendChild(rw);
+
+    // 본문 블록
+    var blocks = Array.isArray(f.contentBlocks) ? f.contentBlocks : [];
+    if (blocks.length) {
+      var bd = document.createElement('div'); bd.style.marginBottom = '16px';
+      bd.innerHTML = '<div style="font-size:14px;font-weight:700;margin-bottom:8px;">본문</div>';
+      blocks.forEach(function (bl) {
+        if (bl.type === 'text') { var p = document.createElement('p'); p.style.cssText = 'font-size:13px;color:#4b5563;white-space:pre-wrap;margin:0 0 8px;'; p.textContent = bl.value; bd.appendChild(p); }
+        else if (bl.type === 'image') { var ig = document.createElement('img'); ig.src = bl.value; ig.alt = '본문 이미지'; ig.style.cssText = 'width:100%;border-radius:8px;margin-bottom:8px;'; bd.appendChild(ig); }
+      });
+      box.appendChild(bd);
+    }
+
+    // 액션
+    var act = document.createElement('div'); act.style.cssText = 'display:flex;gap:8px;justify-content:flex-end;position:sticky;bottom:0;background:#fff;padding-top:12px;border-top:1px solid #f0f0f0;';
+    var view = document.createElement('a'); view.href = '/detail.html?id=' + encodeURIComponent(id); view.target = '_blank';
+    view.textContent = '새 탭에서 보기'; view.className = 'dt-btn dt-btn--ghost'; act.appendChild(view);
+    var ap = document.createElement('button'); ap.type = 'button'; ap.textContent = '승인'; ap.className = 'dt-btn dt-btn--primary';
+    ap.addEventListener('click', async function () {
+      try { await window.api.post('/admin/funds/' + encodeURIComponent(id) + '/approve', {}); back.remove(); load(); }
+      catch (e) { alert('승인 실패: ' + ((e && e.message) || '')); }
+    });
+    var rj = document.createElement('button'); rj.type = 'button'; rj.textContent = '반려'; rj.className = 'dt-btn dt-btn--danger';
+    rj.addEventListener('click', async function () {
+      if (!confirm('이 펀드를 반려할까요?')) return;
+      try { await window.api.post('/admin/funds/' + encodeURIComponent(id) + '/reject', {}); back.remove(); load(); }
+      catch (e) { alert('반려 실패: ' + ((e && e.message) || '')); }
+    });
+    act.appendChild(ap); act.appendChild(rj);
+    box.appendChild(act);
   }
 
   // ===== 삭제 요청 =====
