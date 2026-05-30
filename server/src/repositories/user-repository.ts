@@ -11,4 +11,5 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   updateLastLogin(userId: string): Promise<void>;
   updateProfile(userId: string, data: { name?: string; picture?: string }): Promise<User | null>;
+  setRole(userId: string, role: User['role']): Promise<void>;
 }

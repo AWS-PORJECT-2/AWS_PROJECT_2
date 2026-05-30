@@ -117,14 +117,30 @@ export class AuthServiceImpl implements AuthService {
   }
 
   private async findOrCreateUser(email: string, name: string, picture?: string): Promise<User> {
+    const lower = email.toLowerCase();
+    const isAdminEmail = ADMIN_EMAILS.has(lower);
     const existing = await this.userRepo.findByEmail(email);
     if (existing) {
       await this.userRepo.updateLastLogin(existing.id);
+      // ADMIN_EMAILS 에 포함되면 로그인 시 ADMIN 으로 승격(멱등). 자동 강등은 하지 않음.
+      if (isAdminEmail && existing.role !== 'ADMIN') {
+        await this.userRepo.setRole(existing.id, 'ADMIN');
+        logger.info({ userId: existing.id, email: lower }, 'ADMIN_EMAILS 일치 — ADMIN 승격');
+        return { ...existing, role: 'ADMIN', lastLoginAt: new Date() };
+      }
       return { ...existing, lastLoginAt: new Date() };
     }
     const domain = email.split('@')[1] ?? '';
     const now = new Date();
-    const user: User = { id: randomUUID(), email: email.toLowerCase(), name, schoolDomain: domain.toLowerCase(), picture, role: 'USER', createdAt: now, lastLoginAt: now };
+    const user: User = { id: randomUUID(), email: lower, name, schoolDomain: domain.toLowerCase(), picture, role: isAdminEmail ? 'ADMIN' : 'USER', createdAt: now, lastLoginAt: now };
     return this.userRepo.create(user);
   }
 }
+
+// 환경변수 ADMIN_EMAILS(콤마 구분) → 소문자 Set. 로그인 시 자동 ADMIN 승격에 사용.
+const ADMIN_EMAILS: ReadonlySet<string> = new Set(
+  (process.env.ADMIN_EMAILS ?? '')
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean),
+);

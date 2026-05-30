@@ -68,6 +68,10 @@ export class PgUserRepository implements UserRepository {
     return this.mapRow(result.rows[0]);
   }
 
+  async setRole(userId: string, role: User['role']): Promise<void> {
+    await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
+  }
+
   private mapRow(row: Record<string, unknown>): User {
     return {
       id: row.id as string,
