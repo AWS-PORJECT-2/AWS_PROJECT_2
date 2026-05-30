@@ -63,15 +63,87 @@
     });
   }
 
+  const HERO_IMAGES = [
+    '/assets/hero-main.png',
+    '/assets/home-banner-1.png',
+    '/assets/home-banner-2.png',
+    '/assets/home-banner-3.png'
+  ];
+
   function Hero() {
-    const a = W.el('a', { class: 'wz-hero', href: '/feed.html' });
-    const img = W.el('img', { class: 'wz-hero__img', src: '/assets/hero-main.png', alt: '두띵 — 대학생 굿즈 크라우드펀딩', loading: 'eager' });
-    img.addEventListener('error', () => img.remove());
-    a.appendChild(img);
+    // 둘러보기로 이동하는 클릭 가능한 캐러셀(기존 동작 유지: 홈 그리드 = 인기순)
+    const a = W.el('a', { class: 'wz-hero', href: '/feed.html', 'aria-label': '두띵 — 대학생 굿즈 크라우드펀딩' });
+    a.addEventListener('click', (e) => { e.preventDefault(); W.go({ sort: 'popular' }); });
+
+    const track = W.el('div', { class: 'wz-hero__track' });
+    const dotsRow = W.el('div', { class: 'wz-hero__dots' });
+    const slides = [];
+    const dots = [];
+
+    HERO_IMAGES.forEach((src, i) => {
+      const slide = W.el('div', { class: 'wz-hero__slide' + (i === 0 ? ' is-active' : '') });
+      const img = W.el('img', { class: 'wz-hero__img', src, alt: '', loading: i === 0 ? 'eager' : 'lazy' });
+      // 이미지 로드 실패 시 해당 슬라이드와 점을 함께 제거
+      img.addEventListener('error', () => removeSlide(slide));
+      slide.appendChild(img);
+      track.appendChild(slide);
+
+      const dot = W.el('button', { class: 'wz-hero__dot' + (i === 0 ? ' is-active' : ''), type: 'button', 'aria-label': (i + 1) + '번째 배너' });
+      dot.addEventListener('click', (e) => {
+        e.preventDefault(); e.stopPropagation();
+        const idx = slides.indexOf(slide);
+        if (idx !== -1) show(idx);
+        restart();
+      });
+      dotsRow.appendChild(dot);
+
+      slides.push(slide);
+      dots.push(dot);
+    });
+
+    a.append(track, dotsRow);
+
     const cap = W.el('div', { class: 'wz-hero__cap' });
     cap.appendChild(W.el('h2', {}, '우리의 상상을\n현실로 만드는 곳'));
     a.appendChild(cap);
-    a.appendChild(W.el('div', { class: 'wz-hero__bar' }, W.el('i', {})));
+
+    let cur = 0;
+    let timer = null;
+
+    function show(idx) {
+      if (!slides.length) return;
+      cur = (idx + slides.length) % slides.length;
+      slides.forEach((s, i) => s.classList.toggle('is-active', i === cur));
+      dots.forEach((d, i) => d.classList.toggle('is-active', i === cur));
+    }
+    function next() { show(cur + 1); }
+
+    function start() {
+      if (timer || slides.length <= 1) return; // 중복 생성 금지 / 1장이면 자동전환 불필요
+      timer = setInterval(next, 5000);
+    }
+    function stop() { if (timer) { clearInterval(timer); timer = null; } }
+    function restart() { stop(); start(); }
+
+    function removeSlide(slide) {
+      const idx = slides.indexOf(slide);
+      if (idx === -1) return;
+      slide.remove();
+      dots[idx].remove();
+      slides.splice(idx, 1);
+      dots.splice(idx, 1);
+      if (!slides.length) { stop(); a.remove(); return; } // 모두 실패하면 히어로 자체 제거
+      if (slides.length === 1) { dotsRow.style.display = 'none'; stop(); }
+      show(cur >= slides.length ? 0 : cur); // 인덱스 보정 후 활성 슬라이드 재적용
+    }
+
+    // 마우스 호버 시 자동 전환 일시정지
+    a.addEventListener('mouseenter', stop);
+    a.addEventListener('mouseleave', start);
+
+    if (slides.length <= 1) dotsRow.style.display = 'none';
+    show(0);
+    start();
     return a;
   }
 

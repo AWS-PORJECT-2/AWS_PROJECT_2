@@ -109,7 +109,7 @@
    * ===================================================================== */
   function openModal(opts) {
     var back = el('div', { class: 'wzs-modal-back' });
-    var modal = el('div', { class: 'wzs-modal' });
+    var modal = el('div', { class: 'wzs-modal' + (opts.wide ? ' wzs-modal--wide' : '') });
     var head = el('div', { class: 'wzs-modal__head' },
       el('h2', { class: 'wzs-modal__title' }, opts.title || ''),
       (function () {
@@ -832,20 +832,23 @@
       var nameInput = input({ placeholder: '받는 사람 이름', value: editing ? (editing.recipientName || '') : '' });
       var fName = field({ label: '받는 사람', required: true, control: nameInput });
 
+      var phoneInput = input({ type: 'tel', inputmode: 'numeric', placeholder: '010-1234-5678', value: editing ? formatPhone(editing.recipientPhone || '') : '' });
+      bindFormatter(phoneInput, formatPhone);
+      var fPhone = field({ label: '휴대폰 번호', required: true, control: phoneInput });
+
       // 주소 (우편번호+도로명) — 검색 버튼으로 다음 우편번호 팝업
       var postalInput = input({ placeholder: '우편번호', readonly: 'readonly', value: editing ? (editing.postalCode || '') : '' });
-      postalInput.style.maxWidth = '120px';
       var searchBtn = el('button', { class: 'wzs-mini', type: 'button' }, '주소 검색');
       var roadInput = input({ placeholder: '도로명 주소 (검색으로 입력)', readonly: 'readonly', value: editing ? (editing.roadAddress || '') : '' });
       var jibun = { value: editing ? (editing.jibunAddress || '') : '' };
-      var fPostal = field({ label: '주소', required: true, control: el('div', {},
-        el('div', { class: 'wzs-fld__row', style: 'margin-bottom:8px' }, postalInput, searchBtn), roadInput) });
+      var fPostal = field({ label: '우편번호', required: true, control: el('div', { class: 'wzs-fld__row' }, postalInput, searchBtn) });
+      var fRoad = field({ label: '도로명 주소', required: true, control: roadInput });
       searchBtn.addEventListener('click', function () {
         openPostcode(function (data) {
           postalInput.value = data.zonecode || '';
           roadInput.value = data.roadAddress || data.address || '';
           jibun.value = data.jibunAddress || '';
-          fPostal.clear();
+          fPostal.clear(); fRoad.clear();
           setTimeout(function () { detailInput.focus(); }, 60);
         });
       });
@@ -853,14 +856,17 @@
       var detailInput = input({ placeholder: '상세주소 (동·호수 등)', value: existing.detail });
       var fDetail = field({ label: '상세주소', control: detailInput });
 
-      var phoneInput = input({ type: 'tel', inputmode: 'numeric', placeholder: '010-1234-5678', value: editing ? formatPhone(editing.recipientPhone || '') : '' });
-      bindFormatter(phoneInput, formatPhone);
-      var fPhone = field({ label: '휴대폰 번호', required: true, control: phoneInput });
-
       var memoInput = input({ placeholder: '부재 시 경비실에 맡겨주세요 등', value: existing.memo });
       var fMemo = field({ label: '배송 특이사항', control: memoInput });
 
-      var bodyWrap = el('div', {}, fName, fPostal, fDetail, fPhone, fMemo);
+      // 레이아웃: 짧은 필드는 2열 그리드(모바일 1열)로 공간을 채우고, 도로명은 전체폭.
+      //   (받는사람 | 휴대폰) · (우편번호 + 검색버튼, 전체폭) · 도로명(전체폭) · (상세주소 | 배송특이사항)
+      //   검증/저장 로직은 그대로 — 래퍼/그리드만 추가.
+      var bodyWrap = el('div', { class: 'wzs-form' },
+        el('div', { class: 'wzs-form__grid' }, fName, fPhone),
+        fPostal,
+        fRoad,
+        el('div', { class: 'wzs-form__grid' }, fDetail, fMemo));
 
       // 개인정보 수집·이용 동의 (필수) — WZConsent 없으면 인라인 체크박스
       var inlineChk = null;
@@ -877,9 +883,9 @@
       }
 
       var m = openModal({
-        title: editing ? '배송지 수정' : '배송지 추가', body: bodyWrap, primaryLabel: '저장',
+        title: editing ? '배송지 수정' : '배송지 추가', body: bodyWrap, primaryLabel: '저장', wide: true,
         onPrimary: function () {
-          [fName, fPostal, fPhone].forEach(function (f) { f.clear(); });
+          [fName, fPostal, fRoad, fPhone].forEach(function (f) { f.clear(); });
           var name = nameInput.value.trim();
           var phone = phoneInput.value.trim();
           if (!name) { fName.fail('받는 사람을 입력해 주세요'); return false; }
@@ -1048,7 +1054,9 @@
     /* 검색 */
     var searchIn = input({ type: 'search', placeholder: '이름 또는 닉네임으로 검색', autocomplete: 'off' });
     var resultWrap = el('div', { class: 'wzs-friend-list' });
-    panel.appendChild(field({ label: '친구 찾기', control: searchIn }));
+    var searchFld = field({ label: '친구 찾기', control: searchIn });
+    searchFld.classList.add('wzs-friend-search');
+    panel.appendChild(searchFld);
     panel.appendChild(resultWrap);
 
     var searchTimer;

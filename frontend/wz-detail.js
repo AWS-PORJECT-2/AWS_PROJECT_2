@@ -21,6 +21,12 @@
     news: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h13a2 2 0 0 1 2 2v12a2 2 0 0 0 2 2H6a2 2 0 0 1-2-2V4z"/><path d="M8 8h7M8 12h7M8 16h4"/></svg>',
     star: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.9L12 16.9 6.8 19.2l1-5.9L3.5 9.2l5.9-.9L12 3z"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+    /* 브랜드 글리프 — 단색 currentColor fill */
+    kakao: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-.7 2.6-.8 3-.1.5.2.5.4.4.2-.1 2.7-1.8 3.8-2.6.6.1 1.3.1 1.9.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>',
+    twitterX: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.5h3.3l-7.2 8.2 8.5 11.3h-6.7l-5.2-6.8-6 6.8H1.6l7.7-8.8L1.2 2.5h6.8l4.7 6.2 5.5-6.2zm-1.2 17.6h1.8L7.1 4.3H5.2l11.8 15.8z"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>',
+    instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
   };
 
   const root = document.getElementById('wz-detail');
@@ -258,20 +264,6 @@
     return sec;
   }
 
-  /* ---------- 스토리 외 탭 빈 패널 ---------- */
-  function EmptyPanel(key) {
-    const map = {
-      news: [SVG.news, '아직 새소식이 없어요', '창작자가 진행 상황을 업데이트하면 이곳에 표시됩니다.'],
-      community: [SVG.chat, '아직 커뮤니티 글이 없어요', '서포터와 창작자가 나누는 이야기가 이곳에 모입니다.'],
-      review: [SVG.star, '아직 후기가 없어요', '리워드를 받은 서포터의 후기가 이곳에 표시됩니다.'],
-    };
-    const [ic, t, d] = map[key] || [SVG.box, '준비 중', ''];
-    return W.el('div', { class: 'wz-d-panel' },
-      W.el('div', { class: 'wz-d-panel__ic', html: ic }),
-      W.el('h3', {}, t),
-      W.el('p', {}, d));
-  }
-
   /* ===================================================================
    * 우측 sticky 후원 패널
    * =================================================================== */
@@ -324,7 +316,7 @@
     });
     sideCol.appendChild(safe);
 
-    /* 액션 아이콘 행 (공유 / 찜 / 응원) */
+    /* 액션 아이콘 행 (공유 / 찜) */
     const actions = W.el('div', { class: 'wz-d-actions' });
     const shareBtn = W.el('button', { class: 'wz-d-act', type: 'button' },
       W.el('span', { html: SVG.share }), W.el('span', { class: 'wz-d-act__label' }, '공유'));
@@ -343,11 +335,7 @@
       syncMobileLike(on);
     });
 
-    const cheerBtn = W.el('button', { class: 'wz-d-act', type: 'button' },
-      W.el('span', { html: SVG.star }), W.el('span', { class: 'wz-d-act__label' }, '응원'));
-    cheerBtn.addEventListener('click', () => alert('응원하기는 준비 중입니다.'));
-
-    actions.append(shareBtn, likeBtn, cheerBtn);
+    actions.append(shareBtn, likeBtn);
     sideCol.appendChild(actions);
     _mobileLikeSync = (on) => likeBtn.classList.toggle('is-on', on);
 
@@ -355,15 +343,6 @@
     const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
     fundBtn.addEventListener('click', () => backFlow(f));
     sideCol.appendChild(fundBtn);
-
-    /* 응원 카드 */
-    const cheer = W.el('div', { class: 'wz-d-cheer' });
-    const cheerCount = W.el('p', { class: 'wz-d-cheer__count' });
-    cheerCount.append(W.el('b', {}, backers.toLocaleString() + '명'), document.createTextNode('이 응원했어요'));
-    const cheerAct = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block', type: 'button' }, '응원하기');
-    cheerAct.addEventListener('click', () => alert('응원하기는 준비 중입니다.'));
-    cheer.append(cheerCount, cheerAct);
-    sideCol.appendChild(cheer);
 
     /* 메이커 카드 */
     sideCol.appendChild(MakerCard(f));
@@ -440,7 +419,7 @@
     const sec = W.el('div', { class: 'wz-d-rewards' });
     sec.appendChild(W.el('h3', { class: 'wz-d-rewards__title' }, '리워드 선택'));
     const period = fmtPeriod(f.deadline);
-    sec.appendChild(W.el('p', { class: 'wz-d-rewards__period' }, period ? ('진행 기간 · ' + period) : '진행 기간 안내 준비 중'));
+    if (period) sec.appendChild(W.el('p', { class: 'wz-d-rewards__period' }, '진행 기간 · ' + period));
 
     if (!tiers.length) {
       sec.appendChild(W.el('div', { class: 'wz-d-rewards__empty' }, '등록된 리워드가 없어요.'));
@@ -508,17 +487,65 @@
   }
 
   /* ---------- 공유 ---------- */
+  function copyLink(url, okMsg) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => alert(okMsg || '링크가 복사되었어요.')).catch(() => prompt('아래 링크를 복사해 주세요.', url));
+    } else {
+      prompt('아래 링크를 복사해 주세요.', url);
+    }
+  }
+  function openShareWindow(shareUrl) {
+    window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=540');
+  }
+
   function doShare(f) {
     const url = location.href;
-    if (navigator.share) {
-      navigator.share({ title: f.title || '두띵 프로젝트', url }).catch(() => {});
-      return;
-    }
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(() => alert('링크가 복사되었어요.')).catch(() => alert(url));
-    } else {
-      alert(url);
-    }
+    const enc = encodeURIComponent(url);
+    const title = f.title || '두띵 프로젝트';
+    const encTitle = encodeURIComponent(title);
+
+    const items = [
+      ['kakao', '카카오톡', SVG.kakao, () => {
+        if (navigator.share) { navigator.share({ title, url }).catch(() => {}); return; }
+        openShareWindow('https://story.kakao.com/share?url=' + enc);
+      }],
+      ['twitterX', 'X', SVG.twitterX, () => {
+        openShareWindow('https://twitter.com/intent/tweet?url=' + enc + '&text=' + encTitle);
+      }],
+      ['facebook', '페이스북', SVG.facebook, () => {
+        openShareWindow('https://www.facebook.com/sharer/sharer.php?u=' + enc);
+      }],
+      ['instagram', '인스타그램', SVG.instagram, () => {
+        if (navigator.share) { navigator.share({ title, url }).catch(() => {}); return; }
+        copyLink(url, '링크가 복사되었어요. 인스타그램 앱에 붙여넣어 공유해 주세요.');
+      }],
+      ['link', '링크 복사', SVG.link, () => copyLink(url)],
+    ];
+
+    const overlay = W.el('div', { class: 'wz-d-sharesheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '공유하기' });
+    const box = W.el('div', { class: 'wz-d-sharesheet__box' });
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    const head = W.el('div', { class: 'wz-d-sharesheet__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-sharesheet__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '공유하기'), closeBtn);
+
+    const grid = W.el('div', { class: 'wz-d-sharesheet__grid' });
+    items.forEach(([key, label, icon, action]) => {
+      const btn = W.el('button', { class: 'wz-d-shareitem wz-d-shareitem--' + key, type: 'button' },
+        W.el('span', { class: 'wz-d-shareitem__ic', html: icon }),
+        W.el('span', { class: 'wz-d-shareitem__label' }, label));
+      btn.addEventListener('click', () => { close(); action(); });
+      grid.appendChild(btn);
+    });
+
+    box.append(head, grid);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
   }
 
   /* ===================================================================

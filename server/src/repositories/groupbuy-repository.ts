@@ -1,5 +1,19 @@
-import type { GroupBuy, GroupBuyStatus } from '../types/index.js';
+import type { GroupBuy, GroupBuyStatus, ContentBlock } from '../types/index.js';
 import type { PoolClient } from 'pg';
+
+// 관리자 부분 수정에 허용되는 필드(화이트리스트). 모두 선택적 — 제공된 키만 갱신.
+// creatorId/status/finalPrice/rewardTiers 등은 의도적으로 제외(다른 전용 메서드/플로우가 담당).
+export interface GroupBuyUpdateFields {
+  title?: string;
+  category?: string;
+  description?: string;
+  basePrice?: number;
+  designFee?: number;
+  coverImageUrl?: string | null;
+  contentBlocks?: ContentBlock[] | null;
+  deadline?: Date;
+  targetQuantity?: number;
+}
 
 export interface GroupBuyListItem extends GroupBuy {
   imageUrl?: string | null;
@@ -74,6 +88,8 @@ export interface GroupBuyRepository {
   listDeleteRequests(): Promise<DeleteRequestItem[]>;
   cancelFund(id: string): Promise<void>;
   updateRewards(id: string, rewardTiers: import('../types/index.js').RewardTier[], finalPrice: number): Promise<void>;
+  // 관리자 부분 수정(대리개설 편집 등) — 화이트리스트 필드만 동적 갱신. creator_id 등은 절대 미포함.
+  updateFields(id: string, fields: GroupBuyUpdateFields): Promise<GroupBuy | null>;
 
   // ─── 공개 목록/상세 (006_social_features 계약) ───
   findMany(options: GroupBuyFindManyOptions): Promise<{ total: number; rows: GroupBuyCardItem[] }>;

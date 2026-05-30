@@ -18,7 +18,7 @@ import { createAuthRouter } from './routes/index.js';
 import { createAiRouter } from './routes/ai.js';
 import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
-import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler } from './routes/admin-funds.js';
+import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler } from './routes/admin-insights.js';
@@ -317,6 +317,8 @@ export function createApp(
 
   // --- 관리자 펀드 심사 (승인/반려) ---
   app.get('/api/admin/funds', authRequired, requireAdmin, createAdminFundsListHandler(groupBuyRepository));
+  // 관리자 대리개설 대행 작성/수정 — 제공된 필드만 갱신(creatorId 불변).
+  app.patch('/api/admin/funds/:id', authRequired, requireAdmin, createAdminFundUpdateHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/rewards', authRequired, requireAdmin, createAdminSetRewardsHandler(groupBuyRepository));

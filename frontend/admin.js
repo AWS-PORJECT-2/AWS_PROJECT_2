@@ -6,13 +6,15 @@
  * 섹션:
  *   1) 대시보드   GET /api/admin/stats — KPI + 순수 SVG 차트(가입/펀드 추이, 카테고리, 상태 분포)
  *   2) 펀드 심사  GET /api/admin/funds?status= , POST .../approve|reject(사유)
- *   3) 입금 확인  GET /api/admin/deposits?status= , POST .../deposits/:id/confirm
- *   4) 삭제 요청  GET /api/admin/fund-delete-requests , POST .../funds/:id/delete
- *   5) 사용자     GET /api/admin/users(+클라 검색) , POST .../users/:id/role
- *   6) 로그·오류  GET /api/admin/logs?level=
- *   7) 문의 채팅  -> /admin-chat.html (별도 페이지 링크)
+ *   3) 대리 개설  GET /api/admin/funds?status=pending_review — 의뢰 대행 작성·공개.
+ *                 PATCH /api/admin/funds/:id (본문) → POST .../rewards → POST .../approve
+ *   4) 입금 확인  GET /api/admin/deposits?status= , POST .../deposits/:id/confirm
+ *   5) 삭제 요청  GET /api/admin/fund-delete-requests , POST .../funds/:id/delete
+ *   6) 사용자     GET /api/admin/users(+클라 검색) , POST .../users/:id/role
+ *   7) 로그·오류  GET /api/admin/logs?level=
+ *   8) 문의 채팅  GET /api/chat/admin/rooms , .../:id/messages (GET/POST), .../:id/read — SPA 내 통합
  *
- * 모든 응답 키는 백엔드 핸들러(admin-insights/funds/users, reward-orders) 실측값.
+ * 모든 응답 키는 백엔드 핸들러(admin-insights/funds/users, reward-orders, chat) 실측값.
  * XSS: DOM 생성 + textContent. innerHTML 은 자체 SVG 상수에만 사용.
  * 외부 차트 라이브러리 금지 — 차트는 순수 SVG 로 직접 그린다.
  */
@@ -50,6 +52,13 @@
     shield:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
     box:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
+    proxy:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>',
+    img:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
+    text:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V5h16v2M9 19h6M12 5v14"/></svg>',
+    plus:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+    x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    grip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>',
+    send:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
   };
 
   var FUND_STATUS = [
@@ -72,16 +81,27 @@
   var SECTIONS = [
     { id: 'dashboard', label: '대시보드',  icon: 'dash',    render: renderDashboard },
     { id: 'funds',     label: '펀드 심사', icon: 'review',  render: renderFunds },
+    { id: 'proxy',     label: '대리 개설', icon: 'proxy',   render: renderProxy },
     { id: 'deposits',  label: '입금 확인', icon: 'deposit', render: renderDeposits },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
+    { id: 'chat',      label: '문의 채팅', icon: 'chat',    render: renderChat },
     { id: 'logs',      label: '로그·오류', icon: 'logs',    render: renderLogs },
   ];
+
+  // 카테고리 옵션(대리 개설 편집용) — categories.js 단일 소스. 미로드 시 etc 만.
+  function categoryOptions() {
+    return (window.DT_CATEGORIES || [{ slug: 'etc', label: '기타' }]).map(function (c) {
+      return { slug: c.slug, label: c.label };
+    });
+  }
 
   var root, sideEl, panelEl;
   var current = 'dashboard';
   var pendingBadgeEl = null;   // 펀드 심사 탭 배지
+  var proxyBadgeEl = null;     // 대리 개설 탭 배지
   var deleteBadgeEl = null;    // 삭제 요청 탭 배지
+  var leaveSection = null;     // 현재 섹션 정리 콜백(채팅 폴링/소켓 해제 등)
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -139,20 +159,11 @@
       btn.appendChild(el('span', { class: 'wza-tab__ic', html: ICON[s.icon] }));
       btn.appendChild(document.createTextNode(s.label));
       if (s.id === 'funds') { pendingBadgeEl = el('span', { class: 'wza-tab__badge', style: 'display:none' }); btn.appendChild(pendingBadgeEl); }
+      if (s.id === 'proxy') { proxyBadgeEl = el('span', { class: 'wza-tab__badge', style: 'display:none' }); btn.appendChild(proxyBadgeEl); }
       if (s.id === 'deletes') { deleteBadgeEl = el('span', { class: 'wza-tab__badge', style: 'display:none' }); btn.appendChild(deleteBadgeEl); }
       btn.addEventListener('click', function () { select(s.id); });
       sideEl.appendChild(btn);
     });
-    sideEl.appendChild(el('div', { class: 'wza-side__sep' }));
-    // 문의 채팅 — 별도 페이지 링크(SPA 외부)
-    var chatLink = el('a', { class: 'wza-tab wza-tab--link', href: '/admin-chat.html' });
-    chatLink.appendChild(el('span', { class: 'wza-tab__ic', html: ICON.chat }));
-    chatLink.appendChild(document.createTextNode('문의 채팅'));
-    sideEl.appendChild(chatLink);
-    var ordLink = el('a', { class: 'wza-tab wza-tab--link', href: '/admin-orders.html' });
-    ordLink.appendChild(el('span', { class: 'wza-tab__ic', html: ICON.box }));
-    ordLink.appendChild(document.createTextNode('주문 승인'));
-    sideEl.appendChild(ordLink);
     shell.appendChild(sideEl);
 
     panelEl = el('section', { class: 'wza-panel' });
@@ -163,6 +174,9 @@
 
   function select(id) {
     var sec = sectionById(id) || SECTIONS[0];
+    // 이전 섹션 정리(채팅 폴링/소켓 등)
+    if (typeof leaveSection === 'function') { try { leaveSection(); } catch (_) {} }
+    leaveSection = null;
     current = sec.id;
     try { history.replaceState(null, '', '#' + current); } catch (_) {}
     sideEl.querySelectorAll('.wza-tab[data-sec]').forEach(function (b) {
@@ -179,9 +193,15 @@
   async function loadBadges() {
     try {
       var s = await window.api.get('/admin/stats');
+      // stats.funds.pending_review 는 status='pending'(일반 심사대기) 건수.
       if (pendingBadgeEl) setBadge(pendingBadgeEl, s && s.funds ? s.funds.pending_review : 0);
       if (deleteBadgeEl) setBadge(deleteBadgeEl, s && s.funds ? s.funds.deleteRequested : 0);
     } catch (_) { /* 배지는 부가 정보 — 실패해도 무시 */ }
+    // 대리개설(status='pending_review') 건수는 stats 에 없으므로 목록 total 로 별도 조회.
+    try {
+      var pr = await window.api.get('/admin/funds?status=pending_review');
+      if (proxyBadgeEl) setBadge(proxyBadgeEl, pr ? pr.total : 0);
+    } catch (_) { /* 무시 */ }
   }
   function setBadge(node, n) {
     n = Number(n) || 0;
@@ -502,7 +522,419 @@
   }
 
   /* ============================================================
-   * 3) 입금 확인
+   * 3) 대리 개설 (proxy / 대행 작성·공개)
+   *   GET /api/admin/funds?status=pending_review 로 의뢰 목록.
+   *   각 의뢰: 제목/카테고리/의뢰자/요청메모(contentBlocks text)/첨부이미지(image) 표시.
+   *   "작성·공개" 패널: 제목·카테고리·대표이미지(업로드+DnD)·스토리 블록(DnD)·
+   *     기본가·마감일·목표수량·리워드 티어 입력.
+   *   저장: PATCH /api/admin/funds/:id (본문) → POST .../rewards → POST .../approve.
+   * ============================================================ */
+  function renderProxy(panel) {
+    panel.appendChild(panelHead('대리 개설', '의뢰자가 맡긴 펀드를 관리자가 대신 작성하고 공개합니다. 의뢰자 명의(creatorId)는 그대로 유지됩니다.'));
+    var list = el('div', { class: 'wza-list' });
+    panel.appendChild(list);
+    loadProxy(list);
+  }
+
+  async function loadProxy(list) {
+    list.textContent = ''; list.appendChild(loadingNode());
+    try {
+      var res = await window.api.get('/admin/funds?status=pending_review');
+      var items = (res && res.items) || [];
+      list.textContent = '';
+      if (!items.length) { list.appendChild(emptyNode('대기 중인 대리 개설 의뢰가 없습니다.')); return; }
+      items.forEach(function (f) { list.appendChild(proxyCard(f, list)); });
+    } catch (e) { list.textContent = ''; list.appendChild(errorNode(e)); }
+  }
+
+  // 의뢰 1건 카드(요약 + 펼치는 편집 패널)
+  function proxyCard(f, list) {
+    var card = el('div', { class: 'wza-proxy' });
+
+    var head = el('div', { class: 'wza-proxy__head' });
+    head.appendChild(thumbNode(f));
+    var info = el('div', { class: 'wza-proxy__info' });
+    var title = el('div', { class: 'wza-item__title' });
+    title.appendChild(document.createTextNode(f.title || '(제목 없음)'));
+    title.appendChild(el('span', { class: 'wza-badge wza-badge--proxy' }, '대리'));
+    info.appendChild(title);
+    var meta = el('div', { class: 'wza-item__meta' });
+    meta.textContent = catLabel(f.category) + ' · 의뢰자 ' + (f.authorName || '-') +
+      ' · 목표 ' + (Number(f.targetQuantity) || 0) + '개 · ' + fmtDate(f.createdAt);
+    info.appendChild(meta);
+    head.appendChild(info);
+
+    var actions = el('div', { class: 'wza-item__actions' });
+    var toggle = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '작성·공개');
+    actions.appendChild(toggle);
+    head.appendChild(actions);
+    card.appendChild(head);
+
+    var panelBox = el('div', { class: 'wza-proxy__panel', style: 'display:none' });
+    card.appendChild(panelBox);
+
+    var built = false;
+    toggle.addEventListener('click', function () {
+      var open = panelBox.style.display === 'none';
+      panelBox.style.display = open ? '' : 'none';
+      toggle.textContent = open ? '접기' : '작성·공개';
+      if (open && !built) { built = true; buildProxyEditor(panelBox, f, list); }
+    });
+    return card;
+  }
+
+  // 편집 패널 구성 — 의뢰 원본(GET /api/groupbuys/:id)을 불러와 의뢰 정보 표시 + 폼 프리필.
+  async function buildProxyEditor(box, f, list) {
+    box.textContent = '';
+    box.appendChild(loadingNode());
+    var detail;
+    try {
+      detail = await window.api.get('/groupbuys/' + encodeURIComponent(f.id));
+    } catch (e) { box.textContent = ''; box.appendChild(errorNode(e)); return; }
+    box.textContent = '';
+
+    // ── 의뢰 정보(읽기 전용): 요청 메모(text 블록) + 첨부 이미지(image 블록) ──
+    var blocks = (detail && detail.contentBlocks) || [];
+    var memoTexts = blocks.filter(function (b) { return b.type === 'text' && b.text; }).map(function (b) { return b.text; });
+    var memoImages = blocks.filter(function (b) { return b.type === 'image' && b.url; }).map(function (b) { return b.url; });
+    var req = el('div', { class: 'wza-proxy__req' });
+    req.appendChild(el('div', { class: 'wza-proxy__reqlabel' }, '의뢰 내용'));
+    if (detail.description) req.appendChild(el('p', { class: 'wza-proxy__reqtext' }, detail.description));
+    memoTexts.forEach(function (t) { req.appendChild(el('p', { class: 'wza-proxy__reqtext' }, t)); });
+    if (!detail.description && !memoTexts.length) req.appendChild(el('p', { class: 'wza-proxy__reqmuted' }, '요청 메모가 없습니다.'));
+    if (memoImages.length) {
+      var imgs = el('div', { class: 'wza-proxy__reqimgs' });
+      memoImages.forEach(function (src) { imgs.appendChild(el('img', { class: 'wza-proxy__reqimg', src: src, alt: '첨부 이미지' })); });
+      req.appendChild(imgs);
+    }
+    box.appendChild(req);
+
+    // ── 편집 폼 ──
+    var form = el('div', { class: 'wza-form' });
+
+    // 모델: 현재 편집 상태
+    var model = {
+      title: detail.title || f.title || '',
+      category: detail.category || f.category || 'etc',
+      coverImageUrl: (detail.coverImageUrl != null ? detail.coverImageUrl : (detail.imageUrl || null)),
+      basePrice: Number(detail.basePrice) || 0,
+      deadline: toDateInput(detail.deadline),
+      targetQuantity: Number(detail.targetQuantity) || (Number(f.targetQuantity) || 1),
+      blocks: blocks.map(function (b) {
+        return b.type === 'image' ? { type: 'image', value: b.url || '' } : { type: 'text', value: b.text || '' };
+      }),
+      tiers: ((detail.rewardTiers) || []).map(function (t) {
+        return { title: t.title || '', price: Number(t.price) || 0, desc: t.desc || '', stock: (t.stock != null ? String(t.stock) : '') };
+      }),
+    };
+
+    // 제목
+    form.appendChild(field('제목', (function () {
+      var inp = el('input', { class: 'wza-input', type: 'text', maxlength: '80', value: model.title, placeholder: '펀드 제목' });
+      inp.addEventListener('input', function () { model.title = inp.value; });
+      return inp;
+    })()));
+
+    // 카테고리
+    form.appendChild(field('카테고리', (function () {
+      var sel = el('select', { class: 'wza-input' });
+      categoryOptions().forEach(function (o) {
+        var opt = el('option', { value: o.slug }, o.label);
+        if (o.slug === model.category) opt.setAttribute('selected', 'selected');
+        sel.appendChild(opt);
+      });
+      sel.value = model.category;
+      sel.addEventListener('change', function () { model.category = sel.value; });
+      return sel;
+    })()));
+
+    // 대표 이미지(업로드 + 드래그앤드롭, data URL)
+    form.appendChild(field('대표 이미지', coverField(model)));
+
+    // 기본가 + 목표수량(한 줄)
+    var priceRow = el('div', { class: 'wza-form__row' });
+    priceRow.appendChild(field('기본가(원)', (function () {
+      var inp = el('input', { class: 'wza-input', type: 'number', min: '0', max: '10000000', value: String(model.basePrice) });
+      inp.addEventListener('input', function () { model.basePrice = Math.max(0, Math.floor(Number(inp.value) || 0)); });
+      return inp;
+    })()));
+    priceRow.appendChild(field('목표 수량(개)', (function () {
+      var inp = el('input', { class: 'wza-input', type: 'number', min: '1', max: '500', value: String(model.targetQuantity) });
+      inp.addEventListener('input', function () { model.targetQuantity = Math.max(1, Math.floor(Number(inp.value) || 1)); });
+      return inp;
+    })()));
+    form.appendChild(priceRow);
+
+    // 마감일
+    form.appendChild(field('마감일', (function () {
+      var inp = el('input', { class: 'wza-input', type: 'date', value: model.deadline });
+      inp.setAttribute('min', toDateInput(new Date(Date.now() + 86400000).toISOString()));
+      inp.addEventListener('change', function () { model.deadline = inp.value; });
+      return inp;
+    })()));
+
+    // 스토리 블록(글/이미지, 드래그앤드롭 정렬)
+    form.appendChild(blocksField(model));
+
+    // 리워드 티어
+    form.appendChild(tiersField(model));
+
+    // 저장(공개) 버튼 + 상태 표시
+    var foot = el('div', { class: 'wza-form__foot' });
+    var msg = el('div', { class: 'wza-form__msg' });
+    var saveBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '저장하고 공개');
+    saveBtn.addEventListener('click', function () { submitProxy(model, f, saveBtn, msg, list); });
+    foot.appendChild(saveBtn);
+    foot.appendChild(msg);
+    form.appendChild(foot);
+
+    box.appendChild(form);
+  }
+
+  // 폼 필드 래퍼(라벨 + 컨트롤)
+  function field(label, control) {
+    return el('label', { class: 'wza-field' }, el('span', { class: 'wza-field__label' }, label), control);
+  }
+
+  // 대표 이미지 입력 — 파일 선택 + 드래그앤드롭 → data URL. 미리보기/제거.
+  function coverField(model) {
+    var wrap = el('div', { class: 'wza-cover' });
+    var input = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    var drop = el('div', { class: 'wza-drop' });
+    var preview = el('div', { class: 'wza-cover__preview' });
+
+    function paint() {
+      preview.textContent = '';
+      if (model.coverImageUrl) {
+        preview.appendChild(el('img', { class: 'wza-cover__img', src: model.coverImageUrl, alt: '대표 이미지' }));
+        var rm = el('button', { class: 'wza-cover__rm', type: 'button', 'aria-label': '대표 이미지 제거', html: ICON.x });
+        rm.addEventListener('click', function () { model.coverImageUrl = null; paint(); });
+        preview.appendChild(rm);
+        drop.style.display = 'none';
+      } else {
+        drop.style.display = '';
+      }
+    }
+
+    drop.appendChild(el('span', { class: 'wza-drop__ic', html: ICON.img }));
+    drop.appendChild(el('span', { class: 'wza-drop__txt' }, '이미지를 끌어다 놓거나 클릭해 업로드'));
+    drop.addEventListener('click', function () { input.click(); });
+    bindDrop(drop, function (file) { readImage(file, function (url) { model.coverImageUrl = url; paint(); }); });
+    input.addEventListener('change', function () { if (input.files && input.files[0]) readImage(input.files[0], function (url) { model.coverImageUrl = url; paint(); }); });
+
+    wrap.appendChild(drop);
+    wrap.appendChild(preview);
+    wrap.appendChild(input);
+    paint();
+    return wrap;
+  }
+
+  // 드래그앤드롭 + 검증(타입/용량) 바인딩
+  function bindDrop(node, onFile) {
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      node.addEventListener(ev, function (e) { e.preventDefault(); node.classList.add('is-over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      node.addEventListener(ev, function (e) { e.preventDefault(); node.classList.remove('is-over'); });
+    });
+    node.addEventListener('drop', function (e) {
+      var dt = e.dataTransfer; if (!dt || !dt.files || !dt.files.length) return;
+      var file = dt.files[0];
+      if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { alertModal('이미지 형식', 'PNG·JPG·WEBP 이미지만 업로드할 수 있습니다.'); return; }
+      onFile(file);
+    });
+  }
+
+  // 파일 → data URL (8MB 상한 — 서버 12,000,000자 base64 한도 대응)
+  function readImage(file, cb) {
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { alertModal('이미지 형식', 'PNG·JPG·WEBP 이미지만 업로드할 수 있습니다.'); return; }
+    if (file.size > 8 * 1024 * 1024) { alertModal('용량 초과', '이미지 용량은 8MB 이하여야 합니다.'); return; }
+    var reader = new FileReader();
+    reader.onload = function () { cb(String(reader.result || '')); };
+    reader.onerror = function () { alertModal('읽기 실패', '이미지를 읽지 못했습니다.'); };
+    reader.readAsDataURL(file);
+  }
+
+  // 스토리 블록 편집(글/이미지, 드래그앤드롭 정렬)
+  function blocksField(model) {
+    var wrap = el('div', { class: 'wza-field' });
+    wrap.appendChild(el('span', { class: 'wza-field__label' }, '상세 스토리'));
+    var listEl = el('div', { class: 'wza-blocks' });
+    var dragIndex = null;
+
+    function render() {
+      listEl.textContent = '';
+      if (!model.blocks.length) {
+        listEl.appendChild(el('div', { class: 'wza-blocks__empty' }, '글·이미지 블록을 추가해 상세 페이지를 구성하세요.'));
+      }
+      model.blocks.forEach(function (b, i) {
+        listEl.appendChild(blockRow(b, i));
+      });
+    }
+
+    function blockRow(b, i) {
+      var row = el('div', { class: 'wza-block', draggable: 'true' });
+      var grip = el('span', { class: 'wza-block__grip', html: ICON.grip, title: '끌어서 순서 변경' });
+      row.appendChild(grip);
+
+      if (b.type === 'text') {
+        var ta = el('textarea', { class: 'wza-block__ta', maxlength: '5000', placeholder: '본문 글', rows: '3' });
+        ta.value = b.value || '';
+        ta.addEventListener('input', function () { b.value = ta.value; });
+        row.appendChild(ta);
+      } else {
+        var imgBox = el('div', { class: 'wza-block__img' });
+        if (b.value) imgBox.appendChild(el('img', { src: b.value, alt: '본문 이미지' }));
+        else {
+          var dz = el('div', { class: 'wza-drop wza-drop--sm' });
+          dz.appendChild(el('span', { class: 'wza-drop__ic', html: ICON.img }));
+          dz.appendChild(el('span', { class: 'wza-drop__txt' }, '이미지 끌어놓기/클릭'));
+          var fin = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+          dz.addEventListener('click', function () { fin.click(); });
+          fin.addEventListener('change', function () { if (fin.files && fin.files[0]) readImage(fin.files[0], function (url) { b.value = url; render(); }); });
+          bindDrop(dz, function (file) { readImage(file, function (url) { b.value = url; render(); }); });
+          imgBox.appendChild(dz); imgBox.appendChild(fin);
+        }
+        row.appendChild(imgBox);
+      }
+
+      var rm = el('button', { class: 'wza-block__rm', type: 'button', 'aria-label': '블록 삭제', html: ICON.x });
+      rm.addEventListener('click', function () { model.blocks.splice(i, 1); render(); });
+      row.appendChild(rm);
+
+      row.addEventListener('dragstart', function () { dragIndex = i; row.classList.add('is-dragging'); });
+      row.addEventListener('dragend', function () { dragIndex = null; row.classList.remove('is-dragging'); });
+      row.addEventListener('dragover', function (e) { e.preventDefault(); });
+      row.addEventListener('drop', function (e) {
+        e.preventDefault();
+        if (dragIndex == null || dragIndex === i) return;
+        var moved = model.blocks.splice(dragIndex, 1)[0];
+        model.blocks.splice(i, 0, moved);
+        dragIndex = null; render();
+      });
+      return row;
+    }
+
+    wrap.appendChild(listEl);
+    var add = el('div', { class: 'wza-blocks__add' });
+    var addText = el('button', { class: 'wza-btn wza-btn--outline', type: 'button' });
+    addText.appendChild(el('span', { class: 'wza-btn__ic', html: ICON.text }));
+    addText.appendChild(document.createTextNode('글 추가'));
+    addText.addEventListener('click', function () { model.blocks.push({ type: 'text', value: '' }); render(); });
+    var addImg = el('button', { class: 'wza-btn wza-btn--outline', type: 'button' });
+    addImg.appendChild(el('span', { class: 'wza-btn__ic', html: ICON.img }));
+    addImg.appendChild(document.createTextNode('이미지 추가'));
+    addImg.addEventListener('click', function () { model.blocks.push({ type: 'image', value: '' }); render(); });
+    add.appendChild(addText); add.appendChild(addImg);
+    wrap.appendChild(add);
+    render();
+    return wrap;
+  }
+
+  // 리워드 티어 편집(제목/가격/설명/재고)
+  function tiersField(model) {
+    var wrap = el('div', { class: 'wza-field' });
+    wrap.appendChild(el('span', { class: 'wza-field__label' }, '리워드 티어 (공개에 1개 이상 필요)'));
+    var listEl = el('div', { class: 'wza-tiers' });
+
+    function render() {
+      listEl.textContent = '';
+      if (!model.tiers.length) listEl.appendChild(el('div', { class: 'wza-blocks__empty' }, '리워드를 1개 이상 추가하세요.'));
+      model.tiers.forEach(function (t, i) { listEl.appendChild(tierRow(t, i)); });
+    }
+
+    function tierRow(t, i) {
+      var row = el('div', { class: 'wza-tier' });
+      var titleInp = el('input', { class: 'wza-input', type: 'text', maxlength: '60', placeholder: '리워드명', value: t.title });
+      titleInp.addEventListener('input', function () { t.title = titleInp.value; });
+      var priceInp = el('input', { class: 'wza-input', type: 'number', min: '0', max: '10000000', placeholder: '가격(원)', value: String(t.price || '') });
+      priceInp.addEventListener('input', function () { t.price = Math.max(0, Math.floor(Number(priceInp.value) || 0)); });
+      var stockInp = el('input', { class: 'wza-input', type: 'number', min: '1', max: '100000', placeholder: '재고(선택)', value: t.stock });
+      stockInp.addEventListener('input', function () { t.stock = stockInp.value; });
+      var descInp = el('input', { class: 'wza-input', type: 'text', maxlength: '500', placeholder: '설명(선택)', value: t.desc });
+      descInp.addEventListener('input', function () { t.desc = descInp.value; });
+      var rm = el('button', { class: 'wza-tier__rm', type: 'button', 'aria-label': '리워드 삭제', html: ICON.x });
+      rm.addEventListener('click', function () { model.tiers.splice(i, 1); render(); });
+
+      var top = el('div', { class: 'wza-tier__top' }, titleInp, priceInp, stockInp, rm);
+      row.appendChild(top);
+      row.appendChild(descInp);
+      return row;
+    }
+
+    wrap.appendChild(listEl);
+    var add = el('button', { class: 'wza-btn wza-btn--outline', type: 'button' });
+    add.appendChild(el('span', { class: 'wza-btn__ic', html: ICON.plus }));
+    add.appendChild(document.createTextNode('리워드 추가'));
+    add.addEventListener('click', function () { model.tiers.push({ title: '', price: 0, desc: '', stock: '' }); render(); });
+    wrap.appendChild(add);
+    render();
+    return wrap;
+  }
+
+  // 저장→리워드→공개 순차 처리
+  async function submitProxy(model, f, btn, msg, list) {
+    // 클라 1차 검증(서버가 최종 검증)
+    if (!model.title.trim()) { setMsg(msg, '제목을 입력하세요.', true); return; }
+    if (!model.deadline) { setMsg(msg, '마감일을 선택하세요.', true); return; }
+    var tiers = model.tiers
+      .map(function (t) {
+        var o = { title: (t.title || '').trim(), price: Math.max(0, Math.floor(Number(t.price) || 0)), description: (t.desc || '').trim() };
+        var s = parseInt(t.stock, 10);
+        if (Number.isFinite(s) && s >= 1) o.stockLimit = s;
+        return o;
+      })
+      .filter(function (t) { return t.title && Number.isFinite(t.price); });
+    if (!tiers.length) { setMsg(msg, '공개하려면 리워드를 1개 이상 입력하세요.', true); return; }
+
+    var contentBlocks = model.blocks
+      .map(function (b) {
+        return b.type === 'image'
+          ? { type: 'image', value: (b.value || '').trim() }
+          : { type: 'text', value: (b.value || '').trim() };
+      })
+      .filter(function (b) { return b.value; });
+
+    var patchBody = {
+      title: model.title.trim(),
+      category: model.category,
+      basePrice: model.basePrice,
+      designFee: 0,
+      coverImageUrl: model.coverImageUrl || '',
+      contentBlocks: contentBlocks,
+      deadline: model.deadline,
+      targetQuantity: model.targetQuantity,
+    };
+
+    btn.disabled = true; var orig = btn.textContent; btn.textContent = '처리 중…';
+    try {
+      setMsg(msg, '본문 저장 중…', false);
+      await window.api.patch('/admin/funds/' + encodeURIComponent(f.id), patchBody);
+      setMsg(msg, '리워드 등록 중…', false);
+      await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/rewards', { rewardTiers: tiers });
+      setMsg(msg, '공개 처리 중…', false);
+      await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/approve', {});
+      loadProxy(list); loadBadges();
+    } catch (e) {
+      btn.disabled = false; btn.textContent = orig;
+      setMsg(msg, (e && e.message) || '처리에 실패했습니다.', true);
+    }
+  }
+
+  function setMsg(node, text, isError) {
+    node.textContent = text;
+    node.classList.toggle('is-error', !!isError);
+  }
+
+  // ISO/날짜 → <input type=date> 값(YYYY-MM-DD)
+  function toDateInput(s) {
+    if (!s) return '';
+    var d = new Date(s); if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+
+  /* ============================================================
+   * 4) 입금 확인
    * ============================================================ */
   function renderDeposits(panel) {
     panel.appendChild(panelHead('입금 확인', '후원자의 입금자명·금액을 대조해 확인하면 후원이 확정됩니다.'));
@@ -569,7 +1001,7 @@
   }
 
   /* ============================================================
-   * 4) 삭제 요청
+   * 5) 삭제 요청
    * ============================================================ */
   function renderDeletes(panel) {
     panel.appendChild(panelHead('삭제 요청', '작성자가 삭제를 요청한 펀드입니다. 삭제 승인 시 펀드가 취소되고 모든 후원이 취소되며, 입금 완료 건은 환불 대상으로 안내됩니다.'));
@@ -643,7 +1075,7 @@
   }
 
   /* ============================================================
-   * 5) 사용자 관리
+   * 6) 사용자 관리
    * ============================================================ */
   function renderUsers(panel) {
     panel.appendChild(panelHead('사용자 관리', '가입한 사용자 목록과 권한을 관리합니다.'));
@@ -719,7 +1151,223 @@
   }
 
   /* ============================================================
-   * 6) 로그·오류
+   * 7) 문의 채팅 (SPA 내 통합)
+   *   방 목록: GET /api/chat/admin/rooms → { items:[room], total }
+   *   메시지:  GET /api/chat/admin/rooms/:id/messages → [msg]
+   *   전송:    POST /api/chat/admin/rooms/:id/messages { message }
+   *   읽음:    POST /api/chat/admin/rooms/:id/read
+   *   실시간: 소켓(/chat)이 가능하면 사용, 불가 시 폴링으로 갱신.
+   *   탭을 떠나면 leaveSection 으로 폴링·소켓 정리.
+   * ============================================================ */
+  function renderChat(panel) {
+    panel.appendChild(panelHead('문의 채팅', '사용자의 1:1 문의에 답변합니다. 왼쪽에서 대화를 선택하세요.'));
+
+    var state = { rooms: [], activeId: null, me: null, socket: null, pollTimer: null, msgPollTimer: null };
+
+    var wrap = el('div', { class: 'wza-chat' });
+    var roomsCol = el('div', { class: 'wza-chat__rooms' });
+    var roomsHead = el('div', { class: 'wza-chat__roomshead' },
+      el('span', {}, '대화 목록'), el('span', { class: 'wza-chat__count' }, '0'));
+    var roomsList = el('div', { class: 'wza-chat__roomlist' });
+    roomsCol.appendChild(roomsHead); roomsCol.appendChild(roomsList);
+
+    var convo = el('div', { class: 'wza-chat__convo' });
+    var convoHead = el('div', { class: 'wza-chat__convohead' }, '대화를 선택하세요');
+    var msgsEl = el('div', { class: 'wza-chat__msgs' });
+    convo.appendChild(convoHead); convo.appendChild(msgsEl);
+
+    wrap.appendChild(roomsCol); wrap.appendChild(convo);
+    panel.appendChild(wrap);
+
+    var countEl = roomsHead.querySelector('.wza-chat__count');
+
+    // ── 정리(탭 떠남) ──
+    leaveSection = function () {
+      if (state.pollTimer) clearInterval(state.pollTimer);
+      if (state.msgPollTimer) clearInterval(state.msgPollTimer);
+      if (state.socket) { try { state.socket.disconnect(); } catch (_) {} state.socket = null; }
+    };
+
+    chatStart();
+
+    async function chatStart() {
+      roomsList.appendChild(loadingNode());
+      try {
+        state.me = await window.api.get('/admin/me');
+      } catch (_) { state.me = null; }
+      await loadRooms();
+      tryConnectSocket();
+      // 폴링(소켓 유무와 무관하게 가벼운 백업 갱신)
+      state.pollTimer = setInterval(function () { loadRooms(true); }, 8000);
+    }
+
+    async function loadRooms(silent) {
+      try {
+        var res = await window.api.get('/chat/admin/rooms?limit=100');
+        state.rooms = (res && res.items) || [];
+        sortRooms();
+        renderRooms();
+      } catch (e) {
+        if (!silent) { roomsList.textContent = ''; roomsList.appendChild(errorNode(e)); }
+      }
+    }
+
+    function sortRooms() {
+      state.rooms.sort(function (a, b) {
+        var ta = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;
+        var tb = b.lastMessageAt ? new Date(b.lastMessageAt).getTime() : 0;
+        return tb - ta;
+      });
+    }
+
+    function renderRooms() {
+      countEl.textContent = String(state.rooms.length);
+      roomsList.textContent = '';
+      if (!state.rooms.length) { roomsList.appendChild(emptyNode('아직 문의한 사용자가 없습니다.')); return; }
+      state.rooms.forEach(function (room) {
+        var item = el('div', { class: 'wza-chat__room' + (state.activeId === room.id ? ' is-active' : '') });
+        var av = el('div', { class: 'wza-chat__avatar' }, (room.userName || 'U').charAt(0));
+        var body = el('div', { class: 'wza-chat__roombody' });
+        var top = el('div', { class: 'wza-chat__roomtop' });
+        top.appendChild(el('span', { class: 'wza-chat__roomname' }, room.userName || '(이름 없음)'));
+        top.appendChild(el('span', { class: 'wza-chat__roomtime' }, fmtRoomTime(room.lastMessageAt || room.updatedAt)));
+        var bot = el('div', { class: 'wza-chat__roombot' });
+        bot.appendChild(el('span', { class: 'wza-chat__roomlast' }, room.lastMessage || '(아직 메시지 없음)'));
+        if (Number(room.unreadAdminCount) > 0) bot.appendChild(el('span', { class: 'wza-chat__unread' }, String(room.unreadAdminCount)));
+        body.appendChild(top); body.appendChild(bot);
+        item.appendChild(av); item.appendChild(body);
+        item.addEventListener('click', function () { selectRoom(room.id); });
+        roomsList.appendChild(item);
+      });
+    }
+
+    async function selectRoom(roomId) {
+      state.activeId = roomId;
+      renderRooms();
+      if (state.msgPollTimer) clearInterval(state.msgPollTimer);
+      var room = roomById(roomId);
+      convoHead.textContent = (room && room.userName ? room.userName + ' 님과의 대화' : '대화');
+      msgsEl.textContent = ''; msgsEl.appendChild(loadingNode());
+      await loadMessages(roomId, true);
+      // 읽음 처리 + 목록 unread 클리어
+      try { await window.api.post('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/read', {}); } catch (_) {}
+      state.rooms = state.rooms.map(function (r) { return r.id === roomId ? Object.assign({}, r, { unreadAdminCount: 0 }) : r; });
+      renderRooms();
+      // 소켓 join + 활성 방 메시지 폴링(소켓 미연결 대비)
+      if (state.socket) { try { state.socket.emit('admin:join', roomId); } catch (_) {} }
+      state.msgPollTimer = setInterval(function () { if (state.activeId === roomId) loadMessages(roomId, true); }, 5000);
+    }
+
+    async function loadMessages(roomId, keepScroll) {
+      try {
+        var msgs = await window.api.get('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/messages?limit=200');
+        if (state.activeId !== roomId) return;
+        renderMessages(Array.isArray(msgs) ? msgs : []);
+      } catch (e) {
+        msgsEl.textContent = ''; msgsEl.appendChild(errorNode(e));
+      }
+    }
+
+    function renderMessages(msgs) {
+      var nearBottom = msgsEl.scrollHeight - msgsEl.scrollTop - msgsEl.clientHeight < 80;
+      msgsEl.textContent = '';
+      var bodyWrap = el('div', { class: 'wza-chat__msglist' });
+      var lastDay = null;
+      msgs.forEach(function (m) {
+        if (!sameDay(lastDay, m.createdAt)) {
+          bodyWrap.appendChild(el('div', { class: 'wza-chat__day' }, fmtDay(m.createdAt)));
+          lastDay = m.createdAt;
+        }
+        var mine = String(m.senderRole || '').toUpperCase() === 'ADMIN';
+        var rowEl = el('div', { class: 'wza-chat__msgrow ' + (mine ? 'me' : 'them') });
+        if (!mine) rowEl.appendChild(el('div', { class: 'wza-chat__msgav' }, 'U'));
+        rowEl.appendChild(el('div', { class: 'wza-chat__bubble' }, m.message || ''));
+        rowEl.appendChild(el('span', { class: 'wza-chat__msgtime' }, fmtMsgTime(m.createdAt)));
+        bodyWrap.appendChild(rowEl);
+      });
+      msgsEl.appendChild(bodyWrap);
+
+      // 입력창(한 번만 생성)
+      var input = convo.querySelector('.wza-chat__input');
+      if (!input) {
+        input = el('div', { class: 'wza-chat__input' });
+        var txt = el('input', { class: 'wza-chat__textinput', type: 'text', maxlength: '2000', placeholder: '메시지를 입력하세요' });
+        var send = el('button', { class: 'wza-chat__send', type: 'button', 'aria-label': '전송', html: ICON.send });
+        function doSend() { sendMessage(txt); }
+        txt.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+        send.addEventListener('click', doSend);
+        input.appendChild(txt); input.appendChild(send);
+        convo.appendChild(input);
+      }
+      if (nearBottom) msgsEl.scrollTop = msgsEl.scrollHeight;
+    }
+
+    async function sendMessage(txt) {
+      var msg = (txt.value || '').trim();
+      if (!msg || !state.activeId) return;
+      txt.value = '';
+      var roomId = state.activeId;
+      // 소켓 가능하면 소켓으로(서버가 message:new 브로드캐스트). 아니면 REST.
+      var sentViaSocket = false;
+      if (state.socket && state.socket.connected) {
+        try { state.socket.emit('message:send', { roomId: roomId, message: msg }); sentViaSocket = true; } catch (_) {}
+      }
+      if (!sentViaSocket) {
+        try {
+          await window.api.post('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/messages', { message: msg });
+          await loadMessages(roomId, true);
+        } catch (e) { alertModal('전송 실패', (e && e.message) || '메시지를 보내지 못했습니다.'); txt.value = msg; }
+      }
+      loadRooms(true);
+      setTimeout(function () { txt.focus(); }, 0);
+    }
+
+    // 소켓은 핸드셰이크에 access token 이 필요(httpOnly 쿠키라 JS 접근 불가)하므로
+    // 토큰이 없으면 조용히 폴링으로 동작. window.__ACCESS_TOKEN 이 있으면 시도.
+    function tryConnectSocket() {
+      if (typeof window.io !== 'function') return;
+      var token = window.__ACCESS_TOKEN || null;
+      if (!token) return; // 토큰 없으면 폴링만 사용(에러/준비중 표시 없음)
+      try {
+        var socket = window.io('/chat', { auth: { token: token }, transports: ['websocket', 'polling'] });
+        socket.on('message:new', function (m) {
+          if (!m) return;
+          if (state.activeId && m.roomId === state.activeId) loadMessages(state.activeId, true);
+          loadRooms(true);
+        });
+        socket.on('connect_error', function () { /* 폴링으로 충분 — 표시 안 함 */ });
+        state.socket = socket;
+      } catch (_) { state.socket = null; }
+    }
+
+    function roomById(id) { for (var i = 0; i < state.rooms.length; i++) if (state.rooms[i].id === id) return state.rooms[i]; return null; }
+  }
+
+  function sameDay(a, b) {
+    if (!a || !b) return false;
+    var da = new Date(a), db = new Date(b);
+    return da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth() && da.getDate() === db.getDate();
+  }
+  function fmtDay(s) {
+    var d = new Date(s); if (isNaN(d.getTime())) return '';
+    return d.getFullYear() + '. ' + (d.getMonth() + 1) + '. ' + d.getDate() + '.';
+  }
+  function fmtMsgTime(s) {
+    var d = new Date(s); if (isNaN(d.getTime())) return '';
+    var h = d.getHours(); var m = String(d.getMinutes()).padStart(2, '0');
+    var ampm = h >= 12 ? '오후' : '오전'; h = h % 12 || 12;
+    return ampm + ' ' + h + ':' + m;
+  }
+  function fmtRoomTime(s) {
+    if (!s) return '';
+    var d = new Date(s); if (isNaN(d.getTime())) return '';
+    var now = new Date();
+    if (d.toDateString() === now.toDateString()) return fmtMsgTime(s);
+    return String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0');
+  }
+
+  /* ============================================================
+   * 8) 로그·오류
    * ============================================================ */
   function renderLogs(panel) {
     panel.appendChild(panelHead('로그·오류', '시스템 감사 로그(audit_logs)를 최신순으로 봅니다. 오류는 적색으로 강조됩니다.'));

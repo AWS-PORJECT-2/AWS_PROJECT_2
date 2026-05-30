@@ -366,13 +366,13 @@
 
   /* 패널: 관심 프로젝트 (좋아요/찜) — 서버 likes API 없음.
    *  localStorage liked_<id> 플래그(window.isLiked) ∩ GET /api/groupbuys 목록 교차필터.
-   *  목록에 없는(예: 종료/비공개) 찜 id 는 detail 링크 카드로 폴백 노출. */
+   *  실제 공개 목록에 존재하는 관심 프로젝트만 노출(없으면 빈 상태). */
   function panelLiked() {
     refs.curView = 'liked';
     var grid = panelShell('관심 프로젝트', 'liked');
     var likedIds = readLikedIds();
     if (!likedIds.length) {
-      grid.appendChild(emptyState('heart', '아직 관심(찜)한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html'));
+      grid.appendChild(emptyState('heart', '아직 관심(찜)한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-likes.png'));
       return;
     }
     grid.appendChild(loading());
@@ -383,23 +383,21 @@
         var byId = {};
         items.forEach(function (it) { if (it && it.id != null) byId[String(it.id)] = it; });
         var matched = likedIds.map(function (id) { return byId[String(id)]; }).filter(Boolean);
-        // 목록에 없는 찜 id (종료/비공개 등) — id 만으로 최소 카드 폴백
-        var missing = likedIds.filter(function (id) { return !byId[String(id)]; });
-        fillLiked(grid, matched, missing);
+        fillLiked(grid, matched);
       })
       .catch(function () {
-        // 목록 조회 실패 시에도 찜 id 만으로 최소 카드 노출
-        fillLiked(grid, [], likedIds);
+        // 목록 조회 실패 시 빈 상태
+        fillLiked(grid, []);
       });
   }
-  function fillLiked(grid, matched, missing) {
+  // 공개 목록(/api/groupbuys)에 존재하는 관심 프로젝트만 노출. 매칭 0개면 빈 상태.
+  function fillLiked(grid, matched) {
     grid.replaceChildren();
-    if (!matched.length && !(missing && missing.length)) {
-      grid.appendChild(emptyState('heart', '관심 프로젝트를 찾지 못했어요', '프로젝트 둘러보기', '/feed.html'));
+    if (!matched.length) {
+      grid.appendChild(emptyState('heart', '아직 관심(찜)한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-likes.png'));
       return;
     }
     matched.forEach(function (f) { grid.appendChild(likedCard(f)); });
-    (missing || []).forEach(function (id) { grid.appendChild(likedFallbackCard(id)); });
   }
 
   /* 패널: 후원한 프로젝트 (GET /api/me/backings) */
@@ -423,7 +421,7 @@
   function fillBackings(grid, items) {
     grid.replaceChildren();
     if (!items.length) {
-      grid.appendChild(emptyState('heart', '아직 후원한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html'));
+      grid.appendChild(emptyState('box', '아직 후원한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-backings.png'));
       return;
     }
     items.forEach(function (o) { grid.appendChild(backingCard(o)); });
@@ -443,7 +441,7 @@
   function fillFunds(grid, items) {
     grid.replaceChildren();
     if (!items.length) {
-      grid.appendChild(emptyState('box', '아직 개설한 프로젝트가 없어요', '프로젝트 만들기', '/fund-create.html'));
+      grid.appendChild(emptyState('box', '아직 개설한 프로젝트가 없어요', '프로젝트 만들기', '/fund-create.html', '/assets/empty-funds.png'));
       return;
     }
     items.forEach(function (f) { grid.appendChild(fundCard(f)); });
@@ -503,7 +501,7 @@
   function renderFriendRows(list, rows) {
     list.replaceChildren();
     if (!rows.length) {
-      friendsHint(list, '검색 결과가 없어요');
+      friendsHint(list, '검색 결과가 없어요', '/assets/empty-friends.png');
       return;
     }
     rows.forEach(function (u) { list.appendChild(friendRow(u)); });
@@ -558,10 +556,21 @@
     btn.replaceChildren(document.createTextNode(on ? '팔로잉' : '팔로우'));
   }
 
-  function friendsHint(list, msg) {
-    list.replaceChildren(W.el('div', { class: 'wz-mp-friends__hint' },
-      W.el('div', { class: 'wz-mp-empty__ic', html: IC.users }),
-      W.el('p', {}, msg)));
+  // image(선택): /assets/empty-*.png. 로드 실패 시 users 아이콘으로 폴백.
+  function friendsHint(list, msg, image) {
+    var hint = W.el('div', { class: 'wz-mp-friends__hint' });
+    var iconBox = W.el('div', { class: 'wz-mp-empty__ic', html: IC.users });
+    if (image) {
+      var art = W.el('div', { class: 'wz-mp-empty__art' });
+      var img = W.el('img', { src: image, alt: '' });
+      img.addEventListener('error', function () { art.replaceWith(iconBox); });
+      art.appendChild(img);
+      hint.appendChild(art);
+    } else {
+      hint.appendChild(iconBox);
+    }
+    hint.appendChild(W.el('p', {}, msg));
+    list.appendChild(hint);
   }
 
   /* =================== 카드 렌더 (WZ.fillThumb 사용) =================== */
@@ -613,18 +622,6 @@
     if (f.creatorName) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, f.creatorName));
     return card;
   }
-  // 공개 목록에 없는 찜 id(종료/비공개 등) — id 만으로 최소 카드
-  function likedFallbackCard(id) {
-    var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(id) });
-    var th = W.el('div', { class: 'wz-mp-card__thumb' });
-    W.fillThumb(th, { id: id });
-    th.appendChild(W.el('span', { class: 'wz-mp-card__like', html: IC.heart, 'aria-hidden': 'true' }));
-    card.appendChild(th);
-    card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, '관심 프로젝트'));
-    card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, '자세히 보기'));
-    return card;
-  }
-
   var BACK_STATUS = {
     awaiting_deposit: { label: '입금 대기', cls: 'awaiting' },
     confirmed:        { label: '참여 확정', cls: 'confirmed' },
@@ -644,10 +641,20 @@
     return card;
   }
 
-  /* =================== 공용 빈/로딩/에러 상태 =================== */
-  function emptyState(icon, msg, btnLabel, btnHref) {
+  /* =================== 공용 빈/로딩/에러 상태 ===================
+   * image(선택): /assets/empty-*.png. 로드 실패 시 icon SVG 로 폴백. */
+  function emptyState(icon, msg, btnLabel, btnHref, image) {
     var box = W.el('div', { class: 'wz-mp-empty' });
-    box.appendChild(W.el('div', { class: 'wz-mp-empty__ic', html: IC[icon] || IC.box }));
+    var iconBox = W.el('div', { class: 'wz-mp-empty__ic', html: IC[icon] || IC.box });
+    if (image) {
+      var art = W.el('div', { class: 'wz-mp-empty__art' });
+      var img = W.el('img', { src: image, alt: '' });
+      img.addEventListener('error', function () { art.replaceWith(iconBox); });
+      art.appendChild(img);
+      box.appendChild(art);
+    } else {
+      box.appendChild(iconBox);
+    }
     box.appendChild(W.el('p', {}, msg));
     if (btnLabel) box.appendChild(W.el('a', { class: 'wz-btn wz-btn--outline', href: btnHref }, btnLabel));
     return box;

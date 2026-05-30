@@ -30,6 +30,14 @@
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5.2A8.4 8.4 0 1 1 21 11.5z"/></svg>',
   };
 
+  /* ---- 커버 프리셋(에셋) ---- */
+  var PRESET_COVERS = [
+    '/assets/maker-cover-default.png',
+    '/assets/maker-cover-2.png',
+    '/assets/maker-cover-3.png',
+    '/assets/maker-cover-4.png',
+  ];
+
   /* ---- 상태 ---- */
   var state = {
     me: null,           // 로그인 유저(또는 null)
@@ -598,7 +606,7 @@
         host.appendChild(emptyState('chat', '방명록을 불러오지 못했어요'));
       }
     } else {
-      host.appendChild(emptyState('chat', '방명록을 준비 중이에요'));
+      host.appendChild(emptyState('chat', '방명록을 불러오지 못했어요'));
     }
     return sec;
   }
@@ -614,9 +622,63 @@
 
     card.appendChild(W.el('h3', { class: 'wz-mk-modal__title' }, '프로필 꾸미기'));
 
-    // 커버 이미지 URL
-    var f1 = field('커버 이미지 URL', 'text', prof.coverUrl || '', 'https://... (비우면 테마색 배너)');
-    card.appendChild(f1.wrap);
+    // ---- 커버: 프리셋 4종 선택 또는 직접 업로드(클릭 + 드래그앤드롭) ----
+    var coverUrl = prof.coverUrl || '';
+    var coverWrap = W.el('div', { class: 'wz-mk-modal__field' });
+    coverWrap.appendChild(W.el('label', { class: 'dt-field-label' }, '커버 이미지'));
+
+    // 미리보기(현재 선택)
+    var coverPrev = W.el('div', { class: 'wz-mk-coverprev' });
+    var coverGrid = W.el('div', { class: 'wz-mk-covergrid' });
+    var thumbs = [];
+
+    function paintCoverPrev() {
+      coverPrev.replaceChildren();
+      if (coverUrl) {
+        coverPrev.classList.remove('wz-mk-coverprev--empty');
+        coverPrev.appendChild(W.el('img', { class: 'wz-mk-coverprev__img', src: coverUrl, alt: '' }));
+      } else {
+        coverPrev.classList.add('wz-mk-coverprev--empty');
+        coverPrev.appendChild(W.el('span', {}, '커버 없음 · 테마색 배너로 표시돼요'));
+      }
+    }
+    function selectCover(url) {
+      coverUrl = url || '';
+      paintCoverPrev();
+      thumbs.forEach(function (t) {
+        t.classList.toggle('is-on', !!url && t.dataset.url === url);
+      });
+    }
+    paintCoverPrev();
+    coverWrap.appendChild(coverPrev);
+
+    // 프리셋 썸네일 그리드
+    PRESET_COVERS.forEach(function (url) {
+      var t = W.el('button', { class: 'wz-mk-coverthumb', type: 'button', 'aria-label': '커버 프리셋 선택' });
+      t.dataset.url = url;
+      t.appendChild(W.el('img', { src: url, alt: '', loading: 'lazy' }));
+      if (coverUrl === url) t.classList.add('is-on');
+      t.addEventListener('click', function () { selectCover(url); });
+      thumbs.push(t);
+      coverGrid.appendChild(t);
+    });
+    coverWrap.appendChild(coverGrid);
+
+    // 직접 업로드(클릭 + 드래그앤드롭)
+    var coverFileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    var coverDrop = W.el('button', { class: 'wz-mk-coverdrop', type: 'button' });
+    coverDrop.appendChild(W.el('span', { class: 'wz-mk-coverdrop__ic', html: IC.camera }));
+    coverDrop.appendChild(W.el('span', {}, '직접 업로드 · 클릭 또는 끌어다 놓기'));
+    coverDrop.appendChild(W.el('span', { class: 'wz-mk-coverdrop__hint' }, 'PNG · JPG · WEBP (최대 8MB)'));
+    coverDrop.addEventListener('click', function () { coverFileIn.click(); });
+    coverFileIn.addEventListener('change', function () {
+      var f = coverFileIn.files && coverFileIn.files[0];
+      readImage(f, function (dataUrl) { selectCover(dataUrl); });
+      coverFileIn.value = '';
+    });
+    enableDrop(coverDrop, function (dataUrl) { selectCover(dataUrl); });
+    coverWrap.append(coverDrop, coverFileIn);
+    card.appendChild(coverWrap);
 
     // 테마 색
     var themeWrap = W.el('div', { class: 'wz-mk-modal__field' });
@@ -660,7 +722,7 @@
     cancel.addEventListener('click', close);
     save.addEventListener('click', function () {
       var body = {
-        coverUrl: f1.input.value.trim(),
+        coverUrl: coverUrl,
         themeColor: colorInput.value,
         intro: introTa.value,
       };
@@ -695,17 +757,33 @@
     function close() { overlay.remove(); document.removeEventListener('keydown', onEsc); }
   }
 
-  function field(label, type, value, ph) {
-    var wrap = W.el('div', { class: 'wz-mk-modal__field' });
-    wrap.appendChild(W.el('label', { class: 'dt-field-label' }, label));
-    var input = W.el('input', { class: 'dt-input', type: type, placeholder: ph || '' });
-    input.value = value || '';
-    wrap.appendChild(input);
-    return { wrap: wrap, input: input };
-  }
   function normColor(c) {
     if (!c || !/^#([0-9a-fA-F]{6})$/.test(String(c))) return null;
     return String(c).toLowerCase();
+  }
+
+  // 이미지 파일 → data URL (PNG/JPG/WEBP, 8MB 제한)
+  function readImage(file, cb) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { toast('PNG·JPG·WEBP 이미지만 업로드할 수 있어요'); return; }
+    if (file.size > 8 * 1024 * 1024) { toast('이미지는 최대 8MB까지 가능합니다'); return; }
+    var r = new FileReader();
+    r.onload = function () { cb(String(r.result)); };
+    r.onerror = function () { toast('이미지를 읽지 못했습니다'); };
+    r.readAsDataURL(file);
+  }
+
+  // 드래그앤드롭: 대상 요소에 부착 → 파일을 떨어뜨리면 readImage 로 처리(하이라이트 포함).
+  function enableDrop(node, cb) {
+    if (!node) return node;
+    node.addEventListener('dragover', function (e) { e.preventDefault(); e.stopPropagation(); node.classList.add('is-drag'); });
+    node.addEventListener('dragleave', function (e) { e.preventDefault(); e.stopPropagation(); node.classList.remove('is-drag'); });
+    node.addEventListener('drop', function (e) {
+      e.preventDefault(); e.stopPropagation(); node.classList.remove('is-drag');
+      var files = (e.dataTransfer && e.dataTransfer.files) ? Array.prototype.slice.call(e.dataTransfer.files) : [];
+      if (files.length) readImage(files[0], cb);
+    });
+    return node;
   }
 
   /* =================== 공용 빈/로딩/에러/토스트 =================== */

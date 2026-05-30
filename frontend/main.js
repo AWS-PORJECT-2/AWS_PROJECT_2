@@ -431,9 +431,7 @@ function buildAndOpenMenu() {
     ];
     if (isAdmin) {
       loggedItems.push(
-        { label: '[관리자] 펀드 심사·입금', href: '/admin.html', emphasis: true },
-        { label: '[관리자] 주문',  href: '/admin-orders.html' },
-        { label: '[관리자] 채팅',  href: '/admin-chat.html' },
+        { label: '[관리자] 콘솔', href: '/admin.html', emphasis: true },
       );
     }
     loggedItems.push({ label: '로그아웃', href: '#', onClick: handleLogout });

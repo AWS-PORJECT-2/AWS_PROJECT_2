@@ -1,12 +1,13 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
-import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
-import type { RewardTier } from '../types/index.js';
+import type { GroupBuyRepository, GroupBuyUpdateFields } from '../repositories/groupbuy-repository.js';
+import type { RewardTier, ContentBlock } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { pool } from '../db.js';
 import { logAudit } from '../services/audit-log.js';
+import { isValidCategory } from '../constants/categories.js';
 
 // 관리자 리워드 입력 검증 — id/soldCount 는 서버 부여, 가격/수량 범위 검증.
 function sanitizeTiers(v: unknown): RewardTier[] {
@@ -52,6 +53,7 @@ export function createAdminFundsListHandler(repo: GroupBuyRepository) {
         authorName: (g as { authorName?: string | null }).authorName ?? null,
         imageUrl: (g as { imageUrl?: string | null }).imageUrl ?? null,
         delegated: g.delegated ?? false,
+        mode: g.mode ?? 'normal',
         rewardCount: (g.rewardTiers ?? []).length,
         targetQuantity: g.targetQuantity,
         finalPrice: g.finalPrice,
@@ -75,8 +77,9 @@ function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected'
         res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' });
         return;
       }
-      if (fund.status !== 'pending') {
-        res.status(409).json({ error: 'INVALID_STATE', message: `심사 대기(pending) 상태만 ${label}할 수 있습니다 (현재: ${fund.status})` });
+      // 일반 펀드는 'pending', 대리개설(proxy) 의뢰는 'pending_review' 로 들어온다. 둘 다 심사 대기로 취급.
+      if (fund.status !== 'pending' && fund.status !== 'pending_review') {
+        res.status(409).json({ error: 'INVALID_STATE', message: `심사 대기 상태만 ${label}할 수 있습니다 (현재: ${fund.status})` });
         return;
       }
       await repo.updateStatus(id, next);
@@ -92,6 +95,151 @@ function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected'
 
 export const createAdminFundApproveHandler = (repo: GroupBuyRepository) => createReviewHandler(repo, 'open', '승인');
 export const createAdminFundRejectHandler = (repo: GroupBuyRepository) => createReviewHandler(repo, 'rejected', '반려');
+
+// ─── 관리자 펀드 편집(대리개설 대행 작성) 검증 상수 — funds-create.ts 와 동일 기준 유지 ───
+const TITLE_MAX = 80;
+const DESCRIPTION_MAX = 2000;
+const TARGET_QTY_MAX = 500;
+const PRICE_MAX = 10_000_000;
+const MAX_IMG_CHARS = 12_000_000; // base64 data URL 약 8MB 상한
+const MAX_BLOCKS = 40;
+const MAX_TEXT_CHARS = 5000;
+
+function isValidImage(v: string): boolean {
+  if (v.length === 0 || v.length > MAX_IMG_CHARS) return false;
+  return /^https?:\/\//.test(v) || /^data:image\/(png|jpe?g|webp);base64,/.test(v);
+}
+
+/** deadline 검증: YYYY-MM-DD 또는 ISO datetime, 미래여야 함(funds-create 와 동일). */
+function isValidFutureDate(s: string): boolean {
+  if (!s) return false;
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  const dt = dateOnly ? new Date(s + 'T23:59:59') : new Date(s);
+  if (Number.isNaN(dt.getTime())) return false;
+  return dt.getTime() > Date.now();
+}
+function parseDeadline(s: string): Date {
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(s);
+  return dateOnly ? new Date(s + 'T23:59:59') : new Date(s);
+}
+
+// content_blocks 정규화 — 계약({type:'text',text}|{type:'image',url})·내부({type,value}) 양쪽 수용.
+function parseBlocks(v: unknown): ContentBlock[] {
+  if (!Array.isArray(v)) return [];
+  const blocks: ContentBlock[] = [];
+  for (const raw of v.slice(0, MAX_BLOCKS)) {
+    if (!raw || typeof raw !== 'object') continue;
+    const b = raw as Record<string, unknown>;
+    if (b.type === 'text') {
+      const src = typeof b.text === 'string' ? b.text : (typeof b.value === 'string' ? b.value : '');
+      const text = src.trim();
+      if (text) blocks.push({ type: 'text', value: text.slice(0, MAX_TEXT_CHARS) });
+    } else if (b.type === 'image') {
+      const src = typeof b.url === 'string' ? b.url : (typeof b.value === 'string' ? b.value : '');
+      if (typeof src === 'string' && isValidImage(src)) blocks.push({ type: 'image', value: src });
+    }
+  }
+  return blocks;
+}
+
+/**
+ * PATCH /api/admin/funds/:id — 관리자가 (대리개설 의뢰 등) 펀드를 대신 작성/수정.
+ * body 에 제공된 필드만 갱신. creatorId 는 절대 변경 안 함(의뢰자 유지).
+ * 갱신 가능: title, category, description, basePrice, designFee, coverImageUrl,
+ *           contentBlocks, deadline, targetQuantity.
+ */
+export function createAdminFundUpdateHandler(repo: GroupBuyRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const fields: GroupBuyUpdateFields = {};
+    const errors: string[] = [];
+
+    if ('title' in body) {
+      const title = typeof body.title === 'string' ? body.title.trim() : '';
+      if (!title || title.length > TITLE_MAX) errors.push('title');
+      else fields.title = title;
+    }
+    if ('category' in body) {
+      const category = typeof body.category === 'string' ? body.category.trim() : '';
+      if (!isValidCategory(category)) errors.push('category');
+      else fields.category = category;
+    }
+    if ('description' in body) {
+      const description = typeof body.description === 'string' ? body.description.trim() : '';
+      if (description.length > DESCRIPTION_MAX) errors.push('description');
+      else fields.description = description;
+    }
+    if ('basePrice' in body) {
+      const n = Number(body.basePrice);
+      if (!Number.isFinite(n) || n < 0 || n > PRICE_MAX) errors.push('basePrice');
+      else fields.basePrice = Math.floor(n);
+    }
+    if ('designFee' in body) {
+      const n = Number(body.designFee);
+      if (!Number.isFinite(n) || n < 0 || n > PRICE_MAX) errors.push('designFee');
+      else fields.designFee = Math.floor(n);
+    }
+    if ('coverImageUrl' in body) {
+      const v = body.coverImageUrl;
+      if (v == null || v === '') fields.coverImageUrl = null;
+      else if (typeof v === 'string' && isValidImage(v)) fields.coverImageUrl = v;
+      else errors.push('coverImageUrl');
+    }
+    if ('contentBlocks' in body) {
+      const blocks = parseBlocks(body.contentBlocks);
+      fields.contentBlocks = blocks.length ? blocks : null;
+    }
+    if ('deadline' in body) {
+      const d = typeof body.deadline === 'string' ? body.deadline.trim() : '';
+      if (!isValidFutureDate(d)) errors.push('deadline');
+      else fields.deadline = parseDeadline(d);
+    }
+    if ('targetQuantity' in body) {
+      const n = Number(body.targetQuantity);
+      if (!Number.isFinite(n) || Math.floor(n) < 1 || Math.floor(n) > TARGET_QTY_MAX) errors.push('targetQuantity');
+      else fields.targetQuantity = Math.floor(n);
+    }
+
+    if (errors.length > 0) {
+      res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', `유효하지 않은 필드: ${errors.join(', ')}`)));
+      return;
+    }
+
+    try {
+      const existing = await repo.findById(id);
+      if (!existing) { res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' }); return; }
+
+      const updated = await repo.updateFields(id, fields);
+      if (!updated) { res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' }); return; }
+
+      logger.info({ id, adminId: req.userId, fields: Object.keys(fields) }, '관리자 펀드 편집');
+      void logAudit(pool, { level: 'info', source: 'admin', message: '펀드 편집', meta: { fundId: id, fields: Object.keys(fields) }, userId: req.userId ?? null });
+
+      res.json({
+        id: updated.id,
+        title: updated.title,
+        category: updated.category ?? null,
+        status: updated.status,
+        creatorId: updated.creatorId,
+        delegated: updated.delegated ?? false,
+        mode: updated.mode ?? 'normal',
+        description: updated.description,
+        basePrice: updated.basePrice,
+        designFee: updated.designFee,
+        finalPrice: updated.finalPrice,
+        targetQuantity: updated.targetQuantity,
+        coverImageUrl: updated.coverImageUrl ?? null,
+        contentBlocks: updated.contentBlocks ?? [],
+        deadline: updated.deadline instanceof Date ? updated.deadline.toISOString() : updated.deadline,
+        updatedAt: updated.updatedAt instanceof Date ? updated.updatedAt.toISOString() : updated.updatedAt,
+      });
+    } catch (err) {
+      logger.error({ err, id }, '관리자 펀드 편집 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
 
 /** POST /api/admin/funds/:id/rewards — (대리 펀딩 등) 관리자가 리워드/대표가격 설정 */
 export function createAdminSetRewardsHandler(repo: GroupBuyRepository) {

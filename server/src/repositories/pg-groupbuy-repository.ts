@@ -3,7 +3,7 @@ import type { PoolClient } from 'pg';
 import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier } from '../types/index.js';
 import type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
-  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions,
+  GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyUpdateFields,
 } from './groupbuy-repository.js';
 
 // content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱
@@ -167,6 +167,48 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
   }
 
+  // 관리자 부분 수정 — 화이트리스트 컬럼만 동적 SET. creator_id/status 는 절대 포함 안 함.
+  async updateFields(id: string, fields: GroupBuyUpdateFields): Promise<GroupBuy | null> {
+    // 키 → 컬럼 매핑(화이트리스트). 여기 없는 키는 무시 → SQL 인젝션·권한밖 컬럼 변경 차단.
+    const COLUMN: Record<string, string> = {
+      title: 'title',
+      category: 'category',
+      description: 'description',
+      basePrice: 'base_price',
+      designFee: 'design_fee',
+      coverImageUrl: 'cover_image_url',
+      contentBlocks: 'content_blocks',
+      deadline: 'deadline',
+      targetQuantity: 'target_quantity',
+    };
+
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    for (const [key, column] of Object.entries(COLUMN)) {
+      if (!(key in fields)) continue; // 제공된 필드만 갱신
+      const raw = (fields as Record<string, unknown>)[key];
+      // content_blocks 는 JSON 직렬화해서 저장(컬럼은 JSONB). 나머지는 값 그대로.
+      const value = key === 'contentBlocks'
+        ? (raw == null ? null : JSON.stringify(raw))
+        : raw;
+      params.push(value);
+      sets.push(`${column} = $${params.length}`);
+    }
+
+    if (sets.length === 0) {
+      // 갱신할 필드가 없으면 현재 상태 그대로 반환.
+      return this.findById(id);
+    }
+
+    params.push(id);
+    const result = await this.pool.query(
+      `UPDATE groupbuys SET ${sets.join(', ')}, updated_at = NOW() WHERE id = $${params.length} RETURNING *`,
+      params,
+    );
+    if (result.rows.length === 0) return null;
+    return this.mapRow(result.rows[0]);
+  }
+
   // 펀드 취소(삭제 처리) — status cancelled + 삭제요청 플래그 해제
   async cancelFund(id: string): Promise<void> {
     await this.pool.query(
@@ -229,6 +271,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       SELECT g.id, g.creator_id, g.fund_id, g.title, g.description, g.product_options,
              g.base_price, g.design_fee, g.platform_fee, g.final_price,
              g.target_quantity, g.current_quantity, g.deadline, g.status, g.category,
+             g.delegated, g.mode, g.reward_tiers,
              g.created_at, g.updated_at,
              COALESCE(g.tryon_image_url, g.design_image_url) AS image_url,
              u.name AS author_name, u.school_domain AS author_department

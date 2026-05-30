@@ -218,3 +218,161 @@
 .wza-modal__btn:disabled { opacity: .55; cursor: not-allowed; }
 .wza-modal__note { font-size: 12.5px; color: #92400E; background: #FFFBEB; border: 1px solid #FDE68A;
   border-radius: var(--r-sm); padding: 10px 12px; margin: 0 0 4px; line-height: 1.6; }
+
+/* =====================================================================
+ * 대리 개설(proxy) — 의뢰 카드 + 대행 작성 편집 패널
+ * ===================================================================== */
+.wza-proxy { border: 1px solid var(--c-border); border-radius: var(--r-md); background: #fff; box-shadow: var(--sh-1); overflow: hidden; }
+.wza-proxy__head { display: flex; align-items: center; gap: 16px; padding: 16px; }
+.wza-proxy__info { flex: 1; min-width: 0; }
+.wza-proxy__panel { border-top: 1px solid var(--c-divider); padding: 18px 16px; background: var(--c-bg); }
+
+/* 의뢰 내용(읽기 전용) */
+.wza-proxy__req { border: 1px solid var(--c-border); border-radius: var(--r-sm); background: #fff; padding: 14px 16px; margin-bottom: 18px; }
+.wza-proxy__reqlabel { font-size: 12px; font-weight: 800; color: var(--c-primary-700); letter-spacing: .02em; margin-bottom: 8px; }
+.wza-proxy__reqtext { font-size: 13.5px; color: var(--c-text-sub); line-height: 1.6; margin: 0 0 8px; white-space: pre-wrap; word-break: break-word; }
+.wza-proxy__reqmuted { font-size: 13px; color: var(--c-text-faint); margin: 0; }
+.wza-proxy__reqimgs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.wza-proxy__reqimg { width: 96px; height: 96px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--c-divider); }
+
+/* ===== 폼(편집) ===== */
+.wza-form { display: flex; flex-direction: column; gap: 16px; }
+.wza-form__row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.wza-field { display: flex; flex-direction: column; gap: 7px; }
+.wza-field__label { font-size: 13px; font-weight: 700; color: var(--c-text-sub); }
+.wza-input {
+  height: 42px; padding: 0 14px; border: 1px solid var(--c-border); border-radius: var(--r-sm);
+  font-size: 14px; font-family: inherit; color: var(--c-text); background: #fff; outline: none;
+  box-sizing: border-box; width: 100%; transition: border-color .15s, box-shadow .15s;
+}
+select.wza-input { appearance: none; -webkit-appearance: none; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 12px center; padding-right: 34px; }
+textarea.wza-input { height: auto; padding: 10px 14px; line-height: 1.6; resize: vertical; }
+.wza-input:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wza-input::placeholder { color: var(--c-text-faint); }
+
+.wza-btn__ic { width: 15px; height: 15px; display: inline-flex; }
+.wza-btn__ic svg { width: 15px; height: 15px; }
+
+/* 드롭존(대표 이미지 / 블록 이미지) */
+.wza-drop {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+  min-height: 132px; padding: 18px; border: 2px dashed var(--c-border); border-radius: var(--r-md);
+  background: #fff; color: var(--c-text-faint); cursor: pointer; text-align: center;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.wza-drop:hover { border-color: var(--c-primary-300); color: var(--c-primary-700); background: var(--c-primary-50); }
+.wza-drop.is-over { border-color: var(--c-primary-500); background: var(--c-primary-50); color: var(--c-primary-700); }
+.wza-drop--sm { min-height: 96px; padding: 12px; }
+.wza-drop__ic { width: 26px; height: 26px; display: inline-flex; }
+.wza-drop__ic svg { width: 26px; height: 26px; }
+.wza-drop__txt { font-size: 13px; font-weight: 600; }
+
+/* 대표 이미지 미리보기 */
+.wza-cover { display: flex; flex-direction: column; gap: 0; }
+.wza-cover__preview { position: relative; }
+.wza-cover__img { width: 100%; max-height: 280px; object-fit: cover; border-radius: var(--r-md); border: 1px solid var(--c-divider); display: block; }
+.wza-cover__rm {
+  position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border-radius: var(--r-full);
+  border: 0; background: rgba(17,24,39,.62); color: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.wza-cover__rm:hover { background: rgba(17,24,39,.82); }
+.wza-cover__rm svg { width: 16px; height: 16px; }
+
+/* 스토리 블록 */
+.wza-blocks { display: flex; flex-direction: column; gap: 10px; }
+.wza-blocks__empty { padding: 22px; text-align: center; font-size: 13px; color: var(--c-text-faint);
+  border: 1px dashed var(--c-border); border-radius: var(--r-sm); }
+.wza-block {
+  display: flex; align-items: flex-start; gap: 10px; padding: 12px; background: #fff;
+  border: 1px solid var(--c-border); border-radius: var(--r-sm);
+}
+.wza-block.is-dragging { opacity: .5; border-color: var(--c-primary-500); }
+.wza-block__grip { width: 18px; height: 18px; flex-shrink: 0; margin-top: 8px; color: var(--c-text-faint); cursor: grab; display: inline-flex; }
+.wza-block__grip svg { width: 18px; height: 18px; }
+.wza-block__ta {
+  flex: 1; min-height: 64px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: var(--r-sm);
+  font-size: 14px; font-family: inherit; color: var(--c-text); line-height: 1.6; resize: vertical; outline: none; box-sizing: border-box;
+}
+.wza-block__ta:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wza-block__img { flex: 1; min-width: 0; }
+.wza-block__img img { width: 100%; max-height: 240px; object-fit: cover; border-radius: var(--r-sm); border: 1px solid var(--c-divider); display: block; }
+.wza-block__rm {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: var(--r-sm); border: 1px solid var(--c-border);
+  background: #fff; color: var(--c-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.wza-block__rm:hover { background: #FEE2E2; border-color: #FCA5A5; color: var(--c-danger); }
+.wza-block__rm svg { width: 15px; height: 15px; }
+.wza-blocks__add { display: flex; gap: 8px; margin-top: 10px; }
+
+/* 리워드 티어 */
+.wza-tiers { display: flex; flex-direction: column; gap: 10px; }
+.wza-tier { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #fff;
+  border: 1px solid var(--c-border); border-radius: var(--r-sm); }
+.wza-tier__top { display: grid; grid-template-columns: minmax(0,1.6fr) minmax(0,1fr) minmax(0,1fr) 38px; gap: 8px; align-items: center; }
+.wza-tier__rm {
+  width: 38px; height: 38px; border-radius: var(--r-sm); border: 1px solid var(--c-border);
+  background: #fff; color: var(--c-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
+}
+.wza-tier__rm:hover { background: #FEE2E2; border-color: #FCA5A5; color: var(--c-danger); }
+.wza-tier__rm svg { width: 15px; height: 15px; }
+
+/* 저장 푸터 */
+.wza-form__foot { display: flex; align-items: center; gap: 14px; margin-top: 6px; padding-top: 16px; border-top: 1px solid var(--c-divider); }
+.wza-form__msg { font-size: 13px; color: var(--c-text-muted); }
+.wza-form__msg.is-error { color: var(--c-danger); font-weight: 600; }
+
+/* =====================================================================
+ * 문의 채팅(SPA 내 통합) — 좌측 방 목록 + 우측 대화창
+ * ===================================================================== */
+.wza-chat {
+  display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 0;
+  height: 620px; border: 1px solid var(--c-border); border-radius: var(--r-md);
+  overflow: hidden; background: #fff; box-shadow: var(--sh-1);
+}
+.wza-chat__rooms { display: flex; flex-direction: column; border-right: 1px solid var(--c-border); min-width: 0; }
+.wza-chat__roomshead { display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px; border-bottom: 1px solid var(--c-border); font-size: 14px; font-weight: 800; color: var(--c-text); }
+.wza-chat__count { font-size: 11px; font-weight: 800; padding: 2px 9px; border-radius: var(--r-full);
+  background: var(--c-primary-50); color: var(--c-primary-700); }
+.wza-chat__roomlist { flex: 1; overflow-y: auto; }
+.wza-chat__room { display: flex; gap: 12px; padding: 13px 16px; border-bottom: 1px solid var(--c-divider); cursor: pointer; transition: background .12s; }
+.wza-chat__room:hover { background: var(--c-bg); }
+.wza-chat__room.is-active { background: var(--c-primary-50); }
+.wza-chat__avatar { width: 40px; height: 40px; border-radius: var(--r-full); flex-shrink: 0;
+  background: var(--c-primary-500); color: #fff; font-weight: 800; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; }
+.wza-chat__roombody { flex: 1; min-width: 0; }
+.wza-chat__roomtop { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 3px; }
+.wza-chat__roomname { font-size: 14px; font-weight: 700; color: var(--c-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wza-chat__roomtime { font-size: 11px; color: var(--c-text-faint); flex-shrink: 0; }
+.wza-chat__roombot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.wza-chat__roomlast { flex: 1; font-size: 13px; color: var(--c-text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wza-chat__unread { flex-shrink: 0; min-width: 18px; height: 18px; padding: 0 6px; border-radius: var(--r-full);
+  background: var(--c-danger); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+
+.wza-chat__convo { display: flex; flex-direction: column; min-width: 0; background: var(--c-bg); }
+.wza-chat__convohead { padding: 15px 20px; border-bottom: 1px solid var(--c-border); background: #fff; font-size: 15px; font-weight: 700; color: var(--c-text); }
+.wza-chat__msgs { flex: 1; overflow-y: auto; padding: 16px 18px; }
+.wza-chat__msglist { display: flex; flex-direction: column; gap: 8px; }
+.wza-chat__day { text-align: center; font-size: 11px; color: var(--c-text-faint); padding: 10px 0 6px; }
+.wza-chat__msgrow { display: flex; align-items: flex-end; gap: 6px; }
+.wza-chat__msgrow.me { flex-direction: row-reverse; }
+.wza-chat__msgav { width: 28px; height: 28px; border-radius: var(--r-full); flex-shrink: 0; align-self: flex-start;
+  background: var(--c-text-faint); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+.wza-chat__bubble { max-width: 68%; padding: 9px 13px; border-radius: 14px; font-size: 14px; line-height: 1.5; word-break: break-word; white-space: pre-wrap; }
+.wza-chat__msgrow.them .wza-chat__bubble { background: #fff; color: var(--c-text); border: 1px solid var(--c-border); border-bottom-left-radius: 4px; }
+.wza-chat__msgrow.me .wza-chat__bubble { background: var(--c-primary-500); color: #fff; border-bottom-right-radius: 4px; }
+.wza-chat__msgtime { font-size: 10px; color: var(--c-text-faint); white-space: nowrap; }
+.wza-chat__input { display: flex; gap: 8px; padding: 12px 16px; background: #fff; border-top: 1px solid var(--c-border); }
+.wza-chat__textinput { flex: 1; height: 42px; padding: 0 16px; border: 1px solid var(--c-border); border-radius: var(--r-full);
+  font-size: 14px; font-family: inherit; color: var(--c-text); outline: none; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; }
+.wza-chat__textinput:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wza-chat__textinput::placeholder { color: var(--c-text-faint); }
+.wza-chat__send { width: 46px; height: 42px; flex-shrink: 0; border: 0; border-radius: var(--r-full);
+  background: var(--c-primary-500); color: #fff; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: background .15s; }
+.wza-chat__send:hover { background: var(--c-primary-600); }
+.wza-chat__send:disabled { opacity: .55; cursor: not-allowed; }
+.wza-chat__send svg { width: 18px; height: 18px; }

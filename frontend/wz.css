@@ -74,13 +74,18 @@ img { max-width: 100%; }
 .wz-home { max-width: 1200px; margin: 0 auto; padding: 24px; }
 .wz-home__top { display: grid; grid-template-columns: minmax(0,1fr) 380px; gap: 36px; align-items: start; }
 
-/* 히어로 캐러셀 */
-.wz-hero { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 16/10; background: linear-gradient(135deg,#f3f0fe,#ede9fe); display: block; }
+/* 히어로 배너 캐러셀 (페이드 자동 전환 + 점 인디케이터) */
+.wz-hero { position: relative; border-radius: 8px; overflow: hidden; aspect-ratio: 16/10; background: linear-gradient(135deg,#f3f0fe,#ede9fe); display: block; cursor: pointer; }
+.wz-hero__track { position: absolute; inset: 0; }
+.wz-hero__slide { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .7s ease; }
+.wz-hero__slide.is-active { opacity: 1; visibility: visible; }
 .wz-hero__img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.wz-hero__cap { position: absolute; left: 0; bottom: 0; right: 0; padding: 28px 32px; background: linear-gradient(to top, rgba(0,0,0,.5), rgba(0,0,0,0)); color: #fff; }
+.wz-hero__cap { position: absolute; left: 0; bottom: 0; right: 0; padding: 28px 32px; background: linear-gradient(to top, rgba(0,0,0,.5), rgba(0,0,0,0)); color: #fff; z-index: 2; pointer-events: none; }
 .wz-hero__cap h2 { font-size: 24px; font-weight: 800; margin: 0; line-height: 1.3; white-space: pre-line; }
-.wz-hero__bar { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(255,255,255,.3); }
-.wz-hero__bar > i { display: block; height: 100%; background: #fff; width: 33%; }
+.wz-hero__dots { position: absolute; left: 0; right: 0; bottom: 14px; z-index: 3; display: flex; justify-content: center; gap: 8px; }
+.wz-hero__dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px; background: rgba(255,255,255,.5); cursor: pointer; transition: width .2s, background .2s; }
+.wz-hero__dot:hover { background: rgba(255,255,255,.8); }
+.wz-hero__dot.is-active { width: 22px; background: #fff; }
 
 /* 실시간 베스트 랭킹 */
 .wz-rank__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; }
@@ -151,6 +156,8 @@ img { max-width: 100%; }
   .wz-searchrow, .wz-cats { padding-left: 16px; padding-right: 16px; }
   .wz-search { height: 48px; }
   .wz-home { padding: 16px; }
+  .wz-hero__cap { padding: 18px 18px 26px; }
+  .wz-hero__cap h2 { font-size: 19px; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .wz-catmenu__inner { gap: 20px; }
 }

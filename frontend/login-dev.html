@@ -151,9 +151,9 @@
 
             // 역할별 랜딩 — dev-auth 응답은 { user: { role } } 형태
             if (data.user && data.user.role === 'ADMIN') {
-              window.location.href = '/admin-orders.html';
+              window.location.href = '/admin.html';
             } else {
-              window.location.href = '/feed.html';
+              window.location.href = '/main.html';
             }
           } catch (e) {
             errorEl.textContent = e.message || '로그인에 실패했습니다';

@@ -147,6 +147,7 @@ textarea.wzs-input { height: auto; min-height: 80px; padding: 10px 12px; resize:
 .wzs-add svg { width: 18px; height: 18px; }
 
 /* ===== 친구 탭 ===== */
+.wzs-friend-search .wzs-input { width: 100%; height: 46px; }
 .wzs-friend-grouptitle { font-size: 15px; font-weight: 800; color: var(--c-text); margin: 28px 0 12px; padding-top: 18px; border-top: 1px solid var(--c-divider); }
 .wzs-friend-list { display: flex; flex-direction: column; gap: 2px; }
 .wzs-friend { display: flex; align-items: center; gap: 12px; padding: 10px 4px; border-radius: var(--r-sm); transition: background .12s; }
@@ -176,6 +177,7 @@ textarea.wzs-input { height: auto; min-height: 80px; padding: 10px 12px; resize:
   border-radius: var(--r-lg); box-shadow: var(--sh-3); display: flex; flex-direction: column;
   transform: translateY(12px); transition: transform .2s;
 }
+.wzs-modal--wide { max-width: 580px; }
 .wzs-modal-back.is-open .wzs-modal { transform: none; }
 .wzs-modal__head { display: flex; align-items: center; justify-content: space-between; padding: 18px 20px 14px; border-bottom: 1px solid var(--c-divider); }
 .wzs-modal__title { font-size: 17px; font-weight: 800; color: var(--c-text); margin: 0; }
@@ -191,6 +193,16 @@ textarea.wzs-input { height: auto; min-height: 80px; padding: 10px 12px; resize:
 .wzs-fld__label { display: block; font-size: 13px; font-weight: 700; color: var(--c-text-sub); margin-bottom: 7px; }
 .wzs-fld__label .req { color: var(--c-danger); margin-left: 2px; }
 .wzs-fld__row { display: flex; gap: 8px; align-items: center; }
+.wzs-fld__row .wzs-input { width: 100%; }
+
+/* 폼 2열 그리드 (짧은 필드: 받는사람|휴대폰, 상세주소|배송특이사항). 모바일은 1열. */
+.wzs-form__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; }
+.wzs-form__grid .wzs-fld { min-width: 0; margin-bottom: 16px; }
+.wzs-form > :last-child .wzs-fld:last-child, .wzs-form > .wzs-fld:last-child { margin-bottom: 0; }
+.wzs-form .wzs-input, .wzs-form .wzs-select { width: 100%; }
+@media (max-width: 560px) {
+  .wzs-form__grid { grid-template-columns: 1fr; }
+}
 .wzs-select {
   width: 100%; box-sizing: border-box; height: 44px; padding: 0 12px; border: 1px solid var(--c-border);
   border-radius: var(--r-sm); font-size: 14px; font-family: inherit; color: var(--c-text); background: #fff; outline: none;
