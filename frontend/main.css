@@ -939,17 +939,27 @@ body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay
 .dt-catgrid { max-width: 1180px; margin: 0 auto; padding: 28px 24px 8px; }
 .dt-catgrid__title { font-size: 18px; font-weight: 800; color: #1a1a1a; margin: 0 0 18px; }
 .dt-catgrid__grid {
-  display: grid; grid-template-columns: repeat(7, 1fr); gap: 18px 8px;
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px;
+  align-items: start;
 }
-.dt-catgrid__item { display: flex; flex-direction: column; align-items: center; gap: 9px; text-decoration: none; color: inherit; }
+.dt-catgrid__item {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  text-decoration: none; color: inherit; padding: 10px 4px; border-radius: 14px;
+  transition: background .15s;
+}
+.dt-catgrid__item:hover { background: var(--c-primary-50); }
 .dt-catgrid__icon {
-  width: 64px; height: 64px; border-radius: 20px; background: #f5f3fb;
+  width: 56px; height: 56px; border-radius: 18px; background: #f5f3fb; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center; overflow: hidden;
   transition: transform .15s, box-shadow .15s;
 }
-.dt-catgrid__item:hover .dt-catgrid__icon { transform: translateY(-3px); box-shadow: 0 8px 18px rgba(139,92,246,.16); }
-.dt-catgrid__icon svg, .dt-catgrid__icon img { width: 70%; height: 70%; object-fit: contain; }
-.dt-catgrid__label { font-size: 13px; font-weight: 600; color: #374151; text-align: center; word-break: keep-all; }
+.dt-catgrid__item:hover .dt-catgrid__icon { transform: translateY(-2px); box-shadow: 0 8px 18px rgba(139,92,246,.16); }
+.dt-catgrid__icon svg, .dt-catgrid__icon img { width: 64%; height: 64%; object-fit: contain; display: block; }
+.dt-catgrid__label {
+  font-size: 13px; font-weight: 600; color: var(--c-text-sub); text-align: center;
+  word-break: keep-all; line-height: 1.3; min-height: 2.6em;
+  display: flex; align-items: flex-start; justify-content: center;
+}
 
 .dt-home-sec { max-width: 1180px; margin: 0 auto; }
 .dt-home-sec__inner { padding: 28px 24px 8px; }
@@ -979,4 +989,24 @@ body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay
   .dt-catgrid__grid { grid-template-columns: repeat(4, 1fr); gap: 16px 6px; }
   .dt-catgrid__icon { width: 56px; height: 56px; }
   .dt-pcard-grid { grid-template-columns: repeat(2, 1fr); gap: 18px 12px; }
+}
+
+/* ===== 모바일 하단 탭바 (≤767px) ===== */
+.dt-tabbar { display: none; }
+@media (max-width: 767px) {
+  .dt-tabbar {
+    display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 90;
+    height: calc(56px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: #fff; border-top: 1px solid var(--c-border);
+  }
+  .dt-tabbar__item {
+    flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+    text-decoration: none; color: var(--c-text-faint); font-size: var(--fs-tab); font-weight: 600; min-height: 48px;
+  }
+  .dt-tabbar__item svg { width: 23px; height: 23px; }
+  .dt-tabbar__item.is-active { color: var(--c-primary-500); }
+  body.has-tabbar { padding-bottom: calc(56px + env(safe-area-inset-bottom, 0px)); }
+  /* 상세 페이지엔 하단 후원바가 따로 → 탭바 숨김(후속 Phase에서 후원바 도입) */
+  body[data-page="detail"] .dt-tabbar { display: none; }
 }

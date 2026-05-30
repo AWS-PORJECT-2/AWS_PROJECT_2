@@ -718,27 +718,47 @@ function NewPicks({ items = NEW_PICKS, title = '신규픽' } = {}) {
  *     - 'main' (기본): 메인 페이지 전체 렌더
  *     - 'detail': 헤더만 메인 컴포넌트로 렌더, 본문은 detail.js 가 처리
  * ===================================================================== */
-/* 최근 본 프로젝트 — detail 에서 localStorage 에 기록한 것을 홈에 가로 스크롤로 표시 */
+/* 최근 본 프로젝트 — localStorage 기록을 홈에 표시.
+ * C4 수정: 공개 목록(MOCK_PRODUCTS)이 로드된 뒤, 더 이상 존재하지 않는(삭제/비공개) 펀드는
+ * 거르고 localStorage 도 정리한다. 목록 로드 전이면 일단 표시했다가 mockproducts:updated 에서 재검증. */
 function RecentlyViewed() {
-  let list = [];
-  try { list = JSON.parse(localStorage.getItem('recentFunds') || '[]'); } catch (_) { list = []; }
   const sec = el('section', { class: 'dt-recent' });
-  if (!Array.isArray(list) || list.length === 0) { sec.style.display = 'none'; return sec; }
-
-  sec.appendChild(el('h2', { class: 'dt-recent__title' }, '최근 본 프로젝트'));
-  const row = el('div', { class: 'dt-recent__row' });
-  list.forEach((it) => {
-    const card = el('a', { class: 'dt-recent__card', href: '/detail.html?id=' + encodeURIComponent(it.id) });
-    const thumb = el('div', { class: 'dt-recent__thumb' });
-    if (it.imageUrl) {
-      const img = el('img', { src: it.imageUrl, alt: it.title || '', loading: 'lazy' });
-      thumb.appendChild(img);
+  function read() {
+    try { const l = JSON.parse(localStorage.getItem('recentFunds') || '[]'); return Array.isArray(l) ? l : []; }
+    catch (_) { return []; }
+  }
+  function render() {
+    let list = read();
+    const products = Array.isArray(window.MOCK_PRODUCTS) ? window.MOCK_PRODUCTS : null;
+    // 공개목록이 로드됐으면(=배열 존재) 존재하는 펀드만 남기고 정리
+    if (products) {
+      const ids = new Set(products.map((p) => String(p.id)));
+      const filtered = list.filter((it) => ids.has(String(it.id)));
+      if (filtered.length !== list.length) {
+        try { localStorage.setItem('recentFunds', JSON.stringify(filtered)); } catch (_) {}
+      }
+      list = filtered;
     }
-    card.appendChild(thumb);
-    card.appendChild(el('div', { class: 'dt-recent__name' }, it.title || ''));
-    row.appendChild(card);
-  });
-  sec.appendChild(row);
+    if (list.length === 0) { sec.style.display = 'none'; sec.innerHTML = ''; return; }
+    sec.style.display = '';
+    sec.innerHTML = '';
+    sec.appendChild(el('h2', { class: 'dt-recent__title' }, '최근 본 프로젝트'));
+    const row = el('div', { class: 'dt-recent__row' });
+    list.forEach((it) => {
+      const card = el('a', { class: 'dt-recent__card', href: '/detail.html?id=' + encodeURIComponent(it.id) });
+      const thumb = el('div', { class: 'dt-recent__thumb' });
+      if (it.imageUrl) {
+        const img = el('img', { src: it.imageUrl, alt: it.title || '', loading: 'lazy' });
+        thumb.appendChild(img);
+      }
+      card.appendChild(thumb);
+      card.appendChild(el('div', { class: 'dt-recent__name' }, it.title || ''));
+      row.appendChild(card);
+    });
+    sec.appendChild(row);
+  }
+  render();
+  window.addEventListener('mockproducts:updated', render);
   return sec;
 }
 
@@ -897,3 +917,37 @@ function renderGlobalFooter() {
 }
 if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderGlobalFooter);
 else renderGlobalFooter();
+
+/* ===== 모바일 하단 탭바 (≤767px) — 스펙 §1.4. 로그인/온보딩/랜딩 제외 ===== */
+function renderMobileTabBar() {
+  const skip = ['/login.html', '/login-dev.html', '/onboarding.html', '/landing.html'];
+  if (skip.indexOf(location.pathname) !== -1) return;
+  if (document.querySelector('.dt-tabbar')) return;
+
+  const ICON = {
+    home: '<path d="M3 11.5 12 4l9 7.5"/><path d="M5 10v10h14V10"/>',
+    grid: '<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+    plus: '<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+    heart: '<path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 1 0-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 0 0 0-7.8z"/>',
+    user: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  };
+  const tabs = [
+    { key: 'home', label: '홈', href: '/main.html', match: ['/main.html', '/', '/index.html'] },
+    { key: 'grid', label: '둘러보기', href: '/feed.html', match: ['/feed.html'] },
+    { key: 'plus', label: '개설', href: '/fund-create.html', match: ['/fund-create.html'] },
+    { key: 'heart', label: '찜', href: '/profile.html', match: [] },
+    { key: 'user', label: '마이', href: '/profile.html', match: ['/profile.html', '/settings.html'] },
+  ];
+  const bar = el('nav', { class: 'dt-tabbar', 'aria-label': '하단 메뉴' });
+  tabs.forEach((t) => {
+    const active = t.match.indexOf(location.pathname) !== -1;
+    const a = el('a', { class: 'dt-tabbar__item' + (active ? ' is-active' : ''), href: t.href });
+    a.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + ICON[t.key] + '</svg>'
+      + '<span>' + t.label + '</span>';
+    bar.appendChild(a);
+  });
+  document.body.appendChild(bar);
+  document.body.classList.add('has-tabbar');
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', renderMobileTabBar);
+else renderMobileTabBar();
