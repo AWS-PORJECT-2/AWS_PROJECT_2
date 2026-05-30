@@ -43,8 +43,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -54,6 +54,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.contentBlocks ? JSON.stringify(groupbuy.contentBlocks) : null,
         groupbuy.category ?? null,
         groupbuy.rewardTiers ? JSON.stringify(groupbuy.rewardTiers) : null,
+        groupbuy.delegated ?? false, groupbuy.feeRate ?? 5,
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -108,6 +109,14 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       deleteRequestedAt: r.delete_requested_at ? new Date(r.delete_requested_at as string) : null,
       status: r.status as string,
     }));
+  }
+
+  // 관리자가 대리 펀드의 리워드/대표가격 설정
+  async updateRewards(id: string, rewardTiers: RewardTier[], finalPrice: number): Promise<void> {
+    await this.pool.query(
+      `UPDATE groupbuys SET reward_tiers = $1, final_price = $2, updated_at = NOW() WHERE id = $3`,
+      [JSON.stringify(rewardTiers), finalPrice, id],
+    );
   }
 
   // 펀드 취소(삭제 처리) — status cancelled + 삭제요청 플래그 해제
@@ -221,6 +230,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         : row.product_options) as GroupBuy['productOptions'],
       category: (row.category as string | null) ?? null,
       rewardTiers: parseRewardTiers(row.reward_tiers),
+      delegated: (row.delegated as boolean | undefined) ?? false,
+      feeRate: (row.fee_rate as number | undefined) ?? 5,
       basePrice: row.base_price as number,
       designFee: row.design_fee as number,
       platformFee: row.platform_fee as number,

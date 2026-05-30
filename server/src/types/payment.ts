@@ -19,6 +19,8 @@ export interface GroupBuy {
   productOptions: ProductOption[];
   category?: string | null; // 카테고리 slug (jacket/ecobag/.../etc) — categories 단일소스 기준
   rewardTiers?: RewardTier[] | null; // 리워드(선물) 구성 — 창작자가 직접 정의
+  delegated?: boolean;      // 대리 펀딩(플랫폼 위임) 여부 — 관리자가 리워드/가격 설정
+  feeRate?: number;         // 플랫폼 수수료율(%) — 대리 20, 직접 5
   basePrice: number;
   designFee: number;
   platformFee: number;

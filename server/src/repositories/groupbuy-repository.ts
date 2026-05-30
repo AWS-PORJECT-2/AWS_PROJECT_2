@@ -29,6 +29,7 @@ export interface GroupBuyRepository {
   requestDelete(id: string, userId: string, reason: string): Promise<boolean>;
   listDeleteRequests(): Promise<DeleteRequestItem[]>;
   cancelFund(id: string): Promise<void>;
+  updateRewards(id: string, rewardTiers: import('../types/index.js').RewardTier[], finalPrice: number): Promise<void>;
 }
 
 export interface DeleteRequestItem {

@@ -46,6 +46,7 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
     const deadline = stringField(body.deadline);
     const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX);
     const rewardTiers = parseRewardTiers(body.rewardTiers);
+    const delegated = body.delegated === true;
     const designImage = imageField(body.designImageDataUrl);
     const tryonImage = imageField(Array.isArray(body.tryOnImages) ? body.tryOnImages[0] : body.tryOnImageDataUrl);
     const contentBlocks = parseBlocks(body.contentBlocks);
@@ -57,7 +58,8 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
     if (!category || !isValidCategory(category)) errors.push('category');
     if (!isValidFutureDate(deadline)) errors.push('deadline');
     if (targetQuantity === null) errors.push('targetQuantity');
-    if (!rewardTiers || rewardTiers.length === 0) errors.push('rewardTiers (최소 1개의 리워드 필요)');
+    // 대리 펀딩은 관리자가 리워드를 설정하므로 작성자 입력 리워드는 선택. 직접 개설은 최소 1개 필수.
+    if (!delegated && (!rewardTiers || rewardTiers.length === 0)) errors.push('rewardTiers (최소 1개의 리워드 필요)');
     // 이미지는 선택: 디자인/피팅 없으면 본문 첫 이미지를 썸네일로 사용(아래). 둘 다 없어도 생성 허용.
 
     if (errors.length > 0) {
@@ -67,9 +69,9 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
       return;
     }
 
-    const tiers = rewardTiers as NonNullable<typeof rewardTiers>;
-    // 대표 가격 = 최저 리워드가(목록/결제 호환). 가격은 전적으로 창작자 설정.
-    const finalPrice = Math.min(...tiers.map((t) => t.price));
+    const tiers = rewardTiers ?? [];
+    // 대표 가격 = 최저 리워드가(목록/결제 호환). 대리펀딩은 리워드 미설정이라 0(관리자가 추후 설정).
+    const finalPrice = tiers.length > 0 ? Math.min(...tiers.map((t) => t.price)) : 0;
     const now = new Date();
     // 썸네일 우선순위: 피팅 > 디자인 업로드 > 본문 첫 이미지 블록
     const firstContentImage = contentBlocks?.find((b) => b.type === 'image')?.value ?? null;
@@ -82,6 +84,8 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
       description,
       category,
       rewardTiers: tiers,
+      delegated,
+      feeRate: delegated ? 20 : 5,
       productOptions: [],
       basePrice: 0,
       designFee: 0,

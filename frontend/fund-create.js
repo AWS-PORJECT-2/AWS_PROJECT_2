@@ -24,6 +24,7 @@
     tryOnImage: null,
     contentBlocks: [],  // 게시글 본문 블록 [{type:'text'|'image', value}]
     rewardTiers: [],    // 리워드(선물) [{title, price, description, stockLimit}]
+    delegated: false,   // 대리 개설 여부(두띵이 리워드·가격 설정)
     formValues: null,
   };
   const MAX_IMAGES = 5;
@@ -38,6 +39,7 @@
     bindNavigation();
     setDefaultDeadline();
     presetCategoryFromUrl();
+    bindModeToggle();
 
     try {
       state.me = await api.get('/auth/me');
@@ -95,6 +97,28 @@
       help.textContent = '업로드한 굿즈를 깔끔한 전시 컷처럼 생성합니다. (선택)';
       hint.textContent = '굿즈 카테고리 — 제품을 전시·진열 컷처럼 생성할 수 있어요.';
     }
+  }
+
+  // 개설 방식 토글 — 직접/대리. 대리 시 리워드 입력 숨김(관리자가 설정).
+  function bindModeToggle() {
+    state.delegated = false;
+    var btns = document.querySelectorAll('.mode-btn');
+    function paint() {
+      btns.forEach(function (b) {
+        var on = (b.dataset.mode === 'delegate') === state.delegated;
+        b.style.border = '1.5px solid ' + (on ? '#8b5cf6' : '#e5e7eb');
+        b.style.background = on ? '#f3f0fe' : '#fff';
+        b.style.color = on ? '#7c3aed' : '#6b7280';
+      });
+      var rewardField = document.getElementById('rewardField');
+      if (rewardField) rewardField.style.display = state.delegated ? 'none' : '';
+      var note = document.getElementById('delegateNote');
+      if (note) note.style.display = state.delegated ? 'block' : 'none';
+    }
+    btns.forEach(function (b) {
+      b.addEventListener('click', function () { state.delegated = b.dataset.mode === 'delegate'; paint(); });
+    });
+    paint();
   }
 
   // ========== Step 네비게이션 ==========
@@ -427,7 +451,7 @@
     var form = document.getElementById('fundForm');
     if (!form.reportValidity()) return;
     var tiers = collectRewardTiers();
-    if (!tiers) {
+    if (!state.delegated && !tiers) {
       alert('리워드(선물)를 최소 1개 입력해 주세요. (선물명과 금액 필수)');
       return;
     }
@@ -437,7 +461,7 @@
       department: document.getElementById('fundDepartment').value.trim(),
       targetQuantity: clampInt(document.getElementById('fundTargetQuantity').value, 1, 500),
       deadline: document.getElementById('fundDeadline').value,
-      rewardTiers: tiers,
+      rewardTiers: state.delegated ? [] : tiers,
     };
     if (!state.formValues.title) return; // 소속·단체(department)는 선택
     goToStep(3);
@@ -463,7 +487,7 @@
       ['소속·단체', v.department || '-'],
       ['목표 수량', (v.targetQuantity || 0) + '개'],
       ['마감일', v.deadline || '-'],
-      ['리워드', tiers.length + '종 (최저 ' + formatWon(Math.min.apply(null, tiers.map(function (t) { return t.price; }))) + ')'],
+      ['리워드', state.delegated ? '두띵이 설정 (대리 개설)' : (tiers.length + '종 (최저 ' + formatWon(Math.min.apply(null, tiers.map(function (t) { return t.price; }))) + ')')],
     ];
     rows.forEach(function (item) {
       var row = document.createElement('div');
@@ -504,6 +528,7 @@
         department: state.formValues.department,
         category: (catSel && catSel.value) || 'etc',
         rewardTiers: state.formValues.rewardTiers,
+        delegated: state.delegated,
         targetQuantity: state.formValues.targetQuantity,
         deadline: state.formValues.deadline,
         designImageDataUrl: state.designImages[0] || null,       // 옷 디자인 사진(있으면)

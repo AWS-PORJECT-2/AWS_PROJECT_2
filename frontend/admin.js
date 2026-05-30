@@ -205,6 +205,13 @@
     viewBtn.style.cssText = 'padding:9px 14px;border:1px solid #e5e7eb;border-radius:10px;font-size:13px;font-weight:600;color:#4b5563;text-decoration:none;';
     actions.appendChild(viewBtn);
 
+    if (f.delegated) {
+      var dBadge = document.createElement('span');
+      dBadge.textContent = '대리';
+      dBadge.style.cssText = 'padding:6px 10px;border-radius:8px;font-size:12px;font-weight:700;color:#7c3aed;background:#f3f0fe;align-self:center;';
+      actions.appendChild(dBadge);
+      actions.appendChild(actionBtn('리워드 설정', '#fff', '#7c3aed', function () { setRewards(f.id); }, '#c4b5fd'));
+    }
     if (f.status === 'pending') {
       actions.appendChild(actionBtn('승인', '#8b5cf6', '#fff', function () { review(f.id, 'approve', wrap); }));
       actions.appendChild(actionBtn('반려', '#fff', '#ef4444', function () { review(f.id, 'reject', wrap); }, '#ef4444'));
@@ -240,6 +247,28 @@
     } catch (e) {
       alert(verb + ' 실패: ' + ((e && e.message) || '알 수 없는 오류'));
     }
+  }
+
+  // 대리 펀드 리워드 설정 — '선물명:금액:수량(선택)' 줄바꿈 입력 파싱 → POST
+  async function setRewards(id) {
+    var raw = prompt('리워드를 한 줄에 하나씩 입력하세요.\n형식: 선물명:금액:수량(선택)\n예)\n네이비 과잠:39000:50\n로고 키링:5000', '');
+    if (raw == null) return;
+    var tiers = raw.split('\n').map(function (line) {
+      var parts = line.split(':');
+      var title = (parts[0] || '').trim();
+      var price = parseInt(parts[1], 10);
+      if (!title || !Number.isFinite(price)) return null;
+      var t = { title: title, price: price };
+      var stock = parseInt(parts[2], 10);
+      if (Number.isFinite(stock) && stock >= 1) t.stockLimit = stock;
+      return t;
+    }).filter(Boolean);
+    if (!tiers.length) { alert('유효한 리워드가 없습니다. 형식을 확인하세요.'); return; }
+    try {
+      await window.api.post('/admin/funds/' + encodeURIComponent(id) + '/rewards', { rewardTiers: tiers });
+      alert('리워드 ' + tiers.length + '종 설정 완료. 이제 승인하면 공개됩니다.');
+      load();
+    } catch (e) { alert('리워드 설정 실패: ' + ((e && e.message) || '')); }
   }
 
   // ===== 삭제 요청 =====
