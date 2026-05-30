@@ -48,8 +48,27 @@ function categoryFallbackSvg(key) {
   if (key === 'ecobag') {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="eg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5fb8d9"/><stop offset="100%" stop-color="#5fc9d9"/></linearGradient></defs><path d="M44 48Q44 26 60 26Q76 26 76 48" fill="none" stroke="url(#eg)" stroke-width="6.5" stroke-linecap="round"/><rect x="32" y="48" width="56" height="58" rx="3" fill="url(#eg)"/></svg>';
   }
-  // 범용 폴백 — 굿즈 박스 라인 아이콘(연보라). 신규 카테고리/미상 key 공통.
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke="#a78bfa" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"><path d="M60 30 30 44v32l30 14 30-14V44z"/><path d="M30 44l30 14 30-14M60 58v32"/></g></svg>';
+  // 카테고리별 간단 라인 아이콘(연보라) — 실제 이미지(/assets/<key>.png) 추가 전까지 표시.
+  var P = '#8b5cf6';
+  function svg(inner) {
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true">' +
+      '<g fill="none" stroke="' + P + '" stroke-width="5" stroke-linejoin="round" stroke-linecap="round">' + inner + '</g></svg>';
+  }
+  var ICONS = {
+    hoodie:   '<path d="M38 44q22-16 44 0l10 16-12 8v36q0 4-4 4H44q-4 0-4-4V68l-12-8z"/><path d="M52 46v10q8 5 16 0V46"/>',
+    keyring:  '<circle cx="44" cy="44" r="16"/><path d="M54 56l28 28m-10 0h12v-12" stroke-width="5"/>',
+    phonecase:'<rect x="40" y="22" width="40" height="76" rx="9"/><circle cx="60" cy="34" r="3" fill="' + P + '"/>',
+    sticker:  '<path d="M34 30h40q6 0 6 6v34l-22 20H40q-6 0-6-6z"/><path d="M80 70l-22 20v-14q0-6 6-6z"/>',
+    badge:    '<circle cx="60" cy="58" r="26"/><circle cx="60" cy="58" r="10"/><path d="M60 84v14"/>',
+    tumbler:  '<path d="M44 30h32l-4 64q-.5 6-6 6H54q-5.5 0-6-6z"/><path d="M42 44h36"/>',
+    fabric:   '<rect x="28" y="40" width="64" height="44" rx="6"/><path d="M28 56q16 8 32 0t32 0"/>',
+    doll:     '<circle cx="60" cy="46" r="18"/><path d="M40 100v-8q0-16 20-16t20 16v8z"/><circle cx="53" cy="44" r="2.5" fill="' + P + '"/><circle cx="67" cy="44" r="2.5" fill="' + P + '"/>',
+    accessory:'<circle cx="46" cy="50" r="12"/><path d="M46 62v14"/><path d="M70 44q14 0 14 16t-14 16" /><circle cx="70" cy="60" r="3" fill="' + P + '"/>',
+    etc:      '<circle cx="40" cy="60" r="5" fill="' + P + '"/><circle cx="60" cy="60" r="5" fill="' + P + '"/><circle cx="80" cy="60" r="5" fill="' + P + '"/>',
+  };
+  if (ICONS[key]) return svg(ICONS[key]);
+  // 미상 key — 굿즈 박스
+  return svg('<path d="M60 30 30 44v32l30 14 30-14V44z"/><path d="M30 44l30 14 30-14M60 58v32"/>');
 }
 
 /* ===== doothing 브랜드 마크 ===== */
