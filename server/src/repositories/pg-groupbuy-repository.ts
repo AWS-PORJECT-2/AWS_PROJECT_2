@@ -395,6 +395,44 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return rows;
   }
 
+  // 팔로잉 피드 — 여러 창작자의 공개(open) 펀드만 최신순. creatorIds 가 비면 DB 조회 없이 빈 결과.
+  async findOpenByCreators(
+    creatorIds: string[],
+    limit = 50,
+    offset = 0,
+  ): Promise<{ total: number; rows: GroupBuyCardItem[] }> {
+    if (creatorIds.length === 0) return { total: 0, rows: [] };
+    const lim = Math.min(Math.max(limit, 1), 100);
+    const off = Math.max(offset, 0);
+
+    // creator_id = ANY($1) — 파라미터화로 SQL 인젝션 차단. 공개(open)만, 최신순.
+    const listQuery = `
+      SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
+             g.deadline, g.status, g.created_at,
+             COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
+             u.name AS creator_name, u.slug AS creator_slug
+        FROM groupbuys g
+        LEFT JOIN "user" u ON u.id = g.creator_id
+       WHERE g.status = 'open' AND g.creator_id = ANY($1::uuid[])
+       ORDER BY g.created_at DESC
+       LIMIT $2 OFFSET $3
+    `;
+    const countQuery = `
+      SELECT COUNT(*)::int AS cnt FROM groupbuys g
+       WHERE g.status = 'open' AND g.creator_id = ANY($1::uuid[])
+    `;
+
+    const [listRes, countRes] = await Promise.all([
+      this.pool.query(listQuery, [creatorIds, lim, off]),
+      this.pool.query(countQuery, [creatorIds]),
+    ]);
+
+    return {
+      total: Number(countRes.rows[0].cnt) || 0,
+      rows: listRes.rows.map(toCardItem),
+    };
+  }
+
   async getDetail(id: string, viewerId?: string): Promise<GroupBuyDetail | null> {
     const res = await this.pool.query(
       `SELECT g.*,

@@ -16,7 +16,7 @@
 
   /* ===== 탭 정의 (텀블벅 순서) ===== */
   var TABS = [
-    { key: 'profile', hash: '#profile', label: '프로필' },
+    { key: 'profile', hash: '#profile', label: '내 정보' },
     { key: 'account', hash: '#account', label: '계정' },
     { key: 'payment', hash: '#payment', label: '결제수단' },
     { key: 'address', hash: '#address', label: '배송지' },

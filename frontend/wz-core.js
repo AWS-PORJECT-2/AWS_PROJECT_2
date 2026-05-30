@@ -63,12 +63,19 @@
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
   };
 
-  /* 로그인 상태 */
+  /* 로그인 상태 — 직전 로그인 여부를 localStorage 플래그(dt_authed)로 캐싱해
+   * 새로고침 시 헤더 우측 깜빡임(로그인링크↔프로필) 제거. */
+  const AUTH_FLAG = 'dt_authed';
+  function wasAuthed() { try { return localStorage.getItem(AUTH_FLAG) === '1'; } catch (_) { return false; } }
+  function setAuthed(v) {
+    try { if (v) localStorage.setItem(AUTH_FLAG, '1'); else localStorage.removeItem(AUTH_FLAG); } catch (_) {}
+  }
   let _me;
   async function fetchMe() {
     if (_me !== undefined) return _me;
     try { _me = await window.api.get('/auth/me', { silentAuthFail: true }); }
     catch (_) { _me = null; }
+    setAuthed(!!_me); // 확정 결과로 캐시 갱신/삭제
     return _me;
   }
   function logout(e) {
@@ -77,6 +84,7 @@
       Object.keys(localStorage).filter((k) => k.indexOf(pre) === 0).forEach((k) => localStorage.removeItem(k));
     });
     try { localStorage.removeItem('recentFunds'); } catch (_) {}
+    setAuthed(false);
     (window.api.post('/auth/logout', {}).catch(() => {})).finally(() => { location.href = '/landing.html'; });
   }
 
@@ -93,10 +101,10 @@
     if (typeof window.categoryIconSvg === 'function') node.innerHTML = window.categoryIconSvg(key);
   }
 
-  /* 모든 떠있는 팝오버(메가패널/사용자메뉴) 닫기 — 두 토글이 동시에 열리지 않게 */
+  /* 모든 떠있는 팝오버(메가패널/사용자메뉴/관심목록) 닫기 — 동시에 둘 이상 열리지 않게 */
   function closeAllPops() {
-    document.querySelectorAll('.wz-mega, .wz-usermenu').forEach((n) => n.remove());
-    document.querySelectorAll('.wz-hd__menubtn[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
+    document.querySelectorAll('.wz-mega, .wz-usermenu, .wz-likedpop').forEach((n) => n.remove());
+    document.querySelectorAll('.wz-hd__menubtn[aria-expanded="true"], .wz-hd__heart[aria-expanded="true"]').forEach((b) => b.setAttribute('aria-expanded', 'false'));
   }
 
   /* ============ 헤더 (상단바) ============ */
@@ -122,10 +130,22 @@
     function iconLink(name, label, href) {
       return el('a', { class: 'wz-hd__icon', href, 'aria-label': label, title: label, html: ICON[name] });
     }
-    right.appendChild(iconLink('heart', '관심 프로젝트', '/profile.html#liked'));
-    right.appendChild(iconLink('bell', '알림', '/notice.html'));
+    /* 헤더 하트 = 관심목록 팝오버(페이지 이동 X). 클릭 시 드롭다운 열기/닫기. */
+    const heartBtn = el('button', { class: 'wz-hd__icon wz-hd__heart', type: 'button', 'aria-label': '관심 목록', title: '관심 목록', 'aria-expanded': 'false', html: ICON.heart });
+    heartBtn.addEventListener('click', (e) => { e.stopPropagation(); openLikedPop(heartBtn); });
+    right.appendChild(heartBtn);
+    /* 종(알림) — id=wz-bell 부여(알림 에이전트가 배지 부착) */
+    const bell = iconLink('bell', '알림', '/notice.html');
+    bell.id = 'wz-bell';
+    right.appendChild(bell);
+
+    /* 인증 슬롯: 깜빡임 방지 — 직전 로그인 여부 캐시로 초기 렌더 결정.
+     *   캐시 있음 → 중립 아바타 스켈레톤(빈 원형), 캐시 없음 → 빈 슬롯.
+     *   로그인 안 한 사용자에게 아바타가 잘못 보이지 않고, 로그인 사용자에게 로그인 링크가 깜빡이지 않음. */
     const authSlot = el('span', { class: 'wz-hd__authslot' });
-    authSlot.appendChild(el('a', { class: 'wz-hd__login', href: '/login.html' }, '로그인/회원가입'));
+    if (wasAuthed()) {
+      authSlot.appendChild(el('span', { class: 'wz-hd__avatar wz-hd__avatar--skeleton', 'aria-hidden': 'true' }));
+    }
     right.appendChild(authSlot);
     right.appendChild(el('span', { class: 'wz-hd__divider' }));
     right.appendChild(el('a', { class: 'wz-hd__create', href: '/fund-create.html' }, '프로젝트 만들기'));
@@ -151,8 +171,12 @@
     hd.appendChild(nav2);
 
     fetchMe().then((me) => {
-      if (!me) return;
       authSlot.innerHTML = '';
+      if (!me) {
+        // 확정 비로그인 → 로그인/회원가입 링크 (캐시 없을 땐 슬롯이 비어 있었으므로 깜빡임 없음)
+        authSlot.appendChild(el('a', { class: 'wz-hd__login', href: '/login.html' }, '로그인/회원가입'));
+        return;
+      }
       const name = me.nickname || me.name || '회원';
       const av = el('button', { class: 'wz-hd__avatar', type: 'button', 'aria-label': '내 프로필 메뉴' });
       if (me.picture) { const i = el('img', { src: me.picture, alt: name }); i.addEventListener('error', () => i.remove()); av.appendChild(i); }
@@ -161,6 +185,81 @@
       authSlot.appendChild(av);
     });
     return hd;
+  }
+
+  /* ============ 헤더 하트 → 관심 목록 팝오버 ============
+   * localStorage 의 liked_<id>="1" 플래그 ∩ GET /api/groupbuys 교차 = 실제 존재하는 관심 프로젝트만.
+   * 헤더 바깥 클릭 / Esc 로 닫힘. */
+  function likedIds() {
+    const out = [];
+    try {
+      Object.keys(localStorage).forEach((k) => {
+        if (k.indexOf('liked_') === 0 && k.indexOf('liked_delta_') !== 0 && localStorage.getItem(k) === '1') {
+          out.push(k.slice('liked_'.length));
+        }
+      });
+    } catch (_) {}
+    return out;
+  }
+  function openLikedPop(anchor) {
+    if (document.querySelector('.wz-likedpop')) { closeAllPops(); return; }
+    closeAllPops();
+    anchor.setAttribute('aria-expanded', 'true');
+
+    const pop = el('div', { class: 'wz-menu wz-likedpop', role: 'dialog', 'aria-label': '관심 목록' });
+    const head = el('div', { class: 'wz-likedpop__head' });
+    head.append(el('strong', {}, '관심 목록'), el('a', { class: 'wz-likedpop__all', href: '/profile.html#liked' }, '전체보기'));
+    pop.appendChild(head);
+    const body = el('div', { class: 'wz-likedpop__body' });
+    body.appendChild(el('p', { class: 'wz-likedpop__loading' }, '불러오는 중…'));
+    pop.appendChild(body);
+
+    document.body.appendChild(pop);
+    const r = anchor.getBoundingClientRect();
+    pop.style.top = (r.bottom + 8) + 'px';
+    pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+
+    const close = (ev) => { if (!pop.contains(ev.target) && ev.target !== anchor && !anchor.contains(ev.target)) { closeAllPops(); detach(); } };
+    const onKey = (ev) => { if (ev.key === 'Escape') { closeAllPops(); detach(); } };
+    function detach() { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); }
+    setTimeout(() => { document.addEventListener('click', close); document.addEventListener('keydown', onKey); }, 0);
+
+    const ids = likedIds();
+    if (!ids.length) { renderLikedEmpty(body); return; }
+    window.api.get('/groupbuys?limit=100', { silentAuthFail: true })
+      .then((data) => {
+        const items = (data && Array.isArray(data.items)) ? data.items : [];
+        const idSet = {}; ids.forEach((id) => { idSet[id] = true; });
+        const liked = items.filter((p) => idSet[p.id]);
+        if (!liked.length) { renderLikedEmpty(body); return; }
+        body.innerHTML = '';
+        const list = el('div', { class: 'wz-likedpop__list' });
+        liked.slice(0, 12).forEach((p) => list.appendChild(LikedRow(p)));
+        body.appendChild(list);
+      })
+      .catch(() => renderLikedEmpty(body));
+  }
+  function renderLikedEmpty(body) {
+    body.innerHTML = '';
+    const empty = el('div', { class: 'wz-likedpop__empty' });
+    empty.append(
+      el('p', {}, '관심 목록이 비어 있어요'),
+      el('a', { class: 'wz-btn wz-btn--outline wz-btn--sm', href: '/main.html' }, '둘러보기')
+    );
+    body.appendChild(empty);
+  }
+  function LikedRow(p) {
+    const a = el('a', { class: 'wz-likedpop__row', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+    const th = el('div', { class: 'wz-likedpop__thumb' });
+    fillThumb(th, { imageUrl: p.coverImageUrl || '', title: p.title, category: p.category });
+    const info = el('div', { class: 'wz-likedpop__info' });
+    const rateVal = (typeof p.achievementRate === 'number') ? p.achievementRate : rate(p);
+    info.append(
+      el('p', { class: 'wz-likedpop__title' }, p.title || ''),
+      el('p', { class: 'wz-likedpop__rate' }, rateVal + '% 달성')
+    );
+    a.append(th, info);
+    return a;
   }
 
   /* ☰ 메뉴(상단) — 사용자 편의 바로가기 드롭다운 (카테고리 아님) */
@@ -294,7 +393,7 @@
     const f = el('footer', { class: 'wz-footer' });
     const inner = el('div', { class: 'wz-footer__inner' });
     const links = el('div', { class: 'wz-footer__links' });
-    [['이용약관', '/terms.html'], ['개인정보처리방침', '/privacy.html'], ['프로젝트 심사 기준', '/review-policy.html'], ['공지사항', '/announcements.html'], ['고객지원', '/support.html']]
+    [['이용약관', '/terms.html'], ['개인정보처리방침', '/privacy.html'], ['프로젝트 심사 기준', '/review-policy.html'], ['공지사항', '/announcements.html'], ['고객지원', '/support.html'], ['광고 문의', '/support.html']]
       .forEach(([l, h]) => links.appendChild(el('a', { href: h }, l)));
     inner.appendChild(links);
     inner.appendChild(el('div', {}, '두띵(doothing) · 국민대학교 굿즈 크라우드펀딩 플랫폼'));

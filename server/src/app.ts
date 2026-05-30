@@ -23,7 +23,7 @@ import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler } from './routes/admin-insights.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
-import { createMeFundsHandler } from './routes/me-funds.js';
+import { createMeFundsHandler, createMeFundUpdateHandler, createFollowingFeedHandler } from './routes/me-funds.js';
 import {
   createUpdateMeHandler, createDeleteMeHandler,
   createUpdateNotificationsHandler, createConsentHandler,
@@ -345,6 +345,8 @@ export function createApp(
   app.post('/api/me/consent', authRequired, createConsentHandler(userRepository));
   app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository, refreshTokenRepository));
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
+  // 창작자 본인 펀드 수정 — 기본정보·스토리만(화이트리스트). creatorId/가격/상태/일정 등은 변경 불가.
+  app.patch('/api/me/funds/:id', authRequired, writeRateLimit, createMeFundUpdateHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
 
   // --- 만들기 폼 임시저장(project_drafts) — 본인 것만 CRUD ---
@@ -375,6 +377,9 @@ export function createApp(
   // --- 유저/메이커 공개 + 팔로우 + 댓글 (소셜 계약) ---
   const followRepository = new PgFollowRepository(pool);
   const commentRepository = new PgCommentRepository(pool);
+
+  // 팔로잉 피드 — 내가 팔로우한 창작자들의 공개(open) 펀드 최신순.
+  app.get('/api/me/following-feed', authRequired, createFollowingFeedHandler(followRepository, groupBuyRepository));
 
   // 댓글
   app.get('/api/comments', optionalAuth, createCommentsListHandler(commentRepository));

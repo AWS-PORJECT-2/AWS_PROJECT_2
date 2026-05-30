@@ -55,7 +55,7 @@
   };
 
   /* 상태(스탯/패널 공유) */
-  var state = { me: null, funds: null, backings: null, drafts: null };
+  var state = { me: null, funds: null, backings: null, drafts: null, likedCount: null };
   var refs = {};
 
   function run() {
@@ -116,6 +116,38 @@
     window.api.get('/me/drafts', { silentAuthFail: true })
       .then(function (r) { state.drafts = (r && r.items) || []; afterStats(); })
       .catch(function () { state.drafts = state.drafts || null; });
+    // 관심 수: localStorage liked_ 플래그를 공개 목록과 교차해 "실제 존재하는" 개수로 정확화
+    refreshLikedCount();
+  }
+
+  /* 관심 프로젝트 수 정확화 — panelLiked 와 동일한 교차필터.
+   * readLikedIds()(localStorage liked_<id>='1') ∩ GET /api/groupbuys 결과 개수.
+   * 공개 목록에 없는(삭제/종료된) stale liked_ 플래그는 카운트에서 제외하고 정리한다. */
+  function refreshLikedCount() {
+    var likedIds = readLikedIds();
+    if (!likedIds.length) { state.likedCount = 0; afterStats(); return; }
+    window.api.get('/groupbuys?sort=latest&limit=200', { silentAuthFail: true })
+      .then(function (r) {
+        var items = (r && r.items) || [];
+        var present = {};
+        items.forEach(function (it) { if (it && it.id != null) present[String(it.id)] = true; });
+        var matched = likedIds.filter(function (id) { return present[String(id)]; });
+        state.likedCount = matched.length;
+        pruneStaleLiked(likedIds, present);
+        afterStats();
+      })
+      .catch(function () { /* 목록 조회 실패 시 보수적으로 기존 추정 유지 */ });
+  }
+
+  /* 공개 목록에 더 이상 없는 liked_<id> 플래그 정리(관심 수가 다시 부풀지 않도록). */
+  function pruneStaleLiked(likedIds, present) {
+    try {
+      likedIds.forEach(function (id) {
+        if (present[String(id)]) return;
+        localStorage.removeItem('liked_' + id);
+        localStorage.removeItem('liked_delta_' + id);
+      });
+    } catch (_) {}
   }
   function afterStats() {
     if (refs.curView === 'home' || !refs.curView) refreshStats();
@@ -141,9 +173,16 @@
       W.el('p', { class: 'wz-mp-side__name' }, me ? name : '로그인이 필요해요'),
       W.el('p', { class: 'wz-mp-side__email' }, me ? (me.email || '') : '로그인하고 내 활동을 확인하세요')
     );
+    // "내 프로필"(아바타+이름) 클릭 → 마이페이지 홈(개요). 미로그인은 로그인으로 유도.
+    var profBtn = W.el('button', { class: 'wz-mp-side__prof', type: 'button', 'aria-label': me ? '내 프로필' : '로그인하기' });
+    profBtn.append(av, nameWrap);
+    profBtn.addEventListener('click', function () {
+      if (!state.me) { location.href = '/login.html'; return; }
+      showHome();
+    });
     var setBtn = W.el('button', { class: 'wz-mp-side__settings', type: 'button', html: IC.gear + '<span>설정</span>' });
-    setBtn.addEventListener('click', function () { location.href = '/settings.html'; });
-    card.append(av, nameWrap, setBtn);
+    setBtn.addEventListener('click', function (e) { e.stopPropagation(); location.href = '/settings.html'; });
+    card.append(profBtn, setBtn);
     side.appendChild(card);
 
     // 메뉴 그룹
@@ -227,7 +266,8 @@
     if (!refs.statsRow) return;
     var fundsN = Array.isArray(state.funds) ? state.funds.length : 0;
     var backN = Array.isArray(state.backings) ? state.backings.length : 0;
-    var likedN = countLiked();
+    // 교차필터로 확정된 값(state.likedCount)이 있으면 그것을, 로드 전엔 보수적 추정(countLiked)
+    var likedN = (typeof state.likedCount === 'number') ? state.likedCount : countLiked();
     var draftsN = Array.isArray(state.drafts) ? state.drafts.length : 0;
     var cards = [
       statCard('개설한 프로젝트', String(fundsN), function () { selectView('funds'); }),
@@ -401,6 +441,8 @@
   }
   // 공개 목록(/api/groupbuys)에 존재하는 관심 프로젝트만 노출. 매칭 0개면 빈 상태.
   function fillLiked(grid, matched) {
+    // 패널이 그린 실제 개수로 스탯도 동기화(홈 복귀 시 일치)
+    state.likedCount = matched.length;
     grid.replaceChildren();
     if (!matched.length) {
       grid.appendChild(emptyState('heart', '아직 관심(찜)한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-likes.png'));
@@ -527,16 +569,38 @@
     return row;
   }
 
-  /* =================== 패널: 친구 찾기 (인스타형) ===================
-   *  이름/닉네임 검색(디바운스) -> GET /api/users/search?q=
+  /* =================== 패널: 친구 (검색 / 팔로잉 / 팔로워) ===================
+   *  탭 3종:
+   *   - 검색   : 이름/닉네임 검색(디바운스) -> GET /api/users/search?q=
+   *   - 팔로잉 : 내가 팔로우한 사람 -> GET /api/users/:myId/following
+   *   - 팔로워 : 나를 팔로우한 사람 -> GET /api/users/:myId/followers
    *  각 행: [아바타 · 이름 · @닉네임/아이디] + 팔로우 버튼(POST/DELETE /api/users/:id/follow)
    *  행 클릭 시 /maker.html?id= 로 이동(버튼 클릭은 이동 차단). */
   function panelFriends() {
     refs.curView = 'friends';
-    var main = panelHead('친구 찾기', 'friends');
+    var main = panelHead('친구', 'friends');
 
     var box = W.el('div', { class: 'wz-mp-friends' });
-    // 검색 입력
+
+    // 탭 바
+    var tabs = W.el('div', { class: 'wz-mp-ftabs', role: 'tablist' });
+    var tabDefs = [
+      { key: 'search',    label: '친구 찾기' },
+      { key: 'following', label: '팔로잉' },
+      { key: 'followers', label: '팔로워' },
+    ];
+    var list = W.el('div', { class: 'wz-mp-friendlist' });
+
+    var tabBtns = {};
+    tabDefs.forEach(function (t) {
+      var b = W.el('button', { class: 'wz-mp-ftab', type: 'button', role: 'tab' }, t.label);
+      b.addEventListener('click', function () { switchTab(t.key); });
+      tabBtns[t.key] = b;
+      tabs.appendChild(b);
+    });
+    box.appendChild(tabs);
+
+    // 검색 입력(검색 탭에서만 노출)
     var sform = W.el('div', { class: 'wz-mp-search' });
     var inp = W.el('input', {
       class: 'wz-mp-search__input', type: 'search', autocomplete: 'off',
@@ -546,12 +610,8 @@
     sform.appendChild(inp);
     box.appendChild(sform);
 
-    var list = W.el('div', { class: 'wz-mp-friendlist' });
     box.appendChild(list);
     main.appendChild(box);
-
-    // 초기 안내
-    friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요');
 
     var timer = null;
     var seq = 0; // 응답 경합 방지
@@ -561,8 +621,47 @@
       if (!q) { friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요'); return; }
       timer = setTimeout(function () { doFriendSearch(q, list, ++seq, function () { return seq; }); }, 300);
     });
-    // 패널 진입 시 입력에 포커스
-    try { inp.focus(); } catch (_) {}
+
+    function switchTab(key) {
+      Object.keys(tabBtns).forEach(function (k) { tabBtns[k].classList.toggle('is-active', k === key); });
+      sform.style.display = (key === 'search') ? '' : 'none';
+      if (key === 'search') {
+        var q = inp.value.trim();
+        if (q) doFriendSearch(q, list, ++seq, function () { return seq; });
+        else friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요');
+        try { inp.focus(); } catch (_) {}
+      } else {
+        loadFollowList(list, key);
+      }
+    }
+
+    switchTab('search');
+  }
+
+  /* 팔로잉/팔로워 목록 로드. kind: 'following' | 'followers'. (myId = state.me.userId) */
+  function loadFollowList(list, kind) {
+    if (!state.me) {
+      list.replaceChildren(loginEmpty(kind === 'following' ? '팔로잉 목록을 보려면 로그인하세요' : '팔로워 목록을 보려면 로그인하세요'));
+      return;
+    }
+    var myId = state.me.userId;
+    list.replaceChildren(loading());
+    window.api.get('/users/' + encodeURIComponent(myId) + '/' + kind, { silentAuthFail: true })
+      .then(function (rows) {
+        renderFollowRows(list, Array.isArray(rows) ? rows : [], kind);
+      })
+      .catch(function () {
+        friendsHint(list, '목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.');
+      });
+  }
+
+  function renderFollowRows(list, rows, kind) {
+    list.replaceChildren();
+    if (!rows.length) {
+      friendsHint(list, kind === 'following' ? '아직 팔로우한 사람이 없어요' : '아직 나를 팔로우한 사람이 없어요', kind === 'following' ? '/assets/empty-following.png' : '/assets/empty-friends.png');
+      return;
+    }
+    rows.forEach(function (u) { list.appendChild(friendRow(u)); });
   }
 
   function doFriendSearch(q, list, mySeq, curSeq) {
@@ -602,9 +701,9 @@
     info.appendChild(W.el('p', { class: 'wz-mp-friend__name' }, u.name || u.nickname || '회원'));
     var handle = u.nickname || u.slug;
     if (handle) info.appendChild(W.el('p', { class: 'wz-mp-friend__handle' }, '@' + handle));
-    // 팔로우 버튼
+    // 팔로우 버튼 — 서버가 isFollowing 을 주면(팔로잉/팔로워 목록) 그 상태로 시작
     var btn = W.el('button', { class: 'wz-mp-follow', type: 'button' });
-    setFollowBtn(btn, false);
+    setFollowBtn(btn, !!u.isFollowing);
     var busy = false;
     btn.addEventListener('click', function (e) {
       e.preventDefault(); e.stopPropagation();

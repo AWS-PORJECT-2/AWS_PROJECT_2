@@ -25,6 +25,10 @@
     const shelves = W.el('div', { class: 'wz-shelves' });
     home.appendChild(shelves);
 
+    // 팔로우한 창작자의 프로젝트 — 로그인 시에만 채움(비로그인은 미표시)
+    const followingWrap = W.el('div', { class: 'wz-following' });
+    home.appendChild(followingWrap);
+
     const browse = BrowseSection();
     home.appendChild(browse.node);
     root.appendChild(home);
@@ -42,6 +46,9 @@
     }
     build();
     window.addEventListener('mockproducts:updated', build);
+
+    // 팔로잉 피드는 MOCK_PRODUCTS 와 독립 — 1회만 로드
+    buildFollowing(followingWrap);
 
     // 헤더 내비/카테고리 클릭 → 홈 그리드만 갱신
     window.addEventListener('wz:browse', (e) => {
@@ -104,7 +111,13 @@
     a.append(track, dotsRow);
 
     const cap = W.el('div', { class: 'wz-hero__cap' });
-    cap.appendChild(W.el('h2', {}, '우리의 상상을\n현실로 만드는 곳'));
+    // 로운님 글씨 이미지(보라 그라데이션). 실패 시 기존 텍스트 캡션으로 폴백.
+    const capImg = W.el('img', { class: 'wz-hero__captext', src: '/assets/left%20text%20renew.png', alt: '우리의 상상을 현실로', loading: 'eager' });
+    capImg.addEventListener('error', () => {
+      capImg.remove();
+      cap.appendChild(W.el('h2', {}, '우리의 상상을\n현실로 만드는 곳'));
+    });
+    cap.appendChild(capImg);
     a.appendChild(cap);
 
     let cur = 0;
@@ -234,6 +247,61 @@
     card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, W.rate(p) + '% 달성'));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.author || p.creatorName || '익명'));
+    return card;
+  }
+
+  /* ---- 팔로우한 창작자의 프로젝트 ----
+   * 로그인 상태면 GET /api/me/following-feed → 카드 그리드.
+   * 결과 없으면 안내 + 둘러보기. 비로그인은 섹션 숨김. */
+  function buildFollowing(wrap) {
+    W.fetchMe().then((me) => {
+      if (!me) { wrap.replaceChildren(); return; } // 비로그인: 미표시
+      window.api.get('/me/following-feed?limit=12', { silentAuthFail: true })
+        .then((data) => {
+          const items = (data && Array.isArray(data.items)) ? data.items : [];
+          wrap.replaceChildren(FollowingSection(items));
+        })
+        .catch(() => { wrap.replaceChildren(); });
+    });
+  }
+
+  function FollowingSection(items) {
+    const sec = W.el('section', { class: 'wz-follsec' });
+    const head = W.el('div', { class: 'wz-shelf__head' });
+    const titles = W.el('div', {});
+    titles.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '팔로우한 창작자의 프로젝트'));
+    titles.appendChild(W.el('p', { class: 'wz-shelf__sub' }, '내가 팔로우한 창작자가 새로 올린 프로젝트'));
+    head.appendChild(titles);
+    sec.appendChild(head);
+
+    if (!items.length) {
+      const empty = W.el('div', { class: 'wz-follsec__empty' });
+      const img = W.el('img', { src: '/assets/empty-following.png', alt: '' });
+      img.addEventListener('error', () => img.remove());
+      empty.append(
+        img,
+        W.el('p', {}, '팔로우한 사람이 없어요 — 관심 있는 창작자를 팔로우해 보세요'),
+        W.el('a', { class: 'wz-btn wz-btn--primary', href: '/main.html' }, '둘러보기')
+      );
+      sec.appendChild(empty);
+      return sec;
+    }
+    const grid = W.el('div', { class: 'wz-grid' });
+    items.forEach((p) => grid.appendChild(FollowingCard(p)));
+    sec.appendChild(grid);
+    return sec;
+  }
+
+  /* 팔로잉 피드 카드 — 공개 카드 직렬화(coverImageUrl/creatorName/achievementRate) 매핑 */
+  function FollowingCard(p) {
+    const card = W.el('a', { class: 'wz-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+    const th = W.el('div', { class: 'wz-pcard__thumb' });
+    W.fillThumb(th, { imageUrl: p.coverImageUrl || '', title: p.title, category: p.category });
+    card.appendChild(th);
+    const rateVal = (typeof p.achievementRate === 'number') ? p.achievementRate : W.rate(p);
+    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, rateVal + '% 달성'));
+    card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
+    card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || '익명'));
     return card;
   }
 

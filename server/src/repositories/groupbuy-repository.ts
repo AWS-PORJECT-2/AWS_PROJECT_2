@@ -100,6 +100,8 @@ export interface GroupBuyRepository {
   // ─── 공개 목록/상세 (006_social_features 계약) ───
   findMany(options: GroupBuyFindManyOptions): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
   findByCreator(creatorId: string): Promise<GroupBuyCardItem[]>;
+  // 여러 창작자의 공개(open) 펀드를 최신순으로 — 팔로잉 피드용. creatorIds 가 비면 빈 결과.
+  findOpenByCreators(creatorIds: string[], limit?: number, offset?: number): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
   getDetail(id: string, viewerId?: string): Promise<GroupBuyDetail | null>;
 }
 

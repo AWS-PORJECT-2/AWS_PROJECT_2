@@ -29,6 +29,14 @@
     instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
   };
 
+  /* 소유자 수정 모달 전용 아이콘(stroke=currentColor) */
+  const EDIT_IC = {
+    pen: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
+    upload: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>',
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+    play: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M10 8l6 4-6 4V8z" fill="currentColor" stroke="none"/></svg>',
+  };
+
   const root = document.getElementById('wz-detail');
 
   /* ---------- helpers ---------- */
@@ -354,11 +362,17 @@
    * =================================================================== */
   function buildSide(sideCol, f, ctx) {
     const { rate, backers, dleft, tiers } = ctx;
+    const owner = isOwner(f);
 
     /* 카테고리 — 아이콘/배경 없이 plain 텍스트 */
     const cat = window.dtCategory && window.dtCategory(f.category);
     if (cat) {
       sideCol.appendChild(W.el('p', { class: 'wz-d-cat' }, cat.label));
+    }
+
+    /* 본인 소유 프로젝트면 "내 프로젝트" 배지 노출 */
+    if (owner) {
+      sideCol.appendChild(W.el('span', { class: 'wz-d-ownerbadge', html: SVG.shield + '<span>내 프로젝트</span>' }));
     }
 
     /* (상단 메이커 행은 제거 — 하단 메이커 카드와 중복) */
@@ -424,13 +438,23 @@
     sideCol.appendChild(actions);
     _mobileLikeSync = (on) => likeBtn.classList.toggle('is-on', on);
 
-    /* 펀딩하기 큰 버튼 */
-    const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
-    fundBtn.addEventListener('click', () => backFlow(f));
-    sideCol.appendChild(fundBtn);
+    if (owner) {
+      /* 본인 소유: 펀딩 대신 [기본정보·스토리 수정] 버튼 (자기 후원 불가) */
+      const editBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' },
+        W.el('span', { class: 'wz-d-cta__ic', html: EDIT_IC.pen }), W.el('span', {}, '기본정보 · 스토리 수정'));
+      editBtn.addEventListener('click', () => openEditModal(f));
+      sideCol.appendChild(editBtn);
+      sideCol.appendChild(W.el('p', { class: 'wz-d-ownernote' },
+        '리워드 · 금액 · 일정은 이 화면에서 수정할 수 없어요. 제목 · 소개 · 카테고리 · 대표 이미지/영상 · 스토리 · 창작자 정보만 수정됩니다.'));
+    } else {
+      /* 펀딩하기 큰 버튼 */
+      const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
+      fundBtn.addEventListener('click', () => backFlow(f));
+      sideCol.appendChild(fundBtn);
+    }
 
-    /* 메이커 카드 */
-    sideCol.appendChild(MakerCard(f));
+    /* 메이커 카드 (본인 소유면 팔로우/문의 버튼 숨김) */
+    sideCol.appendChild(MakerCard(f, owner));
 
     /* 리워드 선택 */
     sideCol.appendChild(Rewards(f, tiers));
@@ -453,8 +477,9 @@
     return [ci.sido, ci.sigungu].filter(Boolean).join(' ');
   }
 
-  /* ---------- 메이커 카드 (팔로우 + 창작자 정보) ---------- */
-  function MakerCard(f) {
+  /* ---------- 메이커 카드 (팔로우 + 창작자 정보) ----------
+   * owner=true(본인 소유)면 팔로우·문의 버튼을 만들지 않는다(자기 자신 팔로우/문의 불가). */
+  function MakerCard(f, owner) {
     const maker = makerOf(f);
     const ci = creatorInfoOf(f);
     const href = makerHref(maker);
@@ -490,6 +515,9 @@
     if (ci && ci.intro) {
       card.appendChild(W.el('p', { class: 'wz-d-maker__intro' }, ci.intro));
     }
+
+    /* 본인 소유면 팔로우/문의 버튼을 만들지 않는다(자기 자신 후원/문의 불가). */
+    if (owner) return card;
 
     const btns = W.el('div', { class: 'wz-d-maker__btns' });
     let following = maker.isFollowing;
@@ -529,9 +557,15 @@
     return card;
   }
 
-  /* ---------- 리워드 선택 ---------- */
+  /* ---------- 리워드 선택 ----------
+   * 선택 여부는 _tierSelected(boolean)로 판단한다. _selectedTierId 값이 0/''(falsy)
+   * 일 수 있어 값만으로 "선택 안 됨"을 판단하면 첫 리워드가 막히는 버그가 생기므로 분리. */
   let _selectedTierId = null;
+  let _tierSelected = false;
   function Rewards(f, tiers) {
+    // 리워드 영역을 새로 그릴 때 이전 선택 상태 초기화(다른 프로젝트 잔존 방지)
+    _selectedTierId = null;
+    _tierSelected = false;
     const sec = W.el('div', { class: 'wz-d-rewards' });
     sec.appendChild(W.el('h3', { class: 'wz-d-rewards__title' }, '리워드 선택'));
     const period = fmtPeriod(f.deadline);
@@ -567,6 +601,7 @@
       else {
         const select = () => {
           _selectedTierId = (t.id != null) ? t.id : ti;
+          _tierSelected = true;
           list.querySelectorAll('.wz-d-reward').forEach((n) => n.classList.remove('is-sel'));
           item.classList.add('is-sel');
           list.querySelectorAll('.wz-d-reward__pick').forEach((b) => { if (!b.disabled) { b.textContent = '이 리워드 선택'; b.classList.remove('wz-btn--primary'); b.classList.add('wz-btn--outline'); } });
@@ -588,6 +623,7 @@
   function syncMobileLike(on) { const b = document.querySelector('.wz-d-mbar__like'); if (b) b.classList.toggle('is-on', on); }
   function MobileBar(f, tiers) {
     const bar = W.el('div', { class: 'wz-d-mbar' });
+    const owner = isOwner(f);
     const likedNow = (typeof window.isLiked === 'function') && window.isLiked(f.id);
     const like = W.el('button', { class: 'wz-d-mbar__like' + (likedNow ? ' is-on' : ''), type: 'button', 'aria-label': '찜', html: SVG.heart });
     like.addEventListener('click', () => {
@@ -596,9 +632,16 @@
       like.classList.toggle('is-on', on);
       if (_mobileLikeSync) _mobileLikeSync(on);
     });
-    const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
-    fund.addEventListener('click', () => backFlow(f));
-    bar.append(like, fund);
+    if (owner) {
+      /* 본인 소유: 펀딩 대신 수정 버튼 */
+      const edit = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '기본정보 · 스토리 수정');
+      edit.addEventListener('click', () => openEditModal(f));
+      bar.append(like, edit);
+    } else {
+      const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
+      fund.addEventListener('click', () => backFlow(f));
+      bar.append(like, fund);
+    }
     return bar;
   }
 
@@ -611,6 +654,7 @@
     }
   }
   function openShareWindow(shareUrl) {
+    // 클릭(사용자 제스처) 첫 줄에서 동기 호출되어야 팝업 차단을 피한다.
     window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=540');
   }
 
@@ -620,10 +664,15 @@
     const title = f.title || '두띵 프로젝트';
     const encTitle = encodeURIComponent(title);
 
+    /* 각 항목은 클릭 즉시(동기) 처리한다. window.open 은 핸들러 첫 줄에서 호출(앞에 await/then 금지)
+     * → 데스크톱에서도 팝업 차단/우클릭처럼 무시되는 문제 해결.
+     * 카카오·인스타: navigator.share 가 있어도 동기 분기로 먼저 처리, 없으면 즉시 폴백.
+     * 모든 항목은 <button type="button"> (a href="#" 미사용)로 컨텍스트 메뉴 유발 요소 없음. */
     const items = [
       ['kakao', '카카오톡', SVG.kakao, () => {
-        if (navigator.share) { navigator.share({ title, url }).catch(() => {}); return; }
+        // 공유창을 즉시(동기) 연다. share 가능 환경이면 추가로 네이티브 공유도 시도.
         openShareWindow('https://story.kakao.com/share?url=' + enc);
+        if (navigator.share) { try { navigator.share({ title, url }).catch(() => {}); } catch (e) {} }
       }],
       ['twitterX', 'X', SVG.twitterX, () => {
         openShareWindow('https://twitter.com/intent/tweet?url=' + enc + '&text=' + encTitle);
@@ -632,7 +681,8 @@
         openShareWindow('https://www.facebook.com/sharer/sharer.php?u=' + enc);
       }],
       ['instagram', '인스타그램', SVG.instagram, () => {
-        if (navigator.share) { navigator.share({ title, url }).catch(() => {}); return; }
+        // 인스타는 웹 공유 URL이 없으므로: share 가능하면 네이티브 공유 시트, 아니면 링크 복사 + 안내.
+        if (navigator.share) { try { navigator.share({ title, url }).catch(() => {}); return; } catch (e) {} }
         copyLink(url, '링크가 복사되었어요. 인스타그램 앱에 붙여넣어 공유해 주세요.');
       }],
       ['link', '링크 복사', SVG.link, () => copyLink(url)],
@@ -653,7 +703,8 @@
       const btn = W.el('button', { class: 'wz-d-shareitem wz-d-shareitem--' + key, type: 'button' },
         W.el('span', { class: 'wz-d-shareitem__ic', html: icon }),
         W.el('span', { class: 'wz-d-shareitem__label' }, label));
-      btn.addEventListener('click', () => { close(); action(); });
+      // 핸들러 첫 줄에서 action()을 동기 실행(window.open 이 제스처 안에서 호출되도록). 그 다음 시트를 닫는다.
+      btn.addEventListener('click', () => { action(); close(); });
       grid.appendChild(btn);
     });
 
@@ -668,7 +719,7 @@
    * 후원 플로우 (POST /api/funds/:id/back) 후 입금 안내 모달
    * =================================================================== */
   async function backFlow(f) {
-    if (!_selectedTierId) {
+    if (!_tierSelected) {
       alert('후원할 리워드를 먼저 선택해 주세요.');
       const sec = document.querySelector('.wz-d-rewards');
       if (sec) sec.scrollIntoView({ behavior: 'smooth' });
@@ -759,6 +810,317 @@
   }
 
   /* ===================================================================
+   * 소유자 수정 모달 — 본인 펀드의 기본정보·스토리·창작자정보만 수정.
+   * 화이트리스트: title, description, category, coverImageUrl, videoUrl,
+   *   contentBlocks, creatorInfo. (리워드·금액·일정은 노출/전송하지 않음.)
+   * 저장: PATCH /api/me/funds/:id → 응답(detail)로 화면 재렌더.
+   * =================================================================== */
+
+  /* 토스트(공유/수정 등 안내). 페이지 전용 경량 구현. */
+  let _toastTimer;
+  function toast(msg) {
+    const ex = document.querySelector('.wz-d-toast');
+    if (ex) ex.remove();
+    const t = W.el('div', { class: 'wz-d-toast' }, msg);
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('is-on'));
+    clearTimeout(_toastTimer);
+    _toastTimer = setTimeout(() => { t.classList.remove('is-on'); setTimeout(() => { if (t.parentNode) t.remove(); }, 250); }, 2600);
+  }
+
+  /* 이미지 파일 → data URL (PNG/JPG/WEBP, 최대 8MB). 서버 검증과 동일 범위. */
+  function readEditImage(file, cb) {
+    if (!file) return;
+    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { toast('PNG·JPG·WEBP 이미지만 업로드할 수 있어요'); return; }
+    if (file.size > 8 * 1024 * 1024) { toast('이미지는 최대 8MB까지 가능합니다'); return; }
+    const r = new FileReader();
+    r.onload = () => cb(String(r.result));
+    r.onerror = () => toast('이미지를 읽지 못했습니다');
+    r.readAsDataURL(file);
+  }
+  /* 영상 파일 → data URL (MP4/WEBM/MOV, 최대 30MB). */
+  function readEditVideo(file, cb) {
+    if (!file) return;
+    if (!/^video\/(mp4|webm|quicktime)$/.test(file.type)) { toast('MP4·WEBM·MOV 영상만 업로드할 수 있어요'); return; }
+    if (file.size > 30 * 1024 * 1024) { toast('영상은 최대 30MB까지 가능합니다'); return; }
+    const r = new FileReader();
+    r.onload = () => cb(String(r.result));
+    r.onerror = () => toast('영상을 읽지 못했습니다');
+    r.readAsDataURL(file);
+  }
+  /* 서버 검증과 동일하게 허용 형태만 통과(아니면 ''). */
+  function normalizeEditVideo(v) {
+    const s = String(v || '').trim();
+    if (!s) return '';
+    if (/^data:video\/(mp4|webm|quicktime);base64,/.test(s)) return s.length <= 48000000 ? s : '';
+    if (/^https?:\/\//.test(s)) return s.length <= 48000000 ? s : '';
+    return '';
+  }
+
+  function efield(label, control, help) {
+    const f = W.el('div', { class: 'wz-d-ef' });
+    f.append(W.el('label', { class: 'wz-d-ef__label' }, label), control);
+    if (help) f.appendChild(W.el('p', { class: 'wz-d-ef__help' }, help));
+    return f;
+  }
+
+  function openEditModal(f) {
+    // 현재 값 → 편집용 상태(스토리는 내부 {type,value} 양식으로 통일)
+    const st = {
+      title: String(f.title || ''),
+      description: String(f.description || ''),
+      category: String(f.category || ''),
+      coverImage: (f.coverImageUrl && String(f.coverImageUrl)) || '',
+      videoUrl: (f.videoUrl && String(f.videoUrl)) || '',
+      blocks: (Array.isArray(f.contentBlocks) ? f.contentBlocks : []).map((b) => (
+        b && b.type === 'image' ? { type: 'image', value: blockImageUrl(b) } : { type: 'text', value: blockText(b) }
+      )).filter((b) => b.type === 'image' ? b.value : true),
+      ciName: '', ciImage: '', ciIntro: '', ciSido: '', ciSigungu: '',
+    };
+    const ci = creatorInfoOf(f);
+    if (ci) { st.ciName = ci.name || ''; st.ciImage = ci.image || ''; st.ciIntro = ci.intro || ''; st.ciSido = ci.sido || ''; st.ciSigungu = ci.sigungu || ''; }
+
+    const overlay = W.el('div', { class: 'wz-d-edit', role: 'dialog', 'aria-modal': 'true', 'aria-label': '프로젝트 수정' });
+    const box = W.el('div', { class: 'wz-d-edit__box' });
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    const head = W.el('div', { class: 'wz-d-edit__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-edit__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '기본정보 · 스토리 수정'), closeBtn);
+
+    const body = W.el('div', { class: 'wz-d-edit__body' });
+
+    /* ----- 제목 ----- */
+    const titleIn = W.el('input', { class: 'wz-d-ef__input', type: 'text', maxlength: '80', placeholder: '프로젝트 제목' });
+    titleIn.value = st.title;
+    body.appendChild(efield('제목', titleIn, '후원자에게 보이는 이름입니다. 최대 80자.'));
+
+    /* ----- 한 줄 소개 / 설명 ----- */
+    const descIn = W.el('textarea', { class: 'wz-d-ef__textarea', maxlength: '2000', placeholder: '프로젝트 소개' });
+    descIn.value = st.description;
+    body.appendChild(efield('소개', descIn, '프로젝트를 소개하는 글입니다. 최대 2000자.'));
+
+    /* ----- 카테고리 ----- */
+    const catSel = W.el('select', { class: 'wz-d-ef__select' });
+    catSel.appendChild(W.el('option', { value: '' }, '카테고리 선택'));
+    (window.DT_CATEGORIES || []).forEach((c) => {
+      const opt = W.el('option', { value: c.slug }, c.label);
+      if (st.category === c.slug) opt.setAttribute('selected', 'selected');
+      catSel.appendChild(opt);
+    });
+    body.appendChild(efield('카테고리', catSel));
+
+    /* ----- 대표 이미지 ----- */
+    const coverWrap = W.el('div', {});
+    function renderCover() {
+      coverWrap.replaceChildren();
+      if (st.coverImage) {
+        const pv = W.el('div', { class: 'wz-d-epreview' });
+        pv.appendChild(W.el('img', { src: st.coverImage, alt: '대표 이미지 미리보기' }));
+        const del = W.el('button', { class: 'wz-d-epreview__del', type: 'button', 'aria-label': '이미지 삭제', html: SVG.close });
+        del.addEventListener('click', () => { st.coverImage = ''; renderCover(); });
+        pv.appendChild(del);
+        coverWrap.appendChild(pv);
+      } else {
+        const up = W.el('label', { class: 'wz-d-eupload' });
+        up.append(W.el('span', { class: 'wz-d-eupload__ic', html: EDIT_IC.upload }), W.el('span', {}, '대표 이미지 업로드'), W.el('span', { class: 'wz-d-eupload__hint' }, 'PNG · JPG · WEBP (최대 8MB)'));
+        const fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+        fileIn.addEventListener('change', () => { readEditImage(fileIn.files && fileIn.files[0], (d) => { st.coverImage = d; renderCover(); }); fileIn.value = ''; });
+        up.appendChild(fileIn);
+        coverWrap.appendChild(up);
+      }
+    }
+    renderCover();
+    body.appendChild(efield('대표 이미지', coverWrap, '목록·상세 썸네일로 사용됩니다.'));
+
+    /* ----- 대표 영상(파일 또는 링크) ----- */
+    let videoLinkIn;
+    const videoWrap = W.el('div', {});
+    function renderVideo() {
+      videoWrap.replaceChildren();
+      if (st.videoUrl) {
+        const vbox = W.el('div', { class: 'wz-d-epreview' });
+        if (/^data:video\//.test(st.videoUrl)) {
+          vbox.appendChild(W.el('video', { src: st.videoUrl, controls: 'controls', playsinline: 'playsinline' }));
+        } else {
+          const lk = W.el('div', { class: 'wz-d-evlink' });
+          lk.append(W.el('span', { class: 'wz-d-evlink__ic', html: EDIT_IC.play }), W.el('span', { class: 'wz-d-evlink__url' }, st.videoUrl));
+          vbox.appendChild(lk);
+        }
+        const del = W.el('button', { class: 'wz-d-epreview__del', type: 'button', 'aria-label': '영상 삭제', html: SVG.close });
+        del.addEventListener('click', () => { st.videoUrl = ''; if (videoLinkIn) videoLinkIn.value = ''; renderVideo(); });
+        vbox.appendChild(del);
+        videoWrap.appendChild(vbox);
+      } else {
+        const up = W.el('label', { class: 'wz-d-eupload' });
+        up.append(W.el('span', { class: 'wz-d-eupload__ic', html: EDIT_IC.upload }), W.el('span', {}, '대표 영상 업로드'), W.el('span', { class: 'wz-d-eupload__hint' }, 'MP4 · WEBM · MOV (최대 30MB)'));
+        const fileIn = W.el('input', { type: 'file', accept: 'video/mp4,video/webm,video/quicktime', style: 'display:none' });
+        fileIn.addEventListener('change', () => { readEditVideo(fileIn.files && fileIn.files[0], (d) => { st.videoUrl = d; if (videoLinkIn) videoLinkIn.value = ''; renderVideo(); }); fileIn.value = ''; });
+        up.appendChild(fileIn);
+        videoWrap.appendChild(up);
+      }
+    }
+    renderVideo();
+    body.appendChild(efield('대표 영상 (선택)', videoWrap, '영상을 올리거나 아래에 영상 링크를 넣어 주세요. 둘 중 하나만 사용됩니다.'));
+
+    videoLinkIn = W.el('input', { class: 'wz-d-ef__input', type: 'url', maxlength: '2000', placeholder: 'YouTube·Vimeo 등 영상 링크(선택)' });
+    videoLinkIn.value = /^https?:\/\//.test(st.videoUrl) ? st.videoUrl : '';
+    videoLinkIn.addEventListener('input', () => {
+      const u = videoLinkIn.value.trim();
+      if (u && /^https?:\/\//.test(u)) { st.videoUrl = u; renderVideo(); }
+      else if (!u && /^https?:\/\//.test(st.videoUrl)) { st.videoUrl = ''; renderVideo(); }
+    });
+    body.appendChild(efield('영상 링크 (선택)', videoLinkIn));
+
+    /* ----- 스토리 블록(글/이미지) ----- */
+    const blocksWrap = W.el('div', { class: 'wz-d-eblocks' });
+    function renderBlocks() {
+      blocksWrap.replaceChildren();
+      st.blocks.forEach((b, i) => {
+        const blk = W.el('div', { class: 'wz-d-eblock' });
+        const bhead = W.el('div', { class: 'wz-d-eblock__head' });
+        const del = W.el('button', { class: 'wz-d-eblock__del', type: 'button' }, '삭제');
+        del.addEventListener('click', () => { st.blocks.splice(i, 1); renderBlocks(); });
+        bhead.append(W.el('span', { class: 'wz-d-eblock__type' }, b.type === 'image' ? '이미지' : '글'), del);
+        blk.appendChild(bhead);
+        if (b.type === 'text') {
+          const ta = W.el('textarea', { class: 'wz-d-ef__textarea', maxlength: '5000', placeholder: '본문을 입력하세요' });
+          ta.value = b.value || '';
+          ta.addEventListener('input', () => { b.value = ta.value; });
+          blk.appendChild(ta);
+        } else {
+          blk.appendChild(W.el('img', { class: 'wz-d-eblock__img', src: b.value, alt: '스토리 이미지' }));
+        }
+        blocksWrap.appendChild(blk);
+      });
+      if (!st.blocks.length) blocksWrap.appendChild(W.el('p', { class: 'wz-d-ef__help' }, '아직 추가된 블록이 없습니다.'));
+    }
+    renderBlocks();
+
+    const blockAdd = W.el('div', { class: 'wz-d-eblockadd' });
+    const addText = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', html: EDIT_IC.plus + '<span>글 추가</span>' });
+    addText.addEventListener('click', () => { st.blocks.push({ type: 'text', value: '' }); renderBlocks(); });
+    const addImg = W.el('label', { class: 'wz-btn wz-btn--outline', html: EDIT_IC.upload + '<span>이미지 추가</span>' });
+    const blockFileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+    blockFileIn.addEventListener('change', () => { readEditImage(blockFileIn.files && blockFileIn.files[0], (d) => { st.blocks.push({ type: 'image', value: d }); renderBlocks(); }); blockFileIn.value = ''; });
+    addImg.appendChild(blockFileIn);
+    blockAdd.append(addText, addImg);
+
+    const storyField = efield('스토리', blocksWrap, '프로젝트 이야기를 글과 이미지 블록으로 구성하세요.');
+    storyField.appendChild(blockAdd);
+    body.appendChild(storyField);
+
+    /* ----- 창작자 정보 ----- */
+    body.appendChild(W.el('p', { class: 'wz-d-edit__sec' }, '창작자 정보'));
+
+    const ciNameIn = W.el('input', { class: 'wz-d-ef__input', type: 'text', maxlength: '20', placeholder: '창작자 또는 팀 이름' });
+    ciNameIn.value = st.ciName;
+    body.appendChild(efield('창작자 이름', ciNameIn, '최대 20자.'));
+
+    const ciImageWrap = W.el('div', {});
+    function renderCiImage() {
+      ciImageWrap.replaceChildren();
+      if (st.ciImage) {
+        const pv = W.el('div', { class: 'wz-d-epreview wz-d-epreview--avatar' });
+        pv.appendChild(W.el('img', { src: st.ciImage, alt: '프로필 이미지 미리보기' }));
+        const del = W.el('button', { class: 'wz-d-epreview__del', type: 'button', 'aria-label': '이미지 삭제', html: SVG.close });
+        del.addEventListener('click', () => { st.ciImage = ''; renderCiImage(); });
+        pv.appendChild(del);
+        ciImageWrap.appendChild(pv);
+      } else {
+        const up = W.el('label', { class: 'wz-d-eupload' });
+        up.append(W.el('span', { class: 'wz-d-eupload__ic', html: EDIT_IC.upload }), W.el('span', {}, '프로필 이미지 업로드'), W.el('span', { class: 'wz-d-eupload__hint' }, 'PNG · JPG · WEBP (최대 8MB)'));
+        const fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+        fileIn.addEventListener('change', () => { readEditImage(fileIn.files && fileIn.files[0], (d) => { st.ciImage = d; renderCiImage(); }); fileIn.value = ''; });
+        up.appendChild(fileIn);
+        ciImageWrap.appendChild(up);
+      }
+    }
+    renderCiImage();
+    body.appendChild(efield('프로필 이미지 (선택)', ciImageWrap));
+
+    const ciIntroIn = W.el('textarea', { class: 'wz-d-ef__textarea', maxlength: '300', placeholder: '어떤 창작자(팀)인지 소개해 주세요.' });
+    ciIntroIn.value = st.ciIntro;
+    body.appendChild(efield('창작자 소개 (선택)', ciIntroIn, '최대 300자.'));
+
+    const region = W.el('div', { class: 'wz-d-eregion' });
+    const sidoIn = W.el('input', { class: 'wz-d-ef__input', type: 'text', maxlength: '30', placeholder: '시·도 (예: 서울특별시)' });
+    sidoIn.value = st.ciSido;
+    const sigunguIn = W.el('input', { class: 'wz-d-ef__input', type: 'text', maxlength: '30', placeholder: '시·군·구 (예: 성북구)' });
+    sigunguIn.value = st.ciSigungu;
+    region.append(sidoIn, sigunguIn);
+    body.appendChild(efield('주 활동 지역 (선택)', region));
+
+    /* ----- 안내 + 저장 ----- */
+    body.appendChild(W.el('p', { class: 'wz-d-edit__note' },
+      '리워드 · 금액 · 일정은 이 화면에서 수정할 수 없습니다.'));
+
+    const foot = W.el('div', { class: 'wz-d-edit__foot' });
+    const cancel = W.el('button', { class: 'wz-btn wz-btn--ghost', type: 'button' }, '취소');
+    cancel.addEventListener('click', close);
+    const save = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, '저장');
+    save.addEventListener('click', () => {
+      const title = titleIn.value.trim();
+      if (!title) { toast('제목을 입력해 주세요'); return; }
+      if (!catSel.value) { toast('카테고리를 선택해 주세요'); return; }
+
+      // contentBlocks: API 계약 {type,text}|{type,url}로 직렬화(빈 블록 제거)
+      const blocks = [];
+      st.blocks.forEach((b) => {
+        if (b.type === 'text') { const t = String(b.value || '').trim(); if (t) blocks.push({ type: 'text', text: t.slice(0, 5000) }); }
+        else if (b.type === 'image' && b.value) blocks.push({ type: 'image', url: b.value });
+      });
+
+      // creatorInfo: 유효 값만. 하나도 없으면 null.
+      const info = {};
+      const cn = ciNameIn.value.trim(); if (cn) info.name = cn.slice(0, 20);
+      const cIntro = ciIntroIn.value.trim(); if (cIntro) info.intro = cIntro.slice(0, 300);
+      const cSido = sidoIn.value.trim(); if (cSido) info.sido = cSido.slice(0, 30);
+      const cSigungu = sigunguIn.value.trim(); if (cSigungu) info.sigungu = cSigungu.slice(0, 30);
+      if (st.ciImage) info.image = st.ciImage;
+
+      const video = normalizeEditVideo(st.videoUrl);
+
+      // 화이트리스트 필드만 전송(리워드·금액·일정 등은 절대 포함하지 않음)
+      const payload = {
+        title: title,
+        description: descIn.value.trim(),
+        category: catSel.value,
+        coverImageUrl: st.coverImage || null,
+        videoUrl: video || null,
+        contentBlocks: blocks,
+        creatorInfo: Object.keys(info).length ? info : null,
+      };
+
+      save.disabled = true; cancel.disabled = true;
+      const prevText = save.textContent; save.textContent = '저장 중...';
+      window.api.patch('/me/funds/' + encodeURIComponent(f.id), payload)
+        .then((detail) => {
+          close();
+          toast('저장되었습니다');
+          // 응답이 공개 상세 형태면 그대로 재렌더, 아니면 안전하게 새로고침
+          if (detail && detail.id) { _selectedTierId = null; _tierSelected = false; render(detail); window.scrollTo({ top: 0 }); }
+          else location.reload();
+        })
+        .catch((err) => {
+          save.disabled = false; cancel.disabled = false; save.textContent = prevText;
+          if (err && err.status === 401) { location.href = '/login.html'; return; }
+          if (err && err.status === 404) { toast('본인이 개설한 펀드만 수정할 수 있어요'); return; }
+          toast((err && err.message) ? err.message : '저장에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        });
+    });
+    foot.append(cancel, save);
+
+    box.append(head, body, foot);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+  }
+
+  /* ===================================================================
    * 진입
    * =================================================================== */
   async function run() {
@@ -775,7 +1137,15 @@
       showState('프로젝트를 불러오지 못했어요', '잠시 후 다시 시도해 주세요.'); return;
     }
     if (!f || !f.id) { showState('프로젝트를 찾을 수 없어요', '이미 종료되었거나 존재하지 않는 프로젝트예요.'); return; }
+    // 로그인 사용자 조회(실패/비로그인 시 null) → 작성자 본인 여부 판단
+    _me = await W.fetchMe();
     render(f);
+  }
+
+  /* 현재 로그인 사용자(없으면 null). 본인 소유(작성자) 여부 판단에 사용. */
+  let _me = null;
+  function isOwner(f) {
+    return !!(_me && _me.userId && f && f.creatorId && _me.userId === f.creatorId);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);

@@ -267,7 +267,10 @@ html { color-scheme: light; }
 .wz-hd__login:hover { color: var(--c-primary-600); }
 
 /* 관심(하트) 아이콘 코랄 포인트로 살짝 */
-.wz-hd__icon[aria-label="관심 프로젝트"]:hover { color: var(--c-accent-coral); }
+.wz-hd__icon[aria-label="관심 프로젝트"]:hover,
+.wz-hd__heart:hover, .wz-hd__heart[aria-expanded="true"] { color: var(--c-accent-coral); }
+/* 하트가 버튼이어도 아이콘 링크와 동일한 외형 */
+button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
 
 /* 카테고리 원형 — 파스텔 다색(보라 일변도 탈피) */
 .wz-cat__ic { border-color: transparent; }
@@ -311,4 +314,52 @@ html { color-scheme: light; }
   .wz-mega__inner { padding: 14px 16px 20px; }
   .wz-mega__ic { width: 50px; height: 50px; }
   .wz-usermenu { left: 12px !important; right: 12px !important; }
+}
+
+/* =================== [1] 로그인 깜빡임 방지 — 중립 아바타 스켈레톤 =================== */
+.wz-hd__avatar--skeleton { display: inline-block; vertical-align: middle; background: var(--c-divider); cursor: default; }
+
+/* =================== [2] 헤더 하트 → 관심 목록 팝오버 =================== */
+.wz-likedpop { width: 300px; max-width: calc(100vw - 24px); max-height: 420px; display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.wz-likedpop__head { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid var(--c-divider); }
+.wz-likedpop__head strong { font-size: 14px; font-weight: 800; color: var(--c-text); }
+.wz-likedpop__all { font-size: 12px; font-weight: 700; color: var(--c-primary-600); }
+.wz-likedpop__all:hover { color: var(--c-primary-700); }
+.wz-likedpop__body { overflow-y: auto; padding: 6px; }
+.wz-likedpop__loading { text-align: center; color: var(--c-text-muted); font-size: 13px; padding: 26px 0; margin: 0; }
+.wz-likedpop__empty { text-align: center; padding: 26px 14px 22px; }
+.wz-likedpop__empty p { color: var(--c-text-muted); font-size: 13px; margin: 0 0 14px; }
+.wz-likedpop__list { display: flex; flex-direction: column; }
+.wz-likedpop__row { display: flex; align-items: center; gap: 12px; padding: 9px 10px; border-radius: 10px; }
+.wz-likedpop__row:hover { background: var(--c-primary-50); }
+.wz-likedpop__thumb { width: 48px; height: 48px; border-radius: 8px; overflow: hidden; background: var(--c-divider); flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.wz-likedpop__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.wz-likedpop__thumb svg { width: 46%; height: 46%; opacity: .8; color: var(--c-primary-400); }
+.wz-likedpop__info { min-width: 0; flex: 1; }
+.wz-likedpop__title { font-size: 13.5px; font-weight: 600; color: var(--c-text); margin: 0; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+.wz-likedpop__rate { font-size: 13px; font-weight: 800; color: var(--c-primary-700); margin: 4px 0 0; }
+
+/* =================== [3] 보라 채움 버튼/카드 위 글자 흰색 보장 =================== */
+.wz-btn--primary, .wz-btn--primary:hover,
+.wz-hd__create, .wz-hd__create:hover { color: #fff; }
+.wz-btn--primary svg, .wz-hd__create svg { color: #fff; }
+/* 작은 버튼 변형(관심 목록 비었을 때 등) */
+.wz-btn--sm { height: 36px; padding: 0 14px; font-size: 13px; }
+/* 보라 배경 위에 놓이는 일반 텍스트/링크도 흰색으로 (헤더 아웃라인 .wz-hd__create 는 위에서 채움형으로 별도 처리됨) */
+.wz-rank__tab.is-active { color: #fff; }
+
+/* =================== [5] 홈 배너 글씨 이미지 (캡션 오버레이) =================== */
+.wz-hero__captext { display: block; width: auto; max-width: min(74%, 360px); height: auto; max-height: 96px; object-fit: contain; filter: drop-shadow(0 2px 8px rgba(0,0,0,.35)); }
+
+/* =================== [6] 팔로우한 창작자의 프로젝트 =================== */
+.wz-following:empty { display: none; }
+.wz-follsec { margin-top: 48px; }
+.wz-follsec .wz-shelf__head { margin-bottom: 18px; }
+.wz-follsec__empty { border: 1px solid var(--c-divider); border-radius: 14px; background: var(--c-bg); text-align: center; padding: 38px 20px; }
+.wz-follsec__empty img { width: 120px; opacity: .92; margin-bottom: 10px; }
+.wz-follsec__empty p { color: var(--c-text-muted); font-size: 14px; margin: 0 0 16px; }
+
+@media (max-width: 767px) {
+  .wz-follsec { margin-top: 36px; }
+  .wz-hero__captext { max-width: 78%; max-height: 64px; }
 }

@@ -6,111 +6,143 @@
   <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
   <link rel="preconnect" href="https://fastly.jsdelivr.net" crossorigin>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
-  <title>1:1 문의 - 두띵</title>
-  <link rel="stylesheet" href="style.css">
+  <title>1:1 문의 · 두띵</title>
+  <link rel="stylesheet" href="tokens.css">
+  <link rel="stylesheet" href="wz.css">
   <style>
-    .chat-container {
-      max-width: 600px;
-      margin: 0 auto;
-      min-height: 100vh; min-height: 100dvh;
+    /* 1:1 문의 채팅 — wz 톤(보라). 페이지 전용 스코프 스타일. */
+    .sup-wrap { max-width: 760px; margin: 0 auto; padding: var(--sp-6) var(--sp-4) var(--sp-10); }
+    .sup-card {
       display: flex; flex-direction: column;
-      background: #b2c7d9;
+      height: calc(100vh - var(--wz-hd-h, 120px) - 220px);
+      min-height: 460px;
+      background: #fff; border: 1px solid var(--c-border);
+      border-radius: var(--r-lg); box-shadow: var(--sh-2); overflow: hidden;
     }
-    .chat-topbar {
-      display: flex; align-items: center; gap: 12px;
-      padding: 14px 16px; background: #fff; border-bottom: 1px solid #e5e7eb;
+    .sup-head {
+      display: flex; align-items: center; gap: var(--sp-3);
+      padding: 14px var(--sp-5); border-bottom: 1px solid var(--c-divider);
+      background: var(--c-primary-50);
     }
-    .chat-topbar .back-btn {
-      background: none; border: none; cursor: pointer; padding: 4px;
-    }
-    .chat-topbar h1 { font-size: 16px; font-weight: 700; color: #1a1a1a; flex: 1; }
-    .chat-topbar .status {
-      font-size: 11px; padding: 3px 8px; border-radius: 999px;
-      background: #fef3c7; color: #92400e;
-    }
-    .chat-topbar .status.online { background: #dcfce7; color: #166534; }
-
-    .chat-messages {
-      flex: 1; overflow-y: auto; padding: 16px;
-      display: flex; flex-direction: column; gap: 8px;
-    }
-    .msg-row { display: flex; align-items: flex-end; gap: 6px; }
-    .msg-row.me { flex-direction: row-reverse; }
-    .msg-bubble {
-      max-width: 70%; padding: 10px 14px; border-radius: 16px;
-      font-size: 14px; line-height: 1.5; word-break: break-word;
-      white-space: pre-wrap;
-    }
-    .msg-row.admin .msg-bubble {
-      background: #fff; color: #1a1a1a; border-bottom-left-radius: 4px;
-    }
-    .msg-row.me .msg-bubble {
-      background: #fee500; color: #1a1a1a; border-bottom-right-radius: 4px;
-    }
-    .msg-time { font-size: 10px; color: #6b7280; white-space: nowrap; }
-
-    .admin-avatar {
-      width: 32px; height: 32px; border-radius: 50%;
-      background: #8b5cf6; color: #fff; font-size: 10px; font-weight: 700;
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0; align-self: flex-start;
-    }
-
-    .chat-input {
-      display: flex; align-items: center; gap: 8px;
-      padding: 10px 12px; background: #fff; border-top: 1px solid #e5e7eb;
-    }
-    .chat-input input[type="text"] {
-      flex: 1; padding: 10px 14px; border: 1px solid #e5e7eb; border-radius: 20px;
-      font-size: 14px; outline: none;
-    }
-    .chat-input input:focus { border-color: #8b5cf6; }
-    .chat-input button {
-      width: 36px; height: 36px; border-radius: 50%; border: none; cursor: pointer;
+    .sup-head__ic {
+      width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--r-full);
+      background: var(--c-primary-500); color: #fff;
       display: flex; align-items: center; justify-content: center;
     }
-    .btn-send { background: #fee500; }
-    .btn-send:disabled { background: #d1d5db; cursor: not-allowed; }
-
-    .day-divider {
-      text-align: center; font-size: 11px; color: #6b7280;
-      padding: 10px 0;
+    .sup-head__ic svg { width: 22px; height: 22px; }
+    .sup-head__t { flex: 1; min-width: 0; }
+    .sup-head__title { font-size: var(--fs-h3); font-weight: 800; color: var(--c-text); line-height: 1.3; }
+    .sup-head__sub { font-size: var(--fs-caption); color: var(--c-text-muted); margin-top: 2px; }
+    .sup-status {
+      display: inline-flex; align-items: center; gap: 6px; flex-shrink: 0;
+      font-size: var(--fs-caption); font-weight: 700;
+      padding: 5px 11px; border-radius: var(--r-full);
+      background: var(--c-divider); color: var(--c-text-muted);
     }
-    .system-msg {
-      text-align: center; font-size: 12px; color: #6b7280;
-      padding: 10px; background: rgba(255,255,255,0.5); border-radius: 12px;
-      margin: 4px 20px;
+    .sup-status__dot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-text-faint); }
+    .sup-status.is-online { background: #DCFCE7; color: #15803D; }
+    .sup-status.is-online .sup-status__dot { background: var(--c-success); }
+
+    .sup-msgs {
+      flex: 1; overflow-y: auto; padding: var(--sp-5);
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      background: var(--c-bg);
+    }
+    .sup-day { align-self: center; font-size: var(--fs-caption); color: var(--c-text-muted); padding: var(--sp-2) 0; }
+    .sup-sys {
+      align-self: center; max-width: 86%; text-align: center;
+      font-size: var(--fs-body-sm); color: var(--c-text-sub);
+      background: #fff; border: 1px solid var(--c-border);
+      border-radius: var(--r-md); padding: 10px 14px; margin: var(--sp-2) 0;
+    }
+    .sup-sys--error { color: var(--c-danger); border-color: #FECACA; background: #FEF2F2; }
+
+    .sup-row { display: flex; align-items: flex-end; gap: var(--sp-2); max-width: 100%; }
+    .sup-row.me { flex-direction: row-reverse; }
+    .sup-av {
+      width: 30px; height: 30px; flex-shrink: 0; border-radius: var(--r-full);
+      background: var(--c-primary-500); color: #fff;
+      font-size: 10px; font-weight: 800;
+      display: flex; align-items: center; justify-content: center; align-self: flex-start;
+    }
+    .sup-bubble {
+      max-width: 72%; padding: 10px 14px; border-radius: var(--r-lg);
+      font-size: var(--fs-body-sm); line-height: 1.55; word-break: break-word; white-space: pre-wrap;
+    }
+    .sup-row.them .sup-bubble {
+      background: #fff; color: var(--c-text);
+      border: 1px solid var(--c-border); border-bottom-left-radius: 4px;
+    }
+    .sup-row.me .sup-bubble {
+      background: var(--c-primary-500); color: #fff; border-bottom-right-radius: 4px;
+    }
+    .sup-time { font-size: 10px; color: var(--c-text-faint); white-space: nowrap; flex-shrink: 0; }
+
+    .sup-input {
+      display: flex; align-items: center; gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4); border-top: 1px solid var(--c-divider); background: #fff;
+    }
+    .sup-input__text {
+      flex: 1; box-sizing: border-box; height: 44px; padding: 0 16px;
+      font-family: var(--font-sans); font-size: var(--fs-body-sm); color: var(--c-text);
+      background: var(--c-bg); border: 1px solid var(--c-border); border-radius: var(--r-full); outline: none;
+      transition: border-color .15s, box-shadow .15s;
+    }
+    .sup-input__text:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+    .sup-input__send {
+      width: 44px; height: 44px; flex-shrink: 0; border: none; cursor: pointer;
+      border-radius: var(--r-full); background: var(--c-primary-500); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      transition: background .15s;
+    }
+    .sup-input__send svg { width: 20px; height: 20px; }
+    .sup-input__send:hover { background: var(--c-primary-600); }
+    .sup-input__send:disabled { background: var(--c-divider); color: var(--c-text-faint); cursor: not-allowed; }
+
+    @media (max-width: 767px) {
+      .sup-wrap { padding: var(--sp-3) 0 0; }
+      .sup-card { height: calc(100vh - var(--wz-hd-h, 110px)); min-height: 0; border-radius: 0; border-left: none; border-right: none; box-shadow: none; }
     }
   </style>
-  <link rel="stylesheet" href="tokens.css">
-  <link rel="stylesheet" href="main.css">
 </head>
-<body class="main-page" data-page="sub">
-  <div id="app"></div>
-  <div class="chat-container">
-    <div class="chat-topbar">
-      <button class="back-btn" aria-label="뒤로가기"
-              onclick="if(history.length>1)history.back();else location.href='/index.html'">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
-      <h1>1:1 문의</h1>
-      <span id="connStatus" class="status">연결 중...</span>
-    </div>
-    <div class="chat-messages" id="chatMessages">
-      <div class="system-msg">대화 내역을 불러오는 중...</div>
-    </div>
-    <div class="chat-input">
-      <input type="text" id="chatInput" placeholder="메시지를 입력하세요..." maxlength="2000" disabled>
-      <button class="btn-send" id="btnSend" aria-label="전송" disabled>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
-      </button>
-    </div>
-  </div>
+<body class="wz-body">
+  <div id="wz-header"></div>
 
-  <script src="/socket.io/socket.io.js"></script>
-  <script src="payment-api.js"></script>
-  <script src="chat-user.js"></script>
+  <main>
+    <div class="sup-wrap">
+      <div class="sup-card">
+        <div class="sup-head">
+          <span class="sup-head__ic" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-4-1L3 20l1.1-4A8.4 8.4 0 1 1 21 11.5z"/></svg>
+          </span>
+          <div class="sup-head__t">
+            <div class="sup-head__title">1:1 문의</div>
+            <div class="sup-head__sub">두띵 고객센터에 무엇이든 물어보세요.</div>
+          </div>
+          <span id="supStatus" class="sup-status">
+            <span class="sup-status__dot"></span><span id="supStatusText">연결 중</span>
+          </span>
+        </div>
+
+        <div class="sup-msgs" id="supMsgs"></div>
+
+        <div class="sup-input">
+          <input type="text" id="supInput" class="sup-input__text" placeholder="메시지를 입력하세요" maxlength="2000" autocomplete="off" disabled>
+          <button class="sup-input__send" id="supSend" type="button" aria-label="전송" disabled>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <div id="wz-footer"></div>
+
+  <script src="api.js"></script>
+  <script src="categories.js"></script>
   <script src="category-icons.js"></script>
-  <script src="main.js"></script>
+  <script src="wz-core.js"></script>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="chat-user.js"></script>
 </body>
 </html>
