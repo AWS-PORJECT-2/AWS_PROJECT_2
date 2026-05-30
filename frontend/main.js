@@ -138,20 +138,37 @@ function LikeHeartButton(productId) {
  *   2단: 카테고리 · 홈 · 인기 · 신규 · 마감임박
  * 모든 페이지 공통. 로그인 상태는 비동기로 갱신.
  * ===================================================================== */
+const HD_ICON = {
+  gift: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v7a1 1 0 001 1h12a1 1 0 001-1v-7"/><path d="M12 8S10.5 3 8 3a2.5 2.5 0 000 5h4zM12 8s1.5-5 4-5a2.5 2.5 0 010 5h-4z"/></svg>',
+  heart: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 00-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 00-7.8 7.8l1 1.1L12 21.2l7.8-7.7 1-1.1a5.5 5.5 0 000-7.8z"/></svg>',
+  bell: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>',
+  menu: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>',
+};
+
 function Header() {
   const header = el('header', { class: 'dt-hd' });
+  const cur = location.pathname + location.search;
 
-  // --- 1단: 상단바 ---
+  /* ===== 행1: 상단바 ===== */
   const topbar = el('div', { class: 'dt-hd__top' });
-  const hamburger = el('button', { class: 'dt-hd__ham', type: 'button', 'aria-label': '카테고리' });
-  hamburger.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>';
-  hamburger.addEventListener('click', buildAndOpenMenu);
+  const topInner = el('div', { class: 'dt-hd__top-inner' });
 
-  const logo = el('a', { class: 'dt-hd__logo', href: '/main.html' }, 'doothing');
+  const ham = el('button', { class: 'dt-hd__ham', type: 'button', 'aria-label': '카테고리 메뉴' });
+  ham.innerHTML = HD_ICON.menu;
+  ham.addEventListener('click', buildAndOpenMenu);
+
+  const logo = el('a', { class: 'dt-hd__logo', href: '/main.html', 'aria-label': '두띵 홈' });
+  const logoImg = el('img', { src: '/assets/logo.png', alt: 'doothing' });
+  logoImg.addEventListener('error', () => { logo.textContent = 'doothing'; logo.classList.add('dt-hd__logo--text'); });
+  logo.appendChild(logoImg);
 
   const searchForm = el('form', { class: 'dt-hd__search', role: 'search' });
   const searchInput = el('input', { class: 'dt-hd__search-input', type: 'text', placeholder: '검색어를 입력해주세요', 'aria-label': '검색' });
+  const searchBtn = el('button', { class: 'dt-hd__search-btn', type: 'submit', 'aria-label': '검색' });
+  searchBtn.innerHTML = HD_ICON.search;
   searchForm.appendChild(searchInput);
+  searchForm.appendChild(searchBtn);
   searchForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const q = searchInput.value.trim();
@@ -159,19 +176,27 @@ function Header() {
   });
 
   const actions = el('div', { class: 'dt-hd__actions' });
-  const uploadLink = el('a', { class: 'dt-hd__upload', href: '/fund-create.html' }, '프로젝트 올리기');
+  const upload = el('a', { class: 'dt-hd__upload', href: '/fund-create.html' }, '프로젝트 올리기');
+  const divider = el('span', { class: 'dt-hd__divider' });
+  function iconLink(key, label, href) {
+    const a = el('a', { class: 'dt-hd__icon', href: href, 'aria-label': label });
+    a.innerHTML = HD_ICON[key];
+    return a;
+  }
+  const giftLink = iconLink('gift', '후원목록', '/profile.html?tab=backings');
+  const likeLink = iconLink('heart', '관심 프로젝트', '/profile.html?tab=likes');
+  const bellLink = iconLink('bell', '알림', '/notice.html');
   const authArea = el('div', { class: 'dt-hd__auth' });
-  authArea.appendChild(el('a', { class: 'dt-hd__login', href: '/login.html' }, '로그인/회원가입'));
-  actions.appendChild(uploadLink);
-  actions.appendChild(authArea);
+  authArea.appendChild(el('a', { class: 'dt-hd__login', href: '/login.html' }, '로그인'));
+  actions.append(upload, divider, giftLink, likeLink, bellLink, authArea);
 
-  topbar.appendChild(hamburger);
-  topbar.appendChild(logo);
-  topbar.appendChild(searchForm);
-  topbar.appendChild(actions);
+  topInner.append(ham, logo, searchForm, actions);
+  topbar.appendChild(topInner);
 
-  // --- 2단: 네비바 ---
+  /* ===== 행2: 네비바 ===== */
   const navbar = el('nav', { class: 'dt-hd__nav', 'aria-label': '주요 메뉴' });
+  const navInner = el('div', { class: 'dt-hd__nav-inner' });
+  const navLeft = el('div', { class: 'dt-hd__nav-left' });
   const navItems = [
     { label: '카테고리', href: '/feed.html', cat: true },
     { label: '홈', href: '/main.html' },
@@ -180,30 +205,70 @@ function Header() {
     { label: '마감임박', href: '/feed.html?sort=ending' },
   ];
   navItems.forEach((it) => {
-    const a = el('a', { class: 'dt-hd__navlink' + (it.cat ? ' dt-hd__navlink--cat' : ''), href: it.href }, it.label);
-    navbar.appendChild(a);
+    const active = it.href === cur || (location.pathname === '/main.html' && it.label === '홈');
+    const a = el('a', { class: 'dt-hd__navlink' + (it.cat ? ' dt-hd__navlink--cat' : '') + (active ? ' is-active' : ''), href: it.href });
+    if (it.cat) { const ic = el('span', { class: 'dt-hd__navcat-ic' }); ic.innerHTML = HD_ICON.menu; a.appendChild(ic); }
+    a.appendChild(document.createTextNode(it.label));
+    if (it.cat) a.addEventListener('click', (e) => { e.preventDefault(); buildAndOpenMenu(); });
+    navLeft.appendChild(a);
   });
+  const creatorBtn = el('a', { class: 'dt-hd__creator', href: '/profile.html?tab=funds' }, '창작자센터');
+  navInner.append(navLeft, creatorBtn);
+  navbar.appendChild(navInner);
 
   header.appendChild(topbar);
   header.appendChild(navbar);
 
-  // 로그인 상태 반영 (비동기)
+  // 로그인 상태 반영 (비동기) — 아바타 + 드롭다운
   fetchAuthStatus().then((auth) => {
     if (!auth || !auth.user) return;
     const u = auth.user;
     const isAdmin = String(u.role || auth.role || 'USER').toUpperCase() === 'ADMIN';
     authArea.innerHTML = '';
-    const my = el('a', { class: 'dt-hd__login', href: '/profile.html' }, (u.nickname || u.name || '마이') + '님');
-    const set = el('a', { class: 'dt-hd__iconlink', href: '/settings.html', 'aria-label': '설정' }, '설정');
-    authArea.appendChild(my);
-    authArea.appendChild(set);
-    if (isAdmin) authArea.appendChild(el('a', { class: 'dt-hd__iconlink dt-hd__admin', href: '/admin.html' }, '관리자'));
-    const out = el('a', { class: 'dt-hd__iconlink', href: '#' }, '로그아웃');
-    out.addEventListener('click', handleLogout);
-    authArea.appendChild(out);
+    const avatarBtn = el('button', { class: 'dt-hd__avatar', type: 'button', 'aria-label': '내 메뉴', 'aria-haspopup': 'true' });
+    const name = u.nickname || u.name || '회원';
+    if (u.avatarUrl || u.picture) {
+      const ai = el('img', { src: u.avatarUrl || u.picture, alt: name });
+      ai.addEventListener('error', () => { ai.remove(); avatarBtn.classList.add('dt-hd__avatar--ghost'); });
+      avatarBtn.appendChild(ai);
+    } else { avatarBtn.classList.add('dt-hd__avatar--ghost'); }
+    avatarBtn.insertAdjacentHTML('beforeend', '<span class="dt-hd__caret">▾</span>');
+    avatarBtn.addEventListener('click', (e) => { e.stopPropagation(); openAvatarDropdown(avatarBtn, name, isAdmin); });
+    authArea.appendChild(avatarBtn);
   }).catch(() => {});
 
   return header;
+}
+
+/* 아바타 드롭다운 (스크린샷5) */
+function openAvatarDropdown(anchor, name, isAdmin) {
+  const existing = document.querySelector('.dt-hd__menu');
+  if (existing) { existing.remove(); return; }
+  const menu = el('div', { class: 'dt-hd__menu', role: 'menu' });
+  const head = el('div', { class: 'dt-hd__menu-head' });
+  head.appendChild(el('span', { class: 'dt-hd__menu-avatar' }));
+  head.appendChild(el('span', { class: 'dt-hd__menu-name' }, name + '님'));
+  menu.appendChild(head);
+  const groups = [
+    [['프로필', '/profile.html'], ['후원목록', '/profile.html?tab=backings'], ['관심 프로젝트', '/profile.html?tab=likes'], ['팔로우', '/profile.html?tab=following']],
+    [['알림', '/notice.html'], ['설정', '/settings.html']],
+  ];
+  if (isAdmin) groups.push([['관리자', '/admin.html']]);
+  groups.forEach((g) => {
+    const sec = el('div', { class: 'dt-hd__menu-grp' });
+    g.forEach(([label, href]) => sec.appendChild(el('a', { class: 'dt-hd__menu-item', href, role: 'menuitem' }, label)));
+    menu.appendChild(sec);
+  });
+  const out = el('a', { class: 'dt-hd__menu-item dt-hd__menu-out', href: '#', role: 'menuitem' }, '로그아웃');
+  out.addEventListener('click', (e) => { e.preventDefault(); handleLogout(e); });
+  const outSec = el('div', { class: 'dt-hd__menu-grp' }); outSec.appendChild(out); menu.appendChild(outSec);
+
+  document.body.appendChild(menu);
+  const r = anchor.getBoundingClientRect();
+  menu.style.top = (r.bottom + 8) + 'px';
+  menu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+  const close = (ev) => { if (!menu.contains(ev.target) && ev.target !== anchor) { menu.remove(); document.removeEventListener('click', close); } };
+  setTimeout(() => document.addEventListener('click', close), 0);
 }
 
 /* (구) Header — 미사용. 하위 호환용 잔존 코드 제거됨. */
@@ -810,52 +875,91 @@ function HomeProjectSection(title, items, badge) {
   return sec;
 }
 
-/* 프로젝트 카드 — 썸네일 + 카테고리/제목/창작자 + 달성률·가격 */
+/* 썸네일 채우기 — 이미지 있으면 cover, 없으면 카테고리 아이콘 중앙(연회색 배경) */
+function fillThumb(thumb, p) {
+  if (p.imageUrl) {
+    const img = el('img', { src: p.imageUrl, alt: p.title || '', loading: 'lazy' });
+    img.addEventListener('error', () => { img.remove(); thumb.classList.add('is-empty'); fillThumbIcon(thumb, p); });
+    thumb.appendChild(img);
+  } else { thumb.classList.add('is-empty'); fillThumbIcon(thumb, p); }
+}
+function fillThumbIcon(thumb, p) {
+  const key = (typeof window.dtCategory === 'function' && window.dtCategory(p.category)) ? window.dtCategory(p.category).key : (p.category || 'etc');
+  const ic = el('div', { class: 'dt-thumb-ic' });
+  const svg = (typeof window.categoryIconSvg === 'function') ? window.categoryIconSvg(key) : '';
+  if (svg) ic.innerHTML = svg;
+  thumb.appendChild(ic);
+}
+
+/* 프로젝트 카드 (텀블벅형) — 썸네일+♡ / 창작자 / 제목 / 달성률 */
 function ProjectCard(p, badge) {
   const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(p) : 0;
   const card = el('a', { class: 'dt-pcard', href: '/detail.html?id=' + encodeURIComponent(p.id) });
   const thumb = el('div', { class: 'dt-pcard__thumb' });
-  if (p.imageUrl) {
-    const img = el('img', { src: p.imageUrl, alt: p.title || '', loading: 'lazy' });
-    img.addEventListener('error', () => { img.style.display = 'none'; });
-    thumb.appendChild(img);
+  fillThumb(thumb, p);
+  if (typeof LikeHeartButton === 'function' && p.id != null) {
+    const h = LikeHeartButton(p.id); h.classList.add('dt-pcard__heart'); thumb.appendChild(h);
   }
-  if (badge) thumb.appendChild(el('span', { class: 'dt-pcard__badge' }, badge));
   card.appendChild(thumb);
 
   const body = el('div', { class: 'dt-pcard__body' });
-  const catLabel = (typeof window.dtCategory === 'function' && window.dtCategory(p.category)) ? window.dtCategory(p.category).label : '';
-  if (catLabel) body.appendChild(el('span', { class: 'dt-pcard__cat' }, catLabel));
-  body.appendChild(el('p', { class: 'dt-pcard__author' }, p.author || '익명'));
+  body.appendChild(el('p', { class: 'dt-pcard__author' }, p.author || p.creatorName || '익명'));
   body.appendChild(el('h3', { class: 'dt-pcard__title' }, p.title || ''));
+  if (p.verified) { const b = el('span', { class: 'dt-badge dt-badge--verified' }, '좋은창작자'); body.appendChild(b); }
   const meta = el('div', { class: 'dt-pcard__meta' });
-  meta.appendChild(el('span', { class: 'dt-pcard__rate' }, rate + '% 달성'));
   if (p.priceText) meta.appendChild(el('span', { class: 'dt-pcard__price' }, p.priceText));
+  meta.appendChild(el('span', { class: 'dt-pcard__rate' }, rate + '% 달성'));
   body.appendChild(meta);
   card.appendChild(body);
   return card;
 }
 
-/* 홈 히어로 — 헤드라인 + CTA. 이미지(/assets/hero-main.png) 있으면 우측에 표시, 없으면 그라데이션. */
-function HomeHero() {
-  const sec = el('section', { class: 'dt-hero' });
-  const inner = el('div', { class: 'dt-hero__inner' });
-  const copy = el('div', { class: 'dt-hero__copy' });
-  copy.appendChild(el('span', { class: 'dt-hero__eyebrow' }, '대학생 굿즈 크라우드펀딩'));
-  copy.appendChild(el('h1', { class: 'dt-hero__title' }, '우리의 상상을\n현실로 만드는 곳'));
-  copy.appendChild(el('p', { class: 'dt-hero__sub' }, '과잠부터 키링까지 — 함께 모여 만들고, 함께 나눠요. 두띵에서 아이디어를 펀딩으로.'));
-  const cta = el('div', { class: 'dt-hero__cta' });
-  cta.appendChild(el('a', { class: 'dt-btn dt-btn--primary dt-btn--lg', href: '/fund-create.html' }, '프로젝트 올리기'));
-  cta.appendChild(el('a', { class: 'dt-btn dt-btn--outline dt-btn--lg', href: '/feed.html' }, '둘러보기'));
-  copy.appendChild(cta);
-  inner.appendChild(copy);
+/* 인기 프로젝트 랭킹 (스크린샷1 우측) */
+function RankList(items) {
+  const sec = el('section', { class: 'dt-rank' });
+  const head = el('div', { class: 'dt-rank__head' });
+  head.appendChild(el('h2', { class: 'dt-rank__title' }, '인기 프로젝트'));
+  head.appendChild(el('a', { class: 'dt-rank__more', href: '/feed.html?sort=popular' }, '전체보기'));
+  sec.appendChild(head);
+  sec.appendChild(el('p', { class: 'dt-rank__time' }, '실시간 인기 순'));
 
-  const art = el('div', { class: 'dt-hero__art' });
-  const img = el('img', { src: '/assets/hero-main.png', alt: '', loading: 'eager' });
-  img.addEventListener('error', () => { art.classList.add('dt-hero__art--empty'); img.remove(); });
-  art.appendChild(img);
-  inner.appendChild(art);
-  sec.appendChild(inner);
+  if (!items || items.length === 0) {
+    const empty = el('div', { class: 'dt-rank__empty' });
+    empty.appendChild(el('p', {}, '아직 진행 중인 프로젝트가 없어요'));
+    empty.appendChild(el('a', { class: 'dt-btn dt-btn--outline', href: '/fund-create.html' }, '프로젝트 올리기'));
+    sec.appendChild(empty);
+    return sec;
+  }
+  const list = el('ol', { class: 'dt-rank__list' });
+  items.slice(0, 6).forEach((p, i) => {
+    const rate = (typeof calcAchievementRate === 'function') ? calcAchievementRate(p) : 0;
+    const li = el('a', { class: 'dt-rank__item', href: '/detail.html?id=' + encodeURIComponent(p.id) });
+    const thumb = el('div', { class: 'dt-rank__thumb' });
+    fillThumb(thumb, p);
+    thumb.appendChild(el('span', { class: 'dt-rank__num' + (i < 3 ? ' is-top' : '') }, String(i + 1)));
+    li.appendChild(thumb);
+    const info = el('div', { class: 'dt-rank__info' });
+    info.appendChild(el('p', { class: 'dt-rank__author' }, p.author || p.creatorName || '익명'));
+    info.appendChild(el('p', { class: 'dt-rank__name' }, p.title || ''));
+    info.appendChild(el('p', { class: 'dt-rank__rate' }, rate + '% 달성'));
+    li.appendChild(info);
+    list.appendChild(li);
+  });
+  sec.appendChild(list);
+  return sec;
+}
+
+/* 홈 히어로 배너 — hero-main.png 큰 배너 + 좌측 카피 오버레이 (스크린샷1 좌측) */
+function HomeHero() {
+  const sec = el('a', { class: 'dt-hero', href: '/feed.html' });
+  const img = el('img', { class: 'dt-hero__img', src: '/assets/hero-main.png', alt: '두띵 — 대학생 굿즈 크라우드펀딩', loading: 'eager' });
+  img.addEventListener('error', () => { sec.classList.add('dt-hero--noimg'); img.remove(); });
+  sec.appendChild(img);
+  const overlay = el('div', { class: 'dt-hero__overlay' });
+  overlay.appendChild(el('span', { class: 'dt-hero__eyebrow' }, '대학생 굿즈 크라우드펀딩'));
+  overlay.appendChild(el('h1', { class: 'dt-hero__title' }, '우리의 상상을\n현실로 만드는 곳'));
+  overlay.appendChild(el('p', { class: 'dt-hero__sub' }, '과잠부터 키링까지, 두띵에서 함께 만들어요.'));
+  sec.appendChild(overlay);
   return sec;
 }
 
@@ -905,25 +1009,29 @@ function App() {
     return;
   }
 
-  // 메인 페이지 — 히어로 + 카테고리 + 프로젝트 + 진행안내
+  // 메인 페이지 (스크린샷1) — 히어로+랭킹 2단 / 카테고리 / 주목할만한 그리드
   root.appendChild(Header());
-  root.appendChild(HomeHero());
-  root.appendChild(CategoryGrid());
 
-  const popularWrap = el('section', { class: 'dt-home-sec' });
-  const newWrap = el('section', { class: 'dt-home-sec' });
-  root.appendChild(popularWrap);
-  root.appendChild(newWrap);
-  root.appendChild(RecentlyViewed());
-  root.appendChild(HowItWorks());
+  const wrap = el('div', { class: 'dt-home' });
+  const top = el('div', { class: 'dt-home__top' });
+  const heroCol = el('div', { class: 'dt-home__hero' }, HomeHero());
+  const rankCol = el('aside', { class: 'dt-home__rank' });
+  top.append(heroCol, rankCol);
+  wrap.appendChild(top);
+  wrap.appendChild(CategoryGrid());
+  const featuredWrap = el('section', { class: 'dt-home-sec' });
+  wrap.appendChild(featuredWrap);
+  wrap.appendChild(RecentlyViewed());
+  wrap.appendChild(HowItWorks());
+  root.appendChild(wrap);
 
   function buildHome() {
     const products = (Array.isArray(window.MOCK_PRODUCTS)) ? window.MOCK_PRODUCTS : [];
     const rate = (p) => (p.targetQuantity > 0 ? p.currentQuantity / p.targetQuantity : 0);
-    const popular = [...products].sort((a, b) => rate(b) - rate(a)).slice(0, 8);
+    const popular = [...products].sort((a, b) => rate(b) - rate(a)).slice(0, 6);
     const fresh = [...products].sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)).slice(0, 8);
-    popularWrap.replaceChildren(HomeProjectSection('인기 프로젝트', popular, '인기'));
-    newWrap.replaceChildren(HomeProjectSection('신규 프로젝트', fresh, '신규'));
+    rankCol.replaceChildren(RankList(popular));
+    featuredWrap.replaceChildren(HomeProjectSection('주목할 만한 프로젝트', fresh, null));
   }
   buildHome();
   window.addEventListener('mockproducts:updated', buildHome);
