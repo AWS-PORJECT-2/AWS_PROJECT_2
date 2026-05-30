@@ -22,8 +22,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -31,6 +31,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.platformFee, groupbuy.finalPrice, groupbuy.targetQuantity, groupbuy.currentQuantity,
         groupbuy.deadline, groupbuy.status, groupbuy.designImageUrl ?? null, groupbuy.tryonImageUrl ?? null,
         groupbuy.contentBlocks ? JSON.stringify(groupbuy.contentBlocks) : null,
+        groupbuy.category ?? null,
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -83,7 +84,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
     if (options.category && options.category !== 'all') {
       params.push(options.category);
-      where.push(`(g.product_options->>'category' = $${params.length})`);
+      where.push(`g.category = $${params.length}`);
     }
     if (options.q) {
       params.push(`%${options.q}%`);
@@ -103,7 +104,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const listQuery = `
       SELECT g.id, g.creator_id, g.fund_id, g.title, g.description, g.product_options,
              g.base_price, g.design_fee, g.platform_fee, g.final_price,
-             g.target_quantity, g.current_quantity, g.deadline, g.status,
+             g.target_quantity, g.current_quantity, g.deadline, g.status, g.category,
              g.created_at, g.updated_at,
              COALESCE(g.tryon_image_url, g.design_image_url) AS image_url,
              u.name AS author_name, u.school_domain AS author_department
@@ -134,9 +135,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
             : null) ?? null),
         authorName: (row.author_name as string | null) ?? null,
         authorDepartment: (row.author_department as string | null) ?? null,
-        category: (row.product_options && typeof row.product_options === 'object'
-          ? (row.product_options as Record<string, unknown>).category as string | null
-          : null) ?? null,
+        // category 는 base(mapRow)가 row.category 로 채움
       } as GroupBuyListItem;
     });
 
@@ -153,6 +152,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       productOptions: (typeof row.product_options === 'string'
         ? JSON.parse(row.product_options)
         : row.product_options) as GroupBuy['productOptions'],
+      category: (row.category as string | null) ?? null,
       basePrice: row.base_price as number,
       designFee: row.design_fee as number,
       platformFee: row.platform_fee as number,

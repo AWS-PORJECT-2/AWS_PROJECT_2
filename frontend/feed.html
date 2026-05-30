@@ -15,20 +15,17 @@
     <section class="feed-toolbar">
       <div class="recommend-row" id="recommendRow">
         <button type="button" class="rec-chip rec-active" data-rec="all">전체</button>
-        <button type="button" class="rec-chip" data-rec="인기">🔥 인기</button>
-        <button type="button" class="rec-chip" data-rec="신규">🆕 신규</button>
+        <button type="button" class="rec-chip" data-rec="인기">인기</button>
+        <button type="button" class="rec-chip" data-rec="신규">신규</button>
       </div>
 
-      <!-- 카테고리 칩 + 정렬 + 학과 -->
+      <!-- 카테고리 칩 + 정렬 -->
       <div class="filter-row">
         <div id="categoryChips" class="category-chips"></div>
         <div class="filter-controls">
           <select id="sortSelect" onchange="onSortChange()">
             <option value="popular">인기순</option>
             <option value="latest">최신순</option>
-          </select>
-          <select id="deptFilter" onchange="onFilterChange()">
-            <option value="all">전체 학과</option>
           </select>
         </div>
       </div>

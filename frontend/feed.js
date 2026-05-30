@@ -15,9 +15,8 @@ if (typeof window.escapeHTML !== 'function') {
   };
 }
 
-let currentCategory = '전체';
+let currentCategory = 'all'; // 'all' 또는 카테고리 slug
 let currentSort = 'popular';
-let currentDept = 'all';
 let currentKeyword = '';
 
 /* ===== URL 파라미터에서 초기 카테고리/검색어 추출 (메인 페이지에서 진입 시) ===== */
@@ -25,8 +24,9 @@ let currentKeyword = '';
   try {
     const params = new URLSearchParams(location.search);
     const c = params.get('category');
-    const allowed = ['전체', '과잠', '반팔티', '에코백'];
-    if (c && allowed.includes(c)) currentCategory = c;
+    if (c && typeof window.dtCategory === 'function' && window.dtCategory(c)) {
+      currentCategory = window.dtCategory(c).slug;
+    }
 
     const q = params.get('q') || params.get('search');
     if (q) currentKeyword = String(q).trim();
@@ -39,44 +39,27 @@ let currentKeyword = '';
 /* ===== 초기화 ===== */
 document.addEventListener('DOMContentLoaded', () => {
   renderCategoryChips();
-  renderDeptFilter();
   renderFeedList();
 });
 
 // 백엔드 상품 데이터 도착하면 다시 렌더
 window.addEventListener('mockproducts:updated', () => {
-  renderDeptFilter();
   renderFeedList();
 });
 
-/* ===== 카테고리 칩 렌더링 ===== */
+/* ===== 카테고리 칩 렌더링 (categories.js 단일 소스 + 전체) ===== */
 function renderCategoryChips() {
   const container = document.getElementById('categoryChips');
   if (!container) return;
 
   const esc = window.escapeHTML;
-  const categories = ['전체', '과잠', '반팔티', '에코백'];
-  container.innerHTML = categories
-    .map((cat) => {
-      const isActive = cat === currentCategory;
-      const safeCat = esc(cat);
-      return `<button onclick="selectCategory('${safeCat}')" style="padding:8px 16px;border:1.5px solid ${isActive ? '#8b5cf6' : '#e5e7eb'};border-radius:20px;background:${isActive ? '#f3f0fe' : '#fff'};font-size:13px;font-weight:600;color:${isActive ? '#8b5cf6' : '#6b7280'};cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0;">${safeCat}</button>`;
+  const chips = [{ slug: 'all', label: '전체' }].concat(window.DT_CATEGORIES || []);
+  container.innerHTML = chips
+    .map((c) => {
+      const isActive = c.slug === currentCategory;
+      return `<button onclick="selectCategory('${esc(c.slug)}')" style="padding:8px 16px;border:1.5px solid ${isActive ? '#8b5cf6' : '#e5e7eb'};border-radius:20px;background:${isActive ? '#f3f0fe' : '#fff'};font-size:13px;font-weight:600;color:${isActive ? '#8b5cf6' : '#6b7280'};cursor:pointer;white-space:nowrap;transition:all 0.15s;flex-shrink:0;">${esc(c.label)}</button>`;
     })
     .join('');
-}
-
-/* ===== 학과 필터 렌더링 ===== */
-function renderDeptFilter() {
-  const select = document.getElementById('deptFilter');
-  if (!select) return;
-
-  const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
-    ? MOCK_PRODUCTS : [];
-  const depts = [...new Set(products.map((p) => p.department))];
-  const esc = window.escapeHTML;
-
-  select.innerHTML = '<option value="all">전체 학과</option>' +
-    depts.map((d) => '<option value="' + esc(d) + '">' + esc(d) + '</option>').join('');
 }
 
 /* ===== 이벤트 핸들러 ===== */
@@ -92,28 +75,17 @@ function onSortChange() {
   renderFeedList();
 }
 
-function onFilterChange() {
-  const select = document.getElementById('deptFilter');
-  currentDept = select ? select.value : 'all';
-  renderFeedList();
-}
-
 /* ===== 데이터 가공 (필터 + 정렬) ===== */
 function getProcessedProducts() {
   const products = (typeof MOCK_PRODUCTS !== 'undefined' && Array.isArray(MOCK_PRODUCTS))
     ? MOCK_PRODUCTS : [];
 
-  // 1. 카테고리 필터
-  let filtered = currentCategory === '전체'
+  // 1. 카테고리 필터 (slug 기준, 'all'=전체)
+  let filtered = currentCategory === 'all'
     ? [...products]
     : products.filter((p) => p.category === currentCategory);
 
-  // 2. 학과 필터
-  if (currentDept !== 'all') {
-    filtered = filtered.filter((p) => p.department === currentDept);
-  }
-
-  // 3. 키워드 검색 (제목/설명/카테고리 부분일치)
+  // 2. 키워드 검색 (제목/설명/카테고리 부분일치)
   if (currentKeyword) {
     const k = currentKeyword.toLowerCase();
     filtered = filtered.filter((p) => {

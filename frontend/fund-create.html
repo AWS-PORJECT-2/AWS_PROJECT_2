@@ -28,58 +28,65 @@
       <p class="panel-desc">굿즈 디자인 이미지를 업로드하면 AI가 미리보기를 생성합니다. 이 단계는 선택이며, 바로 <b>다음</b>으로 넘어가도 됩니다.</p>
 
       <div style="padding:20px;">
-        <!-- 이미지 업로드 (최대 5장) -->
-        <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;transition:all 0.2s;">
-          <input id="tryonGarmentFile" type="file" accept="image/*" multiple hidden>
-          <p style="font-size:15px;font-weight:600;color:#4b5563;">굿즈 디자인 이미지 업로드</p>
-          <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG, PNG, WEBP · 한 장당 최대 10MB · 최대 5장</p>
-        </label>
-
-        <!-- 업로드된 이미지 썸네일 (최대 5장) -->
-        <div id="tryonUploadPreview" style="display:none;margin-top:16px;">
-          <p id="tryonUploadCount" style="font-size:12px;color:#6b7280;margin:0 0 8px;"></p>
-          <div id="tryonThumbs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-        </div>
-
-        <!-- 상품 종류 (착용 방식 결정) -->
-        <div class="field" style="margin-top:24px;">
-          <label for="tryonCategorySelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">상품 종류</label>
-          <select id="tryonCategorySelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
-            <option value="top">의류 (과잠·반팔티 등 — 입은 앞/뒤)</option>
-            <option value="ecobag">에코백 (메고 있는 모습)</option>
-            <option value="keyring">키링 (손에 들거나 가방에 단 모습)</option>
+        <!-- 카테고리 선택 (생성 플로우 분기) -->
+        <div class="field">
+          <label for="fundCategory" style="font-size:14px;font-weight:600;color:#1a1a1a;">카테고리 <span class="req">*</span></label>
+          <select id="fundCategory" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+            <!-- categories.js(DT_CATEGORIES) 기준으로 fund-create.js 에서 채움 -->
           </select>
+          <p class="field-hint" id="categoryHint" style="margin-top:6px;"></p>
         </div>
 
-        <!-- 모델 옵션 -->
-        <div style="margin-top:16px;display:flex;gap:12px;">
-          <div class="field" style="flex:1;">
-            <label for="tryonModelSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">모델 타입</label>
-            <select id="tryonModelSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
-              <option value="female">여성</option>
-              <option value="male">남성</option>
-            </select>
+        <!-- AI 미리보기 블록 — 의류=가상피팅 / 굿즈=전시 이미지. 기타는 숨김. -->
+        <div id="aiBlock" style="margin-top:8px;">
+          <!-- 이미지 업로드 (최대 5장) -->
+          <label for="tryonGarmentFile" style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;border:2px dashed #d1d5db;border-radius:16px;cursor:pointer;background:#f9fafb;transition:all 0.2s;">
+            <input id="tryonGarmentFile" type="file" accept="image/*" multiple hidden>
+            <p style="font-size:15px;font-weight:600;color:#4b5563;">굿즈 디자인 이미지 업로드</p>
+            <p style="font-size:12px;color:#9ca3af;margin-top:4px;">JPG, PNG, WEBP · 한 장당 최대 10MB · 최대 5장</p>
+          </label>
+
+          <!-- 업로드된 이미지 썸네일 (최대 5장) -->
+          <div id="tryonUploadPreview" style="display:none;margin-top:16px;">
+            <p id="tryonUploadCount" style="font-size:12px;color:#6b7280;margin:0 0 8px;"></p>
+            <div id="tryonThumbs" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
           </div>
-          <div class="field" style="flex:1;">
-            <label for="tryonBgSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">배경</label>
-            <select id="tryonBgSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
-              <option value="studio">스튜디오</option>
-              <option value="campus">캠퍼스</option>
-              <option value="outdoor">야외</option>
-            </select>
+
+          <!-- 모델/배경 옵션 (모델 타입은 의류일 때만 의미 → 굿즈에선 숨김) -->
+          <div style="margin-top:16px;display:flex;gap:12px;">
+            <div class="field" style="flex:1;" id="modelTypeField">
+              <label for="tryonModelSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">모델 타입</label>
+              <select id="tryonModelSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+                <option value="female">여성</option>
+                <option value="male">남성</option>
+              </select>
+            </div>
+            <div class="field" style="flex:1;">
+              <label for="tryonBgSelect" style="font-size:14px;font-weight:600;color:#1a1a1a;">배경</label>
+              <select id="tryonBgSelect" style="width:100%;padding:12px;border:1.5px solid #e5e7eb;border-radius:10px;font-size:14px;margin-top:6px;">
+                <option value="studio">스튜디오</option>
+                <option value="campus">캠퍼스</option>
+                <option value="outdoor">야외</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- AI 생성 버튼 (라벨은 카테고리 타입에 따라 변경) -->
+          <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;margin-top:20px;padding:14px;border:none;border-radius:12px;background:#a78bfa;color:#fff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;" disabled>
+            AI 미리보기 생성
+          </button>
+          <p id="aiHelpText" style="font-size:12px;color:#9ca3af;margin-top:8px;text-align:center;"></p>
+
+          <!-- 생성 결과 -->
+          <div id="tryonResultArea" style="display:none;margin-top:20px;padding:20px;background:#f0fdf4;border-radius:14px;text-align:center;">
+            <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">미리보기 이미지가 준비되었습니다</p>
+            <img id="tryonResultImg" alt="AI 미리보기 결과" style="max-width:100%;max-height:300px;border-radius:12px;">
           </div>
         </div>
 
-        <!-- AI 피팅 버튼 -->
-        <button type="button" id="btnAiTryOn" onclick="requestAiTryOn()" style="width:100%;margin-top:20px;padding:14px;border:none;border-radius:12px;background:#a78bfa;color:#fff;font-size:15px;font-weight:600;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background 0.2s;" disabled>
-          AI 모델 피팅 생성
-        </button>
-        <p style="font-size:12px;color:#9ca3af;margin-top:8px;text-align:center;">업로드한 디자인을 선택한 모델·배경에 입혀 앞/뒤 모습을 생성합니다.</p>
-
-        <!-- 피팅 결과 -->
-        <div id="tryonResultArea" style="display:none;margin-top:20px;padding:20px;background:#f0fdf4;border-radius:14px;text-align:center;">
-          <p style="font-size:14px;font-weight:600;color:#16a34a;margin-bottom:12px;">피팅 이미지가 준비되었습니다</p>
-          <img id="tryonResultImg" alt="AI 피팅 결과" style="max-width:100%;max-height:300px;border-radius:12px;">
+        <!-- 기타/AI 미지원 카테고리 안내 -->
+        <div id="noAiNote" style="display:none;margin-top:16px;padding:18px;background:#f9fafb;border:1px solid #e5e7eb;border-radius:12px;color:#6b7280;font-size:14px;line-height:1.6;">
+          이 카테고리는 AI 미리보기를 제공하지 않습니다. 바로 <b>다음</b>으로 넘어가 펀드 정보를 입력하고, 본문에서 직접 사진을 추가하세요.
         </div>
       </div>
 

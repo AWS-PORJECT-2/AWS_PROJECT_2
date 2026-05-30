@@ -5,6 +5,7 @@ import type { GroupBuy, ContentBlock } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
+import { isValidCategory } from '../constants/categories.js';
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
@@ -38,7 +39,8 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
     const body = (req.body ?? {}) as Record<string, unknown>;
     const title = stringField(body.title);
     const description = stringField(body.description, '');
-    const department = stringField(body.department);
+    const department = stringField(body.department, '');
+    const category = stringField(body.category);
     const deadline = stringField(body.deadline);
     const designFee = intField(body.designFee, 0, DESIGN_FEE_MAX);
     const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX);
@@ -49,11 +51,12 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
     const errors: string[] = [];
     if (!title || title.length > TITLE_MAX) errors.push('title');
     if (description && description.length > DESCRIPTION_MAX) errors.push('description');
-    if (!department || department.length > DEPARTMENT_MAX) errors.push('department');
+    if (department && department.length > DEPARTMENT_MAX) errors.push('department'); // 소속·단체는 선택
+    if (!category || !isValidCategory(category)) errors.push('category');
     if (!isValidFutureDate(deadline)) errors.push('deadline');
     if (designFee === null) errors.push('designFee');
     if (targetQuantity === null) errors.push('targetQuantity');
-    if (!designImage && !tryonImage) errors.push('designImageDataUrl (옷 사진 또는 피팅 이미지 필요)');
+    // 이미지는 선택: 디자인/피팅 없으면 본문 첫 이미지를 썸네일로 사용(아래). 둘 다 없어도 생성 허용.
 
     if (errors.length > 0) {
       res.status(400).json(createErrorResponse(
@@ -64,12 +67,16 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
 
     const finalPrice = BASE_PRICE + PLATFORM_FEE + (designFee as number);
     const now = new Date();
+    // 썸네일 우선순위: 피팅 > 디자인 업로드 > 본문 첫 이미지 블록
+    const firstContentImage = contentBlocks?.find((b) => b.type === 'image')?.value ?? null;
+    const thumbnail = tryonImage ?? designImage ?? firstContentImage;
     const groupbuy: GroupBuy = {
       id: randomUUID(),
       creatorId: userId,
       fundId: null,
       title,
       description,
+      category,
       productOptions: [],
       basePrice: BASE_PRICE,
       designFee: designFee as number,
@@ -79,7 +86,7 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
       currentQuantity: 0,
       deadline: new Date(deadline + 'T23:59:59'),
       status: 'open',
-      designImageUrl: designImage,
+      designImageUrl: designImage ?? thumbnail, // 썸네일 폴백 보장(목록 image_url COALESCE 용)
       tryonImageUrl: tryonImage,
       contentBlocks,
       createdAt: now,

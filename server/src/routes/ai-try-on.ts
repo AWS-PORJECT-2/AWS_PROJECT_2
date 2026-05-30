@@ -3,12 +3,11 @@ import type { GeminiImageService } from '../services/ai/gemini-image-service.js'
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { withTimeout } from '../utils/fetch-with-timeout.js';
+import { isValidCategory } from '../constants/categories.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const ALLOWED_MODELS = new Set(['female', 'male', 'female_athletic', 'male_athletic']);
 const ALLOWED_BG = new Set(['studio', 'campus', 'classroom', 'outdoor']);
-// 상품 종류 — 착용 방식(프롬프트)을 결정. 미지정/미지원 시 'top'(의류) 기본.
-const ALLOWED_CATEGORY = new Set(['top', 'ecobag', 'keyring']);
 
 function parseDataUrl(dataUrl: unknown): { mimeType: string; base64: string } | null {
   if (typeof dataUrl !== 'string') return null;
@@ -78,7 +77,8 @@ export function createAiTryOnHandler(gemini: GeminiImageService, timeoutMs: numb
 
     const modelType = ALLOWED_MODELS.has(String(body.modelType)) ? String(body.modelType) : 'female';
     const background = ALLOWED_BG.has(String(body.background)) ? String(body.background) : 'studio';
-    const category = ALLOWED_CATEGORY.has(String(body.category)) ? String(body.category) : 'top';
+    // category 는 카테고리 slug(jacket/ecobag/...). 서비스가 의류=착용 / 굿즈=전시 모드로 매핑.
+    const category = isValidCategory(String(body.category)) ? String(body.category) : 'etc';
 
     try {
       const result = await withTimeout(

@@ -2,6 +2,7 @@ import { GoogleGenAI } from '@google/genai';
 import { createHash } from 'node:crypto';
 import { logger } from '../../logger.js';
 import { AppError } from '../../errors/app-error.js';
+import { categoryType } from '../../constants/categories.js';
 
 const DEFAULT_MODEL = 'gemini-2.5-flash-image';
 const DEFAULT_DAILY_LIMIT = 30;
@@ -78,38 +79,27 @@ const BG_DESC: Record<string, string> = {
   outdoor: 'a clean outdoor street background, softly blurred',
 };
 
-// 업로드한 디자인 이미지를 모델에게 적용한 사진 프롬프트. 상품 종류(category)에 따라 착용 방식이 다르다.
+// 업로드한 디자인 이미지를 적용한 사진 프롬프트.
+// category slug → 타입(의류/굿즈)으로 모드 결정: 의류=모델 착용 앞/뒤, 굿즈=전시 진열 컷.
 function buildTryOnPrompt(modelType: string, background: string, category: string): string {
   const who = GENDER_DESC[modelType] || GENDER_DESC.female;
   const bg = BG_DESC[background] || BG_DESC.studio;
+  const type = categoryType(category);
 
-  // 에코백: 옷처럼 몸통에 "입히면" 안 됨 — 어깨에 메거나 손에 든 자연스러운 모습.
-  if (category === 'ecobag') {
+  // 굿즈(에코백·키링·폰케이스·스티커 등): 사람에 "입히지" 않고 전시·진열 제품 컷으로.
+  if (type === 'goods') {
     return (
-      'The attached image(s) are reference photos of ONE tote bag / eco bag design. If multiple photos are attached, treat them as different views of the SAME bag. Generate ONE photorealistic image of ' + who +
-      ' carrying that exact tote bag in a natural everyday pose:\n' +
-      '- The bag hangs from one shoulder (or is held by its handles in one hand), worn as a real tote bag — NOT stretched across the torso like a shirt.\n' +
-      '- The printed side of the bag faces the camera and is fully visible and flat.\n\n' +
-      'Background: ' + bg + '. Natural, relaxed pose. Show the person from head to hip with the bag clearly in frame.\n' +
-      'The bag design MUST match the attached reference EXACTLY: same colors, logos, lettering, patterns — do not invent or omit any detail. Keep the bag fabric soft and naturally draped.\n' +
+      'The attached image(s) are reference photos of ONE merchandise product. If multiple photos are attached, treat them as different views of the SAME product. Generate ONE photorealistic e-commerce product display image of that exact product:\n' +
+      '- Present it as a clean studio product/showcase shot — the product attractively arranged/displayed (e.g. standing or propped on a clean surface or pedestal), as if photographed for an online store.\n' +
+      '- Do NOT place it on a human body or treat it as clothing. No model wearing it.\n' +
+      '- The printed/designed side faces the camera, fully visible and undistorted.\n\n' +
+      'Background: ' + bg + '. Soft, even studio lighting, gentle shadow under the product.\n' +
+      'The product MUST match the attached reference EXACTLY: same colors, logos, lettering, patterns, shape — do not invent or omit any detail.\n' +
       'Output exactly ONE image.'
     );
   }
 
-  // 키링: 사람이 입는 게 아니라 손에 들거나 가방에 단 소품 클로즈업.
-  if (category === 'keyring') {
-    return (
-      'The attached image(s) are reference photos of ONE keyring / bag charm design. If multiple photos are attached, treat them as different views of the SAME charm. Generate ONE photorealistic lifestyle image of ' + who +
-      ' holding that exact keyring in their hand (or with it clipped onto a handbag), as a small accessory:\n' +
-      '- The keyring is the focus — shown close-up and clearly, at a realistic small size relative to the hand/bag.\n' +
-      '- Do NOT enlarge it to clothing size or place it on the torso.\n\n' +
-      'Background: ' + bg + '. Natural pose, hand/bag area in focus.\n' +
-      'The keyring design MUST match the attached reference EXACTLY: same colors, shape, lettering, charm details — do not invent or omit any detail.\n' +
-      'Output exactly ONE image.'
-    );
-  }
-
-  // 기본: 상의 의류(과잠/반팔티 등) — 앞/뒤 착용 2분할.
+  // 의류(과잠/후드티/반팔티): 모델이 착용한 앞/뒤 2분할.
   return (
     'The attached image(s) are reference photos of ONE garment design (clothing). If multiple photos are attached, treat them as different views/details of the SAME garment. Generate ONE photorealistic image of ' + who +
     ' wearing that exact garment, shown in two halves side-by-side:\n' +

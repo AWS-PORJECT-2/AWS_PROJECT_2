@@ -17,6 +17,7 @@ export interface GroupBuy {
   title: string;
   description: string;
   productOptions: ProductOption[];
+  category?: string | null; // 카테고리 slug (jacket/ecobag/.../etc) — categories 단일소스 기준
   basePrice: number;
   designFee: number;
   platformFee: number;

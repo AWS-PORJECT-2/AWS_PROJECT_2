@@ -46,14 +46,54 @@
     }
   }
 
-  // URL ?category=(과잠|반팔티|에코백) → 상품 종류 셀렉트 기본값.
+  // #fundCategory 셀렉트를 DT_CATEGORIES 로 채우고, URL ?category= 기본 선택, 타입별 AI 블록 토글.
   function presetCategoryFromUrl() {
-    var sel = document.getElementById('tryonCategorySelect');
+    var sel = document.getElementById('fundCategory');
     if (!sel) return;
+    var cats = (window.DT_CATEGORIES || []);
+    sel.innerHTML = cats.map(function (c) {
+      return '<option value="' + c.slug + '">' + c.label + '</option>';
+    }).join('');
+
     var raw = new URLSearchParams(window.location.search).get('category') || '';
-    var map = { '에코백': 'ecobag', 'ecobag': 'ecobag', '키링': 'keyring', 'keyring': 'keyring' };
-    var v = map[raw];
-    if (v) sel.value = v;
+    var matched = (typeof window.dtCategory === 'function') ? window.dtCategory(raw) : null;
+    if (matched) sel.value = matched.slug;
+
+    sel.addEventListener('change', updateAiSection);
+    updateAiSection();
+  }
+
+  // 선택 카테고리 타입에 따라 AI 블록을 전환: 의류=가상피팅 / 굿즈=전시 이미지 / 기타=AI 없음
+  function updateAiSection() {
+    var sel = document.getElementById('fundCategory');
+    var type = (typeof window.dtCategoryType === 'function') ? window.dtCategoryType(sel.value) : 'none';
+    var aiBlock = document.getElementById('aiBlock');
+    var noAiNote = document.getElementById('noAiNote');
+    var modelField = document.getElementById('modelTypeField');
+    var btn = document.getElementById('btnAiTryOn');
+    var help = document.getElementById('aiHelpText');
+    var hint = document.getElementById('categoryHint');
+
+    if (type === 'none') {
+      aiBlock.style.display = 'none';
+      noAiNote.style.display = 'block';
+      hint.textContent = '';
+      return;
+    }
+    aiBlock.style.display = 'block';
+    noAiNote.style.display = 'none';
+
+    if (type === 'apparel') {
+      modelField.style.display = '';
+      btn.textContent = 'AI 가상피팅 생성';
+      help.textContent = '업로드한 디자인을 선택한 모델·배경에 입혀 앞/뒤 모습을 생성합니다. (선택)';
+      hint.textContent = '의류 카테고리 — 모델이 착용한 가상피팅 이미지를 만들 수 있어요.';
+    } else { // goods
+      modelField.style.display = 'none';
+      btn.textContent = 'AI 전시 이미지 생성';
+      help.textContent = '업로드한 굿즈를 깔끔한 전시 컷처럼 생성합니다. (선택)';
+      hint.textContent = '굿즈 카테고리 — 제품을 전시·진열 컷처럼 생성할 수 있어요.';
+    }
   }
 
   // ========== Step 네비게이션 ==========
@@ -199,10 +239,10 @@
     var btn = document.getElementById('btnAiTryOn');
     var modelSel = document.getElementById('tryonModelSelect');
     var bgSel = document.getElementById('tryonBgSelect');
-    var catSel = document.getElementById('tryonCategorySelect');
+    var catSel = document.getElementById('fundCategory');
     var modelType = (modelSel && modelSel.value) || 'female';
     var background = (bgSel && bgSel.value) || 'studio';
-    var category = (catSel && catSel.value) || 'top';
+    var category = (catSel && catSel.value) || 'etc'; // 카테고리 slug → 백엔드가 의류/굿즈 모드로 매핑
     btn.disabled = true;
     var stop = startAiLoading(btn);
     api.post('/ai/try-on', { imageDataUrls: state.designImages, modelType: modelType, background: background, category: category })
@@ -340,10 +380,13 @@
     summary.innerHTML = '';
     var v = state.formValues || {};
     var finalPrice = BASE_PRICE_DEFAULT + (v.designFee || 0) + PLATFORM_FEE;
+    var catSel = document.getElementById('fundCategory');
+    var catObj = (catSel && typeof window.dtCategory === 'function') ? window.dtCategory(catSel.value) : null;
     var rows = [
       ['제목', v.title || '-'],
+      ['카테고리', catObj ? catObj.label : '-'],
       ['소속·단체', v.department || '-'],
-      ['목표 수량', (v.targetQuantity || 0) + '벌'],
+      ['목표 수량', (v.targetQuantity || 0) + '개'],
       ['마감일', v.deadline || '-'],
       ['디자인 수수료', formatWon(v.designFee || 0)],
       ['최종 구매가', formatWon(finalPrice)],
@@ -362,9 +405,9 @@
   }
 
   async function onSubmit() {
-    if (!state.designImages.length) { goToStep(1); return; }
-    if (!state.formValues) { goToStep(2); return; }
+    if (!state.formValues) { goToStep(2); return; } // 이미지는 선택 — 디자인 이미지 강제 제거
 
+    var catSel = document.getElementById('fundCategory');
     var btn = document.getElementById('btnSubmit');
     btn.disabled = true;
     btn.textContent = '등록 중...';
@@ -374,11 +417,12 @@
         title: state.formValues.title,
         description: state.formValues.description,
         department: state.formValues.department,
+        category: (catSel && catSel.value) || 'etc',
         designFee: state.formValues.designFee,
         targetQuantity: state.formValues.targetQuantity,
         deadline: state.formValues.deadline,
-        designImageDataUrl: state.designImages[0],            // 옷 디자인 사진
-        tryOnImages: state.tryOnImage ? [state.tryOnImage] : [], // AI 모델 피팅 사진
+        designImageDataUrl: state.designImages[0] || null,       // 옷 디자인 사진(있으면)
+        tryOnImages: state.tryOnImage ? [state.tryOnImage] : [], // AI 미리보기 사진(있으면)
         contentBlocks: state.contentBlocks                       // 게시글 본문 (글/사진 블록)
           .filter(function (b) { return b.type === 'image' || (b.value && b.value.trim()); }),
       });
