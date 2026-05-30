@@ -1,6 +1,4 @@
-/* doothing 메인 페이지 — Pretendard + NanumSquareRound */
-
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+/* doothing — Pretendard 는 각 HTML <head>의 preconnect+link 로 병렬 로드(FOUC 방지). NanumSquareRound 만 여기서. */
 
 @font-face {
   font-family: "NanumSquareRound";
@@ -1225,4 +1223,58 @@ body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay
   .dt-catgrid__grid { gap: 12px; }
   .dt-catgrid__item { width: 68px; }
   .dt-catgrid__icon { width: 58px; height: 58px; padding: 11px; }
+}
+
+/* =====================================================================
+ * 와디즈 헤더 v6 — 상단바(로고·인라인내비·액션) + 큰 검색바. 이전 .dt-hd* 위에 덮어씀.
+ * ===================================================================== */
+.dt-hd { position: sticky; top: 0; z-index: 100; background: #fff; border-bottom: 1px solid var(--c-divider); }
+.dt-hd__top { border: 0; }
+.dt-hd__top-inner { max-width: var(--wrap-max); margin: 0 auto; display: flex; align-items: center; gap: 28px; padding: 16px 24px; }
+.dt-hd__ham { display: none; background: none; border: 0; cursor: pointer; color: var(--c-text); padding: 4px; }
+.dt-hd__ham svg { width: 24px; height: 24px; }
+.dt-hd__logo { display: flex; align-items: center; height: 36px; flex-shrink: 0; }
+.dt-hd__logo img { height: 32px; width: auto; display: block; }
+.dt-hd__logo--text { font-size: 22px; font-weight: 800; color: var(--c-primary-600); }
+
+.dt-hd__nav { display: flex; align-items: center; gap: 24px; }
+.dt-hd__navlink { position: relative; display: inline-flex; align-items: center; gap: 5px; font-size: 16px; font-weight: 600; color: var(--c-text-sub); padding: 4px 0; }
+.dt-hd__navlink:hover { color: var(--c-text); }
+.dt-hd__navlink.is-active { color: var(--c-text); font-weight: 800; }
+.dt-hd__navlink.is-active::after { content: ""; position: absolute; left: 0; right: 0; bottom: -18px; height: 3px; background: var(--c-primary-500); border-radius: 3px; }
+.dt-hd__navlink--cat { color: var(--c-text); font-weight: 700; }
+.dt-hd__navcat-ic svg { width: 18px; height: 18px; vertical-align: -3px; }
+
+.dt-hd__actions { display: flex; align-items: center; gap: 16px; margin-left: auto; flex-shrink: 0; }
+.dt-hd__icon { width: 24px; height: 24px; color: var(--c-text-sub); display: inline-flex; align-items: center; justify-content: center; }
+.dt-hd__icon svg { width: 23px; height: 23px; }
+.dt-hd__icon:hover { color: var(--c-primary-600); }
+.dt-hd__auth { display: flex; align-items: center; gap: 12px; }
+.dt-hd__login { font-size: 14px; font-weight: 600; color: var(--c-text-sub); white-space: nowrap; }
+.dt-hd__login:hover { color: var(--c-primary-600); }
+.dt-hd__upload { font-size: 14px; font-weight: 700; color: var(--c-primary-600); white-space: nowrap; padding: 9px 16px; border: 1.5px solid var(--c-primary-400); border-radius: 8px; }
+.dt-hd__upload:hover { background: var(--c-primary-50); border-color: var(--c-primary-500); color: var(--c-primary-600); }
+.dt-hd__avatar { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--c-border); background: var(--c-divider); cursor: pointer; padding: 0; display: inline-flex; align-items: center; justify-content: center; position: relative; }
+.dt-hd__avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.dt-hd__avatar--ghost::before { content: ""; width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 50% 38%, #b9bcc6 0 36%, transparent 38%), radial-gradient(circle at 50% 100%, #b9bcc6 0 50%, transparent 52%); }
+.dt-hd__caret { position: absolute; right: -12px; font-size: 10px; color: var(--c-text-faint); }
+
+/* 큰 검색바 */
+.dt-hd__searchrow { border-top: 1px solid var(--c-divider); background: #fff; }
+.dt-hd__search-inner { max-width: 1000px; margin: 0 auto; padding: 18px 24px; }
+.dt-hd__bigsearch { display: flex; align-items: center; height: 52px; border: 2px solid var(--c-primary-400); border-radius: 999px; padding: 0 8px 0 22px; transition: border-color .15s, box-shadow .15s; }
+.dt-hd__bigsearch:focus-within { border-color: var(--c-primary-500); box-shadow: 0 0 0 4px var(--c-primary-100); }
+.dt-hd__bigsearch-input { flex: 1; border: 0; outline: none; font-size: 16px; background: transparent; color: var(--c-text); }
+.dt-hd__bigsearch-input::placeholder { color: var(--c-text-faint); }
+.dt-hd__bigsearch-btn { width: 40px; height: 40px; border: 0; background: none; cursor: pointer; color: var(--c-primary-600); display: flex; align-items: center; justify-content: center; }
+.dt-hd__bigsearch-btn svg { width: 24px; height: 24px; }
+
+@media (max-width: 1023px) { .dt-hd__nav { gap: 18px; } .dt-hd__navlink { font-size: 15px; } }
+@media (max-width: 767px) {
+  .dt-hd__top-inner { gap: 12px; padding: 12px 16px; }
+  .dt-hd__ham { display: block; }
+  .dt-hd__nav { display: none; }
+  .dt-hd__upload, .dt-hd__login { display: none; }
+  .dt-hd__search-inner { padding: 12px 16px; }
+  .dt-hd__bigsearch { height: 46px; }
 }

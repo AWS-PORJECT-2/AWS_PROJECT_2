@@ -150,7 +150,7 @@ function Header() {
   const header = el('header', { class: 'dt-hd' });
   const cur = location.pathname + location.search;
 
-  /* ===== 행1: 상단바 ===== */
+  /* ===== 상단바: 로고 · 인라인 내비 · 우측 액션 (와디즈) ===== */
   const topbar = el('div', { class: 'dt-hd__top' });
   const topInner = el('div', { class: 'dt-hd__top-inner' });
 
@@ -163,40 +163,7 @@ function Header() {
   logoImg.addEventListener('error', () => { logo.textContent = 'doothing'; logo.classList.add('dt-hd__logo--text'); });
   logo.appendChild(logoImg);
 
-  const searchForm = el('form', { class: 'dt-hd__search', role: 'search' });
-  const searchInput = el('input', { class: 'dt-hd__search-input', type: 'text', placeholder: '검색어를 입력해주세요', 'aria-label': '검색' });
-  const searchBtn = el('button', { class: 'dt-hd__search-btn', type: 'submit', 'aria-label': '검색' });
-  searchBtn.innerHTML = HD_ICON.search;
-  searchForm.appendChild(searchInput);
-  searchForm.appendChild(searchBtn);
-  searchForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const q = searchInput.value.trim();
-    location.href = '/feed.html' + (q ? '?q=' + encodeURIComponent(q) : '');
-  });
-
-  const actions = el('div', { class: 'dt-hd__actions' });
-  const upload = el('a', { class: 'dt-hd__upload', href: '/fund-create.html' }, '프로젝트 올리기');
-  const divider = el('span', { class: 'dt-hd__divider' });
-  function iconLink(key, label, href) {
-    const a = el('a', { class: 'dt-hd__icon', href: href, 'aria-label': label });
-    a.innerHTML = HD_ICON[key];
-    return a;
-  }
-  const giftLink = iconLink('gift', '후원목록', '/profile.html?tab=backings');
-  const likeLink = iconLink('heart', '관심 프로젝트', '/profile.html?tab=likes');
-  const bellLink = iconLink('bell', '알림', '/notice.html');
-  const authArea = el('div', { class: 'dt-hd__auth' });
-  authArea.appendChild(el('a', { class: 'dt-hd__login', href: '/login.html' }, '로그인'));
-  actions.append(upload, divider, giftLink, likeLink, bellLink, authArea);
-
-  topInner.append(ham, logo, searchForm, actions);
-  topbar.appendChild(topInner);
-
-  /* ===== 행2: 네비바 ===== */
-  const navbar = el('nav', { class: 'dt-hd__nav', 'aria-label': '주요 메뉴' });
-  const navInner = el('div', { class: 'dt-hd__nav-inner' });
-  const navLeft = el('div', { class: 'dt-hd__nav-left' });
+  const nav = el('nav', { class: 'dt-hd__nav', 'aria-label': '주요 메뉴' });
   const navItems = [
     { label: '카테고리', href: '/feed.html', cat: true },
     { label: '홈', href: '/main.html' },
@@ -210,13 +177,42 @@ function Header() {
     if (it.cat) { const ic = el('span', { class: 'dt-hd__navcat-ic' }); ic.innerHTML = HD_ICON.menu; a.appendChild(ic); }
     a.appendChild(document.createTextNode(it.label));
     if (it.cat) a.addEventListener('click', (e) => { e.preventDefault(); buildAndOpenMenu(); });
-    navLeft.appendChild(a);
+    nav.appendChild(a);
   });
-  navInner.append(navLeft);
-  navbar.appendChild(navInner);
 
-  header.appendChild(topbar);
-  header.appendChild(navbar);
+  const actions = el('div', { class: 'dt-hd__actions' });
+  function iconLink(key, label, href) {
+    const a = el('a', { class: 'dt-hd__icon', href: href, 'aria-label': label });
+    a.innerHTML = HD_ICON[key];
+    return a;
+  }
+  const likeLink = iconLink('heart', '관심 프로젝트', '/profile.html?tab=likes');
+  const bellLink = iconLink('bell', '알림', '/notice.html');
+  const authArea = el('div', { class: 'dt-hd__auth' });
+  authArea.appendChild(el('a', { class: 'dt-hd__login', href: '/login.html' }, '로그인/회원가입'));
+  const upload = el('a', { class: 'dt-hd__upload', href: '/fund-create.html' }, '프로젝트 만들기');
+  actions.append(likeLink, bellLink, authArea, upload);
+
+  topInner.append(ham, logo, nav, actions);
+  topbar.appendChild(topInner);
+
+  /* ===== 큰 검색바 (와디즈 시그니처) ===== */
+  const searchRow = el('div', { class: 'dt-hd__searchrow' });
+  const searchInner = el('div', { class: 'dt-hd__search-inner' });
+  const searchForm = el('form', { class: 'dt-hd__bigsearch', role: 'search' });
+  const searchInput = el('input', { class: 'dt-hd__bigsearch-input', type: 'text', placeholder: '어떤 프로젝트를 찾으세요?', 'aria-label': '검색' });
+  const searchBtn = el('button', { class: 'dt-hd__bigsearch-btn', type: 'submit', 'aria-label': '검색' });
+  searchBtn.innerHTML = HD_ICON.search;
+  searchForm.append(searchInput, searchBtn);
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = searchInput.value.trim();
+    location.href = '/feed.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+  });
+  searchInner.appendChild(searchForm);
+  searchRow.appendChild(searchInner);
+
+  header.append(topbar, searchRow);
 
   // 로그인 상태 반영 (비동기) — 아바타 + 드롭다운
   fetchAuthStatus().then((auth) => {

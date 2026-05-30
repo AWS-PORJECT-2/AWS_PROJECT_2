@@ -3,15 +3,15 @@
  * 모든 페이지에서 main.css 보다 먼저 로드.
  * ===================================================================== */
 :root {
-  /* Primary — 연보라 */
+  /* Primary — 두띵 대표색 보라. 사이트 전역 강조색. (레이아웃은 와디즈, 색은 보라) */
   --c-primary-50:  #F5F3FF;
   --c-primary-100: #EDE9FE;
   --c-primary-200: #DDD6FE;
   --c-primary-300: #C4B5FD;
   --c-primary-400: #A78BFA;
-  --c-primary-500: #8B5CF6;   /* ★ 메인 CTA/진행바/활성 */
+  --c-primary-500: #8B5CF6;   /* 메인 CTA/진행바/활성 */
   --c-primary-600: #7C3AED;   /* hover */
-  --c-primary-700: #6D28D9;   /* 흰 배경 위 강조 텍스트(AA) */
+  --c-primary-700: #6D28D9;   /* 흰 배경 위 강조 텍스트(달성%) */
 
   /* 중립 */
   --c-text:        #1A1A1A;
