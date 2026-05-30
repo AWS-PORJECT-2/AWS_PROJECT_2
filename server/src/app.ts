@@ -19,6 +19,7 @@ import { createAiRouter } from './routes/ai.js';
 import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createGroupBuyGetHandler } from './routes/groupbuy-get.js';
+import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler } from './routes/admin-funds.js';
 import { createAuthRequired } from './middleware/auth-required.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
@@ -267,6 +268,11 @@ export function createApp(
 
   app.use('/api/announcements', createAnnouncementsRouter(announcementRepository, authRequired, requireAdmin));
   app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin));
+
+  // --- 관리자 펀드 심사 (승인/반려) ---
+  app.get('/api/admin/funds', authRequired, requireAdmin, createAdminFundsListHandler(groupBuyRepository));
+  app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository));
+  app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository));
 
   // --- Email Notification Service (export for socket/scheduler use) ---
   const emailService = createEmailService();

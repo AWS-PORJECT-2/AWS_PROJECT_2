@@ -86,6 +86,14 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       params.push(options.category);
       where.push(`g.category = $${params.length}`);
     }
+    if (options.status) {
+      params.push(options.status);
+      where.push(`g.status = $${params.length}`);
+    }
+    if (options.creatorId) {
+      params.push(options.creatorId);
+      where.push(`g.creator_id = $${params.length}`);
+    }
     if (options.q) {
       params.push(`%${options.q}%`);
       where.push(`g.title ILIKE $${params.length}`);

@@ -272,9 +272,40 @@ function goToPayment() {
  * (이전 버전의 동기화 로직은 폐기 — 우측 패널이 좌측 이미지보다 짧을 때
  *  좌측 이미지가 늘어나면 sticky 효과 자체가 줄어드는 문제가 있었음)
  */
+/* 단건 펀드(API)를 detail 이 쓰는 product 형태로 매핑 — 공개목록(MOCK_PRODUCTS)에 없는
+   펀드(심사중/오래된 것 등)도 상세를 열 수 있게 한다. */
+function fundToProduct(f) {
+  var price = Number(f.finalPrice) || 0;
+  return {
+    id: f.id,
+    title: f.title || '',
+    description: f.description || '',
+    category: f.category || '',
+    imageUrl: f.tryonImageUrl || f.designImageUrl || '',
+    author: f.authorName || '익명',
+    department: f.authorDepartment || '',
+    price: price,
+    priceText: price ? price.toLocaleString('ko-KR') + '원' : '',
+    targetQuantity: Number(f.targetQuantity) || 0,
+    currentQuantity: Number(f.currentQuantity) || 0,
+    likeCount: Number(f.likeCount) || 0,
+    deadline: f.deadline || '',
+    status: f.status || 'open',
+    sizeType: 'free',
+    isLiked: false, isReserved: false, isPaid: false,
+  };
+}
+
 /* ===== 메인 렌더링 ===== */
-function renderDetail() {
+async function renderDetail() {
   currentProduct = findProduct(getProductId());
+  // 공개목록에 없으면 단건 API 로 직접 조회 (심사중/비노출 펀드 포함)
+  if (!currentProduct && window.api) {
+    try {
+      var f = await window.api.get('/groupbuys/' + encodeURIComponent(getProductId()), { silentAuthFail: true });
+      if (f && f.id) currentProduct = fundToProduct(f);
+    } catch (e) { /* 아래에서 처리 */ }
+  }
   if (!currentProduct) {
     alert('상품 정보를 찾을 수 없습니다.');
     window.location.href = '/main.html';

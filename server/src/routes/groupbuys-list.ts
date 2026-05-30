@@ -23,7 +23,8 @@ export function createGroupBuysListHandler(groupBuyRepo: GroupBuyRepository) {
       const sort = sortRaw === 'latest' ? 'latest' : 'popular';
       const q = (req.query.q as string | undefined)?.trim() || undefined;
 
-      const { items, total } = await groupBuyRepo.list({ category, sort, q, limit, offset });
+      // 공개 목록은 승인된(open) 펀드만 노출. 심사중(pending)/반려(rejected)는 제외.
+      const { items, total } = await groupBuyRepo.list({ category, sort, q, limit, offset, status: 'open' });
 
       // 프론트엔드 mock-data 형식과 호환되는 응답
       const products = items.map((g) => {

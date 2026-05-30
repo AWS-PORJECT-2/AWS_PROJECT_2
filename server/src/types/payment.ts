@@ -1,4 +1,4 @@
-export type GroupBuyStatus = 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
+export type GroupBuyStatus = 'pending' | 'rejected' | 'open' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
 export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
 export type OrderStatus = 'pending' | 'paid' | 'shipping_ready' | 'shipping' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
 export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';

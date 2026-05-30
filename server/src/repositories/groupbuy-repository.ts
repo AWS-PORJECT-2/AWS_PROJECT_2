@@ -14,6 +14,8 @@ export interface GroupBuyListOptions {
   limit?: number;
   offset?: number;
   q?: string;
+  status?: string;      // 특정 상태만 (예: 'open' 공개목록, 'pending' 관리자 심사목록)
+  creatorId?: string;   // 특정 작성자 펀드만 (마이페이지 '제작한 펀딩')
 }
 
 export interface GroupBuyRepository {

@@ -85,7 +85,7 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
       targetQuantity: targetQuantity as number,
       currentQuantity: 0,
       deadline: new Date(deadline + 'T23:59:59'),
-      status: 'open',
+      status: 'pending', // 관리자 승인 전까지 비공개(심사중). 승인 시 'open'.
       designImageUrl: designImage ?? thumbnail, // 썸네일 폴백 보장(목록 image_url COALESCE 용)
       tryonImageUrl: tryonImage,
       contentBlocks,
