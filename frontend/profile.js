@@ -342,7 +342,7 @@ async function loadMyBackings(container) {
     if (!items.length) { renderEmpty(container, '참여한 펀딩'); return; }
     container.innerHTML = items.map((o) => rowItemHtml({
       id: o.fundId, title: o.fundTitle, imageUrl: o.fundImageUrl,
-      sub: o.rewardTitle + ' · ' + Number(o.amount || 0).toLocaleString('ko-KR') + '원' +
+      sub: window.escapeHTML(o.rewardTitle || '') + ' · ' + Number(o.amount || 0).toLocaleString('ko-KR') + '원' +
         (o.depositorName ? ' · 입금자 ' + window.escapeHTML(o.depositorName) : ''),
       badge: statusBadge(BACKING_STATUS_LABEL, o.status),
     })).join('');

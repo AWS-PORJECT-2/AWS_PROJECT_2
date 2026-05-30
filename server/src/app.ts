@@ -115,6 +115,24 @@ const authRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
+// AI(과금) 보호 — 1분당 8회. Gemini 일일한도·dedup 위에 HTTP 레벨 방어 추가.
+const aiRateLimit = rateLimit({
+  windowMs: 60 * 1000,
+  max: 8,
+  message: { error: 'RATE_LIMITED', message: 'AI 생성 요청이 너무 잦습니다. 잠시 후 다시 시도해주세요' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 쓰기(펀드 개설·후원 등) 남용 방지 — 15분당 40회.
+const writeRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 40,
+  message: { error: 'RATE_LIMITED', message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 function requireEnv(name: string): string {
   const value = process.env[name];
   if (!value) throw new Error(`환경변수 ${name}이(가) 설정되지 않았습니다.`);
@@ -192,14 +210,14 @@ export function createApp(
   // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
   const gemini = GeminiImageService.fromEnv();
   if (gemini) {
-    app.use('/api/ai', authRequired, createAiRouter(gemini, AI_TIMEOUT_MS));
+    app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
   }
 
   // --- 공동구매(=펀드) 저장소 ---
   const groupBuyRepository = new PgGroupBuyRepository(pool);
 
   // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
-  app.post('/api/funds', authRequired, createFundsCreateHandler(groupBuyRepository));
+  app.post('/api/funds', authRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository));
 
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
@@ -288,7 +306,7 @@ export function createApp(
 
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
-  app.post('/api/funds/:id/back', authRequired, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository));
+  app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository));
   app.patch('/api/me', authRequired, createUpdateMeHandler(userRepository));
   app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository));
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
