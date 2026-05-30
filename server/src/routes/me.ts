@@ -44,6 +44,10 @@ export function createMeHandler(tokenService: TokenService, userRepo: UserReposi
       schoolDomain: user.schoolDomain,
       picture: user.picture ?? null,
       role: user.role ?? 'USER',
+      nickname: user.nickname ?? null,
+      phone: user.phone ?? null,
+      realName: user.realName ?? null,
+      onboarded: user.onboarded ?? false,
     });
   };
 }

@@ -7,6 +7,10 @@ export interface User {
   schoolDomain: string;
   picture?: string;
   role: UserRole;
+  nickname?: string | null;
+  phone?: string | null;
+  realName?: string | null;
+  onboarded?: boolean;
   createdAt: Date;
   lastLoginAt: Date;
 }

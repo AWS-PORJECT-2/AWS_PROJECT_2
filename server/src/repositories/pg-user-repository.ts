@@ -49,13 +49,20 @@ export class PgUserRepository implements UserRepository {
     );
   }
 
-  async updateProfile(userId: string, data: { name?: string; picture?: string }): Promise<User | null> {
+  async updateProfile(
+    userId: string,
+    data: { name?: string; picture?: string; nickname?: string; phone?: string; realName?: string; onboarded?: boolean },
+  ): Promise<User | null> {
     const fields: string[] = [];
     const values: unknown[] = [];
     let idx = 1;
 
     if (data.name !== undefined) { fields.push('name = $' + idx++); values.push(data.name); }
     if (data.picture !== undefined) { fields.push('picture = $' + idx++); values.push(data.picture); }
+    if (data.nickname !== undefined) { fields.push('nickname = $' + idx++); values.push(data.nickname); }
+    if (data.phone !== undefined) { fields.push('phone = $' + idx++); values.push(data.phone); }
+    if (data.realName !== undefined) { fields.push('real_name = $' + idx++); values.push(data.realName); }
+    if (data.onboarded !== undefined) { fields.push('onboarded = $' + idx++); values.push(data.onboarded); }
 
     if (fields.length === 0) return this.findById(userId);
 
@@ -88,6 +95,10 @@ export class PgUserRepository implements UserRepository {
       schoolDomain: row.school_domain as string,
       picture: row.picture as string | undefined,
       role: (row.role as UserRole | undefined) ?? 'USER',
+      nickname: (row.nickname as string | null) ?? null,
+      phone: (row.phone as string | null) ?? null,
+      realName: (row.real_name as string | null) ?? null,
+      onboarded: (row.onboarded as boolean | undefined) ?? false,
       createdAt: new Date(row.created_at as string),
       lastLoginAt: new Date(row.last_login_at as string),
     };

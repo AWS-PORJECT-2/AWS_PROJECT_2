@@ -24,6 +24,7 @@ import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
 import { createMeFundsHandler } from './routes/me-funds.js';
+import { createUpdateMeHandler } from './routes/me-profile.js';
 import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
   createAdminDepositsListHandler, createAdminConfirmDepositHandler,
@@ -285,6 +286,7 @@ export function createApp(
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
   app.post('/api/funds/:id/back', authRequired, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository));
+  app.patch('/api/me', authRequired, createUpdateMeHandler(userRepository));
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));

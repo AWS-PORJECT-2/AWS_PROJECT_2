@@ -308,6 +308,27 @@ function buildAndOpenMenu() {
 }
 
 /**
+ * 첫 로그인 온보딩 가드 — 로그인했는데 onboarded=false 면 온보딩 페이지로.
+ * 온보딩/로그인/랜딩 페이지에서는 동작 안 함(무한 리다이렉트 방지).
+ */
+(function ensureOnboarded() {
+  const skip = ['/onboarding.html', '/login.html', '/login-dev.html', '/landing.html'];
+  if (skip.indexOf(location.pathname) !== -1) return;
+  function check() {
+    fetch('/api/auth/me', { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (me) {
+        if (me && (me.userId || me.id) && me.onboarded === false) {
+          location.href = '/onboarding.html';
+        }
+      })
+      .catch(function () { /* 무시 */ });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', check);
+  else check();
+})();
+
+/**
  * 인증 상태 조회 — dev-auth 우선, 실패 시 정식 auth 시도.
  * 응답: { user: { id, name, role } } 또는 null
  */
