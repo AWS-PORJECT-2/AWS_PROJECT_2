@@ -156,9 +156,11 @@ function Header({ variant = 'main' } = {}) {
     else location.href = '/notice.html';
   });
 
+  const hamburgerBtn = el('button', { class: 'menu-btn', 'aria-label': '메뉴', type: 'button' });
+  hamburgerBtn.innerHTML = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M3 6h18M3 12h18M3 18h18"/></svg>';
   const left = el('nav', { class: 'nav-group' },
     backBtn,
-    el('button', { class: 'menu-btn', 'aria-label': '메뉴', type: 'button' }, '☰'),
+    hamburgerBtn,
     el('a', { class: 'brand', href: '/main.html' }, 'doothing'),
     el('a', { class: 'nav-all-btn', href: '/feed.html' }, '전체'),
     bellIconBtn,
@@ -381,7 +383,7 @@ function openSimpleMenu(items) {
   }
 
   const list = buildMenuList(items);
-  const closeBtn = el('button', { class: 'simple-menu-close', 'aria-label': '닫기', type: 'button' }, '✕');
+  const closeBtn = el('button', { class: 'simple-menu-close', 'aria-label': '닫기', type: 'button' }, '×');
   panel = el('aside', { id: 'dtSimpleMenu', class: 'simple-menu open' }, closeBtn, list);
   const backdrop = el('div', { class: 'simple-menu-backdrop' });
   document.body.appendChild(backdrop);

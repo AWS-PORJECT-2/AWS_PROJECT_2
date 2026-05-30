@@ -41,7 +41,7 @@ async function openTrackingModal() {
     '<div style="position:relative;background:#fff;border-radius:16px;padding:24px;width:90%;max-width:400px;max-height:80vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,0.15);">' +
       '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">' +
         '<h3 style="font-size:17px;font-weight:700;color:#1a1a1a;">배송조회</h3>' +
-        '<button onclick="closeTrackingModal()" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:20px;">✕</button>' +
+        '<button onclick="closeTrackingModal()" style="background:none;border:none;cursor:pointer;color:#6b7280;font-size:20px;">×</button>' +
       '</div>' +
       '<div id="trackingContent" style="color:#6b7280;font-size:14px;text-align:center;padding:20px;">불러오는 중...</div>' +
     '</div>';

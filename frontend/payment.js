@@ -243,7 +243,7 @@ function renderPayStep() {
     if (window.isSecureContext && navigator.clipboard) {
       navigator.clipboard.writeText(raw)
         .then(() => {
-          copyBtn.textContent = '✓ 복사됨';
+          copyBtn.textContent = '복사됨';
           setTimeout(() => (copyBtn.textContent = '복사'), 1500);
         })
         .catch(() => fallbackCopy(raw, copyBtn));
@@ -282,7 +282,7 @@ function renderPayStep() {
   // 주의
   const notice = document.createElement('div');
   notice.className = 'notice';
-  notice.textContent = '⚠️ 송금 후 입금자명을 정확히 입력해주세요. 관리자가 입금자명과 금액을 대조하여 승인합니다.';
+  notice.textContent = '송금 후 입금자명을 정확히 입력해주세요. 관리자가 입금자명과 금액을 대조하여 승인합니다.';
   bank.appendChild(notice);
 
   root.appendChild(bank);
@@ -426,7 +426,7 @@ function fallbackCopy(text, btn) {
     const ok = document.execCommand('copy');
     document.body.removeChild(ta);
     if (ok) {
-      btn.textContent = '✓ 복사됨';
+      btn.textContent = '복사됨';
       setTimeout(() => (btn.textContent = '복사'), 1500);
     } else {
       throw new Error('execCommand 실패');

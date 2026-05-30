@@ -151,7 +151,7 @@
       '<tr><th style="width:30%">담당</th><td>두띵(Doothing) 운영팀 (국민대학교 소프트웨어학부)</td></tr>',
       '<tr><th>이메일</th><td>cnrtnsms@kookmin.ac.kr</td></tr>',
       '</tbody></table>',
-      '<p class="note">개인정보 침해 신고: 개인정보 침해신고센터 ☎ 118 / 개인정보 분쟁조정위원회 ☎ 1833-6972</p>',
+      '<p class="note">개인정보 침해 신고: 개인정보 침해신고센터 전화 118 / 개인정보 분쟁조정위원회 전화 1833-6972</p>',
 
       '<p class="note" style="margin-top:18px;">전체 내용은 <a href="/privacy.html" target="_blank" rel="noopener">개인정보 처리방침 전체보기</a>에서 확인할 수 있습니다.</p>',
     ].join('');

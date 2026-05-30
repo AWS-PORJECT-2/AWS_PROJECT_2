@@ -108,7 +108,7 @@ function renderNotificationList() {
             </div>
             <div style="flex:1;min-width:0;">
               <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
-              <div style="font-size:12px;color:#f97316;font-weight:600;margin-top:4px;">🎉 100% 달성! 결제를 진행해 주세요</div>
+              <div style="font-size:12px;color:#f97316;font-weight:600;margin-top:4px;">100% 달성! 결제를 진행해 주세요</div>
             </div>
           </div>
           <div style="margin-top:10px;">
@@ -131,7 +131,7 @@ function renderNotificationList() {
           </div>
           <div style="flex:1;min-width:0;">
             <div style="font-size:14px;font-weight:600;color:#1a1a1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${title}</div>
-            <div style="font-size:12px;color:#16a34a;font-weight:600;margin-top:4px;">✅ 결제 완료</div>
+            <div style="font-size:12px;color:#16a34a;font-weight:600;margin-top:4px;">결제 완료</div>
           </div>
         </a>`;
       } else {

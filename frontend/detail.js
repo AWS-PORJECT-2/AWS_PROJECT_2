@@ -496,7 +496,7 @@ async function renderDetail() {
     const notifiedKey = 'notified_100_' + currentProduct.id;
     if (!localStorage.getItem(notifiedKey)) {
       localStorage.setItem(notifiedKey, '1');
-      setTimeout(() => alert('🎉 축하합니다! 펀딩이 달성되었습니다. 결제를 진행해 주세요!'), 500);
+      setTimeout(() => alert('축하합니다! 펀딩이 달성되었습니다. 결제를 진행해 주세요!'), 500);
     }
   }
 
