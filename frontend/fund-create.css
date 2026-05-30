@@ -530,3 +530,8 @@
   .review-images { grid-template-columns: 1fr; }
   .step-label { display: none; }
 }
+
+/* iOS 자동줌 방지 — 폼 입력은 16px 이상 (스펙 L3). 인라인 14px 덮어쓰기 */
+.fund-create-main input,
+.fund-create-main select,
+.fund-create-main textarea { font-size: 16px !important; }
