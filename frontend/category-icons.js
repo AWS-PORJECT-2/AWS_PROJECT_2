@@ -8,10 +8,22 @@
  */
 
 /* ===== 카테고리 아이콘 ===== */
+// /assets/<key>.png 가 있으면 사용. 없으면(또는 로드 실패) 인라인 SVG 폴백.
+// 신규 카테고리(후드티/폰케이스/스티커 등)는 이미지 추가 전까지 범용 폴백 표시.
 const CATEGORY_ASSETS = {
   jacket: '/assets/jacket.png',
   tshirt: '/assets/tshirt.png',
   ecobag: '/assets/ecobag.png',
+  hoodie: '/assets/hoodie.png',
+  keyring: '/assets/keyring.png',
+  phonecase: '/assets/phonecase.png',
+  sticker: '/assets/sticker.png',
+  badge: '/assets/badge.png',
+  tumbler: '/assets/tumbler.png',
+  fabric: '/assets/fabric.png',
+  doll: '/assets/doll.png',
+  accessory: '/assets/accessory.png',
+  etc: '/assets/etc.png',
 };
 
 function categoryIconSvg(key) {
@@ -36,7 +48,8 @@ function categoryFallbackSvg(key) {
   if (key === 'ecobag') {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><defs><linearGradient id="eg" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#5fb8d9"/><stop offset="100%" stop-color="#5fc9d9"/></linearGradient></defs><path d="M44 48Q44 26 60 26Q76 26 76 48" fill="none" stroke="url(#eg)" stroke-width="6.5" stroke-linecap="round"/><rect x="32" y="48" width="56" height="58" rx="3" fill="url(#eg)"/></svg>';
   }
-  return '';
+  // 범용 폴백 — 굿즈 박스 라인 아이콘(연보라). 신규 카테고리/미상 key 공통.
+  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" aria-hidden="true"><g fill="none" stroke="#a78bfa" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"><path d="M60 30 30 44v32l30 14 30-14V44z"/><path d="M30 44l30 14 30-14M60 58v32"/></g></svg>';
 }
 
 /* ===== doothing 브랜드 마크 ===== */

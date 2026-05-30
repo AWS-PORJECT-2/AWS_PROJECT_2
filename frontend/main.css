@@ -286,14 +286,14 @@
   width: 24px; height: 24px;
 }
 
-/* 카테고리 아이콘 행 (메인 카드와 슬로건 사이) — 작게 좌측 정렬 */
+/* 카테고리 아이콘 행 (메인 카드와 슬로건 사이) — 13종 이상이라 줄바꿈 그리드 */
 .dt-popular .category-row {
   display: flex;
-  gap: 20px;
-  align-items: stretch;
-  justify-content: space-between;
+  gap: 14px 12px;
+  align-items: flex-start;
+  justify-content: flex-start;
   width: 100%;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
 }
 
 /* createCategoryIcon() 헬퍼가 만드는 1:1 정사각형 아이콘 카드 (재사용 가능) */
@@ -315,15 +315,14 @@
   display: block;
 }
 .dt-popular .category-card {
-  flex: 1 1 0;
-  min-width: 0;
-  max-width: 168px;
+  flex: 0 0 auto;
+  width: 72px;
   border-radius: 22%;
   padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   cursor: pointer;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
   text-decoration: none;
@@ -356,9 +355,12 @@
   display: block;
 }
 .dt-popular .category-card .label {
-  font-size: 15px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
   color: #1a1a1a;
+  text-align: center;
+  line-height: 1.25;
+  word-break: keep-all;
 }
 
 /* 슬로건 — 좌측 텍스트 이미지: 위 카드 너비에 맞춰 가로 전체로 노출 */

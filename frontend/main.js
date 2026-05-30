@@ -35,11 +35,14 @@ const JACKET_IMAGES = [
 // 더미 제거 — 실시간 순위는 /api/groupbuys 실데이터로만 채움(buildSectionsFromMockProducts). 데이터 없으면 빈 상태.
 const POPULAR_RANKING = [];
 
-const CATEGORIES = [
-  { key: 'jacket', label: '과잠',   slug: '과잠' },
-  { key: 'tshirt', label: '반팔티', slug: '반팔티' },
-  { key: 'ecobag', label: '에코백', slug: '에코백' },
-];
+// 카테고리는 categories.js(window.DT_CATEGORIES) 단일 소스 사용. 미로드 시 최소 폴백.
+const CATEGORIES = (typeof window !== 'undefined' && Array.isArray(window.DT_CATEGORIES))
+  ? window.DT_CATEGORIES
+  : [
+      { key: 'jacket', label: '과잠',   slug: 'jacket' },
+      { key: 'ecobag', label: '에코백', slug: 'ecobag' },
+      { key: 'etc',    label: '기타',   slug: 'etc' },
+    ];
 
 // 더미 제거 — 신규픽도 실데이터(최신순)로만 채움. 없으면 빈 상태.
 const NEW_PICKS = [];
