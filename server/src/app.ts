@@ -62,6 +62,10 @@ import {
   createMeDraftUpdateHandler, createMeDraftDeleteHandler,
 } from './routes/me-drafts.js';
 import { PgProjectDraftRepository } from './repositories/pg-project-draft-repository.js';
+import { PgNotificationRepository } from './repositories/pg-notification-repository.js';
+import {
+  createMyNotificationsHandler, createMarkNotificationReadHandler, createMarkAllNotificationsReadHandler,
+} from './routes/notifications-routes.js';
 import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { PgOAuthStateRepository } from './repositories/pg-oauth-state-repository.js';
@@ -215,10 +219,13 @@ export function createApp(
   const userRepository = new PgUserRepository(pool);
   const oauthStateRepository = new PgOAuthStateRepository(pool);
   const refreshTokenRepository = new PgRefreshTokenRepository(pool);
+  // 서버 기반 알림(024_notifications) — pool 만 의존하므로 먼저 구성해 auth 서비스에도 주입.
+  const notificationRepository = new PgNotificationRepository(pool);
 
   const authService = new AuthServiceImpl({
     emailValidator, oauthClient, tokenService,
     userRepository, oauthStateRepository, refreshTokenRepository,
+    notificationRepository,
   });
 
   app.use('/api/auth/login', authRateLimit);
@@ -249,9 +256,13 @@ export function createApp(
 
   // --- 공동구매(=펀드) 저장소 ---
   const groupBuyRepository = new PgGroupBuyRepository(pool);
+  // 팔로우/댓글 저장소 — 펀드 개설 알림(팔로워 대상)에서도 쓰므로 먼저 구성.
+  const followRepository = new PgFollowRepository(pool);
+  const commentRepository = new PgCommentRepository(pool);
 
   // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
-  app.post('/api/funds', authRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository));
+  //   + 알림(best-effort): 작성자 본인(fund_submitted) / 작성자 팔로워(creator_new_fund)
+  app.post('/api/funds', authRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository));
 
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
@@ -283,7 +294,7 @@ export function createApp(
   app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), createPaymentWebhookHandler(paymentService, pgClient, tossWebhookSecret));
 
   // Payment routes (authenticated)
-  app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService));
+  app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService, notificationRepository, groupBuyRepository));
   app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
   app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
 
@@ -348,7 +359,7 @@ export function createApp(
 
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
-  app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository));
+  app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository, notificationRepository));
   // --- 내 프로필/계정 (소셜 계약) ---
   app.patch('/api/me', authRequired, createUpdateMeHandler(userRepository));
   app.patch('/api/me/notifications', authRequired, createUpdateNotificationsHandler(userRepository));
@@ -360,6 +371,11 @@ export function createApp(
   // 본인 펀드 분석(요금제 분석 기능) — 본인 소유 아니면 404.
   app.get('/api/me/funds/:id/analytics', authRequired, createMeFundAnalyticsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
+
+  // --- 서버 기반 알림(024_notifications) — 본인 알림 조회/읽음 처리 ---
+  app.get('/api/me/notifications', authRequired, createMyNotificationsHandler(notificationRepository));
+  app.post('/api/me/notifications/read-all', authRequired, createMarkAllNotificationsReadHandler(notificationRepository));
+  app.post('/api/me/notifications/:id/read', authRequired, createMarkNotificationReadHandler(notificationRepository));
 
   // --- 만들기 폼 임시저장(project_drafts) — 본인 것만 CRUD ---
   const projectDraftRepository = new PgProjectDraftRepository(pool);
@@ -387,8 +403,7 @@ export function createApp(
   app.get('/api/admin/logs', authRequired, requireAdmin, createAdminLogsHandler(pool));
 
   // --- 유저/메이커 공개 + 팔로우 + 댓글 (소셜 계약) ---
-  const followRepository = new PgFollowRepository(pool);
-  const commentRepository = new PgCommentRepository(pool);
+  // followRepository / commentRepository 는 위(펀드 개설 알림 의존)에서 이미 구성됨.
 
   // 팔로잉 피드 — 내가 팔로우한 창작자들의 공개(open) 펀드 최신순.
   app.get('/api/me/following-feed', authRequired, createFollowingFeedHandler(followRepository, groupBuyRepository));
@@ -422,7 +437,11 @@ export function createApp(
   // Start scheduler (only in non-test environments)
   if (process.env.NODE_ENV !== 'test') {
     const lockProvider = new PgDistributedLockProvider(pool);
-    const scheduler = new PaymentScheduler(paymentService, groupBuyRepository, orderRepository, lockProvider);
+    // 알림 의존성 주입 — 마감임박/성공·실패/공개오픈 알림(best-effort). 미주입 시 기존 결제·전환만.
+    const scheduler = new PaymentScheduler(
+      paymentService, groupBuyRepository, orderRepository, lockProvider, undefined,
+      { notificationRepo: notificationRepository, rewardOrderRepo: rewardOrderRepository },
+    );
     scheduler.start();
     logger.info('결제 스케줄러가 시작되었습니다');
   }

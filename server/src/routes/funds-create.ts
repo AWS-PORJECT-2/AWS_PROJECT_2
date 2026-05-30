@@ -1,9 +1,12 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
+import type { FollowRepository } from '../repositories/follow-repository.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { GroupBuy, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
+import { notify, notifyMany } from '../services/notify.js';
 import { logger } from '../logger.js';
 import { isValidCategory } from '../constants/categories.js';
 
@@ -98,7 +101,11 @@ function creatorInfoField(v: unknown): CreatorInfo | null {
  * POST /api/funds — 공구(groupbuy) 개설. mode 로 일반/대리 분기.
  * 가격/수수료는 서버 계산. → 201 { id }
  */
-export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository) {
+export function createFundsCreateHandler(
+  groupBuyRepository: GroupBuyRepository,
+  notificationRepo?: NotificationRepository,
+  followRepo?: FollowRepository,
+) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
@@ -114,6 +121,33 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
 
       const created = await groupBuyRepository.create(groupbuy);
       logger.info({ id: created.id, userId, mode }, '공구 개설 완료');
+
+      // 알림(best-effort) — 응답 전에 보내되 실패는 흡수(notify/notifyMany 가 throw 안 함).
+      if (notificationRepo) {
+        // (a) 작성자 본인 — 제출/심사 중.
+        await notify(notificationRepo, {
+          userId,
+          type: 'fund_submitted',
+          title: '프로젝트가 제출되어 심사 중입니다',
+          body: `'${created.title}' 프로젝트가 접수되었어요. 심사가 끝나면 알려드릴게요.`,
+          fundId: created.id,
+        });
+        // (b) 작성자를 팔로우한 사용자들 — 새 프로젝트 소식.
+        if (followRepo) {
+          try {
+            const followers = await followRepo.listFollowers(userId);
+            await notifyMany(notificationRepo, followers.map((f) => f.userId), {
+              type: 'creator_new_fund',
+              title: '팔로우한 창작자가 새 프로젝트를 열었어요',
+              body: `'${created.title}' 프로젝트를 확인해 보세요.`,
+              fundId: created.id,
+            });
+          } catch (err) {
+            logger.warn({ err, userId, fundId: created.id }, '팔로워 새 프로젝트 알림 실패(무시)');
+          }
+        }
+      }
+
       res.status(201).json({ id: created.id });
     } catch (err) {
       logger.error({ err, userId, mode }, '공구 개설 INSERT 실패');

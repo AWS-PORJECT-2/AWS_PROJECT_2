@@ -577,6 +577,15 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return this.subscriberCount(groupbuyId);
   }
 
+  // 공개예정 알림 구독자(user_id) 목록 — 오픈 시 scheduled_open 알림 발송 대상.
+  async subscriberUserIds(groupbuyId: string): Promise<string[]> {
+    const r = await this.pool.query(
+      'SELECT user_id FROM project_subscriptions WHERE groupbuy_id = $1',
+      [groupbuyId],
+    );
+    return r.rows.map((row) => row.user_id as string);
+  }
+
   private async subscriberCount(groupbuyId: string): Promise<number> {
     const r = await this.pool.query(
       'SELECT COUNT(*)::int AS c FROM project_subscriptions WHERE groupbuy_id = $1',

@@ -38,6 +38,18 @@
     '/assets/maker-cover-4.png',
   ];
 
+  // 상대경로 커버(/assets/...)를 절대 URL(http(s))로 정규화.
+  // 서버(PATCH /api/me)는 coverUrl 로 http(s) 또는 data:image 만 허용하므로
+  // 프리셋·기본 커버는 origin 을 붙여 절대 URL 로 보내야 저장에 성공한다.
+  // 이미 http(s)/data: 인 값(커스텀 업로드 data URL 포함)은 그대로 둔다.
+  function absCover(u) {
+    var s = (u == null) ? '' : String(u);
+    if (!s) return '';
+    if (/^(https?:)?\/\//i.test(s) || /^data:/i.test(s)) return s;
+    if (s.charAt(0) === '/') return window.location.origin + s;
+    return s;
+  }
+
   /* ---- 상태 ---- */
   var state = {
     me: null,           // 로그인 유저(또는 null)
@@ -623,7 +635,8 @@
     card.appendChild(W.el('h3', { class: 'wz-mk-modal__title' }, '프로필 꾸미기'));
 
     // ---- 커버: 프리셋 4종 선택 또는 직접 업로드(클릭 + 드래그앤드롭) ----
-    var coverUrl = prof.coverUrl || '';
+    // 선택값은 항상 절대 URL(http(s)) 또는 data URL 로 유지 → 서버 검증 통과.
+    var coverUrl = absCover(prof.coverUrl || '');
     var coverWrap = W.el('div', { class: 'wz-mk-modal__field' });
     coverWrap.appendChild(W.el('label', { class: 'dt-field-label' }, '커버 이미지'));
 
@@ -643,22 +656,24 @@
       }
     }
     function selectCover(url) {
-      coverUrl = url || '';
+      // 프리셋·기본 커버 상대경로는 절대 URL 로 정규화, data URL/외부 URL 은 그대로.
+      coverUrl = absCover(url || '');
       paintCoverPrev();
       thumbs.forEach(function (t) {
-        t.classList.toggle('is-on', !!url && t.dataset.url === url);
+        t.classList.toggle('is-on', !!coverUrl && t.dataset.url === coverUrl);
       });
     }
     paintCoverPrev();
     coverWrap.appendChild(coverPrev);
 
-    // 프리셋 썸네일 그리드
+    // 프리셋 썸네일 그리드. dataset.url 과 선택값은 절대 URL 로 통일(서버 검증 + is-on 매칭).
     PRESET_COVERS.forEach(function (url) {
+      var abs = absCover(url);
       var t = W.el('button', { class: 'wz-mk-coverthumb', type: 'button', 'aria-label': '커버 프리셋 선택' });
-      t.dataset.url = url;
+      t.dataset.url = abs;
       t.appendChild(W.el('img', { src: url, alt: '', loading: 'lazy' }));
-      if (coverUrl === url) t.classList.add('is-on');
-      t.addEventListener('click', function () { selectCover(url); });
+      if (coverUrl === abs) t.classList.add('is-on');
+      t.addEventListener('click', function () { selectCover(abs); });
       thumbs.push(t);
       coverGrid.appendChild(t);
     });
@@ -722,7 +737,8 @@
     cancel.addEventListener('click', close);
     save.addEventListener('click', function () {
       var body = {
-        coverUrl: coverUrl,
+        // 서버는 http(s) 또는 data:image 만 허용 → 절대 URL 로 정규화해 전송(저장 성공).
+        coverUrl: absCover(coverUrl),
         themeColor: colorInput.value,
         intro: introTa.value,
       };

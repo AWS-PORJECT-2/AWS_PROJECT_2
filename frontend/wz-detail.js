@@ -28,7 +28,6 @@
     kakao: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-.7 2.6-.8 3-.1.5.2.5.4.4.2-.1 2.7-1.8 3.8-2.6.6.1 1.3.1 1.9.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>',
     twitterX: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.5h3.3l-7.2 8.2 8.5 11.3h-6.7l-5.2-6.8-6 6.8H1.6l7.7-8.8L1.2 2.5h6.8l4.7 6.2 5.5-6.2zm-1.2 17.6h1.8L7.1 4.3H5.2l11.8 15.8z"/></svg>',
     facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>',
-    instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.2" fill="currentColor" stroke="none"/></svg>',
   };
 
   /* 소유자 수정 모달 전용 아이콘(stroke=currentColor) */
@@ -1005,32 +1004,77 @@
     window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=540');
   }
 
+  /* ---------- 카카오 JS SDK ----------
+   * 카카오톡 실제 공유(Kakao.Share.sendDefault)를 위해 SDK를 1회 동적 로드한다.
+   * 키는 클라이언트 공개용 JavaScript 앱 키라 임베드 정상.
+   * 로드/차단 실패 시 cb(false) → 호출부에서 링크 복사로 폴백한다. */
+  const KAKAO_SDK_SRC = 'https://t1.kakaocdn.net/kakao_js_sdk/2.7.2/kakao.min.js';
+  const KAKAO_JS_KEY = '320803e91e6b8a17be375c2f906e952e';
+  let _kakaoLoading = null;
+  function ensureKakao(cb) {
+    function ready() {
+      const K = window.Kakao;
+      if (!K) return cb(false);
+      try { if (!K.isInitialized()) K.init(KAKAO_JS_KEY); } catch (e) { return cb(false); }
+      cb(!!(K.Share && typeof K.Share.sendDefault === 'function'));
+    }
+    if (window.Kakao) { ready(); return; }
+    if (_kakaoLoading) { _kakaoLoading.then(ready, () => cb(false)); return; }
+    _kakaoLoading = new Promise((resolve, reject) => {
+      const s = document.createElement('script');
+      s.src = KAKAO_SDK_SRC;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = () => { _kakaoLoading = null; reject(new Error('kakao sdk load failed')); };
+      document.head.appendChild(s);
+    });
+    _kakaoLoading.then(ready, () => cb(false));
+  }
+
+  /* 절대 대표 이미지 URL. 상대경로 cover는 origin 기준 절대화, http(s)는 그대로, 없으면 로고. */
+  function shareImageUrl(f) {
+    const cover = f && f.coverImageUrl ? String(f.coverImageUrl).trim() : '';
+    if (cover) return /^https?:\/\//i.test(cover) ? cover : location.origin + (cover[0] === '/' ? cover : '/' + cover);
+    return location.origin + '/assets/logo.png';
+  }
+
   function doShare(f) {
     const url = location.href;
     const enc = encodeURIComponent(url);
     const title = f.title || '두띵 프로젝트';
+    const desc = (f.description && String(f.description).trim()) || '국민대 굿즈 펀딩 프로젝트';
+    const imageUrl = shareImageUrl(f);
     const encTitle = encodeURIComponent(title);
 
     /* 각 항목은 클릭 즉시(동기) 처리한다. window.open 은 핸들러 첫 줄에서 호출(앞에 await/then 금지)
      * → 데스크톱에서도 팝업 차단/우클릭처럼 무시되는 문제 해결.
-     * 카카오·인스타: navigator.share 가 있어도 동기 분기로 먼저 처리, 없으면 즉시 폴백.
+     * 카카오: JS SDK 로드 후 Kakao.Share.sendDefault, 실패 시 링크 복사 폴백.
      * 모든 항목은 <button type="button"> (a href="#" 미사용)로 컨텍스트 메뉴 유발 요소 없음. */
     const items = [
       ['kakao', '카카오톡', SVG.kakao, () => {
-        // 공유창을 즉시(동기) 연다. share 가능 환경이면 추가로 네이티브 공유도 시도.
-        openShareWindow('https://story.kakao.com/share?url=' + enc);
-        if (navigator.share) { try { navigator.share({ title, url }).catch(() => {}); } catch (e) {} }
+        ensureKakao((ok) => {
+          if (!ok) { copyLink(url, '카카오 공유를 불러오지 못했어요. 링크를 복사했으니 붙여넣어 공유해 주세요.'); return; }
+          try {
+            window.Kakao.Share.sendDefault({
+              objectType: 'feed',
+              content: {
+                title: title,
+                description: desc,
+                imageUrl: imageUrl,
+                link: { mobileWebUrl: url, webUrl: url },
+              },
+              buttons: [{ title: '펀딩 보러가기', link: { mobileWebUrl: url, webUrl: url } }],
+            });
+          } catch (e) {
+            copyLink(url, '카카오 공유에 실패했어요. 링크를 복사했으니 붙여넣어 공유해 주세요.');
+          }
+        });
       }],
       ['twitterX', 'X', SVG.twitterX, () => {
         openShareWindow('https://twitter.com/intent/tweet?url=' + enc + '&text=' + encTitle);
       }],
       ['facebook', '페이스북', SVG.facebook, () => {
         openShareWindow('https://www.facebook.com/sharer/sharer.php?u=' + enc);
-      }],
-      ['instagram', '인스타그램', SVG.instagram, () => {
-        // 인스타는 웹 공유 URL이 없으므로: share 가능하면 네이티브 공유 시트, 아니면 링크 복사 + 안내.
-        if (navigator.share) { try { navigator.share({ title, url }).catch(() => {}); return; } catch (e) {} }
-        copyLink(url, '링크가 복사되었어요. 인스타그램 앱에 붙여넣어 공유해 주세요.');
       }],
       ['link', '링크 복사', SVG.link, () => copyLink(url)],
     ];

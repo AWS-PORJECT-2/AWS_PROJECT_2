@@ -2,34 +2,54 @@
  * 두띵 — 알림 센터 (전역, 모든 페이지 공통)
  *
  * - 헤더 종(bell) 아이콘 클릭 → 우측 슬라이드 패널(wz 톤) 열림
- * - 데이터 출처: window.MOCK_PRODUCTS(GET /api/groupbuys 실데이터) 중
- *   현재 사용자가 예약/참여한 항목(isReserved === true). 없는 알림은 지어내지 않음.
- *     · 100% 달성 + 미결제 → 결제 유도
- *     · 결제 완료 → 상세 이동
- *     · 진행 중 → 상세 이동
- * - 읽음 상태: 서버 알림 API 가 없으므로 localStorage('readNotifications')
- *   의 읽은 알림 id 집합으로 관리. 패널을 열면 전체 읽음, 항목 클릭 시 해당 읽음.
- * - 미확인 배지: #wz-bell(없으면 aria-label="알림" 아이콘)에 빨간 원형 배지.
- *   1~99 숫자, 99 초과 "99+", 0 이면 숨김.
+ * - 데이터 출처: 서버 알림 API.
+ *     · GET  /api/me/notifications?limit=50  → { items:[...], unreadCount }
+ *     · POST /api/me/notifications/:id/read   → 단건 읽음(멱등)
+ *     · POST /api/me/notifications/read-all    → 전체 읽음
+ *   모두 authRequired. 미로그인이면 빈 목록·배지 0(silentAuthFail 로 흡수).
+ * - 각 알림: 제목 + 본문 + 상대시각. fundId 가 있으면 "펀딩 보러가기" 버튼.
+ *   항목/버튼 클릭 시 POST :id/read 후 detail.html?id=fundId 로 이동.
+ * - 미읽음(isRead=false): 연보라 배경 + 좌측 점 + 굵게. 읽음은 일반 표시.
+ *   패널을 여는 것만으로 일괄 읽음 처리하지 않음(항목 클릭 또는 "모두 읽음" 버튼).
+ * - 미확인 배지: #wz-bell(없으면 aria-label="알림" 아이콘)에 서버 unreadCount.
+ *   1~99 숫자, 99 초과 "99+", 0 이면 숨김. 60초 주기 + 패널 열 때 갱신.
  *
  * 규칙: Vanilla JS, 전역 window.WZ / window.api 재사용. 이모지 금지(SVG 만).
  *       색은 tokens.css 변수(보라 --c-primary-*). 다크모드 반응형 없음.
- *       사용자/외부 데이터는 textContent 또는 escapeHTML 로만 삽입(XSS 안전).
+ *       사용자/외부 데이터는 textContent 로만 삽입(XSS 안전).
  * ===================================================================== */
 (function () {
   var W = window.WZ || {};
-  var esc = (typeof window.escapeHTML === 'function')
-    ? window.escapeHTML
-    : (W && W.esc) || function (v) {
-        if (v === null || v === undefined) return '';
-        return String(v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-          .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-      };
-  // 외부 폴백 노출(다른 스크립트 호환)
-  if (typeof window.escapeHTML !== 'function') window.escapeHTML = esc;
-
   var STYLE_ID = 'wz-notif-style';
-  var READ_KEY = 'readNotifications';
+  var POLL_MS = 60000;
+
+  /* ===== 상대시간 (방금 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD) ===== */
+  function relTime(iso) {
+    if (!iso) return '';
+    var t = new Date(iso).getTime();
+    if (isNaN(t)) return '';
+    var diff = Date.now() - t;
+    if (diff < 0) diff = 0;
+    var sec = Math.floor(diff / 1000);
+    if (sec < 60) return '방금 전';
+    var min = Math.floor(sec / 60);
+    if (min < 60) return min + '분 전';
+    var hr = Math.floor(min / 60);
+    if (hr < 24) return hr + '시간 전';
+    var day = Math.floor(hr / 24);
+    if (day < 7) return day + '일 전';
+    var d = new Date(t);
+    var p = function (x) { return (x < 10 ? '0' : '') + x; };
+    return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
+  }
+
+  /* ===== 상태(서버 동기화 캐시) ===== */
+  var state = {
+    items: [],          // 서버 items 최신순
+    unreadCount: 0,     // 서버 unreadCount
+    loading: false,
+    loaded: false,
+  };
 
   /* ===== 스타일 주입(1회) — wz 톤, tokens.css 변수만 사용 ===== */
   function ensureStyle() {
@@ -53,42 +73,39 @@
         + 'background:var(--c-primary-50,#F5F3FF);color:var(--c-primary-700,#6D28D9);'
         + 'font-size:var(--fs-caption,12px);font-weight:700;display:inline-flex;align-items:center;'
         + 'justify-content:center;line-height:1;}'
+      + '.wz-notif__head-actions{display:flex;align-items:center;gap:4px;}'
+      + '.wz-notif__readall{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:var(--r-sm,8px);'
+        + 'color:var(--c-primary-600,#7C3AED);font-size:var(--fs-caption,12px);font-weight:600;'
+        + 'font-family:inherit;white-space:nowrap;}'
+      + '.wz-notif__readall:hover{background:var(--c-primary-50,#F5F3FF);}'
+      + '.wz-notif__readall[disabled]{color:var(--c-text-faint,#9CA3AF);cursor:default;background:none;}'
       + '.wz-notif__close{background:none;border:none;cursor:pointer;padding:6px;border-radius:var(--r-sm,8px);'
         + 'color:var(--c-text-muted,#6B7280);display:inline-flex;}'
       + '.wz-notif__close:hover{background:var(--c-primary-50,#F5F3FF);color:var(--c-primary-600,#7C3AED);}'
       + '.wz-notif__close svg{width:22px;height:22px;}'
       + '.wz-notif__list{flex:1;overflow-y:auto;padding:var(--sp-3,12px);display:flex;flex-direction:column;gap:var(--sp-2,8px);}'
-      + '.wz-notif__item{display:block;text-decoration:none;color:inherit;border:1px solid var(--c-border,#E5E7EB);'
+      + '.wz-notif__item{display:block;text-align:left;width:100%;text-decoration:none;color:inherit;'
+        + 'border:1px solid var(--c-border,#E5E7EB);font-family:inherit;cursor:pointer;'
         + 'border-radius:var(--r-md,12px);padding:var(--sp-3,12px) var(--sp-4,16px);background:var(--c-surface,#fff);'
         + 'box-shadow:var(--sh-1,0 1px 2px rgba(16,24,40,.06));transition:box-shadow .16s,border-color .16s,background .16s;}'
       + '.wz-notif__item:hover{box-shadow:var(--sh-2,0 4px 12px rgba(16,24,40,.08));border-color:var(--c-primary-200,#DDD6FE);}'
       + '.wz-notif__item.is-unread{background:var(--c-primary-50,#F5F3FF);border-color:var(--c-primary-200,#DDD6FE);}'
-      + '.wz-notif__row{display:flex;gap:var(--sp-3,12px);align-items:center;}'
-      + '.wz-notif__udot{width:8px;height:8px;border-radius:50%;background:var(--c-primary-500,#8B5CF6);flex-shrink:0;}'
+      + '.wz-notif__row{display:flex;gap:var(--sp-3,12px);align-items:flex-start;}'
+      + '.wz-notif__udot{width:8px;height:8px;border-radius:50%;background:var(--c-primary-500,#8B5CF6);'
+        + 'flex-shrink:0;margin-top:6px;}'
       + '.wz-notif__item:not(.is-unread) .wz-notif__udot{visibility:hidden;}'
-      + '.wz-notif__thumb{width:52px;height:52px;border-radius:var(--r-sm,8px);overflow:hidden;flex-shrink:0;'
-        + 'background:var(--c-divider,#F3F4F6);}'
-      + '.wz-notif__thumb img{width:100%;height:100%;object-fit:cover;display:block;}'
       + '.wz-notif__body{flex:1;min-width:0;}'
-      + '.wz-notif__name{font-size:var(--fs-body-sm,14px);font-weight:600;color:var(--c-text,#1A1A1A);'
-        + 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'
+      + '.wz-notif__name{font-size:var(--fs-body-sm,14px);font-weight:600;color:var(--c-text,#1A1A1A);}'
       + '.wz-notif__item.is-unread .wz-notif__name{font-weight:700;}'
-      + '.wz-notif__msg{font-size:var(--fs-caption,12px);margin-top:3px;color:var(--c-text-muted,#6B7280);}'
-      + '.wz-notif__msg--go{color:var(--c-primary-600,#7C3AED);font-weight:600;}'
-      + '.wz-notif__msg--done{color:var(--c-success,#16A34A);font-weight:600;}'
-      + '.wz-notif__progress{height:6px;border-radius:var(--r-full,999px);background:var(--c-primary-100,#EDE9FE);'
-        + 'overflow:hidden;margin-top:8px;}'
-      + '.wz-notif__progress > span{display:block;height:100%;background:var(--c-primary-500,#8B5CF6);'
-        + 'border-radius:var(--r-full,999px);}'
-      + '.wz-notif__progress--done > span{background:var(--c-success,#16A34A);}'
-      + '.wz-notif__cta{display:flex;width:100%;align-items:center;justify-content:center;margin-top:10px;'
-        + 'height:42px;border-radius:var(--r-md,12px);background:var(--c-primary-500,#8B5CF6);color:#fff;'
+      + '.wz-notif__msg{font-size:var(--fs-caption,12px);margin-top:3px;color:var(--c-text-muted,#6B7280);'
+        + 'line-height:1.45;word-break:break-word;}'
+      + '.wz-notif__time{font-size:var(--fs-caption,12px);color:var(--c-text-faint,#9CA3AF);margin-top:6px;}'
+      + '.wz-notif__cta{display:inline-flex;align-items:center;gap:4px;margin-top:10px;'
+        + 'height:36px;padding:0 14px;border-radius:var(--r-md,12px);'
+        + 'background:var(--c-primary-500,#8B5CF6);color:#fff;border:none;cursor:pointer;font-family:inherit;'
         + 'font-size:var(--fs-body-sm,14px);font-weight:700;text-decoration:none;transition:background .16s;}'
       + '.wz-notif__cta:hover{background:var(--c-primary-600,#7C3AED);}'
-      + '.wz-notif__meta{display:flex;justify-content:space-between;gap:8px;margin-top:6px;}'
-      + '.wz-notif__rate{font-size:var(--fs-caption,12px);font-weight:700;color:var(--c-primary-700,#6D28D9);}'
-      + '.wz-notif__rate--done{color:var(--c-success,#16A34A);}'
-      + '.wz-notif__size{font-size:var(--fs-caption,12px);color:var(--c-text-faint,#9CA3AF);}'
+      + '.wz-notif__cta svg{width:16px;height:16px;}'
       + '.wz-notif__empty{display:flex;flex-direction:column;align-items:center;text-align:center;'
         + 'padding:72px 24px;color:var(--c-text-faint,#9CA3AF);}'
       + '.wz-notif__empty svg{width:48px;height:48px;color:var(--c-primary-200,#DDD6FE);margin-bottom:14px;}'
@@ -104,35 +121,59 @@
     document.head.appendChild(style);
   }
 
-  /* ===== 읽음 상태(localStorage) ===== */
-  function getReadIds() {
-    var ids;
-    try { ids = JSON.parse(localStorage.getItem(READ_KEY) || '[]'); }
-    catch (e) { ids = []; }
-    return Array.isArray(ids) ? ids : [];
-  }
-  function saveReadIds(ids) {
-    try { localStorage.setItem(READ_KEY, JSON.stringify(ids)); } catch (e) { /* noop */ }
-  }
-  function isRead(id) {
-    return getReadIds().indexOf(id) !== -1;
-  }
-  function markRead(id) {
-    var ids = getReadIds();
-    if (ids.indexOf(id) === -1) { ids.push(id); saveReadIds(ids); }
-    updateNotificationBadges();
+  /* ===== 서버 동기화 ===== */
+  // 알림 목록+미읽음 수를 서버에서 가져와 state 갱신. 미로그인/오류면 빈 상태로(silentAuthFail).
+  function fetchNotifications() {
+    if (!window.api || typeof window.api.get !== 'function') {
+      return Promise.resolve(false);
+    }
+    state.loading = true;
+    return window.api.get('/me/notifications?limit=50', { silentAuthFail: true })
+      .then(function (data) {
+        state.items = (data && Array.isArray(data.items)) ? data.items : [];
+        state.unreadCount = (data && typeof data.unreadCount === 'number') ? data.unreadCount : 0;
+        state.loaded = true;
+        return true;
+      })
+      .catch(function () {
+        // 미인증(NOT_AUTHENTICATED) 또는 네트워크 오류 → 빈 목록·배지 0
+        state.items = [];
+        state.unreadCount = 0;
+        state.loaded = true;
+        return false;
+      })
+      .then(function (ok) {
+        state.loading = false;
+        return ok;
+      });
   }
 
-  /* ===== 데이터: 예약/참여한 항목(기존 출처 유지) ===== */
-  function getNotifications() {
-    var products = (Array.isArray(window.MOCK_PRODUCTS)) ? window.MOCK_PRODUCTS : [];
-    return products.filter(function (p) { return p && p.isReserved === true; });
+  // 단건 읽음(멱등). 로컬 state 도 즉시 반영해 깜빡임 방지.
+  function postRead(id) {
+    var item = findItem(id);
+    if (item && !item.isRead) {
+      item.isRead = true;
+      if (state.unreadCount > 0) state.unreadCount -= 1;
+    }
+    if (!window.api || typeof window.api.post !== 'function') return Promise.resolve();
+    return window.api.post('/me/notifications/' + encodeURIComponent(id) + '/read', {}, { silentAuthFail: true })
+      .catch(function () { /* 멱등 — 실패해도 흐름 비차단 */ });
   }
 
-  function rateOf(item) {
-    if (typeof calcAchievementRate === 'function') return calcAchievementRate(item);
-    if (!item.targetQuantity) return 0;
-    return Math.round((item.currentQuantity / item.targetQuantity) * 100);
+  // 전체 읽음. 로컬 state 즉시 반영.
+  function postReadAll() {
+    state.items.forEach(function (it) { it.isRead = true; });
+    state.unreadCount = 0;
+    if (!window.api || typeof window.api.post !== 'function') return Promise.resolve();
+    return window.api.post('/me/notifications/read-all', {}, { silentAuthFail: true })
+      .catch(function () { /* 비차단 */ });
+  }
+
+  function findItem(id) {
+    for (var i = 0; i < state.items.length; i++) {
+      if (state.items[i] && String(state.items[i].id) === String(id)) return state.items[i];
+    }
+    return null;
   }
 
   /* ===== 패널 생성 ===== */
@@ -153,9 +194,12 @@
       +       '<span>알림</span>'
       +       '<span class="wz-notif__count" id="notifCount" hidden></span>'
       +     '</div>'
-      +     '<button type="button" class="wz-notif__close" data-notif-close aria-label="닫기">'
-      +       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>'
-      +     '</button>'
+      +     '<div class="wz-notif__head-actions">'
+      +       '<button type="button" class="wz-notif__readall" id="notifReadAll">모두 읽음</button>'
+      +       '<button type="button" class="wz-notif__close" data-notif-close aria-label="닫기">'
+      +         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>'
+      +       '</button>'
+      +     '</div>'
       +   '</div>'
       +   '<div class="wz-notif__list" id="notifList"></div>'
       + '</aside>';
@@ -165,6 +209,19 @@
     panel.querySelectorAll('[data-notif-close]').forEach(function (n) {
       n.addEventListener('click', closeNotification);
     });
+    // "모두 읽음"
+    var readAllBtn = panel.querySelector('#notifReadAll');
+    if (readAllBtn) {
+      readAllBtn.addEventListener('click', function () {
+        if (state.unreadCount <= 0) return;
+        postReadAll().then(function () {
+          renderList();
+          updateNotificationBadges();
+        });
+        renderList();
+        updateNotificationBadges();
+      });
+    }
     // ESC 로 닫기
     document.addEventListener('keydown', function (e) {
       if (e.key === 'Escape' && panel.classList.contains('is-open')) closeNotification();
@@ -177,11 +234,14 @@
     var panel = document.getElementById('notificationPanel');
     if (!panel) return;
     panel.style.display = 'block';
+    // 즉시 캐시 렌더 후, 서버에서 최신 받아 재렌더(패널 열 때 갱신)
     renderList();
+    fetchNotifications().then(function () {
+      renderList();
+      updateNotificationBadges();
+    });
     // reflow 후 transition 적용
     requestAnimationFrame(function () { panel.classList.add('is-open'); });
-    // 패널 열면 전체 읽음 처리 → 배지 갱신
-    markAllAsRead();
   }
 
   function closeNotification() {
@@ -191,122 +251,132 @@
     setTimeout(function () { panel.style.display = 'none'; }, 300);
   }
 
+  /* ===== 항목 이동: 읽음 처리 후 상세로 ===== */
+  function goToFund(id, fundId) {
+    postRead(id);
+    renderList();
+    updateNotificationBadges();
+    if (fundId) {
+      window.location.href = '/detail.html?id=' + encodeURIComponent(fundId);
+    }
+  }
+
   /* ===== 리스트 렌더링 ===== */
+  // SVG 화살표 아이콘 노드를 만든다(이모지 금지 — 인라인 SVG).
+  function arrowIcon() {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    var p1 = document.createElementNS(ns, 'path'); p1.setAttribute('d', 'M5 12h14');
+    var p2 = document.createElementNS(ns, 'path'); p2.setAttribute('d', 'M12 5l7 7-7 7');
+    svg.appendChild(p1); svg.appendChild(p2);
+    return svg;
+  }
+
   function renderList() {
     var container = document.getElementById('notifList');
     if (!container) return;
 
-    var items = getNotifications();
+    var items = state.items;
+
+    // 헤더 카운트(미읽음 수)
     var countEl = document.getElementById('notifCount');
     if (countEl) {
-      if (items.length > 0) { countEl.textContent = String(items.length); countEl.hidden = false; }
-      else { countEl.hidden = true; }
+      if (state.unreadCount > 0) {
+        countEl.textContent = state.unreadCount > 99 ? '99+' : String(state.unreadCount);
+        countEl.hidden = false;
+      } else {
+        countEl.hidden = true;
+      }
     }
+    // "모두 읽음" 버튼 활성/비활성
+    var readAllBtn = document.getElementById('notifReadAll');
+    if (readAllBtn) readAllBtn.disabled = state.unreadCount <= 0;
 
-    if (items.length === 0) {
+    // 비우고 다시 채움(노드 기반 — 사용자 데이터는 textContent 로만)
+    container.innerHTML = '';
+
+    if (!items || items.length === 0) {
       container.innerHTML = ''
         + '<div class="wz-notif__empty">'
         +   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>'
         +   '<strong>알림이 없습니다</strong>'
-        +   '<span>공구에 참여하면 알림을 받을 수 있어요</span>'
+        +   '<span>프로젝트에 참여하면 알림을 받을 수 있어요</span>'
         + '</div>';
       return;
     }
 
-    container.innerHTML = items.map(function (item) {
-      var rate = rateOf(item);
-      var capped = Math.min(rate, 100);
-      var achieved = rate >= 100;
-      var size = localStorage.getItem('selectedSize_' + item.id) || 'Free';
+    items.forEach(function (item) {
+      if (!item || item.id == null) return;
+      var id = String(item.id);
+      var fundId = item.fundId != null ? String(item.fundId) : '';
+      var unread = item.isRead === false;
 
-      var id = encodeURIComponent(item.id);
-      var title = esc(item.title);
-      var imageUrl = esc(item.imageUrl);
-      var safeSize = esc(size);
-      var sizeForUrl = encodeURIComponent(size);
-      var unread = !isRead(item.id) ? ' is-unread' : '';
-      var dataId = esc(item.id);
+      // 항목 컨테이너 — 클릭 시 읽음 + (fundId 있으면)이동
+      var el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'wz-notif__item' + (unread ? ' is-unread' : '');
+      el.setAttribute('data-notif-id', id);
 
-      var thumb = imageUrl
-        ? '<div class="wz-notif__thumb"><img src="' + imageUrl + '" alt="' + title + '"></div>'
-        : '<div class="wz-notif__thumb"></div>';
+      var row = document.createElement('div');
+      row.className = 'wz-notif__row';
 
-      if (achieved && !item.isPaid) {
-        // 100% 달성 + 미결제 → 결제 유도 (CTA 는 별도 링크, 항목 본체는 상세)
-        return ''
-          + '<div class="wz-notif__item' + unread + '" data-notif-id="' + dataId + '">'
-          +   '<a class="wz-notif__row" href="detail.html?id=' + id + '" data-notif-link data-notif-id="' + dataId + '" style="text-decoration:none;color:inherit;">'
-          +     '<span class="wz-notif__udot" aria-hidden="true"></span>'
-          +     thumb
-          +     '<span class="wz-notif__body">'
-          +       '<span class="wz-notif__name">' + title + '</span>'
-          +       '<span class="wz-notif__msg wz-notif__msg--go">100% 달성! 결제를 진행해 주세요</span>'
-          +     '</span>'
-          +   '</a>'
-          +   '<div class="wz-notif__progress wz-notif__progress--done"><span style="width:100%"></span></div>'
-          +   '<div class="wz-notif__meta">'
-          +     '<span class="wz-notif__rate wz-notif__rate--done">' + rate + '% 달성</span>'
-          +     '<span class="wz-notif__size">사이즈: ' + safeSize + '</span>'
-          +   '</div>'
-          +   '<a class="wz-notif__cta" href="detail.html?id=' + id + '" data-notif-link data-notif-id="' + dataId + '">펀딩하기</a>'
-          + '</div>';
+      var dot = document.createElement('span');
+      dot.className = 'wz-notif__udot';
+      dot.setAttribute('aria-hidden', 'true');
+      row.appendChild(dot);
+
+      var body = document.createElement('div');
+      body.className = 'wz-notif__body';
+
+      var name = document.createElement('div');
+      name.className = 'wz-notif__name';
+      name.textContent = item.title == null ? '' : String(item.title); // XSS 안전
+      body.appendChild(name);
+
+      if (item.body != null && String(item.body).trim() !== '') {
+        var msg = document.createElement('div');
+        msg.className = 'wz-notif__msg';
+        msg.textContent = String(item.body); // XSS 안전
+        body.appendChild(msg);
       }
 
-      if (item.isPaid) {
-        // 결제 완료 → 상세
-        return ''
-          + '<a class="wz-notif__item' + unread + '" href="detail.html?id=' + id + '" data-notif-link data-notif-id="' + dataId + '">'
-          +   '<div class="wz-notif__row">'
-          +     '<span class="wz-notif__udot" aria-hidden="true"></span>'
-          +     thumb
-          +     '<div class="wz-notif__body">'
-          +       '<div class="wz-notif__name">' + title + '</div>'
-          +       '<div class="wz-notif__msg wz-notif__msg--done">결제 완료</div>'
-          +     '</div>'
-          +   '</div>'
-          + '</a>';
+      var time = document.createElement('div');
+      time.className = 'wz-notif__time';
+      time.textContent = relTime(item.createdAt);
+      body.appendChild(time);
+
+      // fundId 있으면 "펀딩 보러가기" 버튼
+      if (fundId) {
+        var cta = document.createElement('span');
+        cta.className = 'wz-notif__cta';
+        cta.appendChild(document.createTextNode('펀딩 보러가기'));
+        cta.appendChild(arrowIcon());
+        cta.addEventListener('click', function (e) {
+          e.stopPropagation();
+          goToFund(id, fundId);
+        });
+        body.appendChild(cta);
       }
 
-      // 진행 중 → 상세
-      return ''
-        + '<a class="wz-notif__item' + unread + '" href="detail.html?id=' + id + '" data-notif-link data-notif-id="' + dataId + '">'
-        +   '<div class="wz-notif__row">'
-        +     '<span class="wz-notif__udot" aria-hidden="true"></span>'
-        +     thumb
-        +     '<div class="wz-notif__body">'
-        +       '<div class="wz-notif__name">' + title + '</div>'
-        +       '<div class="wz-notif__msg">공구가 현재 ' + rate + '% 진행 중입니다</div>'
-        +       '<div class="wz-notif__progress"><span style="width:' + capped + '%"></span></div>'
-        +     '</div>'
-        +   '</div>'
-        + '</a>';
-    }).join('');
+      row.appendChild(body);
+      el.appendChild(row);
 
-    // 항목 클릭 → 해당 읽음 처리(이동은 링크 기본 동작)
-    container.querySelectorAll('[data-notif-link]').forEach(function (a) {
-      a.addEventListener('click', function () {
-        var nid = a.getAttribute('data-notif-id');
-        if (nid) markRead(nid);
+      // 항목 본체 클릭: 읽음 처리 + fundId 있으면 이동, 없으면 읽음만
+      el.addEventListener('click', function () {
+        goToFund(id, fundId);
       });
+
+      container.appendChild(el);
     });
   }
 
   /* ===== 미확인 배지 ===== */
-  function getUnreadCount() {
-    var items = getNotifications();
-    var readIds = getReadIds();
-    return items.filter(function (p) { return readIds.indexOf(p.id) === -1; }).length;
-  }
-
-  function markAllAsRead() {
-    var ids = getNotifications().map(function (p) { return p.id; });
-    // 기존 읽음 + 현재 알림 전체(중복 제거)
-    var merged = getReadIds().slice();
-    ids.forEach(function (id) { if (merged.indexOf(id) === -1) merged.push(id); });
-    saveReadIds(merged);
-    updateNotificationBadges();
-  }
-
   // 헤더 종 아이콘 후보: 우선 #wz-bell, 없으면 wz 헤더의 알림 아이콘, 그 외 aria-label="알림"
   function getBellTargets() {
     var targets = [];
@@ -320,7 +390,7 @@
   }
 
   function updateNotificationBadges() {
-    var count = getUnreadCount();
+    var count = state.unreadCount;
     var label = count > 99 ? '99+' : String(count);
     getBellTargets().forEach(function (el) {
       var isWzIcon = el.classList && el.classList.contains('wz-hd__icon');
@@ -345,7 +415,7 @@
       if (el.getAttribute('data-notif-bound') === '1') return;
       el.setAttribute('data-notif-bound', '1');
       el.addEventListener('click', function (e) {
-        // 앵커면 기본 이동 막고 패널 오픈(레거시 button 은 main.js 가 이미 openNotification 호출하므로 중복 방지)
+        // 앵커면 기본 이동 막고 패널 오픈(레거시 button 은 wz-core 가 이미 openNotification 호출하므로 중복 방지)
         if (el.tagName === 'A') {
           e.preventDefault();
           openNotification();
@@ -354,10 +424,25 @@
     });
   }
 
+  // 배지 갱신용 — 서버에서 미읽음 수만 다시 받아 배지 반영(패널 닫혀 있어도 주기 갱신)
+  function refreshBadge() {
+    fetchNotifications().then(function () {
+      updateNotificationBadges();
+      // 패널이 열려 있으면 리스트도 최신으로
+      var panel = document.getElementById('notificationPanel');
+      if (panel && panel.classList.contains('is-open')) renderList();
+    });
+  }
+
   function injectNotificationBadges() {
     ensureStyle();
     bindBellClicks();
-    updateNotificationBadges();
+    // 아직 한 번도 서버에서 못 받았으면 받아서 배지 표시, 받았으면 캐시로 즉시 반영
+    if (!state.loaded && !state.loading) {
+      refreshBadge();
+    } else {
+      updateNotificationBadges();
+    }
   }
 
   /* ===== 전역 노출 ===== */
@@ -368,8 +453,12 @@
   window.injectNotificationBadges = injectNotificationBadges;
 
   /* ===== 초기화 ===== */
+  var pollTimer = null;
   function init() {
     injectNotificationBadges();
+    // 주기 갱신(60초) — 중복 타이머 방지
+    if (pollTimer) clearInterval(pollTimer);
+    pollTimer = setInterval(refreshBadge, POLL_MS);
   }
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
@@ -377,8 +466,8 @@
     init();
   }
 
-  // 헤더가 동적으로 추가되는 wz 페이지: 벨이 늦게 생기거나 데이터가 늦게 로드돼도 배지 갱신
+  // 헤더가 동적으로 추가되는 wz 페이지: 벨이 늦게 생겨도 배지 바인딩/갱신
   window.addEventListener('mockproducts:updated', injectNotificationBadges);
-  // wz-core 헤더 주입 직후를 대비한 짧은 지연 재시도(셸 에이전트의 #wz-bell 부여 포함)
+  // wz-core 헤더 주입 직후를 대비한 짧은 지연 재시도(#wz-bell 부여 포함)
   setTimeout(injectNotificationBadges, 400);
 })();

@@ -380,6 +380,21 @@ button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; f
 .wz-follsec__empty img { width: 120px; opacity: .92; margin-bottom: 10px; }
 .wz-follsec__empty p { color: var(--c-text-muted); font-size: 14px; margin: 0 0 16px; }
 
+/* 팔로잉 로딩 스켈레톤 — 도착 전까지 회색 카드 placeholder(shimmer) 노출, 체감 지연 완화 */
+.wz-skel { position: relative; overflow: hidden; background: var(--c-divider); border-radius: 8px; }
+.wz-skel::after {
+  content: ""; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent);
+  transform: translateX(-100%); animation: wz-shimmer 1.3s ease-in-out infinite;
+}
+@keyframes wz-shimmer { 100% { transform: translateX(100%); } }
+.wz-skcard { display: block; }
+.wz-skcard__thumb { aspect-ratio: 1/1; border-radius: 8px; }
+.wz-skcard__line { height: 13px; border-radius: 6px; margin-top: 10px; }
+.wz-skcard__line--rate { width: 40%; margin-top: 12px; }
+.wz-skcard__line--short { width: 60%; }
+@media (prefers-reduced-motion: reduce) { .wz-skel::after { animation: none; } }
+
 @media (max-width: 767px) {
   .wz-follsec { margin-top: 36px; }
   .wz-hero__captext { max-width: 84%; max-height: 78px; }

@@ -44,3 +44,7 @@ export { PgChatRepository } from './pg-chat-repository.js';
 // Project drafts(만들기 폼 임시저장) — 022_create_extras
 export type { ProjectDraftRepository, ProjectDraftSummary } from './project-draft-repository.js';
 export { PgProjectDraftRepository } from './pg-project-draft-repository.js';
+
+// Notifications(서버 기반 알림) — 024_notifications
+export type { NotificationRepository, NotificationCreate } from './notification-repository.js';
+export { PgNotificationRepository } from './pg-notification-repository.js';

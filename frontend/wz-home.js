@@ -33,12 +33,13 @@
     const followingWrap = W.el('div', { class: 'wz-following' });
     home.appendChild(followingWrap);
 
-    // 최근 본 프로젝트 — localStorage recentFunds ∩ 현재 존재하는 펀드만(있을 때만 표시)
+    const browse = BrowseSection();
+    home.appendChild(browse.node);
+
+    // 최근 본 프로젝트 — 둘러보기 바로 아래. localStorage recentFunds ∩ 현재 존재하는 펀드만(있을 때만 표시)
     const recentWrap = W.el('div', { class: 'wz-recentwrap' });
     home.appendChild(recentWrap);
 
-    const browse = BrowseSection();
-    home.appendChild(browse.node);
     root.appendChild(home);
 
     // 초기 상태: URL ?sort= / ?category=
@@ -347,9 +348,12 @@
   }
 
   /* ---- 팔로우한 창작자의 프로젝트 ----
-   * 로그인 상태면 GET /api/me/following-feed → 카드 그리드.
+   * 컨테이너를 먼저 배치 → 로그인 확인 동안 스켈레톤 노출(체감 지연 완화).
+   * 로그인 상태면 GET /api/me/following-feed → 카드 그리드로 교체.
    * 결과 없으면 안내 + 둘러보기. 비로그인은 섹션 숨김. */
   function buildFollowing(wrap) {
+    // 도착 전까지 회색 카드 스켈레톤을 먼저 보여줌
+    wrap.replaceChildren(FollowingSkeleton());
     W.fetchMe().then((me) => {
       if (!me) { wrap.replaceChildren(); return; } // 비로그인: 미표시
       window.api.get('/me/following-feed?limit=12', { silentAuthFail: true })
@@ -358,13 +362,34 @@
           wrap.replaceChildren(FollowingSection(items));
         })
         .catch(() => { wrap.replaceChildren(); });
-    });
+    }).catch(() => { wrap.replaceChildren(); });
+  }
+
+  /* 팔로잉 로딩 스켈레톤 — 제목 자리 + 회색 카드 placeholder 가로 한 줄 */
+  function FollowingSkeleton() {
+    const sec = W.el('section', { class: 'wz-follsec wz-follsec--loading', 'aria-busy': 'true' });
+    const head = W.el('div', { class: 'wz-shelf__head' });
+    head.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '팔로우한 창작자 프로젝트'));
+    sec.appendChild(head);
+    const scroll = W.el('div', { class: 'wz-shelf__scroll' });
+    for (let i = 0; i < 5; i++) {
+      const card = W.el('div', { class: 'wz-skcard' });
+      card.append(
+        W.el('div', { class: 'wz-skel wz-skcard__thumb' }),
+        W.el('div', { class: 'wz-skel wz-skcard__line wz-skcard__line--rate' }),
+        W.el('div', { class: 'wz-skel wz-skcard__line' }),
+        W.el('div', { class: 'wz-skel wz-skcard__line wz-skcard__line--short' })
+      );
+      scroll.appendChild(card);
+    }
+    sec.appendChild(scroll);
+    return sec;
   }
 
   function FollowingSection(items) {
     const sec = W.el('section', { class: 'wz-follsec' });
     const head = W.el('div', { class: 'wz-shelf__head' });
-    head.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '팔로잉'));
+    head.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '팔로우한 창작자 프로젝트'));
     if (items.length) head.appendChild(W.el('a', { class: 'wz-shelf__more', href: '/feed.html?feed=following' }, '전체보기'));
     sec.appendChild(head);
 

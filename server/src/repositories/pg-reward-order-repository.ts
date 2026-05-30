@@ -164,6 +164,19 @@ export class PgRewardOrderRepository {
     }
   }
 
+  /**
+   * 해당 펀드의 후원자(고유 user_id) 목록 — 알림 발송 대상.
+   * 취소(cancelled) 제외, 입금대기/확정 후원자만. created_at 최신 우선.
+   */
+  async backerUserIds(fundId: string): Promise<string[]> {
+    const res = await this.pool.query(
+      `SELECT DISTINCT user_id FROM reward_orders
+        WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')`,
+      [fundId],
+    );
+    return res.rows.map((r) => r.user_id as string);
+  }
+
   // 특정 티어의 확정 수량(재고 차감 계산용)
   async confirmedCountForTier(fundId: string, rewardTierId: string): Promise<number> {
     const res = await this.pool.query(

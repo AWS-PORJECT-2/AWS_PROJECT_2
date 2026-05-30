@@ -228,7 +228,7 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-sharesheet__close { appearance: none; border: 0; background: none; cursor: pointer; color: var(--c-text-muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
 .wz-d-sharesheet__close:hover { color: var(--c-text); }
 .wz-d-sharesheet__close svg { width: 22px; height: 22px; }
-.wz-d-sharesheet__grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.wz-d-sharesheet__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
 .wz-d-shareitem { appearance: none; background: none; border: 0; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 2px; }
 .wz-d-shareitem__ic { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--c-border); color: var(--c-text-sub); transition: transform .12s, border-color .12s, color .12s; }
 .wz-d-shareitem:hover .wz-d-shareitem__ic { transform: translateY(-2px); border-color: var(--c-primary-300); color: var(--c-primary-600); }

@@ -7,8 +7,10 @@ import type { UserRepository } from '../repositories/user-repository.js';
 import type { OAuthStateRepository } from '../repositories/oauth-state-repository.js';
 import type { RefreshTokenRepository } from '../repositories/refresh-token-repository.js';
 import type { AuthResult, User } from '../types/index.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
 import { AppError } from '../errors/app-error.js';
 import { TokenServiceImpl } from './token-service.js';
+import { notify } from './notify.js';
 import { logger } from '../logger.js';
 
 const OAUTH_STATE_TTL_MS = 5 * 60 * 1000;
@@ -20,6 +22,8 @@ export interface AuthServiceDeps {
   userRepository: UserRepository;
   oauthStateRepository: OAuthStateRepository;
   refreshTokenRepository: RefreshTokenRepository;
+  // 선택: 신규 가입 시 환영 알림(best-effort). 미주입 시 알림만 생략(가입 흐름 영향 없음).
+  notificationRepository?: NotificationRepository;
 }
 
 export class AuthServiceImpl implements AuthService {
@@ -29,6 +33,7 @@ export class AuthServiceImpl implements AuthService {
   private readonly userRepo: UserRepository;
   private readonly oauthStateRepo: OAuthStateRepository;
   private readonly refreshTokenRepo: RefreshTokenRepository;
+  private readonly notificationRepo?: NotificationRepository;
 
   constructor(deps: AuthServiceDeps) {
     this.emailValidator = deps.emailValidator;
@@ -37,6 +42,7 @@ export class AuthServiceImpl implements AuthService {
     this.userRepo = deps.userRepository;
     this.oauthStateRepo = deps.oauthStateRepository;
     this.refreshTokenRepo = deps.refreshTokenRepository;
+    this.notificationRepo = deps.notificationRepository;
   }
 
   async initiateLogin(rememberMe: boolean): Promise<{ authUrl: string; state: string }> {
@@ -133,7 +139,17 @@ export class AuthServiceImpl implements AuthService {
     const domain = email.split('@')[1] ?? '';
     const now = new Date();
     const user: User = { id: randomUUID(), email: lower, name, schoolDomain: domain.toLowerCase(), picture, role: isAdminEmail ? 'ADMIN' : 'USER', createdAt: now, lastLoginAt: now };
-    return this.userRepo.create(user);
+    const created = await this.userRepo.create(user);
+    // 첫 회원가입 환영 알림(best-effort) — 실패해도 가입 흐름은 막지 않음.
+    if (this.notificationRepo) {
+      await notify(this.notificationRepo, {
+        userId: created.id,
+        type: 'welcome',
+        title: '두띵에 오신 것을 환영해요',
+        body: '관심 있는 프로젝트를 후원하고, 직접 프로젝트를 열어보세요.',
+      });
+    }
+    return created;
   }
 }
 
