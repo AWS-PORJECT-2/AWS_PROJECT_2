@@ -797,7 +797,11 @@ function HomeProjectSection(title, items, badge) {
   sec.appendChild(head);
 
   if (!items || items.length === 0) {
-    sec.appendChild(el('div', { class: 'dt-home-sec__empty' }, '아직 등록된 프로젝트가 없어요. 첫 프로젝트를 올려보세요!'));
+    const empty = el('div', { class: 'dt-home-sec__empty' });
+    empty.appendChild(el('p', { class: 'dt-home-sec__empty-title' }, '아직 등록된 프로젝트가 없어요'));
+    empty.appendChild(el('p', { class: 'dt-home-sec__empty-sub' }, '첫 프로젝트의 주인공이 되어보세요.'));
+    empty.appendChild(el('a', { class: 'dt-btn dt-btn--primary', href: '/fund-create.html' }, '프로젝트 올리기'));
+    sec.appendChild(empty);
     return sec;
   }
   const grid = el('div', { class: 'dt-pcard-grid' });
@@ -832,6 +836,52 @@ function ProjectCard(p, badge) {
   return card;
 }
 
+/* 홈 히어로 — 헤드라인 + CTA. 이미지(/assets/hero-main.png) 있으면 우측에 표시, 없으면 그라데이션. */
+function HomeHero() {
+  const sec = el('section', { class: 'dt-hero' });
+  const inner = el('div', { class: 'dt-hero__inner' });
+  const copy = el('div', { class: 'dt-hero__copy' });
+  copy.appendChild(el('span', { class: 'dt-hero__eyebrow' }, '대학생 굿즈 크라우드펀딩'));
+  copy.appendChild(el('h1', { class: 'dt-hero__title' }, '우리의 상상을\n현실로 만드는 곳'));
+  copy.appendChild(el('p', { class: 'dt-hero__sub' }, '과잠부터 키링까지 — 함께 모여 만들고, 함께 나눠요. 두띵에서 아이디어를 펀딩으로.'));
+  const cta = el('div', { class: 'dt-hero__cta' });
+  cta.appendChild(el('a', { class: 'dt-btn dt-btn--primary dt-btn--lg', href: '/fund-create.html' }, '프로젝트 올리기'));
+  cta.appendChild(el('a', { class: 'dt-btn dt-btn--outline dt-btn--lg', href: '/feed.html' }, '둘러보기'));
+  copy.appendChild(cta);
+  inner.appendChild(copy);
+
+  const art = el('div', { class: 'dt-hero__art' });
+  const img = el('img', { src: '/assets/hero-main.png', alt: '', loading: 'eager' });
+  img.addEventListener('error', () => { art.classList.add('dt-hero__art--empty'); img.remove(); });
+  art.appendChild(img);
+  inner.appendChild(art);
+  sec.appendChild(inner);
+  return sec;
+}
+
+/* 어떻게 진행되나요 — 3단계 */
+function HowItWorks() {
+  const steps = [
+    ['프로젝트 발견', '카테고리·인기·신규에서 마음에 드는 굿즈 프로젝트를 찾아요.'],
+    ['후원하기', '원하는 선물(리워드)을 골라 후원해요. 목표 금액이 모이면 제작이 시작돼요.'],
+    ['배송 받기', '제작 완료 후 등록한 배송지로 굿즈가 도착해요.'],
+  ];
+  const sec = el('section', { class: 'dt-how' });
+  const inner = el('div', { class: 'dt-how__inner' });
+  inner.appendChild(el('h2', { class: 'dt-how__title' }, '두띵은 이렇게 진행돼요'));
+  const row = el('div', { class: 'dt-how__row' });
+  steps.forEach((s, i) => {
+    const card = el('div', { class: 'dt-how__card' });
+    card.appendChild(el('div', { class: 'dt-how__num' }, String(i + 1)));
+    card.appendChild(el('h3', { class: 'dt-how__step-title' }, s[0]));
+    card.appendChild(el('p', { class: 'dt-how__step-desc' }, s[1]));
+    row.appendChild(card);
+  });
+  inner.appendChild(row);
+  sec.appendChild(inner);
+  return sec;
+}
+
 function App() {
   document.body.classList.add('main-page');
   const pageMode = document.body.dataset.page || 'main';
@@ -855,8 +905,9 @@ function App() {
     return;
   }
 
-  // 메인 페이지 (텀블벅형: 카테고리 그리드 + 프로젝트 카드 그리드)
+  // 메인 페이지 — 히어로 + 카테고리 + 프로젝트 + 진행안내
   root.appendChild(Header());
+  root.appendChild(HomeHero());
   root.appendChild(CategoryGrid());
 
   const popularWrap = el('section', { class: 'dt-home-sec' });
@@ -864,6 +915,7 @@ function App() {
   root.appendChild(popularWrap);
   root.appendChild(newWrap);
   root.appendChild(RecentlyViewed());
+  root.appendChild(HowItWorks());
 
   function buildHome() {
     const products = (Array.isArray(window.MOCK_PRODUCTS)) ? window.MOCK_PRODUCTS : [];

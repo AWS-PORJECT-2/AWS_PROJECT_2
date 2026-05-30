@@ -1010,3 +1010,45 @@ body:not([data-page]) .dt-new-picks .grid > .slot:nth-child(5) { animation-delay
   /* 상세 페이지엔 하단 후원바가 따로 → 탭바 숨김(후속 Phase에서 후원바 도입) */
   body[data-page="detail"] .dt-tabbar { display: none; }
 }
+
+/* =====================================================================
+ * 홈 히어로 / 진행안내 (재구축)
+ * ===================================================================== */
+.dt-hero { background: linear-gradient(135deg, #faf8ff 0%, #f3f0fe 60%, #ede9fe 100%); border-bottom: 1px solid #f0edfa; }
+.dt-hero__inner {
+  max-width: 1180px; margin: 0 auto; padding: 56px 24px;
+  display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: center;
+}
+.dt-hero__eyebrow { display: inline-block; font-size: 13px; font-weight: 700; color: var(--c-primary-600); background: #fff; padding: 5px 12px; border-radius: 999px; box-shadow: var(--sh-1); }
+.dt-hero__title { font-size: 40px; line-height: 1.25; font-weight: 800; color: var(--c-text); margin: 18px 0 0; white-space: pre-line; letter-spacing: -0.5px; }
+.dt-hero__sub { font-size: 16px; line-height: 1.6; color: var(--c-text-sub); margin: 16px 0 0; max-width: 420px; }
+.dt-hero__cta { display: flex; gap: 12px; margin-top: 28px; flex-wrap: wrap; }
+.dt-hero__art { display: flex; align-items: center; justify-content: center; min-height: 240px; }
+.dt-hero__art img { width: 100%; max-width: 520px; height: auto; display: block; }
+.dt-hero__art--empty { border-radius: var(--r-lg); background:
+  radial-gradient(circle at 30% 30%, #c4b5fd 0, transparent 45%),
+  radial-gradient(circle at 70% 70%, #a78bfa 0, transparent 45%), #ede9fe;
+  min-height: 280px; opacity: .55; }
+
+.dt-how { background: var(--c-surface); border-top: 1px solid var(--c-divider); }
+.dt-how__inner { max-width: 1180px; margin: 0 auto; padding: 56px 24px; }
+.dt-how__title { font-size: 22px; font-weight: 800; text-align: center; margin: 0 0 36px; color: var(--c-text); }
+.dt-how__row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+.dt-how__card { text-align: center; padding: 28px 20px; border: 1px solid var(--c-border); border-radius: var(--r-lg); background: #fff; }
+.dt-how__num { width: 44px; height: 44px; margin: 0 auto 16px; border-radius: 50%; background: var(--c-primary-500); color: #fff; font-size: 20px; font-weight: 800; display: flex; align-items: center; justify-content: center; }
+.dt-how__step-title { font-size: 17px; font-weight: 700; margin: 0 0 8px; color: var(--c-text); }
+.dt-how__step-desc { font-size: 14px; line-height: 1.6; color: var(--c-text-sub); margin: 0; }
+
+/* 홈 섹션 빈 상태 (CTA) */
+.dt-home-sec__empty { padding: 56px 24px; text-align: center; background: var(--c-primary-50); border-radius: var(--r-lg); }
+.dt-home-sec__empty-title { font-size: 16px; font-weight: 700; color: var(--c-text); margin: 0 0 6px; }
+.dt-home-sec__empty-sub { font-size: 14px; color: var(--c-text-sub); margin: 0 0 18px; }
+
+@media (max-width: 767px) {
+  .dt-hero__inner { grid-template-columns: 1fr; gap: 24px; padding: 36px 16px; }
+  .dt-hero__art { order: -1; min-height: 160px; }
+  .dt-hero__title { font-size: 30px; }
+  .dt-how__inner { padding: 40px 16px; }
+  .dt-how__row { grid-template-columns: 1fr; gap: 14px; }
+  .dt-how__card { padding: 22px 18px; }
+}
