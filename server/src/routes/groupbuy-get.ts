@@ -36,6 +36,7 @@ export function createGroupBuyGetHandler(repo: GroupBuyRepository) {
       description: g.description,
       category: g.category ?? null,
       creatorId: g.creatorId,
+      rewardTiers: g.rewardTiers ?? null,
       designImageUrl: g.designImageUrl ?? null,
       tryonImageUrl: g.tryonImageUrl ?? null,
       contentBlocks: g.contentBlocks ?? null,

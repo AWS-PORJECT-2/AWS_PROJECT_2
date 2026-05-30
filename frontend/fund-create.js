@@ -12,8 +12,7 @@
 
 (function () {
   // ========== 상수 ==========
-  const PLATFORM_FEE = 5000; // 인쇄/중개 통합 수수료
-  const BASE_PRICE_DEFAULT = 20000;
+  // 가격은 창작자가 리워드별로 직접 설정(플랫폼 프리셋 폐지).
   const MIN_DEADLINE_DAYS = 7;
   const RECOMMEND_DEADLINE_DAYS = 14;
 
@@ -24,9 +23,11 @@
     designImages: [],   // 업로드한 디자인 이미지 (dataURL 배열, 최대 5장)
     tryOnImage: null,
     contentBlocks: [],  // 게시글 본문 블록 [{type:'text'|'image', value}]
+    rewardTiers: [],    // 리워드(선물) [{title, price, description, stockLimit}]
     formValues: null,
   };
   const MAX_IMAGES = 5;
+  const MAX_TIERS = 12;
 
   // ========== 초기화 ==========
   document.addEventListener('DOMContentLoaded', init);
@@ -264,8 +265,86 @@
 
   // ========== Step 2: 펀드 정보 ==========
   function bindStep2() {
-    document.getElementById('fundDesignFee').addEventListener('input', updatePricePreview);
     bindContentComposer();
+    bindRewardComposer();
+  }
+
+  // 리워드(선물) 구성 — 동적 행 추가/삭제. 금액은 창작자가 직접 입력.
+  function bindRewardComposer() {
+    document.getElementById('addRewardTier').addEventListener('click', function () {
+      if (state.rewardTiers.length >= MAX_TIERS) { alert('리워드는 최대 ' + MAX_TIERS + '개까지 추가할 수 있어요.'); return; }
+      state.rewardTiers.push({ title: '', price: '', description: '', stockLimit: '' });
+      renderRewardTiers();
+    });
+    // 기본 1개 제공
+    if (state.rewardTiers.length === 0) {
+      state.rewardTiers.push({ title: '', price: '', description: '', stockLimit: '' });
+    }
+    renderRewardTiers();
+  }
+
+  function renderRewardTiers() {
+    var box = document.getElementById('rewardTiers');
+    box.innerHTML = '';
+    state.rewardTiers.forEach(function (tier, idx) {
+      var row = document.createElement('div');
+      row.style.cssText = 'position:relative;border:1px solid #e5e7eb;border-radius:12px;padding:14px;background:#fff;';
+
+      var grid = document.createElement('div');
+      grid.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;';
+
+      grid.appendChild(tierInput('선물명', 'text', tier.title, '예) [얼리버드] 네이비 과잠', '2 1 200px', function (v) { tier.title = v; }));
+      grid.appendChild(tierInput('금액(원)', 'number', tier.price, '예) 39000', '1 1 120px', function (v) { tier.price = v; }));
+      grid.appendChild(tierInput('한정수량(선택)', 'number', tier.stockLimit, '비우면 무제한', '1 1 120px', function (v) { tier.stockLimit = v; }));
+
+      var descWrap = tierInput('제공 내용(선택)', 'text', tier.description, '후원자에게 제공할 내용', '1 1 100%', function (v) { tier.description = v; });
+      descWrap.style.marginTop = '10px';
+
+      row.appendChild(grid);
+      row.appendChild(descWrap);
+
+      if (state.rewardTiers.length > 1) {
+        var del = document.createElement('button');
+        del.type = 'button';
+        del.textContent = '×';
+        del.setAttribute('aria-label', '리워드 삭제');
+        del.style.cssText = 'position:absolute;top:8px;right:8px;width:24px;height:24px;border:none;border-radius:50%;background:rgba(0,0,0,0.45);color:#fff;font-size:15px;line-height:1;cursor:pointer;padding:0;';
+        del.onclick = function () { state.rewardTiers.splice(idx, 1); renderRewardTiers(); };
+        row.appendChild(del);
+      }
+      box.appendChild(row);
+    });
+  }
+
+  function tierInput(labelText, type, value, placeholder, flex, onInput) {
+    var wrap = document.createElement('label');
+    wrap.style.cssText = 'flex:' + flex + ';display:flex;flex-direction:column;gap:4px;font-size:12px;color:#6b7280;font-weight:600;';
+    var span = document.createElement('span');
+    span.textContent = labelText;
+    var input = document.createElement('input');
+    input.type = type;
+    if (type === 'number') { input.min = '0'; input.step = type === 'number' && labelText.indexOf('금액') >= 0 ? '100' : '1'; }
+    input.value = value == null ? '' : value;
+    input.placeholder = placeholder;
+    input.style.cssText = 'padding:10px;border:1.5px solid #e5e7eb;border-radius:8px;font-size:14px;font-weight:500;color:#1a1a1a;width:100%;box-sizing:border-box;';
+    input.addEventListener('input', function () { onInput(input.value); });
+    wrap.appendChild(span); wrap.appendChild(input);
+    return wrap;
+  }
+
+  // 입력된 리워드를 검증·정제하여 페이로드용 배열 반환(빈 행 제외). 유효 0개면 null.
+  function collectRewardTiers() {
+    var out = [];
+    state.rewardTiers.forEach(function (t) {
+      var title = (t.title || '').trim();
+      var price = parseInt(t.price, 10);
+      if (!title || !Number.isFinite(price) || price < 0) return;
+      var tier = { title: title, price: price, description: (t.description || '').trim() };
+      var stock = parseInt(t.stockLimit, 10);
+      if (Number.isFinite(stock) && stock >= 1) tier.stockLimit = stock;
+      out.push(tier);
+    });
+    return out.length ? out : null;
   }
 
   // 게시글 본문 작성기 — 텍스트/사진 블록을 원하는 순서로 추가
@@ -327,15 +406,6 @@
     });
   }
 
-  function updatePricePreview() {
-    var designFee = clampInt(document.getElementById('fundDesignFee').value, 0, 50000);
-    document.getElementById('previewBasePrice').textContent = formatWon(BASE_PRICE_DEFAULT);
-    document.getElementById('previewDesignFee').textContent = formatWon(designFee);
-    document.getElementById('previewPlatformFee').textContent = formatWon(PLATFORM_FEE);
-    var finalPrice = BASE_PRICE_DEFAULT + designFee + PLATFORM_FEE;
-    document.getElementById('previewFinalPrice').textContent = formatWon(finalPrice);
-  }
-
   function setDefaultDeadline() {
     var input = document.getElementById('fundDeadline');
     var recommend = new Date();
@@ -356,13 +426,18 @@
   function onStep2Next() {
     var form = document.getElementById('fundForm');
     if (!form.reportValidity()) return;
+    var tiers = collectRewardTiers();
+    if (!tiers) {
+      alert('리워드(선물)를 최소 1개 입력해 주세요. (선물명과 금액 필수)');
+      return;
+    }
     state.formValues = {
       title: document.getElementById('fundTitle').value.trim(),
       description: document.getElementById('fundDescription').value.trim(),
       department: document.getElementById('fundDepartment').value.trim(),
-      designFee: clampInt(document.getElementById('fundDesignFee').value, 0, 50000),
       targetQuantity: clampInt(document.getElementById('fundTargetQuantity').value, 1, 500),
       deadline: document.getElementById('fundDeadline').value,
+      rewardTiers: tiers,
     };
     if (!state.formValues.title) return; // 소속·단체(department)는 선택
     goToStep(3);
@@ -379,7 +454,7 @@
     var summary = document.getElementById('finalSummary');
     summary.innerHTML = '';
     var v = state.formValues || {};
-    var finalPrice = BASE_PRICE_DEFAULT + (v.designFee || 0) + PLATFORM_FEE;
+    var tiers = v.rewardTiers || [];
     var catSel = document.getElementById('fundCategory');
     var catObj = (catSel && typeof window.dtCategory === 'function') ? window.dtCategory(catSel.value) : null;
     var rows = [
@@ -388,8 +463,7 @@
       ['소속·단체', v.department || '-'],
       ['목표 수량', (v.targetQuantity || 0) + '개'],
       ['마감일', v.deadline || '-'],
-      ['디자인 수수료', formatWon(v.designFee || 0)],
-      ['최종 구매가', formatWon(finalPrice)],
+      ['리워드', tiers.length + '종 (최저 ' + formatWon(Math.min.apply(null, tiers.map(function (t) { return t.price; }))) + ')'],
     ];
     rows.forEach(function (item) {
       var row = document.createElement('div');
@@ -400,6 +474,17 @@
       b.textContent = item[1];
       row.appendChild(a);
       row.appendChild(b);
+      summary.appendChild(row);
+    });
+    // 리워드 상세 목록
+    tiers.forEach(function (t) {
+      var row = document.createElement('div');
+      row.className = 'summary-row';
+      var a = document.createElement('span');
+      a.textContent = '· ' + t.title + (t.stockLimit ? ' (한정 ' + t.stockLimit + ')' : '');
+      var b = document.createElement('span');
+      b.textContent = formatWon(t.price);
+      row.appendChild(a); row.appendChild(b);
       summary.appendChild(row);
     });
   }
@@ -418,7 +503,7 @@
         description: state.formValues.description,
         department: state.formValues.department,
         category: (catSel && catSel.value) || 'etc',
-        designFee: state.formValues.designFee,
+        rewardTiers: state.formValues.rewardTiers,
         targetQuantity: state.formValues.targetQuantity,
         deadline: state.formValues.deadline,
         designImageDataUrl: state.designImages[0] || null,       // 옷 디자인 사진(있으면)

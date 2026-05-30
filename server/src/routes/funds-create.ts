@@ -1,7 +1,7 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
-import type { GroupBuy, ContentBlock } from '../types/index.js';
+import type { GroupBuy, ContentBlock, RewardTier } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
@@ -10,16 +10,18 @@ import { isValidCategory } from '../constants/categories.js';
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
 const DEPARTMENT_MAX = 50;
-const DESIGN_FEE_MAX = 50000;
 const TARGET_QTY_MAX = 500;
-
-// 가격은 서버에서만 계산 (클라이언트 입력 신뢰 안 함) — 프론트 표시값과 동일
-const BASE_PRICE = 20000;
-const PLATFORM_FEE = 5000;
 
 const MAX_IMG_CHARS = 12_000_000; // base64 data URL 약 8MB 상한
 const MAX_BLOCKS = 40;            // 게시글 본문 블록 최대 개수
 const MAX_TEXT_CHARS = 5000;      // 텍스트 블록 1개 최대 길이
+
+// 리워드(선물) 티어 — 가격은 창작자가 직접 설정(플랫폼 프리셋 폐지)
+const MAX_TIERS = 12;
+const TIER_TITLE_MAX = 60;
+const TIER_DESC_MAX = 500;
+const TIER_PRICE_MAX = 10_000_000;
+const TIER_STOCK_MAX = 100_000;
 
 /**
  * POST /api/funds  (펀드 = groupbuy 개설)
@@ -42,8 +44,8 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
     const department = stringField(body.department, '');
     const category = stringField(body.category);
     const deadline = stringField(body.deadline);
-    const designFee = intField(body.designFee, 0, DESIGN_FEE_MAX);
     const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX);
+    const rewardTiers = parseRewardTiers(body.rewardTiers);
     const designImage = imageField(body.designImageDataUrl);
     const tryonImage = imageField(Array.isArray(body.tryOnImages) ? body.tryOnImages[0] : body.tryOnImageDataUrl);
     const contentBlocks = parseBlocks(body.contentBlocks);
@@ -54,8 +56,8 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
     if (department && department.length > DEPARTMENT_MAX) errors.push('department'); // 소속·단체는 선택
     if (!category || !isValidCategory(category)) errors.push('category');
     if (!isValidFutureDate(deadline)) errors.push('deadline');
-    if (designFee === null) errors.push('designFee');
     if (targetQuantity === null) errors.push('targetQuantity');
+    if (!rewardTiers || rewardTiers.length === 0) errors.push('rewardTiers (최소 1개의 리워드 필요)');
     // 이미지는 선택: 디자인/피팅 없으면 본문 첫 이미지를 썸네일로 사용(아래). 둘 다 없어도 생성 허용.
 
     if (errors.length > 0) {
@@ -65,7 +67,9 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
       return;
     }
 
-    const finalPrice = BASE_PRICE + PLATFORM_FEE + (designFee as number);
+    const tiers = rewardTiers as NonNullable<typeof rewardTiers>;
+    // 대표 가격 = 최저 리워드가(목록/결제 호환). 가격은 전적으로 창작자 설정.
+    const finalPrice = Math.min(...tiers.map((t) => t.price));
     const now = new Date();
     // 썸네일 우선순위: 피팅 > 디자인 업로드 > 본문 첫 이미지 블록
     const firstContentImage = contentBlocks?.find((b) => b.type === 'image')?.value ?? null;
@@ -77,10 +81,11 @@ export function createFundsCreateHandler(groupBuyRepository: GroupBuyRepository)
       title,
       description,
       category,
+      rewardTiers: tiers,
       productOptions: [],
-      basePrice: BASE_PRICE,
-      designFee: designFee as number,
-      platformFee: PLATFORM_FEE,
+      basePrice: 0,
+      designFee: 0,
+      platformFee: 0, // 정산 수수료는 Phase 4(결제·정산)에서 별도 처리
       finalPrice,
       targetQuantity: targetQuantity as number,
       currentQuantity: 0,
@@ -116,6 +121,27 @@ function imageField(v: unknown): string | null {
   const isHttp = /^https?:\/\//.test(v);
   const isDataImage = /^data:image\/(png|jpe?g|webp);base64,/.test(v);
   return (isHttp || isDataImage) ? v : null;
+}
+
+// 리워드(선물) 티어 검증: 서버 권위 — id/soldCount 는 서버가 부여, 가격/수량 범위 검증.
+function parseRewardTiers(v: unknown): RewardTier[] | null {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  const tiers: RewardTier[] = [];
+  for (const t of v.slice(0, MAX_TIERS)) {
+    if (!t || typeof t !== 'object') continue;
+    const title = typeof t.title === 'string' ? t.title.trim() : '';
+    const price = Number(t.price);
+    if (!title || title.length > TIER_TITLE_MAX) continue;
+    if (!Number.isFinite(price) || price < 0 || price > TIER_PRICE_MAX) continue;
+    const description = typeof t.description === 'string' ? t.description.trim().slice(0, TIER_DESC_MAX) : '';
+    let stockLimit: number | null = null;
+    if (t.stockLimit != null && t.stockLimit !== '') {
+      const s = Number(t.stockLimit);
+      if (Number.isFinite(s) && s >= 1 && s <= TIER_STOCK_MAX) stockLimit = Math.floor(s);
+    }
+    tiers.push({ id: randomUUID(), title, price: Math.floor(price), description, stockLimit, soldCount: 0 });
+  }
+  return tiers.length > 0 ? tiers : null;
 }
 
 // 게시글 본문 블록 검증: 텍스트/이미지 블록 배열. 형식·크기 위반 블록은 제거.

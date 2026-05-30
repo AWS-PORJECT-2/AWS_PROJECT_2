@@ -18,6 +18,7 @@ export interface GroupBuy {
   description: string;
   productOptions: ProductOption[];
   category?: string | null; // 카테고리 slug (jacket/ecobag/.../etc) — categories 단일소스 기준
+  rewardTiers?: RewardTier[] | null; // 리워드(선물) 구성 — 창작자가 직접 정의
   basePrice: number;
   designFee: number;
   platformFee: number;
@@ -37,6 +38,16 @@ export interface GroupBuy {
 export interface ContentBlock {
   type: 'text' | 'image';
   value: string; // text: 본문 문자열 / image: data URL 또는 http URL
+}
+
+// 리워드(선물) 티어 — 후원 옵션. 가격은 창작자 설정, 재고(stockLimit) 선택.
+export interface RewardTier {
+  id: string;
+  title: string;            // 선물명 (예: "[얼리버드] 네이비 과잠")
+  price: number;            // 후원 금액(원)
+  description?: string;     // 제공 내용 설명
+  stockLimit?: number | null; // 한정 수량(null = 무제한)
+  soldCount?: number;       // 판매(확정)된 수 — Phase 4 결제확정에서 증가
 }
 
 export interface Participation {

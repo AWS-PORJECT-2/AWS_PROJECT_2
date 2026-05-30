@@ -436,6 +436,9 @@ async function renderDetail() {
           </div>
         </div>
 
+        <!-- 선물(리워드) 선택 — renderRewardTiers 가 채움 (없으면 숨김) -->
+        <div id="rewardTierBox" style="margin-top:8px;"></div>
+
         <!-- 좋아요 + 공구 참여 버튼 -->
         <div class="info-actions">
           <button class="btn-wish" id="btnWish" onclick="handleLike()">
@@ -492,11 +495,53 @@ async function renderDetail() {
 
 /* 게시글 본문 렌더 — GET /api/groupbuys/:id 의 contentBlocks(글/사진) 를 순서대로 표시.
    실패하거나 블록이 없으면 한 줄 소개(description)만 남긴다. 가짜 문단/이미지는 생성하지 않음. */
+/* 선물(리워드) 선택 표시. Phase 4 에서 선택→결제 연동 예정. 현재는 목록·잔여수량 표시. */
+function renderRewardTiers(tiers) {
+  const box = document.getElementById('rewardTierBox');
+  if (!box) return;
+  if (!Array.isArray(tiers) || tiers.length === 0) { box.innerHTML = ''; return; }
+  box.innerHTML = '';
+  const head = document.createElement('div');
+  head.textContent = '선물 선택';
+  head.style.cssText = 'font-size:15px;font-weight:700;color:#1a1a1a;margin:6px 0 10px;';
+  box.appendChild(head);
+
+  tiers.forEach((t) => {
+    const remain = (t.stockLimit == null) ? null : Math.max(0, t.stockLimit - (t.soldCount || 0));
+    const soldOut = remain === 0;
+    const card = document.createElement('div');
+    card.style.cssText = 'border:1.5px solid #e5e7eb;border-radius:12px;padding:14px;margin-bottom:10px;' +
+      (soldOut ? 'opacity:0.5;' : '');
+    const price = document.createElement('div');
+    price.style.cssText = 'font-size:16px;font-weight:800;color:#1a1a1a;';
+    price.textContent = (Number(t.price) || 0).toLocaleString('ko-KR') + '원 +';
+    const title = document.createElement('div');
+    title.style.cssText = 'font-size:14px;font-weight:600;color:#374151;margin-top:6px;';
+    title.textContent = t.title || '';
+    card.appendChild(price);
+    card.appendChild(title);
+    if (t.description) {
+      const desc = document.createElement('div');
+      desc.style.cssText = 'font-size:13px;color:#6b7280;margin-top:4px;white-space:pre-wrap;';
+      desc.textContent = t.description;
+      card.appendChild(desc);
+    }
+    if (remain != null) {
+      const stock = document.createElement('div');
+      stock.style.cssText = 'font-size:12px;font-weight:600;color:' + (soldOut ? '#9ca3af' : '#ef4444') + ';margin-top:8px;';
+      stock.textContent = soldOut ? '품절' : (remain + '개 남음');
+      card.appendChild(stock);
+    }
+    box.appendChild(card);
+  });
+}
+
 async function renderStoryBody(id) {
   const flow = document.getElementById('storyFlow');
   if (!flow || !window.api) return;
   try {
     const fund = await window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true });
+    renderRewardTiers(fund && fund.rewardTiers);
     const blocks = fund && Array.isArray(fund.contentBlocks) ? fund.contentBlocks : [];
     const desc = (fund && fund.description) || currentProduct.description || '';
 

@@ -133,32 +133,24 @@
 
         <div class="field-row">
           <div class="field">
-            <label for="fundDesignFee">디자인 수수료 (원) <span class="req">*</span></label>
-            <input id="fundDesignFee" name="designFee" type="number" min="0" max="50000" step="100" value="0" required>
-            <p class="field-hint">개설자 수익. 한 벌당.</p>
-          </div>
-          <div class="field">
             <label for="fundTargetQuantity">목표 수량 <span class="req">*</span></label>
             <input id="fundTargetQuantity" name="targetQuantity" type="number" min="1" max="500" step="1" value="30" required>
             <p class="field-hint">이 수량 도달 시에만 결제·제작이 진행됩니다.</p>
           </div>
+          <div class="field">
+            <label for="fundDeadline">마감일 <span class="req">*</span></label>
+            <input id="fundDeadline" name="deadline" type="date" required>
+            <p class="field-hint">오늘 기준 +14일 이상 권장.</p>
+          </div>
         </div>
 
-        <div class="field">
-          <label for="fundDeadline">마감일 <span class="req">*</span></label>
-          <input id="fundDeadline" name="deadline" type="date" required>
-          <p class="field-hint">오늘 기준 +14일 이상 권장.</p>
-        </div>
-
-        <!-- 가격 미리보기 -->
-        <div class="price-preview">
-          <h3 class="price-preview-title">최종 구매가 미리보기</h3>
-          <ul class="price-breakdown">
-            <li><span>도매원가 (예시)</span><strong id="previewBasePrice">20,000원</strong></li>
-            <li><span>플랫폼 수수료 (인쇄/중개 포함)</span><strong id="previewPlatformFee">5,000원</strong></li>
-            <li><span>디자인 수수료 (개설자 수익)</span><strong id="previewDesignFee">0원</strong></li>
-            <li class="total"><span>최종 구매가</span><strong id="previewFinalPrice">25,000원</strong></li>
-          </ul>
+        <!-- 리워드(선물) 구성 — 금액은 창작자가 직접 설정 -->
+        <div class="field" role="group" aria-label="리워드 구성">
+          <span class="field-label">리워드(선물) 구성 <span class="req">*</span>
+            <span class="field-hint" style="font-weight:400;">후원자가 선택할 선물·금액·한정수량을 직접 정하세요</span>
+          </span>
+          <div id="rewardTiers" style="display:flex;flex-direction:column;gap:12px;"></div>
+          <button type="button" id="addRewardTier" style="margin-top:10px;width:100%;padding:11px;border:1.5px dashed #c4b5fd;border-radius:10px;background:#f3f0fe;color:#7c3aed;font-size:14px;font-weight:600;cursor:pointer;">+ 리워드 추가</button>
         </div>
       </form>
 

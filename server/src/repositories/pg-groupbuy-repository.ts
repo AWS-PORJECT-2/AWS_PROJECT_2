@@ -1,6 +1,6 @@
 import type pg from 'pg';
 import type { PoolClient } from 'pg';
-import type { GroupBuy, GroupBuyStatus, ContentBlock } from '../types/index.js';
+import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier } from '../types/index.js';
 import type { GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions } from './groupbuy-repository.js';
 
 // content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱
@@ -17,13 +17,34 @@ function parseContentBlocks(raw: unknown): ContentBlock[] | null {
   }
 }
 
+// reward_tiers (TEXT/JSON) → RewardTier[] 안전 파싱
+function parseRewardTiers(raw: unknown): RewardTier[] | null {
+  if (raw == null) return null;
+  try {
+    const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    if (!Array.isArray(arr)) return null;
+    return arr
+      .filter((t) => t && typeof t.title === 'string' && typeof t.price === 'number')
+      .map((t) => ({
+        id: String(t.id ?? ''),
+        title: t.title,
+        price: Number(t.price) || 0,
+        description: typeof t.description === 'string' ? t.description : '',
+        stockLimit: (t.stockLimit == null ? null : Number(t.stockLimit)),
+        soldCount: Number(t.soldCount) || 0,
+      }));
+  } catch {
+    return null;
+  }
+}
+
 export class PgGroupBuyRepository implements GroupBuyRepository {
   constructor(private readonly pool: pg.Pool) {}
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -32,6 +53,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.deadline, groupbuy.status, groupbuy.designImageUrl ?? null, groupbuy.tryonImageUrl ?? null,
         groupbuy.contentBlocks ? JSON.stringify(groupbuy.contentBlocks) : null,
         groupbuy.category ?? null,
+        groupbuy.rewardTiers ? JSON.stringify(groupbuy.rewardTiers) : null,
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -161,6 +183,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         ? JSON.parse(row.product_options)
         : row.product_options) as GroupBuy['productOptions'],
       category: (row.category as string | null) ?? null,
+      rewardTiers: parseRewardTiers(row.reward_tiers),
       basePrice: row.base_price as number,
       designFee: row.design_fee as number,
       platformFee: row.platform_fee as number,
