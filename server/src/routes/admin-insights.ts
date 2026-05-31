@@ -35,10 +35,12 @@ export function createAdminMeHandler(userRepo: UserRepository) {
 export function createAdminStatsHandler(pool: pg.Pool) {
   return async (_req: Request, res: Response): Promise<void> => {
     try {
-      const [usersRow, fundsRow, ordersRow, topCats, dailySignups, dailyFunds] = await Promise.all([
+      const [usersRow, fundsRow, ordersRow, topCats, dailySignups, dailyFunds, likesRow, refundsRow, reportsRow] = await Promise.all([
         pool.query(`
           SELECT
             COUNT(*)::int AS total,
+            COUNT(*) FILTER (WHERE created_at >= date_trunc('day', NOW()))::int AS new_today,
+            COUNT(*) FILTER (WHERE created_at >= date_trunc('week', NOW()))::int AS new_this_week,
             COUNT(*) FILTER (WHERE created_at >= NOW() - INTERVAL '7 days')::int AS new7d,
             COUNT(*) FILTER (WHERE role = 'ADMIN')::int AS admins
           FROM "user"
@@ -48,6 +50,7 @@ export function createAdminStatsHandler(pool: pg.Pool) {
             COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE status = 'open')::int      AS open,
             COUNT(*) FILTER (WHERE status = 'pending')::int   AS pending_review,
+            COUNT(*) FILTER (WHERE status = 'pending_review')::int AS proxy_review,
             COUNT(*) FILTER (WHERE status = 'rejected')::int  AS rejected,
             COUNT(*) FILTER (WHERE status = 'achieved')::int  AS achieved,
             COUNT(*) FILTER (WHERE status = 'failed')::int    AS failed,
@@ -57,10 +60,12 @@ export function createAdminStatsHandler(pool: pg.Pool) {
           FROM groupbuys
         `),
         // GMV/주문: reward_orders(무통장) confirmed 기준. (카드 participations 와 별개 전용 테이블)
+        //   awaiting=입금대기(미확정) 건수도 함께 — 대시보드 "확정/대기" 분해용.
         pool.query(`
           SELECT
             COUNT(*)::int AS total,
             COUNT(*) FILTER (WHERE status = 'confirmed')::int AS paid,
+            COUNT(*) FILTER (WHERE status = 'awaiting_deposit')::int AS awaiting,
             COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS gmv
           FROM reward_orders
         `),
@@ -104,22 +109,45 @@ export function createAdminStatsHandler(pool: pg.Pool) {
             ) c ON c.day = d.day::date
            ORDER BY d.day ASC
         `),
+        // 총 좋아요(찜) 수 — project_likes(026). 미적용 DB 방어: to_regclass 로 존재 시에만 집계.
+        pool.query(`
+          SELECT CASE WHEN to_regclass('public.project_likes') IS NULL THEN 0
+                      ELSE (SELECT COUNT(*)::int FROM project_likes) END AS total
+        `),
+        // 환불 대기 — refunds.status='requested'(아직 송금 미완료). 미적용 DB 방어.
+        pool.query(`
+          SELECT CASE WHEN to_regclass('public.refunds') IS NULL THEN 0
+                      ELSE (SELECT COUNT(*)::int FROM refunds WHERE status = 'requested') END AS pending
+        `),
+        // 신고 대기 — reports.status='open'(027). 미적용 DB 방어.
+        pool.query(`
+          SELECT CASE WHEN to_regclass('public.reports') IS NULL THEN 0
+                      ELSE (SELECT COUNT(*)::int FROM reports WHERE status = 'open') END AS open
+        `),
       ]);
 
       const u = usersRow.rows[0] ?? {};
       const f = fundsRow.rows[0] ?? {};
       const o = ordersRow.rows[0] ?? {};
+      const likes = likesRow.rows[0] ?? {};
+      const refunds = refundsRow.rows[0] ?? {};
+      const reportsAgg = reportsRow.rows[0] ?? {};
 
       res.json({
         users: {
           total: Number(u.total) || 0,
+          newToday: Number(u.new_today) || 0,
+          newThisWeek: Number(u.new_this_week) || 0,
           new7d: Number(u.new7d) || 0,
           admins: Number(u.admins) || 0,
         },
         funds: {
           total: Number(f.total) || 0,
           open: Number(f.open) || 0,
+          // pending_review: status='pending'(일반 심사대기) — 기존 계약 유지(프론트 호환).
           pending_review: Number(f.pending_review) || 0,
+          // proxyReview: status='pending_review'(대리개설 의뢰 심사대기) — 신규 분리 지표.
+          proxyReview: Number(f.proxy_review) || 0,
           rejected: Number(f.rejected) || 0,
           achieved: Number(f.achieved) || 0,
           failed: Number(f.failed) || 0,
@@ -130,7 +158,17 @@ export function createAdminStatsHandler(pool: pg.Pool) {
         orders: {
           total: Number(o.total) || 0,
           paid: Number(o.paid) || 0,
+          awaiting: Number(o.awaiting) || 0,
           gmv: Number(o.gmv) || 0,
+        },
+        likes: {
+          total: Number(likes.total) || 0,
+        },
+        refunds: {
+          pending: Number(refunds.pending) || 0,
+        },
+        reports: {
+          open: Number(reportsAgg.open) || 0,
         },
         topCategories: topCats.rows.map((r) => ({
           category: r.category as string,
@@ -147,6 +185,57 @@ export function createAdminStatsHandler(pool: pg.Pool) {
       });
     } catch (err) {
       logger.error({ err }, '관리자 통계 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/**
+ * GET /api/admin/pending-counts — 관리자 사이드바 배지용 단일 집계.
+ * 가벼운 COUNT 쿼리들만. 신규 테이블(reports 등)은 to_regclass 로 미적용 DB 에서도 0 안전.
+ *   { fundsReview, proxy, deposits, deletes, reports, chatUnread, logsNew }
+ */
+export function createAdminPendingCountsHandler(pool: pg.Pool) {
+  return async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const [fundsRow, ordersRow, chatRow, reportsRow, logsRow] = await Promise.all([
+        // 심사대기(status='pending')와 대리개설 의뢰(status='pending_review')를 한 번에.
+        pool.query(`
+          SELECT
+            COUNT(*) FILTER (WHERE status = 'pending')::int        AS funds_review,
+            COUNT(*) FILTER (WHERE status = 'pending_review')::int AS proxy,
+            COUNT(*) FILTER (WHERE delete_requested = TRUE)::int   AS deletes
+          FROM groupbuys
+        `),
+        // 입금 대기(미확정) 주문 수.
+        pool.query(`SELECT COUNT(*)::int AS deposits FROM reward_orders WHERE status = 'awaiting_deposit'`),
+        // 관리자가 안 읽은 문의 메시지 합계(방별 unread_admin_count 합).
+        pool.query(`SELECT COALESCE(SUM(unread_admin_count), 0)::int AS chat_unread FROM chat_rooms`),
+        // 미처리 신고 수(reports 미적용 DB 방어).
+        pool.query(`
+          SELECT CASE WHEN to_regclass('public.reports') IS NULL THEN 0
+                      ELSE (SELECT COUNT(*)::int FROM reports WHERE status = 'open') END AS reports
+        `),
+        // 최근 24시간 내 신규 에러 로그 수(운영 모니터링용 배지).
+        pool.query(`
+          SELECT CASE WHEN to_regclass('public.audit_logs') IS NULL THEN 0
+                      ELSE (SELECT COUNT(*)::int FROM audit_logs
+                             WHERE level = 'error' AND created_at >= NOW() - INTERVAL '24 hours') END AS logs_new
+        `),
+      ]);
+
+      const f = fundsRow.rows[0] ?? {};
+      res.json({
+        fundsReview: Number(f.funds_review) || 0,
+        proxy: Number(f.proxy) || 0,
+        deposits: Number(ordersRow.rows[0]?.deposits) || 0,
+        deletes: Number(f.deletes) || 0,
+        reports: Number(reportsRow.rows[0]?.reports) || 0,
+        chatUnread: Number(chatRow.rows[0]?.chat_unread) || 0,
+        logsNew: Number(logsRow.rows[0]?.logs_new) || 0,
+      });
+    } catch (err) {
+      logger.error({ err }, '관리자 대기 카운트 조회 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
     }
   };

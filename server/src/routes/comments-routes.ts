@@ -1,8 +1,11 @@
 import type { Request, Response } from 'express';
 import type { CommentRepository } from '../repositories/comment-repository.js';
+import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { Comment, CommentTargetType } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
+import { notify } from '../services/notify.js';
 import { logger } from '../logger.js';
 
 const CONTENT_MAX = 2000;
@@ -47,7 +50,11 @@ export function createCommentsListHandler(repo: CommentRepository) {
 }
 
 /** POST /api/comments — 댓글/대댓글 작성(인증 필수). */
-export function createCommentCreateHandler(repo: CommentRepository) {
+export function createCommentCreateHandler(
+  repo: CommentRepository,
+  groupBuyRepo?: GroupBuyRepository,
+  notificationRepo?: NotificationRepository,
+) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
@@ -68,15 +75,49 @@ export function createCommentCreateHandler(repo: CommentRepository) {
     }
 
     try {
-      // 대댓글이면 부모가 같은 대상에 존재하는지 확인(엉뚱한 트리 방지).
+      // 대댓글이면 부모가 같은 대상에 존재하는지 확인(엉뚱한 트리 방지). 답글 알림 대상도 여기서 캡처.
+      let parentAuthorId: string | null = null;
       if (parentId) {
         const parent = await repo.findById(parentId);
         if (!parent || parent.targetType !== targetType || parent.targetId !== targetId) {
           res.status(400).json({ error: 'INVALID_PARENT', message: '잘못된 상위 댓글입니다' });
           return;
         }
+        parentAuthorId = parent.userId;
       }
       const created = await repo.create({ targetType, targetId, userId, content, parentId });
+
+      // 알림(best-effort) — 메인 응답에 영향 없도록 try/catch 흡수.
+      //   (a) 펀드 댓글 → 프로젝트 창작자에게(본인 댓글/본인 프로젝트 제외).
+      //   (b) 대댓글 → 원댓글 작성자에게(본인 답글/창작자 중복 제외).
+      if (notificationRepo) {
+        const preview = content.length > 60 ? `${content.slice(0, 60)}…` : content;
+        let creatorId: string | null = null;
+        if (targetType === 'fund' && groupBuyRepo) {
+          let fund = null;
+          try { fund = await groupBuyRepo.findById(targetId); } catch { /* 조회 실패는 무시 */ }
+          creatorId = fund?.creatorId ?? null;
+          if (creatorId && creatorId !== userId) {
+            await notify(notificationRepo, {
+              userId: creatorId,
+              type: 'project_comment',
+              title: '내 프로젝트에 새 댓글이 달렸어요',
+              body: preview,
+              fundId: targetId,
+            });
+          }
+        }
+        if (parentAuthorId && parentAuthorId !== userId && parentAuthorId !== creatorId) {
+          await notify(notificationRepo, {
+            userId: parentAuthorId,
+            type: 'comment_reply',
+            title: '내 댓글에 답글이 달렸어요',
+            body: preview,
+            fundId: targetType === 'fund' ? targetId : null,
+          });
+        }
+      }
+
       res.status(201).json(serialize(created, userId));
     } catch (err) {
       logger.error({ err, userId, targetType, targetId }, '댓글 작성 실패');

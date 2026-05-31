@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { ChatRepository } from '../repositories/chat-repository.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
+import { notify } from '../services/notify.js';
 import { logger } from '../logger.js';
 
 /**
@@ -23,6 +25,7 @@ export function createChatRouter(
   chatRepo: ChatRepository,
   authRequired: (req: Request, res: Response, next: () => void) => void,
   requireAdmin: (req: Request, res: Response, next: () => void) => void,
+  notificationRepo?: NotificationRepository,
 ) {
   const router = Router();
 
@@ -134,7 +137,22 @@ export function createChatRouter(
         res.status(404).json({ error: 'NOT_FOUND', message: '채팅방을 찾을 수 없습니다' });
         return;
       }
-      const msg = await chatRepo.createMessage(roomId, req.userId!, 'ADMIN', message.trim());
+      const text = message.trim();
+      const msg = await chatRepo.createMessage(roomId, req.userId!, 'ADMIN', text);
+
+      // 문의 답변 알림(best-effort) — 관리자가 보낸 메시지이므로 방 주인(일반 사용자)에게.
+      //   메인 응답에 영향 없도록 try/catch 흡수. (사용자가 보낸 메시지엔 알림 없음 — 관리자는 배지로 처리.)
+      if (notificationRepo && room.userId) {
+        const preview = text.length > 60 ? `${text.slice(0, 60)}…` : text;
+        await notify(notificationRepo, {
+          userId: room.userId,
+          type: 'inquiry_reply',
+          title: '문의에 답변이 도착했어요',
+          body: preview,
+          fundId: null, // 문의/채팅 화면으로 라우팅(프론트가 inquiry_reply 타입으로 처리).
+        });
+      }
+
       res.status(201).json(msg);
     } catch (err) {
       logger.error({ err }, '관리자 메시지 전송 실패');

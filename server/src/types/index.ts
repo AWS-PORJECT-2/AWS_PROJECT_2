@@ -25,3 +25,10 @@ export type { ProjectDraft } from './project-draft.js';
 export type { Notification, NotificationType } from './notification.js';
 export type { Announcement, AnnouncementListItem } from './announcement.js';
 export type { ChatRoom, ChatMessage } from './chat.js';
+export type {
+  Report, ReportTargetType, ReportReasonCategory, ReportStatus,
+} from './report.js';
+export {
+  REPORT_TARGET_TYPES, REPORT_REASON_CATEGORIES,
+  isReportTargetType, isReportReasonCategory,
+} from './report.js';

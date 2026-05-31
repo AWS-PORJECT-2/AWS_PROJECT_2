@@ -23,6 +23,26 @@
   var STYLE_ID = 'wz-notif-style';
   var POLL_MS = 60000;
 
+  /* ===== 알림 type 별 아이콘/CTA 문구 (이모지 금지 — 인라인 SVG path 데이터) =====
+   * 미지원 type 은 DEFAULT_ICON(종) 으로 폴백 — 신규/미래 타입도 자연스럽게 표시. */
+  var DEFAULT_ICON = ['M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9', 'M13.7 21a2 2 0 0 1-3.4 0'];
+  var TYPE_ICONS = {
+    // 신고 접수(메이커/게시글 신고가 들어옴) — 깃발
+    report_received: ['M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z', 'M4 22v-7'],
+    // 문의 답변 — 말풍선
+    inquiry_reply: ['M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5.2A8.4 8.4 0 1 1 21 11.5z'],
+    // 내 프로젝트에 댓글 — 말풍선(선)
+    project_comment: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
+    // 내 댓글에 답글 — 답글 화살표
+    comment_reply: ['M9 17l-5-5 5-5', 'M4 12h11a5 5 0 0 1 5 5v2'],
+  };
+  // CTA 라벨(이동 가능한 타입만) — fundId/link 가 있을 때 표시.
+  var TYPE_CTA = {
+    project_comment: '댓글 보러가기',
+    comment_reply: '답글 보러가기',
+    inquiry_reply: '문의 보러가기',
+  };
+
   /* ===== 상대시간 (방금 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD) ===== */
   function relTime(iso) {
     if (!iso) return '';
@@ -94,6 +114,10 @@
       + '.wz-notif__udot{width:8px;height:8px;border-radius:50%;background:var(--c-primary-500,#8B5CF6);'
         + 'flex-shrink:0;margin-top:6px;}'
       + '.wz-notif__item:not(.is-unread) .wz-notif__udot{visibility:hidden;}'
+      + '.wz-notif__ic{flex-shrink:0;width:34px;height:34px;border-radius:var(--r-full,999px);'
+        + 'display:inline-flex;align-items:center;justify-content:center;'
+        + 'background:var(--c-primary-50,#F5F3FF);color:var(--c-primary-600,#7C3AED);}'
+      + '.wz-notif__ic svg{width:18px;height:18px;}'
       + '.wz-notif__body{flex:1;min-width:0;}'
       + '.wz-notif__name{font-size:var(--fs-body-sm,14px);font-weight:600;color:var(--c-text,#1A1A1A);}'
       + '.wz-notif__item.is-unread .wz-notif__name{font-weight:700;}'
@@ -251,13 +275,44 @@
     setTimeout(function () { panel.style.display = 'none'; }, 300);
   }
 
-  /* ===== 항목 이동: 읽음 처리 후 상세로 ===== */
-  function goToFund(id, fundId) {
+  /* ===== 이동 경로 해석 =====
+   * 항목의 type/link/fundId 로 이동 경로를 결정한다. 이동 불가면 '' 반환(읽음만).
+   *  - project_comment·comment_reply → /detail.html?id=fundId
+   *  - inquiry_reply → item.link(문의/채팅 화면). 없으면 미이동.
+   *  - report_received → 이동 없음(없으면 무이동)
+   *  - 기타/레거시 → item.link 우선, 없으면 fundId 로 상세.
+   */
+  function resolveHref(item) {
+    if (!item) return '';
+    var type = item.type || '';
+    var link = (item.link != null && String(item.link).trim() !== '') ? String(item.link) : '';
+    var fundId = (item.fundId != null && String(item.fundId) !== '') ? String(item.fundId) : '';
+
+    if (type === 'project_comment' || type === 'comment_reply') {
+      if (fundId) return '/detail.html?id=' + encodeURIComponent(fundId);
+      return link; // fundId 없으면 link 폴백(있으면)
+    }
+    if (type === 'inquiry_reply') {
+      return link; // 문의/채팅 화면 — 서버가 준 link 그대로
+    }
+    if (type === 'report_received') {
+      return link; // 보통 없음 → 무이동
+    }
+    // 레거시/기타: link 우선, 없으면 fundId 로 상세
+    if (link) return link;
+    if (fundId) return '/detail.html?id=' + encodeURIComponent(fundId);
+    return '';
+  }
+
+  /* ===== 항목 이동: 읽음 처리 후 (이동 경로 있으면) 이동 ===== */
+  function goToItem(item) {
+    var id = String(item.id);
+    var href = resolveHref(item);
     postRead(id);
     renderList();
     updateNotificationBadges();
-    if (fundId) {
-      window.location.href = '/detail.html?id=' + encodeURIComponent(fundId);
+    if (href) {
+      window.location.href = href;
     }
   }
 
@@ -275,6 +330,25 @@
     var p1 = document.createElementNS(ns, 'path'); p1.setAttribute('d', 'M5 12h14');
     var p2 = document.createElementNS(ns, 'path'); p2.setAttribute('d', 'M12 5l7 7-7 7');
     svg.appendChild(p1); svg.appendChild(p2);
+    return svg;
+  }
+
+  // 알림 type 에 맞는 아이콘 노드(미지원 type 은 종 아이콘 폴백).
+  function typeIcon(type) {
+    var ns = 'http://www.w3.org/2000/svg';
+    var svg = document.createElementNS(ns, 'svg');
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', '2');
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    var paths = (type && TYPE_ICONS[type]) ? TYPE_ICONS[type] : DEFAULT_ICON;
+    paths.forEach(function (d) {
+      var p = document.createElementNS(ns, 'path');
+      p.setAttribute('d', d);
+      svg.appendChild(p);
+    });
     return svg;
   }
 
@@ -314,10 +388,11 @@
     items.forEach(function (item) {
       if (!item || item.id == null) return;
       var id = String(item.id);
-      var fundId = item.fundId != null ? String(item.fundId) : '';
+      var type = item.type || '';
+      var href = resolveHref(item); // 이동 경로(없으면 '')
       var unread = item.isRead === false;
 
-      // 항목 컨테이너 — 클릭 시 읽음 + (fundId 있으면)이동
+      // 항목 컨테이너 — 클릭 시 읽음 + (이동 경로 있으면)이동
       var el = document.createElement('button');
       el.type = 'button';
       el.className = 'wz-notif__item' + (unread ? ' is-unread' : '');
@@ -330,6 +405,13 @@
       dot.className = 'wz-notif__udot';
       dot.setAttribute('aria-hidden', 'true');
       row.appendChild(dot);
+
+      // type 별 아이콘(미지원 type 은 종 폴백)
+      var icon = document.createElement('span');
+      icon.className = 'wz-notif__ic';
+      icon.setAttribute('aria-hidden', 'true');
+      icon.appendChild(typeIcon(type));
+      row.appendChild(icon);
 
       var body = document.createElement('div');
       body.className = 'wz-notif__body';
@@ -351,15 +433,15 @@
       time.textContent = relTime(item.createdAt);
       body.appendChild(time);
 
-      // fundId 있으면 "펀딩 보러가기" 버튼
-      if (fundId) {
+      // 이동 경로가 있으면 CTA 버튼(타입별 문구, 기본 "펀딩 보러가기")
+      if (href) {
         var cta = document.createElement('span');
         cta.className = 'wz-notif__cta';
-        cta.appendChild(document.createTextNode('펀딩 보러가기'));
+        cta.appendChild(document.createTextNode(TYPE_CTA[type] || '펀딩 보러가기'));
         cta.appendChild(arrowIcon());
         cta.addEventListener('click', function (e) {
           e.stopPropagation();
-          goToFund(id, fundId);
+          goToItem(item);
         });
         body.appendChild(cta);
       }
@@ -367,9 +449,9 @@
       row.appendChild(body);
       el.appendChild(row);
 
-      // 항목 본체 클릭: 읽음 처리 + fundId 있으면 이동, 없으면 읽음만
+      // 항목 본체 클릭: 읽음 처리 + 이동 경로 있으면 이동, 없으면 읽음만
       el.addEventListener('click', function () {
-        goToFund(id, fundId);
+        goToItem(item);
       });
 
       container.appendChild(el);

@@ -756,6 +756,22 @@
     });
 
     actions.append(shareBtn, likeBtn);
+
+    /* 신고하기 — 로그인 사용자 대상, 본인 프로젝트면 숨김 */
+    if (_me && _me.userId && !owner) {
+      const reportBtn = W.el('button', { class: 'wz-rp-trigger wz-d-report', type: 'button' },
+        W.el('span', { html: SVG.alert }), W.el('span', {}, '신고'));
+      reportBtn.addEventListener('click', () => {
+        if (!window.WZReport || typeof window.WZReport.open !== 'function') return;
+        window.WZReport.open({
+          targetType: 'project',
+          targetId: f.id,
+          targetLabel: f.title || '프로젝트',
+        });
+      });
+      actions.appendChild(reportBtn);
+    }
+
     sideCol.appendChild(actions);
     _mobileLikeSync = (on) => likeBtn.classList.toggle('is-on', on);
     _sidePaintLike = paintLike; // 모바일 바 토글 시 측면 찜(상태+숫자) 재렌더

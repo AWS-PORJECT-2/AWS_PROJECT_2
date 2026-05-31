@@ -21,7 +21,9 @@ import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
-import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler } from './routes/admin-insights.js';
+import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
+import { PgReportRepository } from './repositories/pg-report-repository.js';
+import { createReportCreateHandler, createAdminReportsListHandler, createAdminReportResolveHandler } from './routes/reports-routes.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
 import { createMeFundsHandler, createMeFundUpdateHandler, createFollowingFeedHandler, createMeFundAnalyticsHandler } from './routes/me-funds.js';
 import {
@@ -348,7 +350,7 @@ export function createApp(
   const requireAdmin = createRequireAdmin(userRepository);
 
   app.use('/api/announcements', createAnnouncementsRouter(announcementRepository, authRequired, requireAdmin));
-  app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin));
+  app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin, notificationRepository));
 
   // --- 관리자 펀드 심사 (승인/반려) ---
   app.get('/api/admin/funds', authRequired, requireAdmin, createAdminFundsListHandler(groupBuyRepository));
@@ -407,7 +409,15 @@ export function createApp(
   // --- 관리자 통계 + 로그/오류 (콘솔 진입 가드 포함) ---
   app.get('/api/admin/me', authRequired, requireAdmin, createAdminMeHandler(userRepository));
   app.get('/api/admin/stats', authRequired, requireAdmin, createAdminStatsHandler(pool));
+  // 사이드바 배지용 단일 대기 카운트 — 가벼운 COUNT 집계.
+  app.get('/api/admin/pending-counts', authRequired, requireAdmin, createAdminPendingCountsHandler(pool));
   app.get('/api/admin/logs', authRequired, requireAdmin, createAdminLogsHandler(pool));
+
+  // --- 신고(027_reports) — 사용자 접수 + 관리자 처리 ---
+  const reportRepository = new PgReportRepository(pool);
+  app.post('/api/reports', authRequired, writeRateLimit, createReportCreateHandler(reportRepository, groupBuyRepository, userRepository, notificationRepository));
+  app.get('/api/admin/reports', authRequired, requireAdmin, createAdminReportsListHandler(reportRepository));
+  app.post('/api/admin/reports/:id/resolve', authRequired, requireAdmin, createAdminReportResolveHandler(reportRepository));
 
   // --- 유저/메이커 공개 + 팔로우 + 댓글 (소셜 계약) ---
   // followRepository / commentRepository 는 위(펀드 개설 알림 의존)에서 이미 구성됨.
@@ -417,7 +427,8 @@ export function createApp(
 
   // 댓글
   app.get('/api/comments', optionalAuth, createCommentsListHandler(commentRepository));
-  app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository));
+  // 댓글 작성 → 알림(best-effort): 펀드 댓글은 창작자(project_comment), 대댓글은 원댓글 작성자(comment_reply).
+  app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository, groupBuyRepository, notificationRepository));
   app.delete('/api/comments/:id', authRequired, createCommentDeleteHandler(commentRepository));
 
   // 유저 검색 — '/search' 는 '/:idOrSlug' 보다 먼저 등록(라우트 섀도잉 방지).
@@ -437,6 +448,8 @@ export function createApp(
   app.get('/api/users/:idOrSlug', optionalAuth, createPublicProfileHandler(userRepository));
 
   (app as any).chatRepository = chatRepository;
+  // Socket.io(server.ts)에서 관리자 답변 시 inquiry_reply 알림을 보내도록 노출.
+  (app as any).notificationRepository = notificationRepository;
 
   // Start scheduler (only in non-test environments)
   if (process.env.NODE_ENV !== 'test') {

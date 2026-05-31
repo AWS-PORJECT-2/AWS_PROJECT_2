@@ -59,7 +59,23 @@
     x:       '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
     grip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>',
     send:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+    flag:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>',
   };
+
+  // 신고 사유 한글 라벨
+  var REPORT_REASON = {
+    spam: '스팸·광고', abuse: '욕설·비방', fraud: '사기·허위정보',
+    sexual: '음란성·부적절', copyright: '저작권 침해', privacy: '개인정보 노출', etc: '기타',
+  };
+  function reportReasonLabel(c) { return REPORT_REASON[c] || c || '기타'; }
+
+  // 신고 상태 필터(전체/미처리/처리/기각)
+  var REPORT_STATUS = [
+    { key: '',           label: '전체' },
+    { key: 'open',       label: '미처리' },
+    { key: 'resolved',   label: '처리 완료' },
+    { key: 'dismissed',  label: '기각' },
+  ];
 
   var FUND_STATUS = [
     { key: 'pending',  label: '심사 대기' },
@@ -85,6 +101,7 @@
     { id: 'deposits',  label: '입금 확인', icon: 'deposit', render: renderDeposits },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
+    { id: 'reports',   label: '신고',      icon: 'flag',    render: renderReports },
     { id: 'chat',      label: '문의 채팅', icon: 'chat',    render: renderChat },
     { id: 'logs',      label: '로그·오류', icon: 'logs',    render: renderLogs },
   ];
@@ -98,10 +115,21 @@
 
   var root, sideEl, panelEl;
   var current = 'dashboard';
-  var pendingBadgeEl = null;   // 펀드 심사 탭 배지
-  var proxyBadgeEl = null;     // 대리 개설 탭 배지
-  var deleteBadgeEl = null;    // 삭제 요청 탭 배지
+  // 사이드바 대기 배지 — 섹션 id → 배지 DOM. 매핑은 pending-counts 키 ↔ 섹션 id.
+  // funds←fundsReview, proxy←proxy, deposits←deposits, deletes←deletes,
+  // reports←reports, chat←chatUnread, logs←logsNew
+  var badgeEls = {};           // { funds, proxy, deposits, deletes, reports, chat, logs } → <span>
+  var badgeState = {};         // 동일 키 → 현재 숫자(로컬 state, 처리 시 -1)
+  var pendingBadgeEl = null;   // (구) 펀드 심사 탭 배지 — badgeEls.funds 와 동일
+  var proxyBadgeEl = null;     // (구) 대리 개설 탭 배지 — badgeEls.proxy 와 동일
+  var deleteBadgeEl = null;    // (구) 삭제 요청 탭 배지 — badgeEls.deletes 와 동일
   var leaveSection = null;     // 현재 섹션 정리 콜백(채팅 폴링/소켓 해제 등)
+
+  // pending-counts 응답 키 → 배지를 붙일 섹션 id
+  var BADGE_MAP = {
+    fundsReview: 'funds', proxy: 'proxy', deposits: 'deposits', deletes: 'deletes',
+    reports: 'reports', chatUnread: 'chat', logsNew: 'logs',
+  };
 
   document.addEventListener('DOMContentLoaded', init);
 
@@ -153,17 +181,29 @@
     head.appendChild(who);
     shell.appendChild(head);
 
+    // 배지를 붙일 섹션 id 집합(BADGE_MAP 의 값들)
+    var badgeSecs = {};
+    Object.keys(BADGE_MAP).forEach(function (k) { badgeSecs[BADGE_MAP[k]] = true; });
+    badgeEls = {}; badgeState = {};
+
     sideEl = el('nav', { class: 'wza-side', 'aria-label': '관리자 섹션' });
     SECTIONS.forEach(function (s) {
       var btn = el('button', { class: 'wza-tab', type: 'button', 'data-sec': s.id });
       btn.appendChild(el('span', { class: 'wza-tab__ic', html: ICON[s.icon] }));
       btn.appendChild(document.createTextNode(s.label));
-      if (s.id === 'funds') { pendingBadgeEl = el('span', { class: 'wza-tab__badge', style: 'display:none' }); btn.appendChild(pendingBadgeEl); }
-      if (s.id === 'proxy') { proxyBadgeEl = el('span', { class: 'wza-tab__badge', style: 'display:none' }); btn.appendChild(proxyBadgeEl); }
-      if (s.id === 'deletes') { deleteBadgeEl = el('span', { class: 'wza-tab__badge', style: 'display:none' }); btn.appendChild(deleteBadgeEl); }
+      if (badgeSecs[s.id]) {
+        var badge = el('span', { class: 'wza-tab__badge', style: 'display:none' });
+        btn.appendChild(badge);
+        badgeEls[s.id] = badge;
+        badgeState[s.id] = 0;
+      }
       btn.addEventListener('click', function () { select(s.id); });
       sideEl.appendChild(btn);
     });
+    // 구 변수 호환(기존 코드 경로가 참조)
+    pendingBadgeEl = badgeEls.funds || null;
+    proxyBadgeEl = badgeEls.proxy || null;
+    deleteBadgeEl = badgeEls.deletes || null;
     shell.appendChild(sideEl);
 
     panelEl = el('section', { class: 'wza-panel' });
@@ -187,26 +227,50 @@
     panelEl.replaceWith(fresh);
     panelEl = fresh;
     sec.render(panelEl);
+    // 확인 시 사라짐: 로그 탭은 진입(렌더)만으로 확인 처리 → 배지 0.
+    // 채팅은 방을 읽을 때 개별 감소(renderChat 내). 단, 탭 진입 자체로도 신규 표시를 정리.
+    if (current === 'logs') setBadgeFor('logs', 0);
+    // 탭 전환 시 서버와 재동기화(로그·채팅은 현재 보고 있으면 0 유지 — loadBadges 가드).
+    if (sideEl) loadBadges();
   }
 
-  /* 사이드 탭 배지(심사대기/삭제요청 건수) — 대시보드 진입 전에도 표시 */
+  /* 사이드 탭 대기 배지 — GET /api/admin/pending-counts 로 일괄 동기화.
+     각 섹션 처리/확인 시 로컬 state 를 갱신(bumpBadge/setBadgeFor)하고,
+     탭 전환 시 주기적으로 재호출해 정합성을 맞춘다. */
   async function loadBadges() {
-    try {
-      var s = await window.api.get('/admin/stats');
-      // stats.funds.pending_review 는 status='pending'(일반 심사대기) 건수.
-      if (pendingBadgeEl) setBadge(pendingBadgeEl, s && s.funds ? s.funds.pending_review : 0);
-      if (deleteBadgeEl) setBadge(deleteBadgeEl, s && s.funds ? s.funds.deleteRequested : 0);
-    } catch (_) { /* 배지는 부가 정보 — 실패해도 무시 */ }
-    // 대리개설(status='pending_review') 건수는 stats 에 없으므로 목록 total 로 별도 조회.
-    try {
-      var pr = await window.api.get('/admin/funds?status=pending_review');
-      if (proxyBadgeEl) setBadge(proxyBadgeEl, pr ? pr.total : 0);
-    } catch (_) { /* 무시 */ }
+    var counts;
+    try { counts = await window.api.get('/admin/pending-counts'); }
+    catch (_) { return; /* 배지는 부가 정보 — 실패해도 무시 */ }
+    if (!counts) return;
+    Object.keys(BADGE_MAP).forEach(function (key) {
+      var sec = BADGE_MAP[key];
+      var n = Number(counts[key]) || 0;
+      // 로그·채팅을 현재 보고 있으면(확인 중) 신규 카운트를 다시 띄우지 않음.
+      if ((sec === 'logs' || sec === 'chat') && current === sec) n = 0;
+      setBadgeFor(sec, n);
+    });
   }
-  function setBadge(node, n) {
-    n = Number(n) || 0;
-    if (n > 0) { node.textContent = String(n); node.style.display = ''; }
-    else { node.style.display = 'none'; }
+
+  // 섹션 배지를 절대값으로 설정(로컬 state 동기화)
+  function setBadgeFor(sec, n) {
+    n = Math.max(0, Number(n) || 0);
+    badgeState[sec] = n;
+    var node = badgeEls[sec];
+    if (!node) return;
+    if (n > 0) {
+      node.textContent = String(n);
+      node.setAttribute('aria-label', n + '건 대기');
+      node.style.display = '';
+    } else {
+      node.removeAttribute('aria-label');
+      node.style.display = 'none';
+    }
+  }
+
+  // 섹션 배지를 delta 만큼 증감(처리 시 -1). 0 이면 자동 숨김.
+  function bumpBadge(sec, delta) {
+    var cur = Number(badgeState[sec]) || 0;
+    setBadgeFor(sec, cur + (Number(delta) || 0));
   }
 
   /* ===== 공통 UI 헬퍼 ===== */
@@ -252,16 +316,37 @@
     catch (e) { slot.textContent = ''; slot.appendChild(errorNode(e)); return; }
     slot.textContent = '';
 
-    // KPI
     var u = s.users || {}, f = s.funds || {}, o = s.orders || {};
+    var likes = s.likes || {}, refunds = s.refunds || {}, reports = s.reports || {};
+    function num(v) { return (Number(v) || 0).toLocaleString(); }
+
+    // ── 1차 KPI(핵심 4) ──
     var kpis = el('div', { class: 'wza-kpis' });
-    kpis.appendChild(kpiCard('전체 사용자', (u.total || 0).toLocaleString(), '신규 7일', (u.new7d || 0).toLocaleString() + '명', ''));
-    kpis.appendChild(kpiCard('전체 펀드', (f.total || 0).toLocaleString(), '심사 대기', (f.pending_review || 0).toLocaleString() + '건', 'mint'));
+    kpis.appendChild(kpiCard('전체 사용자', num(u.total), '신규 7일', num(u.new7d) + '명', ''));
+    kpis.appendChild(kpiCard('전체 펀드', num(f.total), '심사 대기', num(f.pending_review) + '건', 'mint'));
     kpis.appendChild(kpiCard('거래액 (GMV)', money(o.gmv || 0), '입금 확정 기준', null, 'coral'));
-    kpis.appendChild(kpiCard('결제 주문수', (o.paid || 0).toLocaleString(), '전체 주문', (o.total || 0).toLocaleString() + '건', 'sky'));
+    kpis.appendChild(kpiCard('결제 주문수', num(o.paid), '전체 주문', num(o.total) + '건', 'sky'));
     slot.appendChild(kpis);
 
+    // ── 2차 KPI(추적 지표 — 모든 정보 한눈에) ──
+    slot.appendChild(el('div', { class: 'wza-subhead' }, '운영 현황'));
+    var ops = el('div', { class: 'wza-kpis' });
+    ops.appendChild(kpiCard('신규 가입', num(u.newToday) + '명', '이번 주', num(u.newThisWeek) + '명', ''));
+    ops.appendChild(kpiCard('진행중 펀드', num(f.open), '달성', num(f.achieved) + '건', 'mint'));
+    ops.appendChild(kpiCard('대리 심사 대기', num(f.proxyReview) + '건', '일반 심사 대기', num(f.pending_review) + '건', 'sky'));
+    ops.appendChild(kpiCard('입금 대기', num(o.awaiting) + '건', '입금 확인 필요', null, 'coral'));
+    slot.appendChild(ops);
+
+    // ── 3차 KPI(처리 대기 / 활동) ──
+    var ops2 = el('div', { class: 'wza-kpis' });
+    ops2.appendChild(kpiCard('신고 대기', num(reports.open) + '건', '미처리 신고', null, 'coral'));
+    ops2.appendChild(kpiCard('환불 대기', num(refunds.pending) + '건', '환불 필요', null, 'coral'));
+    ops2.appendChild(kpiCard('총 좋아요', num(likes.total), '누적 관심', null, ''));
+    ops2.appendChild(kpiCard('총 모금액', money((o.gmv != null ? o.gmv : (s.totalRaised || 0))), '누적 거래 기준', null, 'mint'));
+    slot.appendChild(ops2);
+
     // 차트
+    slot.appendChild(el('div', { class: 'wza-subhead' }, '추이·분포'));
     var charts = el('div', { class: 'wza-charts' });
     charts.appendChild(lineChartCard('최근 14일 가입 추이', '일별 신규 가입자 수', s.dailySignups || []));
     charts.appendChild(barChartCard('최근 14일 펀드 생성 추이', '일별 신규 펀드 수', s.dailyFunds || []));
@@ -502,6 +587,7 @@
       okLabel: '승인', okClass: 'wza-modal__btn--primary',
       onOk: async function () {
         await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/approve', {});
+        bumpBadge('funds', -1);
         loadFunds(list, status); loadBadges();
       },
     });
@@ -516,6 +602,7 @@
       onOk: async function (reason) {
         var body = reason ? { reason: reason } : {};
         await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/reject', body);
+        bumpBadge('funds', -1);
         loadFunds(list, status); loadBadges();
       },
     });
@@ -914,6 +1001,7 @@
       await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/rewards', { rewardTiers: tiers });
       setMsg(msg, '공개 처리 중…', false);
       await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/approve', {});
+      bumpBadge('proxy', -1);
       loadProxy(list); loadBadges();
     } catch (e) {
       btn.disabled = false; btn.textContent = orig;
@@ -988,7 +1076,8 @@
           okLabel: '입금 확인', okClass: 'wza-modal__btn--primary',
           onOk: async function () {
             await window.api.post('/admin/deposits/' + encodeURIComponent(o.id) + '/confirm', {});
-            loadDeposits(list, status);
+            bumpBadge('deposits', -1);
+            loadDeposits(list, status); loadBadges();
           },
         });
       });
@@ -1043,6 +1132,7 @@
         onOk: async function () {
           var res = await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/delete', {});
           var refundable = (res && res.refundable) || [];
+          bumpBadge('deletes', -1);
           loadDeletes(list); loadBadges();
           if (refundable.length) showRefundList(refundable);
         },
@@ -1151,6 +1241,120 @@
   }
 
   /* ============================================================
+   * 6.5) 신고 관리
+   *   GET /api/admin/reports?status=open|resolved|dismissed → { items:[...] }
+   *   POST /api/admin/reports/:id/resolve { status:'resolved'|'dismissed' } → { id, status }
+   * ============================================================ */
+  function renderReports(panel) {
+    panel.appendChild(panelHead('신고', '사용자가 접수한 메이커·게시글 신고를 검토하고 처리합니다.'));
+    var state = { status: 'open' };
+    var chips = el('div', { class: 'wza-chips' });
+    REPORT_STATUS.forEach(function (s) {
+      var chip = el('button', { class: 'wza-chip' + (s.key === state.status ? ' is-active' : ''), type: 'button' }, s.label);
+      chip.addEventListener('click', function () {
+        state.status = s.key;
+        chips.querySelectorAll('.wza-chip').forEach(function (c) { c.classList.remove('is-active'); });
+        chip.classList.add('is-active');
+        loadReports(list, state.status);
+      });
+      chips.appendChild(chip);
+    });
+    panel.appendChild(chips);
+    var list = el('div', { class: 'wza-list' });
+    panel.appendChild(list);
+    loadReports(list, state.status);
+  }
+
+  async function loadReports(list, status) {
+    list.textContent = ''; list.appendChild(loadingNode());
+    try {
+      var qs = status ? ('?status=' + encodeURIComponent(status)) : '';
+      var res = await window.api.get('/admin/reports' + qs);
+      var items = (res && res.items) || [];
+      list.textContent = '';
+      if (!items.length) { list.appendChild(emptyNode('해당 상태의 신고가 없습니다.')); return; }
+      items.forEach(function (r) { list.appendChild(reportItem(r, list, status)); });
+    } catch (e) { list.textContent = ''; list.appendChild(errorNode(e)); }
+  }
+
+  function reportStatusBadge(st) {
+    if (st === 'resolved') return el('span', { class: 'wza-badge wza-badge--ok' }, '처리 완료');
+    if (st === 'dismissed') return el('span', { class: 'wza-badge wza-badge--reject' }, '기각');
+    return el('span', { class: 'wza-badge wza-badge--report' }, '미처리');
+  }
+
+  function reportItem(r, list, status) {
+    var isProject = r.targetType === 'project';
+    var item = el('div', { class: 'wza-item' + (r.status === 'open' ? ' wza-item--warn' : '') });
+
+    var body = el('div', { class: 'wza-item__body' });
+
+    // 제목 줄: 대상(메이커/게시글) + 대상 라벨(사용자값) + 상태
+    var title = el('div', { class: 'wza-item__title' });
+    title.appendChild(el('span', { class: 'wza-badge wza-badge--proxy' }, isProject ? '게시글' : '메이커'));
+    // 대상 라벨(사용자값) — textContent 로 안전 삽입. 링크 가능하면 a, 아니면 span.
+    var hasTarget = r.targetId != null && r.targetId !== '';
+    if (hasTarget) {
+      var href = (isProject ? '/detail.html?id=' : '/maker.html?id=') + encodeURIComponent(r.targetId);
+      var link = el('a', { class: 'wza-report__target', href: href, target: '_blank', rel: 'noopener' });
+      link.appendChild(document.createTextNode(r.targetLabel || (isProject ? '게시글 보기' : '메이커 보기')));
+      title.appendChild(link);
+    } else {
+      title.appendChild(el('span', { class: 'wza-report__target' }, r.targetLabel || '-'));
+    }
+    body.appendChild(title);
+
+    // 사유 + 신고자 + 일시
+    var meta = el('div', { class: 'wza-item__meta' + (r.status === 'open' ? ' wza-item__meta--warn' : '') });
+    meta.appendChild(document.createTextNode('사유: '));
+    meta.appendChild(el('b', {}, reportReasonLabel(r.reasonCategory)));
+    meta.appendChild(document.createTextNode(' · 신고자 '));
+    meta.appendChild(document.createTextNode(r.reporterNickname || '-'));
+    meta.appendChild(document.createTextNode(' · ' + fmtDateTime(r.createdAt)));
+    if (r.status !== 'open' && r.resolvedAt) meta.appendChild(document.createTextNode(' · 처리 ' + fmtDateTime(r.resolvedAt)));
+    body.appendChild(meta);
+
+    // 상세 사유(사용자값) — 있으면 별도 줄
+    if (r.detail) {
+      var det = el('div', { class: 'wza-report__detail' });
+      det.appendChild(document.createTextNode(r.detail));
+      body.appendChild(det);
+    }
+    item.appendChild(body);
+
+    var actions = el('div', { class: 'wza-item__actions' });
+    if (r.status === 'open') {
+      var resolve = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '처리완료');
+      resolve.addEventListener('click', function () { resolveReport(r, 'resolved', list, status); });
+      actions.appendChild(resolve);
+      var dismiss = el('button', { class: 'wza-btn wza-btn--danger', type: 'button' }, '기각');
+      dismiss.addEventListener('click', function () { resolveReport(r, 'dismissed', list, status); });
+      actions.appendChild(dismiss);
+    } else {
+      actions.appendChild(reportStatusBadge(r.status));
+    }
+    item.appendChild(actions);
+    return item;
+  }
+
+  function resolveReport(r, status, list, listStatus) {
+    var isResolve = status === 'resolved';
+    confirmModal({
+      title: isResolve ? '신고 처리완료' : '신고 기각',
+      desc: isResolve
+        ? '이 신고를 처리완료로 표시합니다.'
+        : '이 신고를 기각(조치 없음) 처리합니다.',
+      okLabel: isResolve ? '처리완료' : '기각',
+      okClass: isResolve ? 'wza-modal__btn--primary' : 'wza-modal__btn--danger',
+      onOk: async function () {
+        await window.api.post('/admin/reports/' + encodeURIComponent(r.id) + '/resolve', { status: status });
+        bumpBadge('reports', -1);
+        loadReports(list, listStatus); loadBadges();
+      },
+    });
+  }
+
+  /* ============================================================
    * 7) 문의 채팅 (SPA 내 통합)
    *   방 목록: GET /api/chat/admin/rooms → { items:[room], total }
    *   메시지:  GET /api/chat/admin/rooms/:id/messages → [msg]
@@ -1249,10 +1453,12 @@
       convoHead.textContent = (room && room.userName ? room.userName + ' 님과의 대화' : '대화');
       msgsEl.textContent = ''; msgsEl.appendChild(loadingNode());
       await loadMessages(roomId, true);
-      // 읽음 처리 + 목록 unread 클리어
+      // 읽음 처리 + 목록 unread 클리어 + 사이드바 chat 배지 감소(읽은 만큼)
+      var wasUnread = (function () { var rr = roomById(roomId); return rr ? (Number(rr.unreadAdminCount) || 0) : 0; })();
       try { await window.api.post('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/read', {}); } catch (_) {}
       state.rooms = state.rooms.map(function (r) { return r.id === roomId ? Object.assign({}, r, { unreadAdminCount: 0 }) : r; });
       renderRooms();
+      if (wasUnread > 0) bumpBadge('chat', -wasUnread);
       // 소켓 join + 활성 방 메시지 폴링(소켓 미연결 대비)
       if (state.socket) { try { state.socket.emit('admin:join', roomId); } catch (_) {} }
       state.msgPollTimer = setInterval(function () { if (state.activeId === roomId) loadMessages(roomId, true); }, 5000);

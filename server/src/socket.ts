@@ -3,6 +3,8 @@ import { Server as SocketIOServer } from 'socket.io';
 import type { TokenService } from './interfaces/token-service.js';
 import type { UserRepository } from './repositories/user-repository.js';
 import type { ChatRepository } from './repositories/chat-repository.js';
+import type { NotificationRepository } from './repositories/notification-repository.js';
+import { notify } from './services/notify.js';
 import { logger } from './logger.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -19,6 +21,7 @@ export function initSocketIO(
   tokenService: TokenService,
   userRepo: UserRepository,
   chatRepo: ChatRepository,
+  notificationRepo?: NotificationRepository,
 ): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
     cors: {
@@ -119,6 +122,26 @@ export function initSocketIO(
           ...chatMessage,
           senderName: userName,
         });
+
+        // 문의 답변 알림(best-effort) — 관리자가 보낸 메시지면 방 주인(사용자)에게.
+        //   notify()는 throw 하지 않지만, room 조회 실패가 메시지 흐름을 막지 않도록 try/catch 로 감싼다.
+        if (notificationRepo && senderRole === 'ADMIN') {
+          try {
+            const room = await chatRepo.findRoomById(targetRoomId);
+            if (room?.userId && room.userId !== userId) {
+              const preview = message.length > 60 ? `${message.slice(0, 60)}…` : message;
+              await notify(notificationRepo, {
+                userId: room.userId,
+                type: 'inquiry_reply',
+                title: '문의에 답변이 도착했어요',
+                body: preview,
+                fundId: null,
+              });
+            }
+          } catch (err) {
+            logger.warn({ err, roomId: targetRoomId }, '문의 답변 알림 생성 실패(무시)');
+          }
+        }
       } catch (err) {
         logger.error({ err, userId }, 'Socket.io 메시지 전송 실패');
         socket.emit('error', { message: '메시지 전송에 실패했습니다' });

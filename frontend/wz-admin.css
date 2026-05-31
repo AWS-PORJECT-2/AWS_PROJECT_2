@@ -43,6 +43,9 @@
 .wza-side__sep { height: 1px; background: var(--c-divider); margin: 8px 4px; }
 .wza-tab--link { color: var(--c-text-sub); }
 
+/* 대시보드 소제목(KPI 그룹 구분) */
+.wza-subhead { font-size: 14px; font-weight: 800; color: var(--c-text-sub); margin: 4px 0 12px; letter-spacing: -0.2px; }
+
 /* ===== 본문 패널 ===== */
 .wza-panel { min-width: 0; animation: wzaFade .22s ease; }
 @keyframes wzaFade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
@@ -161,6 +164,17 @@
 .wza-badge--proxy   { background: var(--c-primary-50); color: var(--c-primary-700); }
 .wza-badge--admin   { background: var(--c-primary-500); color: #fff; }
 .wza-badge--ok      { background: #DCFCE7; color: var(--c-success); }
+.wza-badge--report  { background: #FEE2E2; color: var(--c-danger); }
+
+/* ===== 신고 항목 ===== */
+.wza-report__target { font-size: 14px; font-weight: 700; color: var(--c-primary-700); text-decoration: none; }
+a.wza-report__target:hover { text-decoration: underline; }
+.wza-report__detail {
+  margin-top: 8px; padding: 10px 12px; border-radius: var(--r-sm);
+  background: var(--c-bg); border: 1px solid var(--c-divider);
+  font-size: 13px; line-height: 1.6; color: var(--c-text-sub);
+  white-space: pre-wrap; word-break: break-word;
+}
 
 /* ===== 표(사용자·로그) ===== */
 .wza-tablewrap { border: 1px solid var(--c-border); border-radius: var(--r-md); overflow: hidden; background: #fff; box-shadow: var(--sh-1); }

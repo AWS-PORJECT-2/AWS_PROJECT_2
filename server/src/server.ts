@@ -21,9 +21,10 @@ const httpServer = createServer(app);
 const tokenService = new TokenServiceImpl();
 const userRepo = new PgUserRepository(pool);
 const chatRepository = (app as any).chatRepository;
+const notificationRepository = (app as any).notificationRepository;
 
 if (chatRepository) {
-  const io = initSocketIO(httpServer, tokenService, userRepo, chatRepository);
+  const io = initSocketIO(httpServer, tokenService, userRepo, chatRepository, notificationRepository);
   logger.info('Socket.io 서버 초기화 완료');
 
   // Socket.io 인스턴스를 app 에 저장 (다른 라우트에서 이벤트 emit 시 사용 가능)

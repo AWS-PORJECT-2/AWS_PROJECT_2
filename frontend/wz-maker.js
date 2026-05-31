@@ -28,6 +28,7 @@
     box: W.ICON.box,
     chevL: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>',
     chat: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.8-.8L3 21l1.9-5.2A8.4 8.4 0 1 1 21 11.5z"/></svg>',
+    flag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>',
   };
 
   /* ---- 커버 프리셋(에셋) ---- */
@@ -238,6 +239,17 @@
     } else {
       refs.followBtn = FollowBtn();
       actions.appendChild(refs.followBtn);
+      // 본인이 아닐 때만 "이 메이커 신고하기"
+      var reportBtn = W.el('button', { class: 'wz-rp-trigger wz-mk-report', type: 'button', html: IC.flag + '<span>이 메이커 신고하기</span>' });
+      reportBtn.addEventListener('click', function () {
+        if (!window.WZReport || typeof window.WZReport.open !== 'function') return;
+        window.WZReport.open({
+          targetType: 'maker',
+          targetId: prof.userId,
+          targetLabel: prof.name || prof.nickname || '메이커',
+        });
+      });
+      actions.appendChild(reportBtn);
     }
     info.appendChild(actions);
 
