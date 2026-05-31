@@ -95,7 +95,6 @@ import { createGroupBuyParticipateHandler } from './routes/groupbuy-participate.
 import { createGroupBuyCancelParticipationHandler } from './routes/groupbuy-cancel-participation.js';
 import { createGroupBuyGetParticipationHandler } from './routes/groupbuy-get-participation.js';
 import { createPaymentRefundHandler } from './routes/payment-refund.js';
-import { createMeOrdersHandler } from './routes/me-orders.js';
 import { createPaymentEventsHandler } from './routes/payment-events.js';
 import { createOrderPrepareHandler } from './routes/orders-prepare.js';
 import { createOrderConfirmHandler } from './routes/orders-confirm.js';
@@ -313,7 +312,7 @@ export function createApp(
   app.delete('/api/groupbuys/:id/subscribe', authRequired, createUnsubscribeHandler(groupBuyRepository));
   app.get('/api/groupbuys/:id', optionalAuth, createGroupBuyDetailHandler(groupBuyRepository));
   app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
-  app.get('/api/me/orders', authRequired, createMeOrdersHandler(paymentService));
+  // NOTE: 레거시 /api/me/orders(participations 기반, 빈 {orders:[]})는 제거 — 아래 reward_orders 기반 핸들러(createMyOrdersHandler)가 진짜 후원 내역을 반환하도록 단일화.
   app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
 
   // --- Order Preparation & Confirmation (Toss Payments v2 security) ---
