@@ -132,9 +132,23 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return Math.floor(n);
 }
 
-const authRateLimit = rateLimit({
+// 로그인 시작(OAuth state 생성) — per-IP. 공유 IP(공유기·캠퍼스 NAT)에서 여러 사용자가 막히지 않게 넉넉히.
+//  (OAuth 라 비밀번호 brute-force 대상이 아니고, 남용 시 oauth_state 행만 생성되며 5분 TTL 로 만료.)
+const loginRateLimit = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 20,
+  max: 100,
+  message: { error: 'RATE_LIMITED', message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+// 토큰 갱신 — 프론트가 페이지 로드마다 자동 호출. 그래서 (1) 한도를 크게,
+//  (2) refresh_token 쿠키가 '없는' 요청(로그아웃 상태의 자동 probe)은 카운트에서 제외 → 비로그인 PC 의
+//  페이지 열람이 공유 IP 의 로그인 한도까지 소진시키던 문제를 차단. (유효 토큰 갱신만 집계.)
+const refreshRateLimit = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 200,
+  skip: (req) => !req.cookies || !req.cookies.refreshToken,
   message: { error: 'RATE_LIMITED', message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -229,8 +243,8 @@ export function createApp(
     notificationRepository,
   });
 
-  app.use('/api/auth/login', authRateLimit);
-  app.use('/api/auth/refresh', authRateLimit);
+  app.use('/api/auth/login', loginRateLimit);
+  app.use('/api/auth/refresh', refreshRateLimit);
   app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
   const authRequired = createAuthRequired(tokenService, userRepository);
