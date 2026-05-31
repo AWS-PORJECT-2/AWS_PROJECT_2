@@ -761,11 +761,12 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       }
     }
 
-    // 후원 집계 — reward_orders(awaiting_deposit+confirmed=유효 후원), confirmed=입금확정.
+    // 후원 집계 — 유효 후원: 예약(pledged)/결제완료(paid)/재시도중(payment_failed) + 구 무통장(awaiting_deposit/confirmed).
+    //   실현 금액(total_amount): 실제 결제·입금된 건만 = paid(모의결제) + confirmed(구 무통장).
     const aggRes = await this.pool.query(
       `SELECT
-          COUNT(*) FILTER (WHERE status IN ('awaiting_deposit','confirmed'))::int AS backer_count,
-          COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS total_amount
+          COUNT(*) FILTER (WHERE status IN ('pledged','paid','payment_failed','awaiting_deposit','confirmed'))::int AS backer_count,
+          COALESCE(SUM(amount) FILTER (WHERE status IN ('paid','confirmed')), 0)::bigint AS total_amount
          FROM reward_orders WHERE fund_id = $1`,
       [id],
     );
@@ -791,7 +792,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       `SELECT reward_title, COUNT(*)::int AS count,
               COALESCE(SUM(amount), 0)::bigint AS amount
          FROM reward_orders
-        WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')
+        WHERE fund_id = $1 AND status IN ('pledged','paid','payment_failed','awaiting_deposit','confirmed')
         GROUP BY reward_title
         ORDER BY count DESC, reward_title ASC`,
       [id],
@@ -825,7 +826,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               COUNT(*)::int AS backer_count,
               COALESCE(SUM(amount), 0)::bigint AS amount
          FROM reward_orders
-        WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')
+        WHERE fund_id = $1 AND status IN ('pledged','paid','payment_failed','awaiting_deposit','confirmed')
         GROUP BY 1 ORDER BY 1 ASC`,
       [id],
     );
@@ -844,12 +845,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
     result.likeTimeline = likeTlRes.rows.map((d) => ({ date: d.date as string, count: Number(d.count) || 0 }));
 
+    // 결제 현황 — confirmed(완료): 실결제된 paid + 구 무통장 confirmed. pending(대기): 예약 pledged/재시도 payment_failed + 구 awaiting_deposit.
     const depRes = await this.pool.query(
       `SELECT
-          COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed_count,
-          COUNT(*) FILTER (WHERE status = 'awaiting_deposit')::int AS pending_count,
-          COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS confirmed_amount,
-          COALESCE(SUM(amount) FILTER (WHERE status = 'awaiting_deposit'), 0)::bigint AS pending_amount
+          COUNT(*) FILTER (WHERE status IN ('paid','confirmed'))::int AS confirmed_count,
+          COUNT(*) FILTER (WHERE status IN ('pledged','payment_failed','awaiting_deposit'))::int AS pending_count,
+          COALESCE(SUM(amount) FILTER (WHERE status IN ('paid','confirmed')), 0)::bigint AS confirmed_amount,
+          COALESCE(SUM(amount) FILTER (WHERE status IN ('pledged','payment_failed','awaiting_deposit')), 0)::bigint AS pending_amount
          FROM reward_orders WHERE fund_id = $1`,
       [id],
     );
@@ -869,7 +871,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               o.amount, o.reward_title, o.status, o.created_at
          FROM reward_orders o
          LEFT JOIN "user" u ON u.id = o.user_id
-        WHERE o.fund_id = $1 AND o.status IN ('awaiting_deposit','confirmed')
+        WHERE o.fund_id = $1 AND o.status IN ('pledged','paid','payment_failed','awaiting_deposit','confirmed')
         ORDER BY o.created_at DESC
         ${supporterLimit != null ? 'LIMIT $2' : ''}`,
       supporterLimit != null ? [id, supporterLimit] : [id],

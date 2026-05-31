@@ -648,8 +648,8 @@
     const dl = W.el('dl', {});
     [
       ['펀딩 방식', '목표 수량 달성 시에만 제작·발송되는 모두의 펀딩(올오어낫씽)입니다. 마감일까지 목표에 도달하지 못하면 결제가 진행되지 않습니다.'],
-      ['결제 시점', '무통장 입금 후 관리자가 입금자명과 금액을 대조하여 확인하면 후원이 확정됩니다.'],
-      ['환불 안내', '목표 미달로 무산되거나 창작자 사정으로 취소되는 경우 입금액 전액이 환불됩니다.'],
+      ['후원·결제 시점', '후원하면 먼저 예약만 됩니다. 마감일에 목표를 달성하면 다음날부터 등록한 결제수단으로 순차 결제됩니다. 마감 전에는 마이페이지에서 자유롭게 취소할 수 있어요.'],
+      ['환불 안내', '목표 미달로 무산되거나 창작자 사정으로 취소되는 경우 결제가 진행되지 않거나 결제액 전액이 환불됩니다.'],
       ['배송 안내', '펀딩 종료 후 제작 기간을 거쳐 순차 발송되며, 일정은 새소식으로 공지됩니다.'],
     ].forEach(([t, d]) => {
       dl.append(W.el('dt', {}, t), W.el('dd', {}, d));
@@ -731,8 +731,8 @@
     /* 혜택 박스 (안심 후원) */
     const safe = W.el('div', { class: 'wz-d-safe' });
     [
-      ['안심 후원', '목표 수량을 달성한 프로젝트만 제작·발송됩니다.'],
-      ['목표 미달 시', '결제가 진행되지 않으며 입금액은 전액 환불됩니다.'],
+      ['안심 후원', '후원은 예약만 되고, 목표 수량을 달성한 프로젝트만 결제·제작·발송됩니다.'],
+      ['목표 미달 시', '결제가 진행되지 않으니 부담 없이 후원하세요.'],
     ].forEach(([b, t]) => {
       const row = W.el('div', { class: 'wz-d-safe__row' });
       row.append(
@@ -1381,8 +1381,38 @@
   }
 
   /* ===================================================================
-   * 후원 플로우 (POST /api/funds/:id/back) 후 입금 안내 모달
+   * 후원 플로우 (POST /api/funds/:id/back) — 예약 + 결제수단 게이트
+   *  - 후원=예약(status:'pledged'). 마감일에 목표 달성 시 다음날부터 등록한
+   *    결제수단으로 순차 결제(무통장 입금 안내 없음).
+   *  - 결제수단 미등록(400 PAYMENT_METHOD_REQUIRED)이면 등록 안내 후 /settings.html#payment 로 이동.
    * =================================================================== */
+  // 결제수단 미등록 안내 모달. [결제수단 등록] → /settings.html#payment.
+  function showPaymentMethodGate(msg) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '결제수단 등록 안내' });
+    const box = W.el('div', { class: 'wz-d-modal__box' });
+    const close = () => overlay.remove();
+
+    const head = W.el('div', { class: 'wz-d-modal__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '결제수단 등록이 필요해요'), closeBtn);
+
+    const body = W.el('div', { class: 'wz-d-modal__body' });
+    body.appendChild(W.el('p', { class: 'wz-d-modal__note' },
+      (msg && String(msg).trim()) || '결제수단(카드/계좌)을 먼저 등록해 주세요. 목표 달성 시 등록한 결제수단으로 자동 결제돼요.'));
+    const goBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '결제수단 등록');
+    goBtn.addEventListener('click', () => { location.href = '/settings.html#payment'; });
+    body.appendChild(goBtn);
+    const laterBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block', type: 'button' }, '나중에 하기');
+    laterBtn.addEventListener('click', close);
+    body.appendChild(laterBtn);
+
+    box.append(head, body);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.body.appendChild(overlay);
+  }
+
   async function backFlow(f) {
     if (!_tierSelected) {
       alert('후원할 리워드를 먼저 선택해 주세요.');
@@ -1390,6 +1420,7 @@
       if (sec) sec.scrollIntoView({ behavior: 'smooth' });
       return;
     }
+    // 배송지 필요(예약에도 배송지 필요). 미등록 시 등록 페이지로 안내.
     let addrs;
     try {
       const r = await window.api.get('/addresses');
@@ -1404,6 +1435,16 @@
     }
     const def = addrs.find((a) => a.isDefault) || addrs[0];
 
+    // 결제수단 사전 확인(미등록이면 서버 호출 전에 안내). 조회 실패는 막지 않고 서버 게이트에 위임.
+    try {
+      const pm = await window.api.get('/payment-methods');
+      const list = Array.isArray(pm) ? pm : (pm && pm.items) || [];
+      if (!list.length) { showPaymentMethodGate(); return; }
+    } catch (e) {
+      if (e && e.status === 401) { location.href = '/login.html'; return; }
+      /* 조회 실패는 무시하고 진행 — 최종 판정은 서버 게이트가 한다. */
+    }
+
     let res;
     try {
       res = await window.api.post('/funds/' + encodeURIComponent(f.id) + '/back', {
@@ -1412,31 +1453,36 @@
       });
     } catch (e) {
       if (e && e.status === 401) { location.href = '/login.html'; return; }
+      // 결제수단 게이트(서버 최종 판정): 400 PAYMENT_METHOD_REQUIRED.
+      if (e && (e.code === 'PAYMENT_METHOD_REQUIRED' || (e.data && e.data.error === 'PAYMENT_METHOD_REQUIRED'))) {
+        showPaymentMethodGate(e && e.message);
+        return;
+      }
       alert('후원 신청에 실패했어요: ' + ((e && e.message) || '알 수 없는 오류'));
       return;
     }
-    showDepositModal(res, def);
+    showPledgeModal(res, def);
   }
 
-  function showDepositModal(res, addr) {
-    const dep = res.deposit || {};
-    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '입금 안내' });
+  // 후원 예약 완료 모달 — 무통장 입금/계좌번호 표기 없음.
+  // 마감 목표 달성 시 다음날부터 등록 결제수단으로 순차 결제. 마감 전 자유 취소 안내.
+  function showPledgeModal(res, addr) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '후원 예약 완료' });
     const box = W.el('div', { class: 'wz-d-modal__box' });
     const close = () => overlay.remove();
 
     const head = W.el('div', { class: 'wz-d-modal__head' });
     const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
     closeBtn.addEventListener('click', close);
-    head.append(W.el('h3', {}, '입금 안내'), closeBtn);
+    head.append(W.el('h3', {}, '후원 예약 완료'), closeBtn);
 
     const body = W.el('div', { class: 'wz-d-modal__body' });
+
+    body.appendChild(W.el('div', { class: 'wz-d-pledge-done', html: SVG.shield }));
+
+    // 예약 요약(금액·배송지). 계좌번호 등 무통장 정보는 표기하지 않는다.
     const dl = W.el('div', { class: 'wz-d-deposit' });
-    const rows = [
-      ['입금 금액', W.money(res.amount), true],
-      ['은행', dep.bank || '-', false],
-      ['계좌번호', dep.account || '-', false],
-      ['예금주', dep.holder || '-', false],
-    ];
+    const rows = [['후원 금액', W.money(res.amount), true]];
     if (addr) rows.push(['배송지', ((addr.label || '') + ' · ' + (addr.recipientName || '')).replace(/^ · | · $/g, '') || '-', false]);
     rows.forEach(([k, v, isAmount]) => {
       dl.appendChild(W.el('div', { class: 'wz-d-deposit__row' },
@@ -1444,29 +1490,20 @@
         W.el('span', { class: 'v' + (isAmount ? ' amount' : '') }, v)));
     });
     body.appendChild(dl);
+
+    // 안내문: 서버 chargeNote 가 있으면 우선 사용, 없으면 기본 예약 안내.
+    const note = (res && typeof res.chargeNote === 'string' && res.chargeNote.trim())
+      ? res.chargeNote.trim()
+      : '마감일에 목표를 달성하면 다음날부터 등록한 결제수단으로 순차 결제돼요.';
     body.appendChild(W.el('p', { class: 'wz-d-modal__note' },
-      '위 계좌로 입금 후 입금자명을 입력해 주세요. 관리자가 입금자명과 금액을 대조하여 확인하면 후원이 확정됩니다.'));
+      '후원이 예약되었어요. ' + note + ' 마감 전에는 마이페이지에서 자유롭게 취소할 수 있어요.'));
 
-    const input = W.el('input', { class: 'wz-d-modal__input', type: 'text', placeholder: '입금자명을 입력해 주세요' });
-    body.appendChild(input);
-
-    const submit = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '입금자명 제출');
-    submit.addEventListener('click', async () => {
-      const name = input.value.trim();
-      if (!name) { alert('입금자명을 입력해 주세요.'); return; }
-      submit.disabled = true;
-      try {
-        await window.api.post('/me/backings/' + encodeURIComponent(res.orderId) + '/report', { depositorName: name });
-        body.replaceChildren(W.el('div', { class: 'wz-d-modal__done' }, '입금자명이 제출되었어요. 관리자 확인 후 후원이 확정됩니다.'));
-        const okBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block', type: 'button' }, '확인');
-        okBtn.addEventListener('click', close);
-        body.appendChild(okBtn);
-      } catch (e) {
-        submit.disabled = false;
-        alert('제출에 실패했어요: ' + ((e && e.message) || ''));
-      }
-    });
-    body.appendChild(submit);
+    const okBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '확인');
+    okBtn.addEventListener('click', close);
+    body.appendChild(okBtn);
+    const myBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block', type: 'button' }, '내 후원 내역 보기');
+    myBtn.addEventListener('click', () => { location.href = '/profile.html'; });
+    body.appendChild(myBtn);
 
     box.append(head, body);
     overlay.appendChild(box);

@@ -297,6 +297,10 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-modal__input:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
 .wz-d-modal__done { padding: 22px 0; text-align: center; font-size: 14px; font-weight: 700; color: var(--c-success); }
 
+/* 후원 예약 완료 모달: 상단 보라 방패 아이콘 */
+.wz-d-pledge-done { width: 56px; height: 56px; margin: 4px auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-primary-50); color: var(--c-primary-600); }
+.wz-d-pledge-done svg { width: 30px; height: 30px; }
+
 /* ---------- 공유 시트 ---------- */
 .wz-d-sharesheet { position: fixed; inset: 0; z-index: 1000; background: rgba(16,24,40,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
 .wz-d-sharesheet__box { background: #fff; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: var(--sh-3); padding: 20px 22px 24px; }

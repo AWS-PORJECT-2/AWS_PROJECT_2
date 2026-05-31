@@ -17,6 +17,9 @@ export type NotificationType =
   | 'fund_deleted'     // 관리자 펀드 삭제 — 창작자
   | 'deposit_confirmed' // 입금 확인(참여 확정) — 후원자
   | 'order_cancelled'  // 펀딩(주문) 취소 완료 — 후원자(환불·취소 처리됨)
+  | 'payment_done'     // 모의결제 완료 — 후원자(마감 성공 후 자동결제)
+  | 'payment_failed'   // 결제 실패(다음날 재시도) — 후원자
+  | 'payment_cancelled' // 결제 3회 실패로 펀딩 자동 취소 — 후원자
   | 'report_received'  // 신고 접수 — 신고자 본인
   | 'inquiry_reply'    // 문의(1:1 채팅)에 관리자 답변 도착 — 문의한 사용자
   | 'project_comment'  // 내 프로젝트에 댓글 달림 — 프로젝트 창작자

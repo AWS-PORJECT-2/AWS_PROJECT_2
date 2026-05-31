@@ -170,7 +170,7 @@ export class PgUserRepository implements UserRepository {
         (SELECT COUNT(*)::int FROM (
             SELECT ro.user_id FROM reward_orders ro
               JOIN groupbuys g ON g.id = ro.fund_id
-             WHERE g.creator_id = u.id AND ro.status = 'confirmed'
+             WHERE g.creator_id = u.id AND ro.status IN ('paid','confirmed')
             UNION
             SELECT p.user_id FROM participations p
               JOIN groupbuys g ON g.id = p.groupbuy_id

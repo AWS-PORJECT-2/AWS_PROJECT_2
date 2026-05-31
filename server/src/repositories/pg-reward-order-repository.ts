@@ -25,7 +25,37 @@ function mapRow(row: Record<string, unknown>): RewardOrder {
     cancelReason: (row.cancel_reason as string | null) ?? null,
     cancelRequestedAt: row.cancel_requested_at ? new Date(row.cancel_requested_at as string) : null,
     refundedAt: row.refunded_at ? new Date(row.refunded_at as string) : null,
+    // 모의결제/재시도(030). 컬럼이 없는 환경(마이그레이션 전)에서도 undefined 로 안전.
+    chargeAttempts: row.charge_attempts != null ? Number(row.charge_attempts) : 0,
+    nextChargeAt: row.next_charge_at ? new Date(row.next_charge_at as string) : null,
+    failReason: (row.fail_reason as string | null) ?? null,
+    paidAt: row.paid_at ? new Date(row.paid_at as string) : null,
   };
+}
+
+// 텀블벅식 흐름에서 "활성(수량/카운트에 반영되는)" 후원으로 간주하는 상태.
+//  - pledged: 예약(즉시 수량 반영)
+//  - paid: 결제 완료
+//  - payment_failed: 결제 실패했지만 재시도 중(아직 취소 아님 → 수량 유지)
+//  - 구 무통장 호환: awaiting_deposit/confirmed 도 활성으로 카운트.
+const ACTIVE_STATUSES = ['pledged', 'paid', 'payment_failed', 'awaiting_deposit', 'confirmed'] as const;
+const ACTIVE_STATUS_SQL = ACTIVE_STATUSES.map((s) => `'${s}'`).join(',');
+
+/**
+ * groupbuys.reward_tiers(JSON TEXT) 에서 해당 티어의 soldCount 를 delta 만큼 증감.
+ * 같은 트랜잭션의 client 로 호출(펀드 행은 호출 측에서 이미 FOR UPDATE 로 잠금). 음수로 내려가지 않음.
+ */
+async function bumpTierSoldCount(client: pg.PoolClient, fundId: string, rewardTierId: string, delta: number): Promise<void> {
+  const gb = await client.query('SELECT reward_tiers FROM groupbuys WHERE id = $1 FOR UPDATE', [fundId]);
+  const raw = gb.rows[0]?.reward_tiers;
+  if (!raw) return;
+  let tiers: Array<Record<string, unknown>> = [];
+  try { tiers = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { tiers = []; }
+  if (!Array.isArray(tiers)) return;
+  const t = tiers.find((x) => String(x.id) === rewardTierId);
+  if (!t) return;
+  t.soldCount = Math.max(0, (Number(t.soldCount) || 0) + delta);
+  await client.query('UPDATE groupbuys SET reward_tiers = $1 WHERE id = $2', [JSON.stringify(tiers), fundId]);
 }
 
 export class PgRewardOrderRepository {
@@ -41,9 +71,11 @@ export class PgRewardOrderRepository {
   }
 
   /**
-   * 한정수량 리워드의 "재고 확인 + 후원 INSERT" 를 한 트랜잭션으로 원자 처리(TOCTOU 초과판매 방지).
-   * groupbuys 행을 FOR UPDATE 로 잠가 같은 펀드의 동시 후원 신청을 직렬화한다.
-   * stockLimit == null 이면 무제한 → 단순 INSERT. 재고가 한도에 도달했으면 null 반환(SOLD_OUT).
+   * 텀블벅식 예약 후원: "재고 확인 + 후원 INSERT(pledged) + 수량/카운트 반영" 을 한 트랜잭션으로 원자 처리.
+   *  - groupbuys 행을 FOR UPDATE 로 잠가 같은 펀드의 동시 후원 신청을 직렬화(TOCTOU 초과판매 방지).
+   *  - 예약(pledged)은 즉시 목표 수량에 반영 → groupbuys.current_quantity +1, 해당 티어 soldCount +1.
+   *  - 재고(stockLimit) 카운트는 활성 후원(pledged/paid/payment_failed + 구 awaiting_deposit/confirmed) 기준.
+   * stockLimit == null 이면 무제한. 재고가 한도에 도달했으면 null 반환(SOLD_OUT).
    */
   async createWithStockGuard(o: RewardOrder, stockLimit: number | null): Promise<RewardOrder | null> {
     const client = await this.pool.connect();
@@ -54,7 +86,7 @@ export class PgRewardOrderRepository {
       if (stockLimit != null) {
         const cnt = await client.query(
           `SELECT COUNT(*)::int AS cnt FROM reward_orders
-            WHERE fund_id = $1 AND reward_tier_id = $2 AND status IN ('awaiting_deposit','confirmed')`,
+            WHERE fund_id = $1 AND reward_tier_id = $2 AND status IN (${ACTIVE_STATUS_SQL})`,
           [o.fundId, o.rewardTierId],
         );
         const taken = Number(cnt.rows[0]?.cnt) || 0;
@@ -65,6 +97,12 @@ export class PgRewardOrderRepository {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
         [o.id, o.fundId, o.rewardTierId, o.rewardTitle, o.userId, o.addressId, o.depositorName, o.amount, o.status, o.createdAt],
       );
+      // 예약 즉시 수량 반영 — 펀드 current_quantity +1.
+      await client.query(
+        `UPDATE groupbuys SET current_quantity = current_quantity + 1, updated_at = NOW() WHERE id = $1`,
+        [o.fundId],
+      );
+      await bumpTierSoldCount(client, o.fundId, o.rewardTierId, +1);
       await client.query('COMMIT');
       return mapRow(res.rows[0]);
     } catch (err) {
@@ -143,19 +181,7 @@ export class PgRewardOrderRepository {
         `UPDATE groupbuys SET current_quantity = current_quantity + 1, updated_at = NOW() WHERE id = $1`,
         [order.fundId],
       );
-
-      // reward_tiers JSON 에서 해당 티어 soldCount++ (TEXT 컬럼 → JS 로 안전 갱신)
-      const gb = await client.query('SELECT reward_tiers FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
-      const raw = gb.rows[0]?.reward_tiers;
-      if (raw) {
-        let tiers: Array<Record<string, unknown>> = [];
-        try { tiers = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { tiers = []; }
-        if (Array.isArray(tiers)) {
-          const t = tiers.find((x) => String(x.id) === order.rewardTierId);
-          if (t) t.soldCount = (Number(t.soldCount) || 0) + 1;
-          await client.query('UPDATE groupbuys SET reward_tiers = $1 WHERE id = $2', [JSON.stringify(tiers), order.fundId]);
-        }
-      }
+      await bumpTierSoldCount(client, order.fundId, order.rewardTierId, +1);
 
       await client.query('COMMIT');
       return order;
@@ -176,27 +202,35 @@ export class PgRewardOrderRepository {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      // cancel_requested(취소요청 대기) 도 활성 주문이므로 함께 정리. confirmed 였던 건(confirmed_at)은 수량 복구 대상.
+      await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [fundId]);
+      // 활성 주문(예약/결제완료/재시도중/구 무통장) + 취소요청 대기 모두 정리.
       const active = await client.query(
-        `SELECT * FROM reward_orders WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed','cancel_requested') FOR UPDATE`,
+        `SELECT * FROM reward_orders WHERE fund_id = $1 AND status IN (${ACTIVE_STATUS_SQL},'cancel_requested') FOR UPDATE`,
         [fundId],
       );
       const rows = active.rows.map(mapRow);
-      // 실제 입금완료(confirmed_at 있음) 건 수만큼 current_quantity 복구 — status 가 cancel_requested 로 바뀐 건도 포함.
-      const confirmedCount = rows.filter((r) => r.confirmedAt != null).length;
-      if (confirmedCount > 0) {
+      // 수량(current_quantity)에 반영돼 있던 주문은 모두 복구 대상:
+      //  - pledged/paid/payment_failed: 예약 시점에 +1 했으므로 -1.
+      //  - cancel_requested: 원래 pledged/paid 였던 건(예약 시 +1) — 수량 보유 중이므로 복구.
+      //  - 구 무통장 confirmed(confirmed_at 있음): 입금확인 시 +1 했으므로 복구. awaiting_deposit 은 미반영(스킵).
+      const restore = rows.filter((r) =>
+        r.status === 'pledged' || r.status === 'paid' || r.status === 'payment_failed' ||
+        r.confirmedAt != null,
+      );
+      for (const r of restore) {
         await client.query(
-          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - $1), updated_at = NOW() WHERE id = $2`,
-          [confirmedCount, fundId],
+          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
+          [fundId],
         );
+        await bumpTierSoldCount(client, fundId, r.rewardTierId, -1);
       }
       await client.query(
-        `UPDATE reward_orders SET status = 'cancelled' WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed','cancel_requested')`,
+        `UPDATE reward_orders SET status = 'cancelled' WHERE fund_id = $1 AND status IN (${ACTIVE_STATUS_SQL},'cancel_requested')`,
         [fundId],
       );
       await client.query('COMMIT');
-      // 실입금(confirmed_at 있음) 건만 환불 대상으로 안내
-      return { refundable: rows.filter((r) => r.confirmedAt != null), cancelledCount: rows.length };
+      // 실제 결제·입금이 일어난 건(paid_at 또는 confirmed_at 있음)만 환불 대상으로 안내.
+      return { refundable: rows.filter((r) => r.paidAt != null || r.confirmedAt != null), cancelledCount: rows.length };
     } catch (err) {
       await client.query('ROLLBACK');
       throw err;
@@ -212,48 +246,90 @@ export class PgRewardOrderRepository {
   async backerUserIds(fundId: string): Promise<string[]> {
     const res = await this.pool.query(
       `SELECT DISTINCT user_id FROM reward_orders
-        WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')`,
+        WHERE fund_id = $1 AND status IN (${ACTIVE_STATUS_SQL})`,
       [fundId],
     );
     return res.rows.map((r) => r.user_id as string);
   }
 
-  // ─── 회원 탈퇴 가드(#3) — 사용자의 "활성" 주문 수(입금대기/확정/취소요청). ───
+  // ─── 회원 탈퇴 가드(#3) — 사용자의 "활성" 주문 수. ───
+  // 예약(pledged)/결제완료(paid)/재시도중(payment_failed) + 구 무통장(입금대기/확정/취소요청) 모두 활성.
   async countActiveByUser(userId: string): Promise<number> {
     const res = await this.pool.query(
       `SELECT COUNT(*)::int AS cnt FROM reward_orders
-        WHERE user_id = $1 AND status IN ('awaiting_deposit','confirmed','cancel_requested')`,
+        WHERE user_id = $1 AND status IN (${ACTIVE_STATUS_SQL}, 'cancel_requested')`,
       [userId],
     );
     return Number(res.rows[0]?.cnt) || 0;
   }
 
-  // ─── 펀드 삭제 가드(#6) — 환불되지 않은 confirmed 주문 수. ───
-  // refunded_at 이 NULL 인 confirmed/cancel_requested 주문 = 아직 환불 안 된 실입금 건.
+  // ─── 펀드 삭제 가드(#6) — 환불되지 않은 결제완료 주문 수. ───
+  // refunded_at 이 NULL 인 confirmed/paid/cancel_requested 주문 = 아직 환불 안 된 실결제 건.
+  //  - confirmed(구 무통장 입금완료): confirmed_at 으로 실입금 판별.
+  //  - paid(모의결제 완료): paid_at 으로 실결제 판별.
+  //  - cancel_requested: 원래 confirmed/paid 였던 건이면 환불 필요.
   async countUnrefundedConfirmedForFund(fundId: string): Promise<number> {
     const res = await this.pool.query(
       `SELECT COUNT(*)::int AS cnt FROM reward_orders
-        WHERE fund_id = $1 AND status IN ('confirmed','cancel_requested')
-          AND confirmed_at IS NOT NULL AND refunded_at IS NULL`,
+        WHERE fund_id = $1
+          AND status IN ('confirmed','paid','cancel_requested')
+          AND refunded_at IS NULL
+          AND (confirmed_at IS NOT NULL OR paid_at IS NOT NULL)`,
       [fundId],
     );
     return Number(res.rows[0]?.cnt) || 0;
   }
 
   /**
-   * 사용자 취소 신청(#4) — 본인 주문이고 awaiting_deposit/confirmed 일 때만 cancel_requested 로 전이.
-   * 이미 취소요청/취소/환불 상태면 0행(409). 본인 소유가 아니면 0행(IDOR 방지).
+   * 사용자 취소 신청(#4, 배치17 환불 플로우) — 본인 주문이고 paid/awaiting_deposit/confirmed 일 때만
+   * cancel_requested 로 전이(관리자 환불 → 취소). 예약(pledged)은 이 경로가 아니라 cancelPledgedByUser 로 즉시 자기취소.
+   * 이미 취소요청/취소/환불/예약 상태면 0행(409). 본인 소유가 아니면 0행(IDOR 방지).
    * 반환: 전이된 주문(상태 포함) 또는 null.
    */
   async requestCancel(id: string, userId: string, reason: string | null): Promise<RewardOrder | null> {
     const res = await this.pool.query(
       `UPDATE reward_orders
           SET status = 'cancel_requested', cancel_requested_at = NOW(), cancel_reason = $3
-        WHERE id = $1 AND user_id = $2 AND status IN ('awaiting_deposit','confirmed')
+        WHERE id = $1 AND user_id = $2 AND status IN ('paid','awaiting_deposit','confirmed')
         RETURNING *`,
       [id, userId, reason],
     );
     return res.rows.length ? mapRow(res.rows[0]) : null;
+  }
+
+  /**
+   * 캠페인 중(pledged) 본인 후원 즉시 자기취소(텀블벅: 마감 전 자유 취소) — 환불 불필요.
+   *  - 원자 트랜잭션: status='cancelled' + groupbuys.current_quantity -1 + 티어 soldCount -1.
+   *  - 본인 소유 + status='pledged' 일 때만(아니면 null → 409). 멱등(이미 취소면 0행).
+   */
+  async cancelPledgedByUser(id: string, userId: string, reason: string | null): Promise<RewardOrder | null> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const sel = await client.query(
+        `SELECT * FROM reward_orders WHERE id = $1 AND user_id = $2 AND status = 'pledged' FOR UPDATE`,
+        [id, userId],
+      );
+      if (sel.rows.length === 0) { await client.query('ROLLBACK'); return null; }
+      const order = mapRow(sel.rows[0]);
+      await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
+      await client.query(
+        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
+        [order.fundId],
+      );
+      await bumpTierSoldCount(client, order.fundId, order.rewardTierId, -1);
+      const upd = await client.query(
+        `UPDATE reward_orders SET status = 'cancelled', cancel_reason = $2, cancel_requested_at = NOW() WHERE id = $1 RETURNING *`,
+        [id, reason],
+      );
+      await client.query('COMMIT');
+      return mapRow(upd.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   /** 관리자: 취소 신청 목록(status='cancel_requested') — 펀드 제목/닉네임 조인. */
@@ -284,11 +360,12 @@ export class PgRewardOrderRepository {
    * 반환: 해당 주문 / 대상 아님이면 null.
    */
   async markRefunded(id: string): Promise<RewardOrder | null> {
+    // 실결제 건(confirmed_at[구 무통장] 또는 paid_at[모의결제] 있음)만 환불 표시 대상.
     const res = await this.pool.query(
       `UPDATE reward_orders
           SET refunded_at = COALESCE(refunded_at, NOW())
-        WHERE id = $1 AND confirmed_at IS NOT NULL
-          AND status IN ('confirmed','cancel_requested')
+        WHERE id = $1 AND (confirmed_at IS NOT NULL OR paid_at IS NOT NULL)
+          AND status IN ('confirmed','paid','cancel_requested')
         RETURNING *`,
       [id],
     );
@@ -297,9 +374,9 @@ export class PgRewardOrderRepository {
 
   /**
    * 관리자 최종 취소(#4) — 원자 트랜잭션:
-   *  - confirmed 였던(confirmed_at 있음) 주문: 아직 환불표시 안 됐으면 'REFUND_REQUIRED' 반환(취소 거부).
-   *    환불표시 됐으면 status='refunded' + groupbuys.current_quantity 1 감소 + 티어 soldCount 감소.
-   *  - 미입금(awaiting_deposit/cancel_requested 인데 confirmed_at NULL): 환불 없이 status='cancelled'.
+   *  - 실결제 건(confirmed_at[구 무통장] 또는 paid_at[모의결제] 있음): 아직 환불표시 안 됐으면 'REFUND_REQUIRED'
+   *    반환(취소 거부). 환불표시 됐으면 status='refunded' + groupbuys.current_quantity 1 감소 + 티어 soldCount 감소.
+   *  - 미결제(awaiting_deposit/cancel_requested 인데 결제기록 없음): 환불 없이 status='cancelled'.
    *  - 이미 cancelled/refunded: 'INVALID_STATE'.
    * 반환: { ok:true, order } | { ok:false, code:'REFUND_REQUIRED'|'INVALID_STATE'|'NOT_FOUND' }
    */
@@ -318,32 +395,24 @@ export class PgRewardOrderRepository {
         await client.query('ROLLBACK');
         return { ok: false, code: 'INVALID_STATE' };
       }
-      // 취소 가능 상태: awaiting_deposit / confirmed / cancel_requested.
-      if (!['awaiting_deposit', 'confirmed', 'cancel_requested'].includes(current.status)) {
+      // 취소 가능 상태: awaiting_deposit / confirmed / paid / cancel_requested.
+      if (!['awaiting_deposit', 'confirmed', 'paid', 'cancel_requested'].includes(current.status)) {
         await client.query('ROLLBACK');
         return { ok: false, code: 'INVALID_STATE' };
       }
 
-      const wasConfirmed = current.confirmedAt != null;
+      // 실결제 여부 — 구 무통장(confirmed_at) 또는 모의결제(paid_at) 흔적이 있으면 환불 필요.
+      const wasConfirmed = current.confirmedAt != null || current.paidAt != null;
       if (wasConfirmed) {
-        // 실입금 건은 환불표시(refunded_at) 선행 필수.
+        // 실결제 건은 환불표시(refunded_at) 선행 필수.
         if (current.refundedAt == null) { await client.query('ROLLBACK'); return { ok: false, code: 'REFUND_REQUIRED' }; }
-        // 재고/수량 되돌리기 — confirm 의 역연산.
+        // 재고/수량 되돌리기 — 예약/입금확인 시 +1 의 역연산.
+        await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [current.fundId]);
         await client.query(
           `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
           [current.fundId],
         );
-        const gb = await client.query('SELECT reward_tiers FROM groupbuys WHERE id = $1 FOR UPDATE', [current.fundId]);
-        const raw = gb.rows[0]?.reward_tiers;
-        if (raw) {
-          let tiers: Array<Record<string, unknown>> = [];
-          try { tiers = typeof raw === 'string' ? JSON.parse(raw) : raw; } catch { tiers = []; }
-          if (Array.isArray(tiers)) {
-            const t = tiers.find((x) => String(x.id) === current.rewardTierId);
-            if (t) t.soldCount = Math.max(0, (Number(t.soldCount) || 0) - 1);
-            await client.query('UPDATE groupbuys SET reward_tiers = $1 WHERE id = $2', [JSON.stringify(tiers), current.fundId]);
-          }
-        }
+        await bumpTierSoldCount(client, current.fundId, current.rewardTierId, -1);
       }
 
       const finalStatus = wasConfirmed ? 'refunded' : 'cancelled';
@@ -353,6 +422,125 @@ export class PgRewardOrderRepository {
       );
       await client.query('COMMIT');
       return { ok: true, order: mapRow(upd.rows[0]), wasConfirmed };
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // 텀블벅식 마감 처리 + 모의결제 잡 지원(030). 모두 멱등(매 tick 재실행 안전).
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /**
+   * 마감 성공한 펀드의 pledged 주문들에 next_charge_at(=마감+1일) 예약.
+   * 이미 예약된 건(next_charge_at 있음)은 건드리지 않음 → 멱등(스케줄 한 번만 잡힘).
+   * 반환: 새로 예약된 건 수.
+   */
+  async schedulePledgedCharges(fundId: string, nextChargeAt: Date): Promise<number> {
+    const res = await this.pool.query(
+      `UPDATE reward_orders
+          SET next_charge_at = $2
+        WHERE fund_id = $1 AND status = 'pledged' AND next_charge_at IS NULL`,
+      [fundId, nextChargeAt],
+    );
+    return res.rowCount ?? 0;
+  }
+
+  /**
+   * 마감 실패한 펀드의 pledged 주문들 → 'cancelled'(예약 해제, 청구 없음).
+   * 캠페인 종료라 current_quantity 복원은 불필요(스펙) — 펀드가 failed 로 전이돼 더는 집계에 쓰이지 않음.
+   * 반환: 취소된 후원자 user_id 목록(알림 대상). 멱등(pledged 만 대상).
+   */
+  async cancelPledgedForFund(fundId: string): Promise<string[]> {
+    const res = await this.pool.query(
+      `UPDATE reward_orders SET status = 'cancelled', cancel_requested_at = NOW()
+        WHERE fund_id = $1 AND status = 'pledged'
+        RETURNING user_id`,
+      [fundId],
+    );
+    return res.rows.map((r) => r.user_id as string);
+  }
+
+  /**
+   * 결제 도래 주문 조회 — status IN ('pledged','payment_failed') AND next_charge_at <= now.
+   * 순차 처리를 위해 next_charge_at 오름차순, limit 개. (payment_failed 도 재시도 도래 시 포함.)
+   */
+  async findDueCharges(now: Date, limit: number): Promise<RewardOrder[]> {
+    const res = await this.pool.query(
+      `SELECT * FROM reward_orders
+        WHERE status IN ('pledged','payment_failed')
+          AND next_charge_at IS NOT NULL AND next_charge_at <= $1
+        ORDER BY next_charge_at ASC
+        LIMIT $2`,
+      [now, limit],
+    );
+    return res.rows.map(mapRow);
+  }
+
+  /**
+   * 모의결제 성공 — pledged/payment_failed → paid, paid_at=NOW(), next_charge_at=NULL(재시도 종료).
+   * 이미 paid/cancelled 등이면 0행(멱등). 반환: 갱신된 주문 또는 null.
+   */
+  async markPaid(id: string): Promise<RewardOrder | null> {
+    const res = await this.pool.query(
+      `UPDATE reward_orders
+          SET status = 'paid', paid_at = NOW(), next_charge_at = NULL, fail_reason = NULL
+        WHERE id = $1 AND status IN ('pledged','payment_failed')
+        RETURNING *`,
+      [id],
+    );
+    return res.rows.length ? mapRow(res.rows[0]) : null;
+  }
+
+  /**
+   * 모의결제 실패 — charge_attempts+1, status='payment_failed', fail_reason 기록,
+   * next_charge_at=다음 재시도 시각(보통 now+1일). pledged/payment_failed 에서만.
+   * 반환: 갱신된 주문(증가된 charge_attempts 포함) 또는 null(대상 아님).
+   */
+  async markPaymentFailed(id: string, reason: string, nextChargeAt: Date): Promise<RewardOrder | null> {
+    const res = await this.pool.query(
+      `UPDATE reward_orders
+          SET status = 'payment_failed',
+              charge_attempts = charge_attempts + 1,
+              fail_reason = $2,
+              next_charge_at = $3
+        WHERE id = $1 AND status IN ('pledged','payment_failed')
+        RETURNING *`,
+      [id, reason.slice(0, 500), nextChargeAt],
+    );
+    return res.rows.length ? mapRow(res.rows[0]) : null;
+  }
+
+  /**
+   * 결제 3진아웃 자동취소 — payment_failed 주문 → 'cancelled' + current_quantity/soldCount -1.
+   * 원자 트랜잭션. 이미 취소/결제됐으면 null(멱등).
+   * 반환: { order, userId } 또는 null.
+   */
+  async autoCancelFailedCharge(id: string): Promise<RewardOrder | null> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const sel = await client.query(
+        `SELECT * FROM reward_orders WHERE id = $1 AND status = 'payment_failed' FOR UPDATE`,
+        [id],
+      );
+      if (sel.rows.length === 0) { await client.query('ROLLBACK'); return null; }
+      const order = mapRow(sel.rows[0]);
+      await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
+      await client.query(
+        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
+        [order.fundId],
+      );
+      await bumpTierSoldCount(client, order.fundId, order.rewardTierId, -1);
+      const upd = await client.query(
+        `UPDATE reward_orders SET status = 'cancelled', next_charge_at = NULL, cancel_requested_at = NOW() WHERE id = $1 RETURNING *`,
+        [id],
+      );
+      await client.query('COMMIT');
+      return mapRow(upd.rows[0]);
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       throw err;

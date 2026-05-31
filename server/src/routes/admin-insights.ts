@@ -59,14 +59,14 @@ export function createAdminStatsHandler(pool: pg.Pool) {
             COUNT(*) FILTER (WHERE delete_requested = TRUE)::int AS delete_requested
           FROM groupbuys
         `),
-        // GMV/주문: reward_orders(무통장) confirmed 기준. (카드 participations 와 별개 전용 테이블)
-        //   awaiting=입금대기(미확정) 건수도 함께 — 대시보드 "확정/대기" 분해용.
+        // GMV/주문: reward_orders 실결제(paid[모의결제] + 구 무통장 confirmed) 기준.
+        //   awaiting = 결제 대기(예약 pledged/재시도 payment_failed + 구 awaiting_deposit) 건수 — "확정/대기" 분해용.
         pool.query(`
           SELECT
             COUNT(*)::int AS total,
-            COUNT(*) FILTER (WHERE status = 'confirmed')::int AS paid,
-            COUNT(*) FILTER (WHERE status = 'awaiting_deposit')::int AS awaiting,
-            COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS gmv
+            COUNT(*) FILTER (WHERE status IN ('paid','confirmed'))::int AS paid,
+            COUNT(*) FILTER (WHERE status IN ('pledged','payment_failed','awaiting_deposit'))::int AS awaiting,
+            COALESCE(SUM(amount) FILTER (WHERE status IN ('paid','confirmed')), 0)::bigint AS gmv
           FROM reward_orders
         `),
         pool.query(`

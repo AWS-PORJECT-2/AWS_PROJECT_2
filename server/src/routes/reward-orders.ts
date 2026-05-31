@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
 import type { AddressRepository } from '../repositories/address-repository.js';
+import type { PaymentMethodRepository } from '../repositories/payment-method-repository.js';
 import type { PgRewardOrderRepository } from '../repositories/pg-reward-order-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import { AppError } from '../errors/app-error.js';
@@ -9,7 +10,7 @@ import { createErrorResponse } from '../errors/error-response.js';
 import { notify } from '../services/notify.js';
 import { logger } from '../logger.js';
 
-// 무통장입금 계좌 — 운영 시 env 로 주입. 미설정 시 안내용 placeholder.
+// 무통장입금 계좌 — 구주문(awaiting_deposit) 내역 표시 호환용으로만 유지. 신규 후원은 사용 안 함.
 function depositAccount() {
   return {
     bank: process.env.DEPOSIT_BANK ?? '국민은행',
@@ -18,11 +19,16 @@ function depositAccount() {
   };
 }
 
-/** POST /api/funds/:id/back — 리워드 후원(무통장입금) 신청. 로그인+배송지 필수. */
+/**
+ * POST /api/funds/:id/back — 리워드 후원(예약, 텀블벅식). 로그인 + 배송지 + 결제수단 필수.
+ *  - 후원 = 예약(pledged): 청구는 마감 성공 시 스케줄러가 모의결제로 순차 진행.
+ *  - 예약 즉시 목표 수량에 반영(current_quantity + 티어 soldCount +1).
+ */
 export function createBackingHandler(
   groupBuyRepo: GroupBuyRepository,
   rewardOrderRepo: PgRewardOrderRepository,
   addressRepo: AddressRepository,
+  paymentMethodRepo: PaymentMethodRepository,
   notificationRepo?: NotificationRepository,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -60,6 +66,13 @@ export function createBackingHandler(
         res.status(400).json({ error: 'INVALID_ADDRESS', message: '유효한 배송지를 선택해 주세요' }); return;
       }
 
+      // 결제수단 게이팅 — 마감 성공 시 자동결제하므로 등록된(ACTIVE) 카드/계좌가 반드시 있어야 후원 가능.
+      const methods = await paymentMethodRepo.list(userId);
+      if (!methods || methods.length === 0) {
+        res.status(400).json({ error: 'PAYMENT_METHOD_REQUIRED', message: '결제수단(카드/계좌)을 먼저 등록해 주세요' });
+        return;
+      }
+
       // 재고(한정수량) 체크 + INSERT 를 한 트랜잭션으로 원자 처리 — 동시 후원 시 초과판매(TOCTOU) 방지.
       // (이전엔 confirmedCountForTier 별도 SELECT 후 create 라 동시 요청이 모두 통과해 한도 초과 가능)
       const order = await rewardOrderRepo.createWithStockGuard({
@@ -71,7 +84,7 @@ export function createBackingHandler(
         addressId,
         depositorName: depositorName || null,
         amount: tier.price,
-        status: 'awaiting_deposit',
+        status: 'pledged',
         createdAt: new Date(),
         confirmedAt: null,
       }, tier.stockLimit ?? null);
@@ -80,15 +93,15 @@ export function createBackingHandler(
         res.status(409).json({ error: 'SOLD_OUT', message: '해당 리워드가 마감되었습니다' }); return;
       }
 
-      logger.info({ orderId: order.id, userId, fundId: fund.id, amount: order.amount }, '리워드 후원 신청(입금대기)');
+      logger.info({ orderId: order.id, userId, fundId: fund.id, amount: order.amount }, '리워드 후원 예약(pledged)');
 
-      // 알림(best-effort) — (a) 후원자 본인 접수, (b) 펀드 창작자에게 새 후원자.
+      // 알림(best-effort) — (a) 후원자 본인 예약 접수, (b) 펀드 창작자에게 새 후원자.
       if (notificationRepo) {
         await notify(notificationRepo, {
           userId,
           type: 'backed',
-          title: '후원이 접수되었습니다',
-          body: `'${fund.title}' 프로젝트 후원이 접수되었어요. 입금이 확인되면 확정됩니다.`,
+          title: '후원이 예약되었어요',
+          body: `'${fund.title}' 프로젝트 후원이 예약되었어요. 목표 달성 시 마감 다음날부터 결제가 진행돼요.`,
           fundId: fund.id,
         });
         if (fund.creatorId && fund.creatorId !== userId) {
@@ -96,13 +109,18 @@ export function createBackingHandler(
             userId: fund.creatorId,
             type: 'new_backer',
             title: '새로운 후원자가 참여했어요',
-            body: `'${fund.title}' 프로젝트에 새 후원이 들어왔어요.`,
+            body: `'${fund.title}' 프로젝트에 새 후원 예약이 들어왔어요.`,
             fundId: fund.id,
           });
         }
       }
 
-      res.status(201).json({ orderId: order.id, amount: order.amount, deposit: depositAccount() });
+      res.status(201).json({
+        orderId: order.id,
+        amount: order.amount,
+        status: 'pledged',
+        chargeNote: '마감일 다음날부터 순차 결제될 예정이에요(목표 달성 시).',
+      });
     } catch (err) {
       logger.error({ err, userId }, '리워드 후원 신청 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
@@ -153,9 +171,10 @@ export function createMyOrdersHandler(rewardOrderRepo: PgRewardOrderRepository) 
 }
 
 /**
- * POST /api/me/orders/:id/cancel-request — 사용자가 본인 펀딩(주문) 취소 신청 (#4).
- * 본인 주문이고 status IN ('awaiting_deposit','confirmed') 일 때만 → cancel_requested.
- * 이미 취소요청/취소/환불 상태거나 본인 소유가 아니면 409(IDOR 방지 — 존재 여부 비노출).
+ * POST /api/me/orders/:id/cancel-request — 사용자가 본인 펀딩(주문) 취소.
+ *  - 캠페인 중(pledged): 텀블벅식 자유 취소 → 즉시 self-cancel(status='cancelled', 수량/soldCount -1, 환불 불필요).
+ *  - 결제 완료(paid) 또는 구 무통장(awaiting_deposit/confirmed): 배치17 흐름 → cancel_requested(관리자 환불 후 취소).
+ * 둘 다 본인 소유가 아니거나 취소 불가 상태면 409(IDOR 방지 — 존재 여부 비노출).
  */
 export function createOrderCancelRequestHandler(
   rewardOrderRepo: PgRewardOrderRepository,
@@ -167,12 +186,21 @@ export function createOrderCancelRequestHandler(
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
     const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : null;
     try {
+      // 1) 캠페인 중(pledged) 즉시 자기취소 시도(환불 없음). 대상이면 바로 cancelled.
+      const selfCancelled = await rewardOrderRepo.cancelPledgedByUser(req.params.id, userId, reason || null);
+      if (selfCancelled) {
+        logger.info({ orderId: selfCancelled.id, userId }, '펀딩 예약 즉시 취소(pledged → cancelled)');
+        res.json({ ok: true, status: selfCancelled.status });
+        return;
+      }
+
+      // 2) 결제완료(paid)/구 무통장 → 배치17 환불 플로우(cancel_requested).
       const order = await rewardOrderRepo.requestCancel(req.params.id, userId, reason || null);
       if (!order) {
         res.status(409).json({ error: 'INVALID_STATE', message: '취소 신청할 수 없는 주문입니다(이미 취소 요청했거나 처리된 주문일 수 있어요).' });
         return;
       }
-      logger.info({ orderId: order.id, userId }, '펀딩 주문 취소 신청');
+      logger.info({ orderId: order.id, userId }, '펀딩 주문 취소 신청(환불 대기)');
 
       // 알림(best-effort) — 펀드 창작자에게 취소 신청 통지.
       if (notificationRepo && groupBuyRepo) {

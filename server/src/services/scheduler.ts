@@ -3,21 +3,40 @@ import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js'
 import type { OrderRepository } from '../repositories/order-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { PgRewardOrderRepository } from '../repositories/pg-reward-order-repository.js';
+import type { RewardOrder } from '../types/index.js';
 import type { DistributedLockProvider } from './distributed-lock.js';
 import { notify, notifyMany } from './notify.js';
 import { logger } from '../logger.js';
+
+/**
+ * 모의결제(mock) — 현재는 실제 청구를 하지 않고 항상 성공을 반환한다.
+ * !! 추후 PG 연동 지점 !! : 여기에 toss-payments-client(빌링키 결제) 등 실제 PG 호출을 꽂는다.
+ *   - 사용자 결제수단(payment_methods.encrypted_billing_key) 복호화 → PG 빌링 결제 API 호출.
+ *   - 성공 시 { ok: true }, 실패 시 { ok: false, reason } 반환하면 스케줄러가 재시도/3진아웃을 처리.
+ * 절대 이 함수에서 실제 과금 API 를 호출하지 말 것(모의 단계). 비용 발생 방지.
+ */
+async function mockCharge(_order: RewardOrder): Promise<{ ok: true } | { ok: false; reason: string }> {
+  // 모의: 항상 성공. (실패 경로 검증이 필요하면 PG 연동 시 이 분기에서 { ok:false, reason } 반환.)
+  return { ok: true };
+}
 
 export interface SchedulerConfig {
   intervalMs: number;
   maxRetryAttempts: number;
   lockKey: number;
+  /** 한 tick 당 처리할 모의결제 건수(순차 청구 throttle). */
+  rewardChargesPerTick: number;
 }
 
 const DEFAULT_CONFIG: SchedulerConfig = {
   intervalMs: 60_000,
   maxRetryAttempts: 3,
   lockKey: 100001,
+  rewardChargesPerTick: 20,
 };
+
+// 결제 예약 지연: 마감 다음날부터 청구. 재시도 간격도 동일(1일).
+const CHARGE_DELAY_MS = 24 * 60 * 60 * 1000;
 
 // 마감 임박 알림 윈도: 마감이 지금부터 24~48시간 내인 open 펀드.
 const DEADLINE_SOON_MIN_MS = 24 * 60 * 60 * 1000;
@@ -90,6 +109,7 @@ export class PaymentScheduler {
       await this.promoteScheduledGroupBuys();
       await this.notifyDeadlineSoon();
       await this.processExpiredGroupBuys();
+      await this.processRewardCharges();
       await this.processRetries();
     } catch (err) {
       logger.error({ err }, '스케줄러: 처리 중 오류 발생');
@@ -194,6 +214,28 @@ export class PaymentScheduler {
           await this.paymentService.markGroupBuyFailed(gb.id);
         }
 
+        // ── 텀블벅식 reward_orders 처리(실제 UI 후원 경로). 위 executeBatchPayments/markGroupBuyFailed 는
+        //    미사용 orders 시스템 대상이라 reward_orders 와 단절돼 있어, 여기서 별도로 예약/취소를 건다. ──
+        //    펀드는 위에서 이미 open 밖으로 전이돼 findExpiredOpen 에 다시 안 잡힘(멱등). 단, 재처리되더라도
+        //    schedulePledgedCharges(next_charge_at NULL 만)·cancelPledgedForFund(pledged 만)는 멱등.
+        if (this.notify) {
+          const { rewardOrderRepo } = this.notify;
+          try {
+            if (success) {
+              // 마감(deadline) + 1일부터 순차 모의결제. 아직 paid 아님(예약만).
+              const nextChargeAt = new Date(new Date(gb.deadline).getTime() + CHARGE_DELAY_MS);
+              const scheduled = await rewardOrderRepo.schedulePledgedCharges(gb.id, nextChargeAt);
+              if (scheduled > 0) logger.info({ groupbuyId: gb.id, scheduled, nextChargeAt }, '예약 후원 결제 스케줄링');
+            } else {
+              // 예약 해제(청구 없음). 수량 복원 불필요(캠페인 종료).
+              const cancelledUserIds = await rewardOrderRepo.cancelPledgedForFund(gb.id);
+              if (cancelledUserIds.length > 0) logger.info({ groupbuyId: gb.id, count: cancelledUserIds.length }, '미달 — 예약 후원 취소');
+            }
+          } catch (err) {
+            logger.error({ err, groupbuyId: gb.id }, '예약 후원(reward_orders) 마감 처리 실패');
+          }
+        }
+
         // 성공/실패 알림(best-effort) — 창작자 + 후원자 모두 fund_id 포함.
         if (this.notify) {
           const { notificationRepo } = this.notify;
@@ -230,6 +272,79 @@ export class PaymentScheduler {
       } catch (err) {
         logger.error({ err, groupbuyId: gb.id }, '만료 공동구매 처리 실패');
       }
+    }
+  }
+
+  /**
+   * 모의결제 잡 — status IN ('pledged','payment_failed') AND next_charge_at <= now 인 주문을
+   * 한 tick 당 N건(rewardChargesPerTick) 순차 처리. 멱등(상태 가드로 재실행 안전).
+   *  - 성공: status='paid', 결제완료 알림('payment_done', best-effort).
+   *  - 실패: charge_attempts+1 → 'payment_failed', 다음날 재시도, 알림('payment_failed').
+   *  - charge_attempts >= maxRetryAttempts(3): 자동취소(status='cancelled', 수량/soldCount -1), 알림('payment_cancelled').
+   * notify 의존(rewardOrderRepo/notificationRepo) 미주입 시 잡 자체를 건너뜀.
+   */
+  private async processRewardCharges(): Promise<void> {
+    if (!this.notify) return;
+    const { rewardOrderRepo, notificationRepo } = this.notify;
+    try {
+      const now = new Date();
+      const due = await rewardOrderRepo.findDueCharges(now, this.config.rewardChargesPerTick);
+      for (const order of due) {
+        try {
+          // ── 모의결제 호출(추후 PG 연동 지점) ──
+          const result = await mockCharge(order);
+
+          if (result.ok) {
+            const paid = await rewardOrderRepo.markPaid(order.id);
+            if (paid) {
+              logger.info({ orderId: order.id, amount: order.amount }, '모의결제 성공(paid)');
+              await notify(notificationRepo, {
+                userId: order.userId,
+                type: 'payment_done',
+                title: '결제가 완료되었어요',
+                body: '후원하신 프로젝트 결제가 완료되었어요.',
+                fundId: order.fundId,
+              });
+            }
+            continue;
+          }
+
+          // ── 실패 경로(모의에선 비활성: mockCharge 가 항상 성공). PG 연동 후 실제 동작. ──
+          const reason = result.reason ?? '결제 실패';
+          const nextTry = new Date(now.getTime() + CHARGE_DELAY_MS);
+          const failed = await rewardOrderRepo.markPaymentFailed(order.id, reason, nextTry);
+          if (!failed) continue; // 동시 처리/상태변경으로 대상 아님
+
+          logger.warn({ orderId: order.id, attempts: failed.chargeAttempts, reason }, '모의결제 실패');
+
+          if ((failed.chargeAttempts ?? 0) >= this.config.maxRetryAttempts) {
+            // 3진아웃 → 자동취소 + 수량/soldCount 복원.
+            const cancelled = await rewardOrderRepo.autoCancelFailedCharge(order.id);
+            if (cancelled) {
+              logger.warn({ orderId: order.id }, '결제 3회 실패 — 펀딩 자동취소');
+              await notify(notificationRepo, {
+                userId: order.userId,
+                type: 'payment_cancelled',
+                title: '결제 실패로 펀딩이 취소되었어요',
+                body: '결제가 3회 실패하여 펀딩이 자동 취소되었어요.',
+                fundId: order.fundId,
+              });
+            }
+          } else {
+            await notify(notificationRepo, {
+              userId: order.userId,
+              type: 'payment_failed',
+              title: '결제에 실패했어요',
+              body: `결제 실패: ${reason}. 내일 다시 시도할게요.`,
+              fundId: order.fundId,
+            });
+          }
+        } catch (err) {
+          logger.error({ err, orderId: order.id }, '모의결제 처리 중 오류(개별 건 건너뜀)');
+        }
+      }
+    } catch (err) {
+      logger.error({ err }, '모의결제 잡 실패');
     }
   }
 

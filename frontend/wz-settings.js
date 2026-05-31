@@ -537,7 +537,18 @@
    * 탭 3: 결제수단
    * ===================================================================== */
   function renderPayment(panel) {
-    panel.appendChild(el('p', { class: 'wzs-sec__desc' }, '간편결제에 사용할 카드 또는 계좌를 등록하세요.'));
+    panel.appendChild(el('p', { class: 'wzs-sec__desc' }, '간편결제에 사용할 카드 또는 계좌를 등록하세요. 펀딩에 참여하려면 결제수단이 최소 1개 필요해요.'));
+
+    // 펀딩 게이트(결제수단 미등록)에서 넘어온 경우 안내 배너 + 추가 폼 자동 오픈.
+    //   목적지: /settings.html#payment (?need=pay 가 있으면 게이트 유입으로 간주).
+    var fromGate = /(^|[?&])need=pay(\b|&|$)/.test(location.search) || /[?&]need=pay/.test(location.hash);
+    if (fromGate) {
+      var hint = el('div', { class: 'wzs-gate-hint' });
+      hint.style.cssText = 'margin:0 0 14px;padding:12px 14px;border:1px solid var(--c-primary-200,#ddd6fe);background:var(--c-primary-50,#f5f3ff);border-radius:10px;font-size:14px;line-height:1.6;color:var(--c-primary-700,#6d28d9);font-weight:600;';
+      hint.textContent = '펀딩을 완료하려면 결제수단을 먼저 등록해 주세요. 등록 후 다시 펀딩을 이어가실 수 있어요.';
+      panel.appendChild(hint);
+    }
+
     var listWrap = el('div', { class: 'wzs-cards' });
     panel.appendChild(listWrap);
 
@@ -549,7 +560,13 @@
       listWrap.innerHTML = '';
       var items = state.methods || [];
       if (!items.length) {
-        listWrap.appendChild(el('div', { class: 'wzs-empty' }, '등록된 결제수단이 없습니다.'));
+        var empty = el('div', { class: 'wzs-empty' }, '등록된 결제수단이 없습니다. 위 “결제수단 추가”로 카드나 계좌를 등록하세요.');
+        listWrap.appendChild(empty);
+        // 게이트 유입이고 결제수단이 0개면 추가 폼을 한 번 자동으로 띄워 등록을 바로 유도.
+        if (fromGate && !renderPayment._gateOpened) {
+          renderPayment._gateOpened = true;
+          setTimeout(openAddPayment, 120);
+        }
         return;
       }
       items.forEach(function (pm) { listWrap.appendChild(paymentCard(pm)); });

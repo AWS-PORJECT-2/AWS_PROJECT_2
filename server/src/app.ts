@@ -364,7 +364,7 @@ export function createApp(
 
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
-  app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository, notificationRepository));
+  app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository, paymentMethodRepository, notificationRepository));
   // --- 찜(좋아요, 026_project_likes) — 서버 저장으로 모든 사용자에게 반영 + 기기간 유지 ---
   // /:id/like 는 고정 하위 세그먼트라 /api/funds(POST) · /api/funds/:id/back 과 충돌 없음.
   app.post('/api/funds/:id/like', authRequired, createLikeHandler(groupBuyRepository));

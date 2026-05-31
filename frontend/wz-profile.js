@@ -911,14 +911,26 @@
     return card;
   }
   var BACK_STATUS = {
+    pledged:          { label: '예약됨',    cls: 'awaiting' },
+    paid:             { label: '결제 완료', cls: 'confirmed' },
+    payment_failed:   { label: '결제 실패(재시도 예정)', cls: 'pending' },
     awaiting_deposit: { label: '입금 대기', cls: 'awaiting' },
     confirmed:        { label: '입금 완료', cls: 'confirmed' },
     cancel_requested: { label: '취소 요청', cls: 'pending' },
     cancelled:        { label: '취소됨',    cls: 'cancelled' },
     refunded:         { label: '환불 완료', cls: 'cancelled' },
   };
-  // 취소 신청이 가능한 상태(미입금/입금완료). 취소요청·취소·환불 건은 버튼 숨김.
-  var CANCELLABLE = { awaiting_deposit: true, confirmed: true };
+  // 취소 버튼이 노출되는 상태별 동작.
+  //  - pledged(캠페인 중)  : "펀딩 취소"   → 백엔드가 즉시 cancelled 처리(환불 불필요).
+  //  - paid(결제 완료)     : "취소 신청"   → 메이커 확인 후 환불 진행.
+  //  - awaiting_deposit/confirmed(구 무통장 플로우): "펀딩 취소 신청" → 취소 요청.
+  // payment_failed·취소·환불·취소요청 건은 버튼 숨김(상태만 표시).
+  var CANCEL_ACTION = {
+    pledged:          { label: '펀딩 취소',     immediate: true,  resultStatus: 'cancelled',        resultLabel: '취소됨',    resultCls: 'cancelled' },
+    paid:             { label: '취소 신청',     immediate: false, resultStatus: 'cancel_requested', resultLabel: '취소 요청', resultCls: 'pending' },
+    awaiting_deposit: { label: '펀딩 취소 신청', immediate: false, resultStatus: 'cancel_requested', resultLabel: '취소 요청', resultCls: 'pending' },
+    confirmed:        { label: '펀딩 취소 신청', immediate: false, resultStatus: 'cancel_requested', resultLabel: '취소 요청', resultCls: 'pending' },
+  };
 
   function backingCard(o) {
     var fid = o.fundId || o.fund_id;
@@ -938,19 +950,23 @@
     if (o.rewardTitle) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, o.rewardTitle));
     card.appendChild(W.el('p', { class: 'wz-mp-card__amount' }, W.money(o.amount)));
 
-    // 취소 신청 버튼 — 주문 id 가 있고(=/me/orders 보강분) 취소 가능 상태일 때만.
+    // 취소 버튼 — 주문 id 가 있고(=/me/orders 보강분) 취소 가능 상태일 때만.
+    //  pledged → 즉시 취소("펀딩 취소"), paid → 취소 신청(환불 흐름), 구 무통장 → 취소 신청.
     var orderId = o.id != null ? o.id : (o.orderId != null ? o.orderId : null);
-    if (orderId != null && CANCELLABLE[statusKey]) {
+    var act = CANCEL_ACTION[statusKey];
+    if (orderId != null && act) {
       var actions = W.el('div', { class: 'wz-mp-card__actions' });
-      var cancelBtn = W.el('button', { class: 'wz-mp-card__cancel', type: 'button' }, '펀딩 취소 신청');
+      var cancelBtn = W.el('button', { class: 'wz-mp-card__cancel', type: 'button' }, act.label);
       cancelBtn.style.cssText = 'margin-top:9px;width:100%;padding:8px 10px;border:1px solid var(--c-divider);border-radius:8px;background:var(--c-bg);color:var(--c-text-sub);font-size:13px;font-weight:700;cursor:pointer;';
       cancelBtn.addEventListener('click', function (e) {
         // 카드(<a>) 내부 버튼 — 카드 이동을 막고 취소 확인 모달을 연다.
         e.preventDefault(); e.stopPropagation();
-        openCancelConfirm(o, orderId, function () {
-          // 성공: 배지를 '취소 요청'으로 갱신하고 버튼 숨김.
-          o.status = 'cancel_requested';
-          if (badge) { badge.textContent = '취소 요청'; badge.className = 'wz-mp-card__badge wz-mp-card__badge--pending'; }
+        openCancelConfirm(o, orderId, act, function (resultStatus) {
+          // 성공: 응답 상태(즉시 취소면 cancelled, 그 외 cancel_requested)로 배지 갱신 + 버튼 숨김.
+          var key = String(resultStatus || act.resultStatus || '').toLowerCase();
+          var fin = BACK_STATUS[key] || { label: act.resultLabel, cls: act.resultCls };
+          o.status = key || act.resultStatus;
+          if (badge) { badge.textContent = fin.label; badge.className = 'wz-mp-card__badge wz-mp-card__badge--' + fin.cls; }
           actions.remove();
         });
       });
@@ -960,26 +976,33 @@
     return card;
   }
 
-  /* 펀딩 취소 신청 확인 모달 → POST /api/me/orders/:id/cancel-request.
-   *  성공 시 onDone() 호출(배지 갱신·버튼 숨김). window.confirm 대신 간단 모달로 안내. */
-  function openCancelConfirm(o, orderId, onDone) {
+  /* 펀딩 취소/취소신청 확인 모달 → POST /api/me/orders/:id/cancel-request.
+   *  act.immediate=true(pledged): "지금 바로 취소" — 백엔드가 즉시 cancelled 처리.
+   *  act.immediate=false(paid/구 무통장): "취소 신청" — 메이커 확인 후 환불.
+   *  성공 시 onDone(resultStatus) 호출(응답의 status, 없으면 act.resultStatus). window.confirm 대신 간단 모달로 안내. */
+  function openCancelConfirm(o, orderId, act, onDone) {
+    act = act || { immediate: false, resultStatus: 'cancel_requested' };
+    var title = act.immediate ? '펀딩 취소' : '펀딩 취소 신청';
     var back = W.el('div', { class: 'wz-mp-modal-back' });
     back.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;';
     var box = W.el('div', { class: 'wz-mp-modal' });
     box.style.cssText = 'background:var(--c-surface,#fff);border-radius:14px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.18);';
-    box.appendChild(W.el('h2', { style: 'margin:0 0 10px;font-size:17px;font-weight:800;color:var(--c-text)' }, '펀딩 취소 신청'));
+    box.appendChild(W.el('h2', { style: 'margin:0 0 10px;font-size:17px;font-weight:800;color:var(--c-text)' }, title));
     var desc = W.el('p', { style: 'margin:0;font-size:14px;line-height:1.7;color:var(--c-text-sub)' });
     desc.append(
       W.el('b', { style: 'color:var(--c-text)' }, o.fundTitle || '이 프로젝트'),
-      document.createTextNode(' 펀딩을 취소 신청할까요? 신청하면 메이커 확인 후 취소·환불이 진행돼요.')
+      document.createTextNode(act.immediate
+        ? ' 펀딩 예약을 취소할까요? 아직 결제 전이라 바로 취소돼요(청구 없음).'
+        : ' 펀딩을 취소 신청할까요? 신청하면 메이커 확인 후 취소·환불이 진행돼요.')
     );
     box.appendChild(desc);
     var errLine = W.el('p', { style: 'display:none;margin:12px 0 0;font-size:13px;color:#d33;font-weight:600' });
     box.appendChild(errLine);
 
+    var confirmLabel = act.immediate ? '펀딩 취소' : '취소 신청';
     var foot = W.el('div', { style: 'display:flex;gap:8px;justify-content:flex-end;margin-top:18px' });
     var cancel = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, '닫기');
-    var confirm = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, '취소 신청');
+    var confirm = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, confirmLabel);
     foot.append(cancel, confirm);
     box.appendChild(foot);
     back.appendChild(box);
@@ -1001,12 +1024,13 @@
       confirm.disabled = true; confirm.textContent = '처리 중...';
       errLine.style.display = 'none';
       window.api.post('/me/orders/' + encodeURIComponent(orderId) + '/cancel-request', {})
-        .then(function () {
+        .then(function (r) {
           close();
-          if (onDone) onDone();
+          // 백엔드 응답의 status(pledged 즉시취소면 'cancelled', 그 외 'cancel_requested')를 전달.
+          if (onDone) onDone(r && r.status);
         })
         .catch(function (err) {
-          confirm.disabled = false; confirm.textContent = '취소 신청';
+          confirm.disabled = false; confirm.textContent = confirmLabel;
           var msg = (err && err.code === 'INVALID_STATE')
             ? '이미 취소 신청했거나 취소할 수 없는 상태예요. 새로고침 후 확인해 주세요.'
             : ((err && err.message) || '취소 신청에 실패했어요. 잠시 후 다시 시도해 주세요.');
