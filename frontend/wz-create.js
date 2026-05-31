@@ -513,7 +513,8 @@
         // Basic(start) 요금제면 잠금(회색 비활성). Plus/Professional 만 작성 가능.
         locked: function () { return nstate.plan !== 'run' && nstate.plan !== 'boost'; },
         lockedLabel: 'Plus 또는 Professional 시 활성화',
-        done: function () { return !nstate.openScheduled || !!nstate.openAt; },
+        // 선택 사항 — 실제로 공개예정을 켜고 일시를 설정했을 때만 '작성 완료'(입력 안 했으면 완료로 표시하지 않음).
+        done: function () { return !!(nstate.openScheduled && nstate.openAt); },
         open: openScheduleForm,
       },
       {
@@ -761,7 +762,8 @@
       var body = W.el('div', { class: 'wc-card__body' });
       var name = W.el('p', { class: 'wc-card__name' }, sec.name);
       if (sec.required && !locked) name.appendChild(W.el('span', { class: 'wc-card__req' }, '필수'));
-      body.append(name, W.el('p', { class: 'wc-card__state' }, locked ? (sec.lockedLabel || '잠김') : (done ? '작성 완료' : '작성 전')));
+      // 잠김이면 상태문은 비움(버튼 자리에 안내가 따로 있어 중복 방지). 그 외엔 작성 완료/작성 전.
+      body.append(name, W.el('p', { class: 'wc-card__state' }, locked ? '' : (done ? '작성 완료' : (sec.required ? '작성 전' : '선택 사항'))));
       var btnWrap = W.el('div', { class: 'wc-card__btn' });
       if (locked) {
         // Basic 요금제 — 회색 비활성, 클릭 불가.
