@@ -1061,6 +1061,10 @@
         card.appendChild(sel);
         card.addEventListener('click', function () {
           picked = key;
+          // 카드 선택 즉시 nstate.plan 반영 — 슬라이드오버 '확인'을 안 눌러도 다음 단계(목표·일정)에서
+          // 공개예정 토글(run/boost)이 바로 뜨도록. start 면 예약 상태 해제.
+          nstate.plan = picked;
+          if (picked !== 'run' && picked !== 'boost') { nstate.openScheduled = false; nstate.openAt = ''; }
           cardsWrap.querySelectorAll('.wc-plan').forEach(function (x) { x.classList.remove('is-on'); x.setAttribute('aria-pressed', 'false'); });
           cardsWrap.querySelectorAll('.wc-plan__select').forEach(function (x) { x.textContent = '선택하기'; });
           card.classList.add('is-on'); card.setAttribute('aria-pressed', 'true');

@@ -548,12 +548,19 @@
   }
   function buildRecent(wrap, products) {
     const recent = readRecent();
-    if (!recent.length || !products.length) { wrap.replaceChildren(); return; }
+    if (!recent.length) { wrap.replaceChildren(); return; }
+    // 현재 로드된 목록(products)에 있으면 최신 데이터를 쓰고, 없으면 저장된 recentFunds 항목을 그대로 렌더.
+    // (예전엔 products 교집합만 그려서, 본 펀드가 현재 목록에 없으면 "최근 본"이 비어 보였음.)
     const byId = {};
-    products.forEach((p) => { byId[String(p.id)] = p; });
-    // 현재 존재하는 것만(없는 건 스킵), recentFunds 순서(최근 우선) 유지
+    (products || []).forEach((p) => { byId[String(p.id)] = p; });
     const items = [];
-    recent.forEach((r) => { const p = byId[String(r.id)]; if (p && items.indexOf(p) === -1) items.push(p); });
+    const seen = {};
+    recent.forEach((r) => {
+      const id = String(r.id);
+      if (seen[id]) return;
+      seen[id] = 1;
+      items.push(byId[id] || r); // 전체 데이터 우선, 없으면 저장본(id/title/imageUrl/deadline/achievementRate/...)
+    });
     if (!items.length) { wrap.replaceChildren(); return; }
     wrap.replaceChildren(RecentSection(items.slice(0, 12)));
   }

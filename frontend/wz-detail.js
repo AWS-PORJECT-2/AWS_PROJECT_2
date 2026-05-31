@@ -323,7 +323,16 @@
       let list = JSON.parse(localStorage.getItem('recentFunds') || '[]');
       if (!Array.isArray(list)) list = [];
       list = list.filter((r) => r && String(r.id) !== String(f.id));
-      list.unshift({ id: f.id, title: f.title || '', imageUrl: f.coverImageUrl || f.designImageUrl || '' });
+      // 카드 렌더에 필요한 필드까지 저장 → 홈 "최근 본"이 현재 로드된 목록에 없어도 그대로 그릴 수 있게.
+      list.unshift({
+        id: f.id,
+        title: f.title || '',
+        imageUrl: f.coverImageUrl || f.designImageUrl || '',
+        creatorName: f.creatorName || '',
+        achievementRate: (typeof f.achievementRate === 'number') ? f.achievementRate : undefined,
+        deadline: f.deadline || '',
+        category: f.category || '',
+      });
       localStorage.setItem('recentFunds', JSON.stringify(list.slice(0, 20)));
     } catch (_) { /* 저장 실패 무시 */ }
   }
