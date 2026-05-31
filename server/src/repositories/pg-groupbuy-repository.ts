@@ -740,11 +740,16 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const plan = String(g.plan ?? 'start');
     const { tier, planLabel } = planToTier(plan);
 
-    // 마감까지 남은 일수 — deadline 이 있으면 ceil(일), 지났으면 0, 없으면 null.
+    // 마감까지 남은 일수 — 한국시간(KST, UTC+9) 캘린더 날짜 기준(프론트 WZ.dday 와 동일 공식).
+    // 서버가 버지니아(UTC)라도 항상 KST 로 계산. 지났으면 0, 없으면 null.
     let daysLeft: number | null = null;
     if (g.deadline) {
-      const ms = new Date(g.deadline as string).getTime() - Date.now();
-      daysLeft = Number.isFinite(ms) ? Math.max(0, Math.ceil(ms / 86_400_000)) : null;
+      const t = new Date(g.deadline as string).getTime();
+      if (Number.isFinite(t)) {
+        const KST = 9 * 3_600_000;
+        const dayOf = (ms: number): number => Math.floor((ms + KST) / 86_400_000);
+        daysLeft = Math.max(0, dayOf(t) - dayOf(Date.now()));
+      }
     }
 
     // 후원 집계 — reward_orders(awaiting_deposit+confirmed=유효 후원), confirmed=입금확정.

@@ -196,15 +196,12 @@
 
   /* 남은 기간 배지 — wz-home.js 와 동일 규칙(D-7 / D-1 / 오늘 마감 / 마감). */
   function ddayInfo(deadline) {
-    if (!deadline) return null;
-    const end = new Date(deadline).getTime();
-    if (!end || isNaN(end)) return null;
-    const now = Date.now();
-    if (end <= now) return { label: '마감', cls: 'closed' };
-    const days = Math.ceil((end - now) / 86400000);
-    if (days <= 1) return { label: '오늘 마감', cls: 'urgent' };
-    if (days <= 3) return { label: 'D-' + days, cls: 'urgent' };
-    return { label: 'D-' + days, cls: '' };
+    const n = W.dday(deadline); // 한국시간(KST) 캘린더 기준 — 상세 페이지와 동일
+    if (n == null) return null;
+    if (n < 0) return { label: '마감', cls: 'closed' };
+    if (n === 0) return { label: '오늘 마감', cls: 'urgent' };
+    if (n <= 3) return { label: 'D-' + n, cls: 'urgent' };
+    return { label: 'D-' + n, cls: '' };
   }
   function DdayBadge(p) {
     const info = ddayInfo(p.deadline);

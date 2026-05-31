@@ -30,6 +30,17 @@
     if (p && p.targetQuantity > 0) return Math.round((p.currentQuantity / p.targetQuantity) * 100);
     return 0;
   }
+  /* 마감까지 남은 일수 — 한국시간(KST, UTC+9) 캘린더 날짜 기준.
+   * 서버(버지니아=UTC)·뷰어 타임존과 무관하게 항상 KST 로 계산 → 카드(밖)·상세(안) D-day 가 항상 일치.
+   * 반환: 정수(0=오늘 마감, 1=내일=D-1, ...), 마감 지났으면 음수, deadline 없으면 null. */
+  function dday(deadline) {
+    if (!deadline) return null;
+    const ms = new Date(deadline).getTime();
+    if (!isFinite(ms)) return null;
+    const KST = 9 * 3600000;
+    const dayOf = (t) => Math.floor((t + KST) / 86400000); // KST 캘린더 일(epoch day)
+    return dayOf(ms) - dayOf(Date.now());
+  }
 
   /* ===== 홈 단일 둘러보기 허브 라우팅 =====
    * 홈에서 인기/신규/마감임박/카테고리 클릭 → 새 페이지로 가지 않고 홈 그리드만 그 자리에서 갱신.
@@ -509,5 +520,5 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  window.WZ = { el, esc, money, rate, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome };
+  window.WZ = { el, esc, money, rate, dday, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome };
 })();

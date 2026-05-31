@@ -75,13 +75,9 @@
     const u = new URL(location.href);
     return u.searchParams.get('id') || '';
   }
+  // 마감 D-day 는 공유 KST 함수(WZ.dday)로 통일 — 카드(밖)와 동일 기준(한국시간). 로컬/UTC 차이로 인한 불일치 제거.
   function daysLeft(deadline) {
-    if (!deadline) return null;
-    const d = new Date(deadline);
-    if (isNaN(d.getTime())) return null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const end = new Date(d); end.setHours(0, 0, 0, 0);
-    return Math.round((end - today) / 86400000);
+    return W.dday(deadline);
   }
   function fmtPeriod(deadline) {
     if (!deadline) return null;
@@ -124,10 +120,8 @@
   function openInDays(f) {
     const d = openAtDate(f);
     if (!d) return null;
-    const today = new Date(); today.setHours(0, 0, 0, 0);
-    const open = new Date(d); open.setHours(0, 0, 0, 0);
-    const n = Math.round((open - today) / 86400000);
-    return n < 0 ? null : n;
+    const n = W.dday(d); // 공개 D-day 도 KST 캘린더 기준 통일
+    return (n == null || n < 0) ? null : n;
   }
   /* 공개예정 D-day 라벨(공개 기준). openAt 없으면 'OPEN' 폴백. */
   function openDdayLabel(f) {
