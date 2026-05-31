@@ -218,8 +218,23 @@ export class PgUserRepository implements UserRepository {
   }
 
   async delete(userId: string): Promise<void> {
-    // groupbuys/participations/orders 는 ON DELETE RESTRICT → 진행 이력 있으면 23503 throw(상위에서 처리)
-    await this.pool.query('DELETE FROM "user" WHERE id = $1', [userId]);
+    // groupbuys.creator_id 는 ON DELETE RESTRICT 라 유저가 만든 펀드 행이 남아 있으면 삭제가 막힌다.
+    // 활성(deleted_at IS NULL) 펀드는 라우트 사전체크에서 차단하므로, 여기 도달 시엔 소프트삭제된 잔여 펀드뿐.
+    // 그 펀드 행을 먼저 제거하면(reward_orders 는 fund_id ON DELETE CASCADE 로 함께 정리) 유저 삭제가 가능해진다.
+    // 유저 자신의 주문/결제수단/배송지/팔로우/댓글/채팅은 user_id FK 가 CASCADE/SET NULL.
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // 소프트삭제된 펀드만 정리(활성 펀드는 절대 건드리지 않음 — 남아 있으면 아래 유저 삭제가 FK 로 막혀 상위에서 409 흡수).
+      await client.query('DELETE FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL', [userId]);
+      await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async listAll(limit = 500): Promise<User[]> {
