@@ -1100,7 +1100,7 @@
      * 카카오톡: 링크 복사 + 카카오톡 앱 실행(SDK/도메인 등록 불필요). 나머지는 웹 공유 인텐트.
      * 모든 항목은 <button type="button"> (a href="#" 미사용). */
     const items = [
-      ['kakao', '카카오톡', SVG.kakao, () => { copyLink(url, '링크가 복사되었어요. 카카오톡에 붙여넣어 공유하세요.'); openKakaoTalk(); }],
+      ['kakao', '카카오톡', SVG.kakao, () => { try { if (navigator.clipboard) navigator.clipboard.writeText(url); } catch (_) { /* 무시 */ } openKakaoTalk(); }],
       ['twitterX', 'X', SVG.twitterX, () => {
         openShareWindow('https://twitter.com/intent/tweet?url=' + enc + '&text=' + encTitle);
       }],
