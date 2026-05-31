@@ -225,7 +225,14 @@ export class PgUserRepository implements UserRepository {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
+      // project_likes/project_subscriptions 는 FK 가 없어(소셜 테이블, UUID-only) user 삭제로 CASCADE 되지 않는다.
+      // 정리하지 않으면 찜 수/알림신청 수(실시간 COUNT)가 탈퇴 후에도 줄지 않고 남는다 → 직접 삭제.
+      await client.query('DELETE FROM project_likes WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM project_subscriptions WHERE user_id = $1', [userId]);
       // 소프트삭제된 펀드만 정리(활성 펀드는 절대 건드리지 않음 — 남아 있으면 아래 유저 삭제가 FK 로 막혀 상위에서 409 흡수).
+      // 그 펀드에 달린 찜/구독(다른 사람 것)도 FK 없으니 함께 정리.
+      await client.query('DELETE FROM project_likes WHERE groupbuy_id IN (SELECT id FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)', [userId]);
+      await client.query('DELETE FROM project_subscriptions WHERE groupbuy_id IN (SELECT id FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)', [userId]);
       await client.query('DELETE FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL', [userId]);
       await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
       await client.query('COMMIT');

@@ -1070,6 +1070,7 @@
           card.classList.add('is-on'); card.setAttribute('aria-pressed', 'true');
           sel.textContent = '선택됨';
           renderPreview();
+          renderSched(); // 비용 선택 즉시 공개예정 토글 노출/숨김 갱신
         });
         cardsWrap.appendChild(card);
       });
@@ -1078,6 +1079,45 @@
       previewEl = W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' });
       renderPreview();
       body.appendChild(previewEl);
+
+      // ---- 공개 예정 등록 — 요금제(비용) 단계에서 Plus/Professional 선택 시 바로 노출(반응형) ----
+      var _tom = new Date(); _tom.setDate(_tom.getDate() + 1);
+      var _minOpen = _tom.toISOString().slice(0, 10);
+      var planSched = (picked === 'run' || picked === 'boost') && !!nstate.openScheduled;
+      var schedSlot = W.el('div', {});
+      body.appendChild(schedSlot);
+      var schedDateIn = null;
+      function renderSched() {
+        schedSlot.replaceChildren();
+        if (picked !== 'run' && picked !== 'boost') { planSched = false; return; }
+        var sched = W.el('div', { class: 'wc-sched' });
+        var row = W.el('div', { class: 'wc-sched__row' });
+        var txt = W.el('div', { class: 'wc-sched__text' });
+        txt.append(
+          W.el('p', { class: 'wc-sched__title' }, '공개 예정으로 등록 (선택)'),
+          W.el('p', { class: 'wc-sched__desc' }, '지금 바로 오픈하지 않고 공개 예정일을 정해 올리면, 오픈 전까지 공개 예정 목록에 노출되고 후원자들이 오픈 알림을 신청할 수 있어요.')
+        );
+        var toggle = W.el('button', { class: 'wc-toggle' + (planSched ? ' is-on' : ''), type: 'button', role: 'switch', 'aria-checked': planSched ? 'true' : 'false', 'aria-label': '공개 예정으로 등록' });
+        toggle.appendChild(W.el('span', { class: 'wc-toggle__knob' }));
+        row.append(txt, toggle);
+        sched.appendChild(row);
+        var dateWrap = W.el('div', { class: 'wc-sched__date' });
+        schedDateIn = input({ type: 'date', value: nstate.openAt || '', min: _minOpen });
+        dateWrap.appendChild(field('공개 예정일', true, schedDateIn, '이 날짜에 프로젝트가 자동으로 공개됩니다. 마감일보다 앞서야 합니다(마감일은 다음 단계에서 설정).'));
+        dateWrap.style.display = planSched ? '' : 'none';
+        sched.appendChild(dateWrap);
+        toggle.addEventListener('click', function () {
+          planSched = !planSched;
+          toggle.classList.toggle('is-on', planSched);
+          toggle.setAttribute('aria-checked', planSched ? 'true' : 'false');
+          dateWrap.style.display = planSched ? '' : 'none';
+          nstate.openScheduled = planSched;
+          if (!planSched) nstate.openAt = '';
+        });
+        schedDateIn.addEventListener('change', function () { nstate.openAt = schedDateIn.value; });
+        schedSlot.appendChild(sched);
+      }
+      renderSched();
 
       function renderPreview() {
         var info = PLAN_INFO[picked];

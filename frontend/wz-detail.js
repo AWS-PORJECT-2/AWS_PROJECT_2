@@ -323,11 +323,15 @@
       let list = JSON.parse(localStorage.getItem('recentFunds') || '[]');
       if (!Array.isArray(list)) list = [];
       list = list.filter((r) => r && String(r.id) !== String(f.id));
+      // 이미지가 data: URL(업로드 base64, 수 MB)이면 저장하지 않는다 — localStorage 용량(약 5MB) 초과로
+      // setItem 이 통째로 실패해 "최근 본"이 영영 비어 보이던 버그의 원인. http(s) URL 만 저장, data: 면 빈값(카드는 카테고리 아이콘 폴백).
+      var rawImg = f.coverImageUrl || f.designImageUrl || '';
+      var safeImg = /^https?:\/\//.test(rawImg) ? rawImg : '';
       // 카드 렌더에 필요한 필드까지 저장 → 홈 "최근 본"이 현재 로드된 목록에 없어도 그대로 그릴 수 있게.
       list.unshift({
         id: f.id,
         title: f.title || '',
-        imageUrl: f.coverImageUrl || f.designImageUrl || '',
+        imageUrl: safeImg,
         creatorName: f.creatorName || '',
         achievementRate: (typeof f.achievementRate === 'number') ? f.achievementRate : undefined,
         deadline: f.deadline || '',
