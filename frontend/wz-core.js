@@ -180,6 +180,10 @@
       a.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); go(params); });
       nav2inner.appendChild(a);
     });
+    // 공개예정 — 홈 인플레이스 필터 대상이 아님(go() X). 전용 브라우즈 페이지로 직접 이동.
+    const soonLink = el('a', { class: 'wz-hd__nav2link wz-hd__nav2link--soon', href: '/feed.html?feed=scheduled' }, '공개예정');
+    soonLink.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); location.href = '/feed.html?feed=scheduled'; });
+    nav2inner.appendChild(soonLink);
     nav2.appendChild(nav2inner);
     hd.appendChild(nav2);
 

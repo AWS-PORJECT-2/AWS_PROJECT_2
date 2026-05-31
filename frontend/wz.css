@@ -586,3 +586,47 @@ a.wz-btn--primary svg path { color: #fff; stroke: #fff; }
   .wz-d-blk--html figure[data-align="right"],
   .wz-d-blk--html figure[data-align="center"] { float: none; width: 100% !important; margin: 1em 0; }
 }
+
+/* =================== [9] 공개 예정 — 전용 페이지 / 카드 / 알림신청 ===================
+ * 헤더 메인바 "공개예정" 진입 → /feed.html?feed=scheduled (wz-feed.js).
+ * 카드: 일반 카드 + "공개 D-day" 배지(보라 wz-soon) + 알림신청/취소 버튼(구독 수). */
+
+/* 헤더 둘째 줄 "공개예정" 링크 — 다른 nav2 링크와 동일 톤(모바일에서도 가로 스크롤로 노출). */
+.wz-hd__nav2link--soon { color: var(--c-primary-700); font-weight: 700; white-space: nowrap; }
+.wz-hd__nav2link--soon:hover { color: var(--c-primary-600); }
+
+/* 공개 예정 전용 페이지 부제 */
+.wz-feedpage__sub { font-size: 14px; color: var(--c-text-muted); margin: 8px 0 0; }
+
+/* 오늘/곧 공개 — 더 임박했음을 코랄~빨강 톤으로 구분(기본 보라 wz-soon 은 wz-home.js 와 공유). */
+.wz-soon--soon {
+  background: linear-gradient(135deg, var(--c-accent-coral), var(--c-danger));
+  box-shadow: 0 2px 8px rgba(239,68,68,.4);
+}
+
+/* 공개 예정 카드 — 알림 버튼이 들어가므로 카드를 세로 플렉스로(버튼이 맨 아래). */
+.wz-scard { display: flex; flex-direction: column; }
+.wz-scard .wz-pcard__title { flex: 0 0 auto; }
+
+/* 알림신청/취소 버튼 — 아웃라인(흰 배경+보라). 신청 완료(is-on)면 보라 채움(글자 흰색). */
+.wz-subscribe {
+  margin-top: 12px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  width: 100%; height: 38px; padding: 0 12px; border-radius: 8px;
+  border: 1.5px solid var(--c-primary-400); background: #fff; color: var(--c-primary-600);
+  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.wz-subscribe:hover { background: var(--c-primary-50); }
+.wz-subscribe svg { width: 15px; height: 15px; flex: 0 0 auto; }
+/* 신청 완료 — 채움 보라, 글자/아이콘 흰색(채움 버튼 글자 흰색 규칙). */
+.wz-subscribe.is-on { background: var(--c-primary-500); border-color: var(--c-primary-500); color: #fff; }
+.wz-subscribe.is-on:hover { background: var(--c-primary-600); }
+.wz-subscribe.is-on svg, .wz-subscribe.is-on svg path { color: #fff; stroke: #fff; }
+.wz-subscribe:disabled { opacity: .6; cursor: default; }
+/* 구독 수 — 라벨 옆 작은 알약. */
+.wz-subscribe__cnt {
+  display: inline-flex; align-items: center; min-width: 18px; height: 18px; padding: 0 5px;
+  border-radius: 999px; font-size: 11px; font-weight: 800; line-height: 1;
+  background: var(--c-primary-50); color: var(--c-primary-700);
+}
+.wz-subscribe.is-on .wz-subscribe__cnt { background: rgba(255,255,255,.26); color: #fff; }

@@ -336,8 +336,20 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-modal__body > .wz-btn--block + .wz-btn--block { margin-top: 10px; }
 
 /* 후원 예약 완료 모달: 상단 보라 방패 아이콘 */
-.wz-d-pledge-done { width: 56px; height: 56px; margin: 4px auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-primary-50); color: var(--c-primary-600); }
+.wz-d-pledge-done { width: 56px; height: 56px; margin: 4px auto 12px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-primary-50); color: var(--c-primary-600); }
 .wz-d-pledge-done svg { width: 30px; height: 30px; }
+
+/* 완료 메시지 제목 줄 */
+.wz-d-pledge-title { margin: 0 0 16px; text-align: center; font-size: 18px; font-weight: 800; color: var(--c-text); }
+
+/* 프로젝트 정보 요약 카드(썸네일 + 제목 + 선택 리워드) */
+.wz-d-pledge-proj { display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 14px; border: 1px solid var(--c-border); border-radius: 12px; background: var(--c-surface-1, #fafafa); }
+.wz-d-pledge-proj__thumb { flex: 0 0 auto; width: 56px; height: 56px; border-radius: 10px; overflow: hidden; background: var(--c-primary-50); display: flex; align-items: center; justify-content: center; color: var(--c-primary-600); }
+.wz-d-pledge-proj__thumb img { width: 100%; height: 100%; object-fit: cover; }
+.wz-d-pledge-proj__thumb svg { width: 28px; height: 28px; }
+.wz-d-pledge-proj__meta { min-width: 0; flex: 1 1 auto; }
+.wz-d-pledge-proj__t { margin: 0; font-size: 14px; font-weight: 700; color: var(--c-text); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.wz-d-pledge-proj__reward { margin: 4px 0 0; font-size: 13px; color: var(--c-text-muted); line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ---------- 공유 시트 ---------- */
 .wz-d-sharesheet { position: fixed; inset: 0; z-index: 1000; background: rgba(16,24,40,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }

@@ -489,13 +489,14 @@
   }
 
   function ScheduledSection(items) {
-    // 전체보기 링크는 두지 않음 — feed.html 은 scheduled 피드를 지원하지 않아(일반 목록으로 빠짐) 생략.
+    // 전체보기 → /feed.html?feed=scheduled (공개 예정 전용 브라우즈 페이지, wz-feed.js 가 지원).
     const sec = W.el('section', { class: 'wz-shelf wz-scheduled' });
     const head = W.el('div', { class: 'wz-shelf__head' });
     const titles = W.el('div', {});
     titles.appendChild(W.el('h2', { class: 'wz-shelf__title' }, '공개 예정'));
     titles.appendChild(W.el('p', { class: 'wz-shelf__sub' }, '곧 만나볼 수 있어요 — 알림 신청하고 놓치지 마세요'));
     head.appendChild(titles);
+    head.appendChild(W.el('a', { class: 'wz-shelf__more', href: '/feed.html?feed=scheduled' }, '전체보기'));
     sec.appendChild(head);
     const scroll = W.el('div', { class: 'wz-shelf__scroll' });
     items.forEach((p) => scroll.appendChild(ScheduledCard(p)));

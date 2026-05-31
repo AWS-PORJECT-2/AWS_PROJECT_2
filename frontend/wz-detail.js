@@ -1721,28 +1721,51 @@
       alert('후원 신청에 실패했어요: ' + ((e && e.message) || '알 수 없는 오류'));
       return;
     }
-    showPledgeModal(res, def);
+    // 선택한 리워드 객체(제목·금액 표시용). _selectedTierId 는 t.id(없으면 인덱스)로 저장됨.
+    const tiers = Array.isArray(f.rewardTiers) ? f.rewardTiers : [];
+    const selectedTier = tiers.find((t, ti) => ((t && t.id != null) ? t.id : ti) === _selectedTierId) || null;
+    showPledgeModal(res, def, f, selectedTier);
   }
 
-  // 후원 예약 완료 모달 — 무통장 입금/계좌번호 표기 없음.
+  // 후원(펀딩 참여) 완료 모달 — 무통장 입금/계좌번호 표기 없음.
+  // 프로젝트 정보 요약(제목·썸네일·선택 리워드·금액) + 예약 안내.
   // 마감 목표 달성 시 다음날부터 등록 결제수단으로 순차 결제. 마감 전 자유 취소 안내.
-  function showPledgeModal(res, addr) {
-    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '후원 예약 완료' });
+  function showPledgeModal(res, addr, f, selectedTier) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '펀딩 참여 완료' });
     const box = W.el('div', { class: 'wz-d-modal__box' });
     const close = () => overlay.remove();
 
     const head = W.el('div', { class: 'wz-d-modal__head' });
     const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
     closeBtn.addEventListener('click', close);
-    head.append(W.el('h3', {}, '후원 예약 완료'), closeBtn);
+    head.append(W.el('h3', {}, '펀딩 참여 완료'), closeBtn);
 
     const body = W.el('div', { class: 'wz-d-modal__body' });
 
     body.appendChild(W.el('div', { class: 'wz-d-pledge-done', html: SVG.shield }));
+    // 명확한 완료 메시지(제목 줄).
+    body.appendChild(W.el('p', { class: 'wz-d-pledge-title' }, '펀딩 참여가 완료되었어요'));
 
-    // 예약 요약(금액·배송지). 계좌번호 등 무통장 정보는 표기하지 않는다.
+    // 프로젝트 정보 요약 카드 — 대표 썸네일 + 프로젝트 제목 + 선택 리워드명.
+    // XSS: 제목/리워드명은 textContent(W.el 인자) 로만 주입.
+    if (f) {
+      const card = W.el('div', { class: 'wz-d-pledge-proj' });
+      const thumb = W.el('div', { class: 'wz-d-pledge-proj__thumb' });
+      W.fillThumb(thumb, { imageUrl: f.coverImageUrl || f.designImageUrl || '', title: f.title || '', category: f.category });
+      const meta = W.el('div', { class: 'wz-d-pledge-proj__meta' });
+      meta.appendChild(W.el('p', { class: 'wz-d-pledge-proj__t' }, f.title || '프로젝트'));
+      if (selectedTier) {
+        meta.appendChild(W.el('p', { class: 'wz-d-pledge-proj__reward' }, selectedTier.title || '리워드'));
+      }
+      card.append(thumb, meta);
+      body.appendChild(card);
+    }
+
+    // 예약 요약(리워드·금액·배송지). 계좌번호 등 무통장 정보는 표기하지 않는다.
     const dl = W.el('div', { class: 'wz-d-deposit' });
-    const rows = [['후원 금액', W.money(res.amount), true]];
+    const rows = [];
+    if (selectedTier) rows.push(['선택한 리워드', selectedTier.title || '리워드', false]);
+    rows.push(['후원 금액', W.money(res.amount), true]);
     if (addr) rows.push(['배송지', ((addr.label || '') + ' · ' + (addr.recipientName || '')).replace(/^ · | · $/g, '') || '-', false]);
     rows.forEach(([k, v, isAmount]) => {
       dl.appendChild(W.el('div', { class: 'wz-d-deposit__row' },

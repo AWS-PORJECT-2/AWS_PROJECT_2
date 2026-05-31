@@ -1077,19 +1077,26 @@
 
       function renderPreview() {
         var info = PLAN_INFO[picked];
-        previewEl.replaceChildren();
         // 수수료 미리보기는 실제 결제액인 최저 리워드가 기준(목표 금액과 무관).
         var lowestReward = null;
         (nstate.rewardTiers || []).forEach(function (t) {
           var pr = Number(t.price);
           if (Number.isFinite(pr) && (lowestReward === null || pr < lowestReward)) lowestReward = pr;
         });
+        previewEl.replaceChildren();
+        var feeLine;
         if (lowestReward !== null && Number.isFinite(lowestReward)) {
           var fee = Math.round(lowestReward * info.feeRate);
-          previewEl.textContent = info.name + ' 요금제 기준 수수료 ' + info.feePct + '% — '
+          feeLine = info.name + ' 요금제 기준 수수료 ' + info.feePct + '% — '
             + '최저 리워드가 ' + W.money(lowestReward) + ' 기준 약 ' + W.money(fee) + ' (참고용, 최종 금액은 서버에서 계산됩니다)';
         } else {
-          previewEl.textContent = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
+          feeLine = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
+        }
+        previewEl.appendChild(W.el('p', { style: 'margin:0' }, feeLine));
+        // 공개 예정(오픈 알림) 페이지는 Plus/Professional 전용 — 선택 시 안내 강화.
+        if (picked === 'run' || picked === 'boost') {
+          previewEl.appendChild(W.el('p', { style: 'margin:8px 0 0; font-weight:600' },
+            '공개 예정으로 등록 가능 — 다음 "목표 금액·일정" 단계에서 공개 예정일을 설정하면 오픈 전 알림신청을 받을 수 있어요.'));
         }
       }
     }, function () {
@@ -1144,6 +1151,10 @@
           dateWrap.style.display = scheduled ? '' : 'none';
         });
         body.appendChild(sched);
+      } else {
+        // Basic(start) 요금제 안내 — 공개 예정(오픈 알림) 페이지는 Plus/Professional 전용.
+        body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
+          '공개 예정(오픈 전 알림신청)으로 등록하려면 Plus 또는 Professional 요금제가 필요합니다. 요금제 단계에서 변경할 수 있어요.'));
       }
     }, function () {
       if (!validTargetAmount(amountIn.value)) { toast('목표 금액은 1,000원 이상으로 입력해 주세요'); return false; }

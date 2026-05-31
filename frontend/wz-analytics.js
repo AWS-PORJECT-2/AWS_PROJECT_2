@@ -205,19 +205,41 @@
     var soldQuantity = num(s.soldQuantity);
     var viewCount = num(s.viewCount);
     var subscriberCount = num(s.subscriberCount);
+    var isScheduled = String(s.status) === 'scheduled';
 
-    // 큰 숫자 카드
+    // 공개예정 상태면 오픈 전 핵심 지표(알림 신청자) 안내 배너.
+    if (isScheduled) {
+      var schedNote = W.el('div', { class: 'wz-an__notice' });
+      schedNote.appendChild(W.el('span', { class: 'wz-an__notice-ic', html: IC.bell }));
+      var sn = W.el('div', {});
+      sn.appendChild(W.el('p', { class: 'wz-an__notice-title' }, '공개 예정 프로젝트예요'));
+      sn.appendChild(W.el('p', { class: 'wz-an__notice-desc' },
+        '아직 오픈 전이라 후원 대신 알림 신청이 쌓이고 있어요. 지금까지 ' + subscriberCount + '명이 오픈 알림을 신청했어요.'));
+      schedNote.appendChild(sn);
+      box.appendChild(schedNote);
+    }
+
+    // 큰 숫자 카드. 공개예정이면 '알림 신청자'를 대표 지표로 앞세우고, 오픈 후엔 후원 지표 중심.
     var grid = W.el('div', { class: 'wz-an__stats' });
-    grid.append(
-      statCard(IC.users, '후원자', String(backerCount) + '명', backerCount === 0 ? '아직 후원이 없어요' : null),
-      statCard(IC.coin, '총 모금액', W.money(totalAmount), totalAmount === 0 ? '확정 결제 대기 중' : null),
-      statCard(IC.gift, '판매 수량', String(soldQuantity) + '개', null),
-      statCard(IC.heart, '관심(좋아요)', String(likeCount), likeCount === 0 ? '아직 관심이 없어요' : null),
-      statCard(IC.clock, '남은 기간', daysLeftText(s.daysLeft), null)
-    );
+    if (isScheduled) {
+      grid.append(
+        statCard(IC.bell, '알림 신청자', String(subscriberCount) + '명', subscriberCount === 0 ? '아직 알림 신청이 없어요' : '오픈 시 알림을 받아요'),
+        statCard(IC.eye, '상세 조회수', String(viewCount), viewCount === 0 ? '아직 조회가 없어요' : null),
+        statCard(IC.heart, '관심(좋아요)', String(likeCount), likeCount === 0 ? '아직 관심이 없어요' : null),
+        statCard(IC.clock, '마감까지', daysLeftText(s.daysLeft), null)
+      );
+    } else {
+      grid.append(
+        statCard(IC.users, '후원자', String(backerCount) + '명', backerCount === 0 ? '아직 후원이 없어요' : null),
+        statCard(IC.coin, '총 모금액', W.money(totalAmount), totalAmount === 0 ? '확정 결제 대기 중' : null),
+        statCard(IC.gift, '판매 수량', String(soldQuantity) + '개', null),
+        statCard(IC.heart, '관심(좋아요)', String(likeCount), likeCount === 0 ? '아직 관심이 없어요' : null),
+        statCard(IC.clock, '남은 기간', daysLeftText(s.daysLeft), null)
+      );
+    }
     box.appendChild(grid);
 
-    // 조회수/알림(있을 때만 — 추적값)
+    // 조회수/알림(추적값) — 항상 노출. 공개예정 알림 신청자는 핵심 지표라 mini 행에도 함께 표시.
     var sub = W.el('div', { class: 'wz-an__substats' });
     sub.append(
       miniStat(IC.eye, '상세 조회수', String(viewCount)),
