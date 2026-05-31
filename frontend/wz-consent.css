@@ -119,6 +119,81 @@
 /* 가입 게이트일 때(닫기 불가) 닫기버튼 숨김 처리는 JS 가 wzc-over--gate 부여 */
 .wzc-over--gate .wzc-close { display: none; }
 
+/* ===== 온보딩(프로필 완성) ===== */
+.wzc-box--onb .wzc-body { padding: 16px 24px 6px; }
+
+/* 아바타 업로더 */
+.wzc-onb-avatarwrap {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 10px; margin: 4px 0 20px;
+}
+.wzc-onb-avatar {
+  position: relative; width: 96px; height: 96px; border-radius: 50%;
+  background: var(--c-primary-50); border: 1.5px solid var(--c-primary-200);
+  overflow: hidden; display: flex; align-items: center; justify-content: center;
+}
+.wzc-onb-avatar__img {
+  width: 100%; height: 100%; object-fit: cover; display: none;
+}
+.wzc-onb-avatar__fallback {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; color: var(--c-primary-400);
+}
+.wzc-onb-avatar__fallback svg { width: 46px; height: 46px; }
+.wzc-onb-avatar__cam {
+  position: absolute; right: 2px; bottom: 2px;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--c-primary-500); color: #fff;
+  border: 2px solid var(--c-surface);
+}
+.wzc-onb-avatar__cam svg { width: 15px; height: 15px; }
+
+/* 파일 input 숨기고 라벨 버튼만 노출 */
+.wzc-onb-file { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); border: 0; }
+.wzc-onb-avatar__btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 36px; padding: 0 16px; border-radius: var(--r-full);
+  background: var(--c-divider); color: var(--c-text-sub);
+  font-size: var(--fs-body-sm); font-weight: 700; cursor: pointer;
+  transition: background .15s, color .15s;
+}
+.wzc-onb-avatar__btn:hover { background: var(--c-border); color: var(--c-text); }
+.wzc-onb-file:focus-visible + .wzc-onb-avatar__btn { box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wzc-onb-avatar__hint { font-size: var(--fs-caption); color: var(--c-text-faint); font-weight: 600; }
+
+/* 입력 필드 */
+.wzc-onb-field { margin: 0 0 16px; }
+.wzc-onb-label {
+  display: block; margin-bottom: 7px;
+  font-size: var(--fs-body-sm); font-weight: 700; color: var(--c-text);
+}
+.wzc-onb-req { color: var(--c-primary-700); font-weight: 700; }
+.wzc-onb-opt { color: var(--c-text-muted); font-weight: 700; }
+.wzc-onb-input {
+  width: 100%; box-sizing: border-box; height: 46px; padding: 0 14px;
+  border: 1.5px solid var(--c-border); border-radius: var(--r-md);
+  background: #fff; color: var(--c-text);
+  font-size: var(--fs-body); font-weight: 600; outline: none;
+  transition: border-color .15s, box-shadow .15s;
+}
+.wzc-onb-input::placeholder { color: var(--c-text-faint); font-weight: 500; }
+.wzc-onb-input:hover { border-color: var(--c-primary-300); }
+.wzc-onb-input:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wzc-onb-hint { margin: 7px 0 0; font-size: var(--fs-caption); color: var(--c-text-muted); line-height: 1.55; }
+.wzc-onb-warn { margin: -8px 0 10px; font-size: var(--fs-caption); color: var(--c-danger, #D92D20); font-weight: 600; line-height: 1.5; text-align: center; }
+
+/* 푸터 버튼 (완료 / 나중에 하기) */
+.wzc-box--onb .wzc-foot { display: flex; flex-direction: column; gap: 8px; }
+.wzc-onb-done { width: 100%; color: #fff; }
+.wzc-onb-done:disabled { opacity: .5; cursor: not-allowed; }
+.wzc-onb-later {
+  width: 100%; height: 44px; border: 0; background: transparent;
+  color: var(--c-text-muted); font-size: var(--fs-body-sm); font-weight: 700; cursor: pointer;
+  border-radius: var(--r-md); transition: background .15s, color .15s;
+}
+.wzc-onb-later:hover { background: var(--c-bg); color: var(--c-text-sub); }
+
 /* ===== 본문이 긴 약관/개인정보 정적 페이지 (terms.html / privacy.html) ===== */
 .wzc-doc {
   max-width: 800px; margin: 0 auto;

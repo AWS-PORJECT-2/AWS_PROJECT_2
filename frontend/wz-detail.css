@@ -36,7 +36,25 @@ body.wz-detail-page .wz-hd { position: static; }
 /* ---------- 본문 2단 레이아웃 ---------- */
 .wz-d-grid { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 40px; align-items: start; }
 .wz-d-main { min-width: 0; }
-.wz-d-side { position: sticky; top: 64px; min-width: 0; }
+/* 우측 후원/리워드 패널: 뷰포트에 고정된 독립 스크롤 컨테이너.
+ * 상세 페이지는 전역 헤더가 비고정(static)이라 스크롤하면 탭바(.wz-d-tabs, top:0)만 맨 위에 남는다.
+ * 따라서 sticky top 은 "탭바 높이 + 여백" 기준(--wz-d-tabh). 헤더(--wz-hd-h)는 최초 스크롤 전 보정용.
+ * max-height 로 뷰포트 안에 가두고 overflow-y:auto 로 우측만 따로 스크롤 → 좌측 긴 스토리는 페이지 스크롤로 독립.
+ * 내용이 뷰포트보다 짧으면 max-height 에 안 닿아 스크롤바가 안 생긴다. */
+.wz-d-side {
+  position: sticky;
+  top: calc(var(--wz-d-tabh, 58px) + 8px);
+  min-width: 0;
+  max-height: calc(100vh - var(--wz-d-tabh, 58px) - 24px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--c-border) transparent;
+}
+.wz-d-side::-webkit-scrollbar { width: 8px; }
+.wz-d-side::-webkit-scrollbar-thumb { background: var(--c-border); border-radius: 999px; }
+.wz-d-side::-webkit-scrollbar-track { background: transparent; }
 
 /* ---------- 대표 영상 (영상 우선, 16:9) ---------- */
 .wz-d-video { position: relative; border-radius: 12px; overflow: hidden; background: #000; aspect-ratio: 16/9; display: flex; align-items: center; justify-content: center; }
@@ -232,6 +250,11 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 
 /* 리워드 선택 */
 .wz-d-rewards { border-top: 8px solid var(--c-divider); margin: 28px -24px 0; padding: 24px 24px 0; }
+/* 데스크톱(2단): 우측 패널이 독립 스크롤 컨테이너(overflow)라 좌우 음수마진 블리드가 잘린다.
+ * → 데스크톱에서만 패널 안에 깔끔히 정렬. 모바일(1단·static 패널)은 아래 블리드 규칙 유지. */
+@media (min-width: 1024px) {
+  .wz-d-side .wz-d-rewards { margin-left: 0; margin-right: 0; padding-left: 0; padding-right: 0; }
+}
 .wz-d-rewards__title { font-size: 18px; font-weight: 800; color: var(--c-text); margin: 0 0 4px; }
 .wz-d-rewards__period { font-size: 13px; color: var(--c-text-muted); margin: 0 0 16px; }
 .wz-d-rewards__list { display: flex; flex-direction: column; gap: 12px; }
@@ -378,7 +401,8 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 /* ---------- 반응형 ---------- */
 @media (max-width: 1023px) {
   .wz-d-grid { grid-template-columns: 1fr; gap: 30px; }
-  .wz-d-side { position: static; top: auto; border-top: 1px solid var(--c-divider); padding-top: 28px; }
+  /* 모바일/좁은 화면: 1단 스택 → 독립 스크롤 해제(한 덩어리가 정상). */
+  .wz-d-side { position: static; top: auto; max-height: none; overflow: visible; border-top: 1px solid var(--c-divider); padding-top: 28px; }
   .wz-d-tabs { top: 0; }
 }
 @media (max-width: 767px) {

@@ -351,6 +351,15 @@
     tabs.appendChild(tabsInner);
     root.append(tabs, grid);
 
+    /* 우측 독립 스크롤 패널의 sticky top·max-height 기준값.
+     * 상세 페이지는 헤더가 static 이라 스크롤 시 탭바(top:0)만 고정되므로 탭바 높이를 변수로 노출. */
+    function setTabH() {
+      const h = tabs.offsetHeight || 58;
+      document.documentElement.style.setProperty('--wz-d-tabh', h + 'px');
+    }
+    setTabH();
+    window.addEventListener('resize', setTabH, { passive: true });
+
     /* ----- 모바일 하단 고정 바 ----- */
     root.appendChild(MobileBar(f, tiers));
 

@@ -44,6 +44,7 @@
 
     // 초기 상태: URL ?sort= / ?category=
     const q = new URLSearchParams(location.search);
+    const hasInitialBrowse = !!(q.get('sort') || q.get('category'));
     if (q.get('sort')) state.sort = q.get('sort');
     if (q.get('category')) state.category = q.get('category');
 
@@ -56,6 +57,18 @@
     }
     build();
     window.addEventListener('mockproducts:updated', build);
+
+    // 비-홈 페이지에서 인기/신규/마감임박·카테고리를 누르면 go() 가 /main.html?sort= 로 이동시킨다.
+    // 그 결과 URL 에 ?sort/?category 가 있으면(=둘러보기 의도) 한 번의 클릭으로 정렬 적용 + 둘러보기 섹션으로 스크롤.
+    // 파라미터가 없으면(그냥 홈 진입) 스크롤하지 않고 맨 위 유지.
+    // 콘텐츠 렌더 후 위치가 안정된 다음 스크롤하도록 rAF 2프레임 뒤로 미룬다.
+    if (hasInitialBrowse) {
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () {
+          browse.node.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+      });
+    }
 
     // 팔로잉 피드는 MOCK_PRODUCTS 와 독립 — 1회만 로드
     buildFollowing(followingWrap);

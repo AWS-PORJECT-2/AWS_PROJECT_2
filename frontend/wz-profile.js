@@ -74,31 +74,46 @@
 
     // 사이드바 골격 즉시 렌더(데이터 없이도). 이름/아바타는 fetchMe 후 채움.
     renderSidebar();
-    // 기본(홈) 패널 먼저 그림. 데이터 도착하면 갱신
-    showHome();
+    // 진입 라우팅: #hash(관심/후원/개설 등) 우선 → 해당 패널 즉시 오픈, 없으면 ?tab=, 둘 다 없으면 홈.
+    // showHome() 이 location.hash 를 지워버리므로(주소창 정리) 반드시 라우팅을 먼저 판단해야
+    // 1클릭 딥링크(#liked/#backings 등)가 첫 로드에 곧장 해당 탭으로 열린다.
+    if (!routeFromLocation()) {
+      // 해시/탭 없음 → 기본(홈) 패널. 데이터 도착하면 갱신
+      showHome();
+    }
 
     // 데이터 로드 (모두 silentAuthFail 로 미로그인 무소음)
     loadAll();
 
-    // 진입 라우팅: #hash 우선, 없으면 ?tab= (헤더 메뉴 호환)
-    routeFromLocation();
     // 해시 변경(브라우저 뒤로/링크) 반응
     window.addEventListener('hashchange', routeFromLocation);
   }
 
-  /* location.hash / ?tab= 으로 패널 직접 오픈. (#liked, #backings, #funds, #friends, #recent) */
+  /* location.hash / ?tab= 으로 패널 직접 오픈. (#liked, #backings, #funds, #friends, #recent)
+   * 반환: 패널을 열었으면 true(=홈 폴백 불필요), 아무것도 라우팅하지 않았으면 false. */
   function routeFromLocation() {
     var hash = (location.hash || '').replace(/^#/, '').toLowerCase();
     var byHash = NAV.activity.find(function (n) { return n.hash === hash; });
-    if (byHash && byHash.view) { selectView(byHash.view, true); return; }
-    if (hash) { return; } // 알 수 없는 해시면 현재 화면 유지
+    if (byHash && byHash.view) { selectView(byHash.view, true); return true; }
+    if (hash) { return false; } // 알 수 없는 해시면 현재 화면 유지(라우팅 안 함)
     var tab = (new URLSearchParams(location.search).get('tab') || '').toLowerCase();
-    if (tab === 'backings') selectView('backings', true);
-    else if (tab === 'funds') selectView('funds', true);
-    else if (tab === 'liked' || tab === 'likes') selectView('liked', true);
-    else if (tab === 'friends') selectView('friends', true);
-    else if (tab === 'drafts') selectView('drafts', true);
-    else if (tab === 'recent') selectView('recent', true);
+    if (tab === 'backings') { selectView('backings', true); return true; }
+    if (tab === 'funds') { selectView('funds', true); return true; }
+    if (tab === 'liked' || tab === 'likes') { selectView('liked', true); return true; }
+    if (tab === 'friends') { selectView('friends', true); return true; }
+    if (tab === 'drafts') { selectView('drafts', true); return true; }
+    if (tab === 'recent') { selectView('recent', true); return true; }
+    return false;
+  }
+
+  /* 로그인 여부가 확정될 때까지 기다렸다가 콜백 실행.
+   * state.me 가 이미 채워졌으면 즉시, 아니면 컨테이너에 로딩을 띄우고 fetchMe 결과로 분기.
+   * (딥링크 직접 진입 시 state.me 가 아직 null 이어도 로그인 사용자에게 로그인 유도가 잘못 뜨지 않게.) */
+  function whenMeKnown(cb, container) {
+    if (state.me) { cb(state.me); return; }
+    if (container && typeof container.replaceChildren === 'function') container.replaceChildren(loading());
+    W.fetchMe().then(function (me) { state.me = me || null; cb(state.me); })
+      .catch(function () { cb(state.me); });
   }
 
   /* ---- 데이터 로드 ---- */
@@ -447,12 +462,15 @@
   function panelBackings() {
     refs.curView = 'backings';
     var grid = panelShell('후원한 프로젝트', 'backings');
-    if (!state.me) { grid.appendChild(loginEmpty('후원 내역을 보려면 로그인하세요')); return; }
-    if (Array.isArray(state.backings)) return fillBackings(grid, state.backings);
-    grid.appendChild(loading());
-    window.api.get('/me/backings')
-      .then(function (r) { state.backings = backingItems(r); fillBackings(grid, state.backings); refreshStats(); })
-      .catch(function () { grid.replaceChildren(errorState()); });
+    // 딥링크 직접 진입(state.me 미확정)도 안전: 로그인 여부가 확정될 때까지 로딩 표시 후 분기.
+    whenMeKnown(function (me) {
+      if (refs.curView !== 'backings') return; // 그 사이 다른 패널로 이동했으면 무시
+      if (!me) { grid.replaceChildren(loginEmpty('후원 내역을 보려면 로그인하세요')); return; }
+      if (Array.isArray(state.backings)) return fillBackings(grid, state.backings);
+      window.api.get('/me/backings')
+        .then(function (r) { state.backings = backingItems(r); fillBackings(grid, state.backings); refreshStats(); })
+        .catch(function () { grid.replaceChildren(errorState()); });
+    }, grid);
   }
   // /me/backings 응답({items}) 과 /me/orders 응답({orders}) 양쪽 형태를 모두 수용
   function backingItems(r) {
@@ -474,12 +492,14 @@
   function panelFunds() {
     refs.curView = 'funds';
     var grid = panelShell('개설한 프로젝트', 'funds');
-    if (!state.me) { grid.appendChild(loginEmpty('개설한 프로젝트를 보려면 로그인하세요')); return; }
-    if (Array.isArray(state.funds)) return fillFunds(grid, state.funds);
-    grid.appendChild(loading());
-    window.api.get('/me/funds')
-      .then(function (r) { state.funds = (r && r.items) || []; fillFunds(grid, state.funds); refreshStats(); })
-      .catch(function () { grid.replaceChildren(errorState()); });
+    whenMeKnown(function (me) {
+      if (refs.curView !== 'funds') return;
+      if (!me) { grid.replaceChildren(loginEmpty('개설한 프로젝트를 보려면 로그인하세요')); return; }
+      if (Array.isArray(state.funds)) return fillFunds(grid, state.funds);
+      window.api.get('/me/funds')
+        .then(function (r) { state.funds = (r && r.items) || []; fillFunds(grid, state.funds); refreshStats(); })
+        .catch(function () { grid.replaceChildren(errorState()); });
+    }, grid);
   }
   function fillFunds(grid, items) {
     grid.replaceChildren();
@@ -498,12 +518,14 @@
     var main = panelHead('개설 중인 프로젝트', 'drafts');
     var list = W.el('div', { class: 'wz-mp-drafts' });
     main.appendChild(list);
-    if (!state.me) { list.appendChild(loginEmpty('작성 중인 프로젝트를 보려면 로그인하세요')); return; }
-    if (Array.isArray(state.drafts)) return fillDrafts(list, state.drafts);
-    list.appendChild(loading());
-    window.api.get('/me/drafts')
-      .then(function (r) { state.drafts = (r && r.items) || []; fillDrafts(list, state.drafts); refreshStats(); })
-      .catch(function () { list.replaceChildren(errorState()); });
+    whenMeKnown(function (me) {
+      if (refs.curView !== 'drafts') return;
+      if (!me) { list.replaceChildren(loginEmpty('작성 중인 프로젝트를 보려면 로그인하세요')); return; }
+      if (Array.isArray(state.drafts)) return fillDrafts(list, state.drafts);
+      window.api.get('/me/drafts')
+        .then(function (r) { state.drafts = (r && r.items) || []; fillDrafts(list, state.drafts); refreshStats(); })
+        .catch(function () { list.replaceChildren(errorState()); });
+    }, list);
   }
   function fillDrafts(list, items) {
     list.replaceChildren();
@@ -693,26 +715,38 @@
     info.appendChild(W.el('p', { class: 'wz-mp-friend__name' }, u.name || u.nickname || '회원'));
     var handle = u.nickname || u.slug;
     if (handle) info.appendChild(W.el('p', { class: 'wz-mp-friend__handle' }, '@' + handle));
-    // 팔로우 버튼 — 서버가 isFollowing 을 주면(팔로잉/팔로워 목록) 그 상태로 시작
-    var btn = W.el('button', { class: 'wz-mp-follow', type: 'button' });
-    setFollowBtn(btn, !!u.isFollowing);
-    var busy = false;
-    btn.addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      if (busy || !u.userId) return;
-      // 미로그인이면 로그인 유도
-      if (!state.me) { location.href = '/login.html'; return; }
-      busy = true;
-      var willFollow = btn.getAttribute('data-on') !== '1';
-      var req = willFollow
-        ? window.api.post('/users/' + encodeURIComponent(u.userId) + '/follow', {})
-        : window.api.del('/users/' + encodeURIComponent(u.userId) + '/follow');
-      req.then(function (r) {
-        setFollowBtn(btn, r ? !!r.following : willFollow);
-      }).catch(function () { /* 실패 시 상태 유지 */ }).then(function () { busy = false; });
-    });
+    // 본인이면 팔로우 버튼 대신 클릭 불가한 '본인' 라벨, 아니면 팔로우 버튼.
+    var myId = state.me && state.me.userId;
+    var action;
+    if (myId && u.userId === myId) {
+      action = W.el('span', {
+        class: 'wz-mp-follow wz-mp-follow--self',
+        style: 'background:#e5e7eb;color:#6b7280;cursor:default;pointer-events:none',
+        'aria-disabled': 'true',
+      }, '본인');
+    } else {
+      // 팔로우 버튼 — 서버가 isFollowing 을 주면(팔로잉/팔로워 목록) 그 상태로 시작
+      var btn = W.el('button', { class: 'wz-mp-follow', type: 'button' });
+      setFollowBtn(btn, !!u.isFollowing);
+      var busy = false;
+      btn.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        if (busy || !u.userId) return;
+        // 미로그인이면 로그인 유도
+        if (!state.me) { location.href = '/login.html'; return; }
+        busy = true;
+        var willFollow = btn.getAttribute('data-on') !== '1';
+        var req = willFollow
+          ? window.api.post('/users/' + encodeURIComponent(u.userId) + '/follow', {})
+          : window.api.del('/users/' + encodeURIComponent(u.userId) + '/follow');
+        req.then(function (r) {
+          setFollowBtn(btn, r ? !!r.following : willFollow);
+        }).catch(function () { /* 실패 시 상태 유지 */ }).then(function () { busy = false; });
+      });
+      action = btn;
+    }
 
-    row.append(av, info, btn);
+    row.append(av, info, action);
     // 행 클릭 -> 메이커 페이지
     row.addEventListener('click', function () {
       location.href = '/maker.html?id=' + encodeURIComponent(idOrSlug);

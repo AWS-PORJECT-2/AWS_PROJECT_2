@@ -1019,7 +1019,17 @@
       return '/maker.html?' + (u.slug ? 'slug=' + encodeURIComponent(u.slug) : 'id=' + encodeURIComponent(u.userId));
     }
 
+    function selfLabel() {
+      return el('span', {
+        class: 'wzs-mini wzs-mini--self',
+        style: 'background:#e5e7eb;color:#6b7280;cursor:default;border-color:transparent;pointer-events:none',
+        'aria-disabled': 'true',
+      }, '본인');
+    }
+
     function followBtn(u) {
+      // 본인은 팔로우 대상이 아님 — 버튼 대신 클릭 불가한 '본인' 라벨.
+      if (myId && u.userId === myId) return selfLabel();
       var btn = miniBtn(u.isFollowing ? '팔로잉' : '팔로우', function () {
         if (btn.hasAttribute('disabled')) return;
         btn.setAttribute('disabled', '');
@@ -1066,7 +1076,8 @@
       if (!q) { resultWrap.replaceChildren(); return; }
       searchTimer = setTimeout(function () {
         api.get('/users/search?q=' + encodeURIComponent(q)).then(function (rows) {
-          rows = (Array.isArray(rows) ? rows : []).filter(function (u) { return u.userId !== myId; });
+          // 본인도 결과에 그대로 노출(친구row 의 followBtn 이 '본인' 라벨로 렌더). 필터하지 않음.
+          rows = Array.isArray(rows) ? rows : [];
           if (!rows.length) { resultWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '검색 결과가 없습니다.')); return; }
           resultWrap.replaceChildren.apply(resultWrap, rows.map(friendRow));
         }).catch(function () { resultWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '검색에 실패했습니다.')); });
