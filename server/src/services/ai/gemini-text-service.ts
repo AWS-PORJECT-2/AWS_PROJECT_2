@@ -4,8 +4,9 @@ import { AppError } from '../../errors/app-error.js';
 import { categoryType } from '../../constants/categories.js';
 
 // 텍스트 생성 전용 모델. 이미지 모델(gemini-2.5-flash-image)과 분리.
-// 비용 절감: gemini-2.0-flash → gemini-2.0-flash-lite(더 저렴). GEMINI_TEXT_MODEL 로 override 유지.
-const DEFAULT_TEXT_MODEL = 'gemini-2.0-flash-lite';
+// gemini-2.0-flash-lite 는 신규 사용자에게 제공 중단(404 NOT_FOUND)되어 → 현재 제공되는 가장 저렴한
+// 텍스트 모델 gemini-2.5-flash-lite 로 변경. GEMINI_TEXT_MODEL 로 override 유지.
+const DEFAULT_TEXT_MODEL = 'gemini-2.5-flash-lite';
 const DEFAULT_DAILY_LIMIT = 50;
 
 interface DailyCounter {
