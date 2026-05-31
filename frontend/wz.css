@@ -80,7 +80,7 @@ img { max-width: 100%; }
 .wz-hero__slide { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity .7s ease; }
 .wz-hero__slide.is-active { opacity: 1; visibility: visible; }
 .wz-hero__img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.wz-hero__cap { position: absolute; left: 0; top: 0; right: 0; bottom: 0; padding: 34px 38px; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; background: linear-gradient(105deg, rgba(0,0,0,.46) 0%, rgba(0,0,0,.22) 42%, rgba(0,0,0,0) 72%); color: #fff; z-index: 4; pointer-events: none; }
+.wz-hero__cap { position: absolute; left: 0; top: 0; right: 0; bottom: 0; padding: 30px 38px 34px; display: flex; flex-direction: column; justify-content: flex-end; align-items: flex-start; background: linear-gradient(to top, rgba(0,0,0,.5) 0%, rgba(0,0,0,.22) 34%, rgba(0,0,0,0) 64%); color: #fff; z-index: 4; pointer-events: none; }
 .wz-hero__cap h2 { font-size: 30px; font-weight: 800; margin: 0; line-height: 1.28; white-space: pre-line; text-shadow: 0 2px 14px rgba(0,0,0,.5); }
 .wz-hero__dots { position: absolute; left: 0; right: 0; bottom: 14px; z-index: 5; display: flex; justify-content: center; gap: 8px; }
 .wz-hero__dot { width: 8px; height: 8px; padding: 0; border: 0; border-radius: 999px; background: rgba(255,255,255,.5); cursor: pointer; transition: width .2s, background .2s; }
