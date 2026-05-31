@@ -167,6 +167,10 @@ img { max-width: 100%; }
   .wz-hero__cap h2 { font-size: 21px; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .wz-catmenu__inner { gap: 20px; }
+  /* 모바일 탭타깃 확대 — 아이콘 시각 크기(svg 24px)는 유지하고 클릭영역만 40px 로(손가락 오탭 방지). */
+  .wz-hd__right { gap: 10px; }
+  .wz-hd__icon { width: 40px; height: 40px; }
+  .wz-hd__avatar { width: 40px; height: 40px; }
 }
 
 /* 큐레이션 선반(가로 캐러셀) + 프로모션 밴드 — 홈을 풍성하게 */

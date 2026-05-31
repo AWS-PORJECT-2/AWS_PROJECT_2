@@ -389,7 +389,7 @@
 
   // 약관/정책/로그인 페이지에서는 게이트·온보딩을 띄우지 않는다.
   // (동의 모달의 '보기' 링크가 새 탭으로 이 페이지들을 여는데, 거기서도 게이트가 뜨면 내용을 못 읽음)
-  var NO_GATE_PATHS = ['/privacy.html', '/terms.html', '/review-policy.html', '/login.html', '/login-dev.html', '/support.html'];
+  var NO_GATE_PATHS = ['/privacy.html', '/terms.html', '/review-policy.html', '/login.html', '/support.html'];
 
   async function ensure() {
     if (NO_GATE_PATHS.indexOf(location.pathname) !== -1) return null;

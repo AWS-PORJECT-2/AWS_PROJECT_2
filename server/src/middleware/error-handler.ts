@@ -20,6 +20,15 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return;
   }
 
+  // Postgres 형변환 오류 — 잘못된 :id(비-UUID) 등 클라이언트 입력. 500 누출 대신 400 으로 정리.
+  //  22P02 invalid_text_representation, 22003 numeric_value_out_of_range.
+  const pgCode = (err as { code?: string })?.code;
+  if (pgCode === '22P02' || pgCode === '22003') {
+    const badReq = new AppError('INVALID_INPUT');
+    res.status(badReq.httpStatus).json(createErrorResponse(badReq));
+    return;
+  }
+
   const appErr = new AppError('INTERNAL_ERROR');
   void logAudit(pool, {
     level: 'error',

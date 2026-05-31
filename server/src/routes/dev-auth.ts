@@ -9,9 +9,10 @@ import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { UserRepository } from '../repositories/user-repository.js';
 import type { TokenService } from '../interfaces/token-service.js';
+import type { EmailValidator } from '../interfaces/email-validator.js';
 import { logger } from '../logger.js';
 
-export function createDevAuthRouter(userRepo: UserRepository, tokenService: TokenService) {
+export function createDevAuthRouter(userRepo: UserRepository, tokenService: TokenService, emailValidator?: EmailValidator) {
   const router = Router();
 
   // 개발용 로그인 — 이메일만으로 즉시 토큰 발급
@@ -22,8 +23,18 @@ export function createDevAuthRouter(userRepo: UserRepository, tokenService: Toke
         res.status(400).json({ error: 'VALIDATION_ERROR', message: 'email 필수' });
         return;
       }
+      // 도메인 허용목록 강제(실제 OAuth 경로와 동일 기준) — 임의 외부 이메일 사칭 차단.
+      if (emailValidator && !emailValidator.isAllowedDomain(email)) {
+        res.status(403).json({ error: 'INVALID_EMAIL_DOMAIN', message: '허용되지 않은 이메일 도메인' });
+        return;
+      }
 
       let user = await userRepo.findByEmail(email);
+      // 관리자 계정 사칭 차단 — dev 로그인으로는 ADMIN 세션을 발급하지 않는다(권한 상승 방지).
+      if (user && user.role === 'ADMIN') {
+        res.status(403).json({ error: 'FORBIDDEN', message: 'dev 로그인으로 관리자 계정에 접근할 수 없습니다' });
+        return;
+      }
       if (!user) {
         // 개발 환경에서는 자동 생성
         const { randomUUID } = await import('node:crypto');

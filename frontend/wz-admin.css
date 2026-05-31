@@ -390,3 +390,16 @@ textarea.wza-input { height: auto; padding: 10px 14px; line-height: 1.6; resize:
 .wza-chat__send:hover { background: var(--c-primary-600); }
 .wza-chat__send:disabled { opacity: .55; cursor: not-allowed; }
 .wza-chat__send svg { width: 18px; height: 18px; }
+
+/* ── 모바일 대응(폴백) — 관리자 콘솔은 데스크탑 우선이지만, 좁은 화면에서 2단 고정 레이아웃이
+   가로스크롤/넘침을 유발하므로 단일 컬럼으로 스택하고 사이드 탭은 가로로 흐르게 한다. ── */
+@media (max-width: 767px) {
+  .wza { grid-template-columns: 1fr; gap: 18px; padding: 20px 14px 72px; }
+  .wza-side { position: static; top: auto; flex-direction: row; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+  .wza-side::-webkit-scrollbar { display: none; }
+  .wza-tab { white-space: nowrap; flex: 0 0 auto; }
+  .wza-kpis { grid-template-columns: repeat(2, 1fr); }
+  .wza-charts { grid-template-columns: 1fr; }
+  .wza-form__row { grid-template-columns: 1fr; }
+  .wza-dist__legend { grid-template-columns: repeat(2, 1fr); }
+}

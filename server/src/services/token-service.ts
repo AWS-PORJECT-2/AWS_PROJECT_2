@@ -22,8 +22,11 @@ export class TokenServiceImpl implements TokenService {
     }
   }
 
-  generateAccessToken(user: User): string { return jwt.sign({ userId: user.id, email: user.email }, this.accessTokenSecret, { expiresIn: '15m' }); }
-  generateRefreshToken(user: User, rememberMe: boolean): string { return jwt.sign({ userId: user.id, email: user.email }, this.refreshTokenSecret, { expiresIn: rememberMe ? '30d' : '24h' }); }
+  // 서명·검증 모두 HS256 으로 고정 — algorithm confusion / alg:none 우회 차단.
+  private static readonly ALGS: jwt.Algorithm[] = ['HS256'];
+
+  generateAccessToken(user: User): string { return jwt.sign({ userId: user.id, email: user.email }, this.accessTokenSecret, { expiresIn: '15m', algorithm: 'HS256' }); }
+  generateRefreshToken(user: User, rememberMe: boolean): string { return jwt.sign({ userId: user.id, email: user.email }, this.refreshTokenSecret, { expiresIn: rememberMe ? '30d' : '24h', algorithm: 'HS256' }); }
   verifyAccessToken(token: string): TokenPayload | null { return this.verifyToken(token, this.accessTokenSecret); }
   verifyRefreshToken(token: string): TokenPayload | null { return this.verifyToken(token, this.refreshTokenSecret); }
 
@@ -35,7 +38,7 @@ export class TokenServiceImpl implements TokenService {
 
   private verifyToken(token: string, secret: string): TokenPayload | null {
     try {
-      const decoded = jwt.verify(token, secret);
+      const decoded = jwt.verify(token, secret, { algorithms: TokenServiceImpl.ALGS });
       if (typeof decoded === 'string') return null;
       const { userId, email, iat, exp } = decoded;
       if (typeof userId !== 'string' || typeof email !== 'string' || typeof iat !== 'number' || typeof exp !== 'number') {
@@ -47,7 +50,7 @@ export class TokenServiceImpl implements TokenService {
 
   private verifyTokenDetailed(token: string, secret: string): TokenVerifyResult {
     try {
-      const decoded = jwt.verify(token, secret);
+      const decoded = jwt.verify(token, secret, { algorithms: TokenServiceImpl.ALGS });
       if (typeof decoded === 'string') return { valid: false, reason: 'invalid' };
       const { userId, email, iat, exp } = decoded;
       if (typeof userId !== 'string' || typeof email !== 'string' || typeof iat !== 'number' || typeof exp !== 'number') {

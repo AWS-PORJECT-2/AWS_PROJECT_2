@@ -218,23 +218,46 @@ export class PgUserRepository implements UserRepository {
   }
 
   async delete(userId: string): Promise<void> {
-    // groupbuys.creator_id 는 ON DELETE RESTRICT 라 유저가 만든 펀드 행이 남아 있으면 삭제가 막힌다.
-    // 활성(deleted_at IS NULL) 펀드는 라우트 사전체크에서 차단하므로, 여기 도달 시엔 소프트삭제된 잔여 펀드뿐.
-    // 그 펀드 행을 먼저 제거하면(reward_orders 는 fund_id ON DELETE CASCADE 로 함께 정리) 유저 삭제가 가능해진다.
-    // 유저 자신의 주문/결제수단/배송지/팔로우/댓글/채팅은 user_id FK 가 CASCADE/SET NULL.
+    // 회원 탈퇴 시 연관 데이터를 빠짐없이 정리해 고아행을 남기지 않는다. FK 동작별로 처리:
+    //  - CASCADE(자동): refresh_token, addresses, payment_methods, chat_rooms/messages, follows,
+    //    comments(user_id), reward_orders(user_id) — 마지막 "user" 삭제 시 함께 제거된다.
+    //  - FK 없음(직접 삭제 필수): project_likes, project_subscriptions, notifications, project_drafts, reports.
+    //  - 레거시 RESTRICT(미사용 결제계열): refunds→payments→orders→participations — 자식부터 지워야 user 삭제 가능.
+    //  - 본인 소프트삭제 펀드를 하드삭제하기 전, 그 펀드를 참조하는 FK없는 행(찜/구독/댓글/신고/알림)도 정리.
+    const softFunds = 'SELECT id FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL';
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
-      // project_likes/project_subscriptions 는 FK 가 없어(소셜 테이블, UUID-only) user 삭제로 CASCADE 되지 않는다.
-      // 정리하지 않으면 찜 수/알림신청 수(실시간 COUNT)가 탈퇴 후에도 줄지 않고 남는다 → 직접 삭제.
+
+      // 1) FK 없는 본인 흔적 직접 삭제(없으면 찜/구독 수·알림이 탈퇴 후에도 잔존).
+      await client.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM project_drafts WHERE user_id = $1', [userId]);
+      // 본인이 신고한 건 + 본인(메이커)을 대상으로 한 신고 모두 정리(reports 는 FK 없음, target_id 도 UUID).
+      await client.query('DELETE FROM reports WHERE reporter_id = $1 OR target_id = $1', [userId]);
       await client.query('DELETE FROM project_likes WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM project_subscriptions WHERE user_id = $1', [userId]);
-      // 소프트삭제된 펀드만 정리(활성 펀드는 절대 건드리지 않음 — 남아 있으면 아래 유저 삭제가 FK 로 막혀 상위에서 409 흡수).
-      // 그 펀드에 달린 찜/구독(다른 사람 것)도 FK 없으니 함께 정리.
-      await client.query('DELETE FROM project_likes WHERE groupbuy_id IN (SELECT id FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)', [userId]);
-      await client.query('DELETE FROM project_subscriptions WHERE groupbuy_id IN (SELECT id FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)', [userId]);
+
+      // 2) 레거시 결제(미사용) RESTRICT 해소 — 자식(refunds/payments)부터 → orders → participations.
+      //    payment_events 는 payments ON DELETE CASCADE 라 payments 삭제 시 함께 정리됨.
+      await client.query('DELETE FROM refunds WHERE order_id IN (SELECT id FROM orders WHERE user_id = $1)', [userId]);
+      await client.query('DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE user_id = $1)', [userId]);
+      await client.query('DELETE FROM orders WHERE user_id = $1', [userId]);
+      await client.query('DELETE FROM participations WHERE user_id = $1', [userId]);
+
+      // 3) 본인 소프트삭제 펀드를 하드삭제하기 전, 그 펀드를 참조하는 FK없는 행 정리.
+      await client.query(`DELETE FROM project_likes WHERE groupbuy_id IN (${softFunds})`, [userId]);
+      await client.query(`DELETE FROM project_subscriptions WHERE groupbuy_id IN (${softFunds})`, [userId]);
+      await client.query(`DELETE FROM comments WHERE target_type = 'fund' AND target_id IN (SELECT id::text FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)`, [userId]);
+      await client.query(`DELETE FROM reports WHERE target_type = 'project' AND target_id IN (${softFunds})`, [userId]);
+      await client.query(`DELETE FROM notifications WHERE fund_id IN (${softFunds})`, [userId]);
+
+      // 4) 소프트삭제 펀드 하드삭제(reward_orders.fund_id CASCADE 로 그 펀드의 모든 후원 함께 정리).
+      //    활성 펀드(deleted_at IS NULL)는 절대 건드리지 않음 — 남아 있으면 user 삭제가 FK 로 막혀 상위 라우트가 409 로 흡수.
       await client.query('DELETE FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL', [userId]);
+
+      // 5) 마지막으로 user 삭제 — 위 CASCADE FK 들이 함께 발동.
       await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
+
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');

@@ -9,17 +9,6 @@
  * isReserved: 현재 사용자의 공구 참여/예약 여부
  */
 
-const _JACKET_DIR = '/' + encodeURIComponent('과잠 이미지') + '/';
-const _JACKET_IMGS = [
-  _JACKET_DIR + encodeURIComponent('다운로드.jpg'),
-  _JACKET_DIR + encodeURIComponent('다운로드 (1).jpg'),
-  _JACKET_DIR + encodeURIComponent('다운로드 (2).jpg'),
-  _JACKET_DIR + encodeURIComponent('다운로드 (3).jpg'),
-  _JACKET_DIR + encodeURIComponent('다운로드 (4).jpg'),
-  _JACKET_DIR + encodeURIComponent('다운로드 (5).jpg'),
-  _JACKET_DIR + encodeURIComponent('다운로드 (6).jpg'),
-];
-
 // 상품 데이터는 /api/groupbuys 실데이터로만 채운다(loadProductsFromBackend). 더미 시드 없음 — 비면 빈 상태 표시.
 var MOCK_PRODUCTS = [];
 
@@ -29,13 +18,6 @@ var MOCK_PRODUCTS = [];
 function calcAchievementRate(product) {
   if (!product.targetQuantity) return 0;
   return Math.round((product.currentQuantity / product.targetQuantity) * 100);
-}
-
-/**
- * 좋아요 순 정렬 (내림차순)
- */
-function sortByLikes(products) {
-  return [...products].sort((a, b) => b.likeCount - a.likeCount);
 }
 
 /**
@@ -154,46 +136,6 @@ function isLiked(productId) {
 function getLikeCount(productId) {
   const product = MOCK_PRODUCTS.find((p) => p.id === productId);
   return product ? (Number(product.likeCount) || 0) : 0;
-}
-
-/**
- * 예약 상태 설정 (localStorage + isReserved + delta 동기화)
- */
-function setReserved(productId, value) {
-  const product = MOCK_PRODUCTS.find((p) => p.id === productId);
-  const flagKey = 'reserved_' + productId;
-  const deltaKey = 'reserved_delta_' + productId;
-
-  // MOCK 목록에 없는 펀드(상세 API 직접 진입) — localStorage 단독 처리
-  if (!product) {
-    if (value) {
-      localStorage.setItem(flagKey, '1');
-    } else {
-      localStorage.removeItem(flagKey);
-      localStorage.removeItem(deltaKey);
-      localStorage.removeItem('selectedSize_' + productId);
-    }
-    return true;
-  }
-
-  if (value && !product.isReserved) {
-    // 새로 참여
-    const currentDelta = Number(localStorage.getItem(deltaKey)) || 0;
-    localStorage.setItem(flagKey, '1');
-    localStorage.setItem(deltaKey, String(currentDelta + 1));
-    product.currentQuantity++;
-    product.isReserved = true;
-  } else if (!value && product.isReserved) {
-    // 참여 취소 — 플래그 해제 + delta 완전 초기화
-    localStorage.removeItem(flagKey);
-    localStorage.removeItem(deltaKey);
-    localStorage.removeItem('selectedSize_' + productId);
-    // 원본 기준으로 수치 복원 (멱등성)
-    if (typeof product._baseCurrentQuantity !== 'undefined') {
-      product.currentQuantity = product._baseCurrentQuantity;
-    }
-    product.isReserved = false;
-  }
 }
 
 /**

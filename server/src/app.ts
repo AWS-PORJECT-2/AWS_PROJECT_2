@@ -16,7 +16,6 @@ import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
 import { createAiRouter } from './routes/ai.js';
-import { createGarmentsFetchUrlHandler } from './routes/garments-fetch-url.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
@@ -91,15 +90,6 @@ import { PaymentServiceImpl } from './services/payment-service.js';
 import { PaymentScheduler } from './services/scheduler.js';
 import { PgDistributedLockProvider } from './services/distributed-lock.js';
 import { createPaymentWebhookHandler } from './routes/payment-webhook.js';
-import { createGroupBuyParticipateHandler } from './routes/groupbuy-participate.js';
-import { createGroupBuyCancelParticipationHandler } from './routes/groupbuy-cancel-participation.js';
-import { createGroupBuyGetParticipationHandler } from './routes/groupbuy-get-participation.js';
-import { createPaymentRefundHandler } from './routes/payment-refund.js';
-import { createPaymentEventsHandler } from './routes/payment-events.js';
-import { createOrderPrepareHandler } from './routes/orders-prepare.js';
-import { createOrderConfirmHandler } from './routes/orders-confirm.js';
-import { createOrderShippingHandler, createOrderStatusCountsHandler } from './routes/orders-shipping.js';
-import { createOrderTrackingHandler, createOrderTrackingUpdateHandler } from './routes/orders-tracking.js';
 import { logger } from './logger.js';
 
 // Payment method & address imports
@@ -241,9 +231,11 @@ export function createApp(
   const optionalAuth = createOptionalAuth(tokenService);
 
   // ─── 개발 전용 인증 (운영 환경에서는 절대 노출 안 됨) ───
-  if (process.env.NODE_ENV !== 'production') {
-    app.use('/api/dev-auth', createDevAuthRouter(userRepository, tokenService));
-    logger.info('⚠️  개발 전용 /api/dev-auth 라우트 활성화 (운영 환경에서는 비활성)');
+  // 이중 게이트: NODE_ENV!=='production' 이면서 ENABLE_DEV_AUTH==='true' 일 때만 마운트.
+  // NODE_ENV 가 실수로 development 로 남아도 ENABLE_DEV_AUTH 미설정이면 백도어가 열리지 않는다(심층 방어).
+  if (!IS_PRODUCTION && process.env.ENABLE_DEV_AUTH === 'true') {
+    app.use('/api/dev-auth', createDevAuthRouter(userRepository, tokenService, emailValidator));
+    logger.warn('⚠️  개발 전용 /api/dev-auth 라우트 활성화 (ENABLE_DEV_AUTH=true) — 운영에서는 절대 켜지 말 것');
   }
 
   // AI 라우터 (Gemini nano-banana) — GEMINI_API_KEY 가 있어야만 라우트 등록.
@@ -267,9 +259,6 @@ export function createApp(
   // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
   //   + 알림(best-effort): 작성자 본인(fund_submitted) / 작성자 팔로워(creator_new_fund)
   app.post('/api/funds', authRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository));
-
-  // 상품 URL → 대표 이미지 추출 placeholder
-  app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
 
   // --- Payment System ---
   const participationRepository = new PgParticipationRepository(pool);
@@ -297,11 +286,6 @@ export function createApp(
   // Payment routes (webhook - no auth, raw body for HMAC verification)
   app.post('/api/payments/webhook', express.raw({ type: 'application/json' }), createPaymentWebhookHandler(paymentService, pgClient, tossWebhookSecret));
 
-  // Payment routes (authenticated)
-  app.post('/api/groupbuys/:id/participate', authRequired, createGroupBuyParticipateHandler(paymentService, notificationRepository, groupBuyRepository));
-  app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
-  app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
-
   // 공용: 공동구매 목록 + 단일 상세 (공개; soft-auth 로 viewer 의 isLiked/maker.isFollowing 채움)
   app.get('/api/groupbuys', optionalAuth, createGroupBuysListV2Handler(groupBuyRepository));
   // 요금제 기능 — 고정 경로(/scheduled, /boost-banners)는 '/:id' 보다 먼저 등록(라우트 섀도잉 방지).
@@ -311,29 +295,10 @@ export function createApp(
   app.post('/api/groupbuys/:id/subscribe', authRequired, createSubscribeHandler(groupBuyRepository));
   app.delete('/api/groupbuys/:id/subscribe', authRequired, createUnsubscribeHandler(groupBuyRepository));
   app.get('/api/groupbuys/:id', optionalAuth, createGroupBuyDetailHandler(groupBuyRepository));
-  app.post('/api/payments/:orderId/refund', authRequired, createPaymentRefundHandler(paymentService));
-  // NOTE: 레거시 /api/me/orders(participations 기반, 빈 {orders:[]})는 제거 — 아래 reward_orders 기반 핸들러(createMyOrdersHandler)가 진짜 후원 내역을 반환하도록 단일화.
-  app.get('/api/admin/payments/:id/events', authRequired, createPaymentEventsHandler(paymentService));
 
-  // --- Order Preparation & Confirmation (Toss Payments v2 security) ---
-  app.post('/api/orders/prepare', authRequired, createOrderPrepareHandler(orderRepository));
-  app.post('/api/payments/confirm', authRequired, createOrderConfirmHandler(orderRepository, pgClient));
-
-  // --- 배송 상태 관리 ---
-  app.patch('/api/orders/:id/shipping', authRequired, createOrderShippingHandler(orderRepository));
-  app.get('/api/orders/status-counts', authRequired, createOrderStatusCountsHandler(orderRepository));
-
-  // --- 택배 추적 ---
-  app.get('/api/orders/:id/tracking', authRequired, createOrderTrackingHandler(orderRepository));
-  // 운송장 등록 — 현재 admin 역할 미구현으로 주문 소유자만 허용. 추후 admin 미들웨어 추가 시 교체.
-  app.patch('/api/orders/:id/tracking', authRequired, createOrderTrackingUpdateHandler(orderRepository));
-
-  // --- Toss Config (클라이언트 키만 노출, 시크릿 절대 X) ---
-  app.get('/api/config/toss', (_req, res) => {
-    res.json({
-      clientKey: envOrDevDefault('TOSS_CLIENT_KEY', 'test_ck_D5GePWvyJnrK0W0k6q8gLzN97Eoq'),
-    });
-  });
+  // NOTE: 레거시 Toss 단건결제/참여(orders·participations·payment-refund/events·config/toss·garments-fetch)
+  //  HTTP 라우트는 모두 제거됨(프론트 미사용, reward_orders 무통장+모의결제 플로우로 단일화).
+  //  단, paymentService/orderRepository/repos 와 toss webhook 은 스케줄러·웹훅이 참조하므로 유지한다.
 
   // --- Payment Methods & Addresses ---
   const paymentMethodRepository = new PgPaymentMethodRepository(pool);
