@@ -430,9 +430,35 @@
     head.appendChild(el('link', { rel: 'apple-touch-icon', href: '/assets/logo-mark.png' }));
   }
 
+  /* ===== 스크롤 잠금 누수 복구 워치독 =====
+   * 모달은 열릴 때 html/body 의 overflow 를 hidden 으로 만들어 배경 스크롤을 잠근다.
+   * 닫힘 경로에서 복원이 누락되면 페이지 스크롤이 영구히 막힌다(scrollIntoView 같은 프로그램 스크롤만 동작, 휠/터치 불가).
+   * → 스크롤 잠금 모달이 하나도 없는데 overflow 가 hidden 이면 해제. 모달이 떠 있으면 절대 건드리지 않는다(정상 잠금 보존). */
+  var SCROLL_LOCK_OVERLAYS = '.wzc-over, .wz-d-modal, .wz-d-edit, .wc-modal.is-open, .wz-mp-amodal, .wz-mk-modal, .wza-modal-back, .privacy-modal-back.active, .wc-rte.is-fullscreen';
+  function releaseStuckScroll() {
+    try {
+      if (document.querySelector(SCROLL_LOCK_OVERLAYS)) return; // 모달 떠 있음 → 정상 잠금, 유지
+      var de = document.documentElement, b = document.body;
+      if (de && de.style.overflow === 'hidden') de.style.overflow = '';
+      if (b && b.style.overflow === 'hidden') b.style.overflow = '';
+    } catch (_) {}
+  }
+  function installScrollGuard() {
+    if (window.__wzScrollGuard) return;
+    window.__wzScrollGuard = true;
+    // 사용자가 스크롤/입력을 시도하는 순간 점검 → 누수된 잠금을 즉시 해제(모달 없을 때만)
+    ['wheel', 'touchstart', 'keydown', 'mousedown'].forEach(function (ev) {
+      window.addEventListener(ev, releaseStuckScroll, { passive: true });
+    });
+    document.addEventListener('visibilitychange', function () { if (!document.hidden) releaseStuckScroll(); });
+    window.addEventListener('pageshow', releaseStuckScroll);
+    window.addEventListener('focus', releaseStuckScroll);
+  }
+
   function mount() {
     document.body.classList.add('wz-body');
     injectFavicon();
+    installScrollGuard();
     const h = document.getElementById('wz-header'); if (h && !h.dataset.done) { h.dataset.done = '1'; h.appendChild(Header()); }
     // 2줄 헤더의 실제 높이를 CSS 변수로 노출 — 상세 등 sticky 오프셋 계산에 사용(겹침 방지)
     function setHeaderH() { const hh = document.getElementById('wz-header'); if (hh) document.documentElement.style.setProperty('--wz-hd-h', hh.offsetHeight + 'px'); }

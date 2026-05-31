@@ -62,7 +62,9 @@
         over.classList.remove('is-open');
         document.removeEventListener('keydown', onKey);
         setTimeout(function () { if (over.parentNode) over.parentNode.removeChild(over); }, 200);
-        document.documentElement.style.overflow = prevHtmlOverflow;
+        document.documentElement.style.overflow = prevHtmlOverflow || '';
+        // 배경 스크롤 잠금 누수 방지(서브 모달이 body 를 잠갔다가 남겼을 수 있음) — 확실히 해제
+        if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
         resolve(val);
       }
 
