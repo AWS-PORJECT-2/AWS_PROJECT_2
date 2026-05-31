@@ -30,7 +30,9 @@ export function createBackingHandler(
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
 
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const rewardTierId = typeof body.rewardTierId === 'string' ? body.rewardTierId : '';
+    // 리워드 식별자 — 문자열 id 또는 숫자 인덱스(구버전 티어는 id 가 없어 인덱스로 옴) 모두 수용.
+    const rewardTierId = (typeof body.rewardTierId === 'string' || typeof body.rewardTierId === 'number')
+      ? String(body.rewardTierId) : '';
     const addressId = typeof body.addressId === 'string' ? body.addressId : '';
     const depositorName = typeof body.depositorName === 'string' ? body.depositorName.trim().slice(0, 50) : '';
 
@@ -40,8 +42,16 @@ export function createBackingHandler(
       if (fund.status !== 'open') {
         res.status(409).json({ error: 'NOT_OPEN', message: '진행 중(공개)인 펀드만 후원할 수 있습니다' }); return;
       }
-      const tier = (fund.rewardTiers ?? []).find((t) => t.id === rewardTierId);
+      // 티어 매칭 — id 우선, 구버전 데이터(티어에 id 없음)는 인덱스로 폴백.
+      const tiers = fund.rewardTiers ?? [];
+      let tier = tiers.find((t) => t.id != null && String(t.id) === rewardTierId);
+      if (!tier && /^\d+$/.test(rewardTierId)) {
+        const idx = Number(rewardTierId);
+        if (idx >= 0 && idx < tiers.length) tier = tiers[idx];
+      }
       if (!tier) { res.status(400).json({ error: 'INVALID_REWARD', message: '리워드를 선택해 주세요' }); return; }
+      // 주문 기록·재고 카운트에 쓸 안정 키 — id 있으면 id, 없으면 인덱스 문자열.
+      const resolvedTierId = tier.id != null ? String(tier.id) : rewardTierId;
 
       // 배송지 게이팅 — 본인 소유 배송지 필수
       if (!addressId) { res.status(400).json({ error: 'ADDRESS_REQUIRED', message: '배송지를 먼저 등록·선택해 주세요' }); return; }
@@ -55,7 +65,7 @@ export function createBackingHandler(
       const order = await rewardOrderRepo.createWithStockGuard({
         id: randomUUID(),
         fundId: fund.id,
-        rewardTierId: tier.id,
+        rewardTierId: resolvedTierId,
         rewardTitle: tier.title,
         userId,
         addressId,

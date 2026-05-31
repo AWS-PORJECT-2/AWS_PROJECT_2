@@ -1020,9 +1020,10 @@
     }
 
     function selfLabel() {
+      // 배경/테두리 없이 검은 글자만 (사용자 요청)
       return el('span', {
-        class: 'wzs-mini wzs-mini--self',
-        style: 'background:#e5e7eb;color:#6b7280;cursor:default;border-color:transparent;pointer-events:none',
+        class: 'wzs-self',
+        style: 'color:#111;font-weight:700;font-size:13px;cursor:default;align-self:center;padding:0 4px',
         'aria-disabled': 'true',
       }, '본인');
     }

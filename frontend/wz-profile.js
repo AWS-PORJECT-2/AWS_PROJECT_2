@@ -730,9 +730,10 @@
     var myId = state.me && state.me.userId;
     var action;
     if (myId && u.userId === myId) {
+      // 배경/테두리 없이 검은 글자만 (사용자 요청)
       action = W.el('span', {
-        class: 'wz-mp-follow wz-mp-follow--self',
-        style: 'background:#e5e7eb;color:#6b7280;cursor:default;pointer-events:none',
+        class: 'wz-mp-self',
+        style: 'color:#111;font-weight:700;font-size:13px;cursor:default;align-self:center',
         'aria-disabled': 'true',
       }, '본인');
     } else {
