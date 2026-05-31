@@ -6,6 +6,15 @@ import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { pool } from './db.js';
 import { logger } from './logger.js';
 
+// 전역 안전망 — 비요청 경로(스케줄러·소켓 등)의 처리 안 된 거부/예외가 프로세스를 죽이지 않도록 로깅만 하고 유지.
+// (Node 15+ 는 unhandledRejection 시 기본 종료. DB 일시 단절 등으로 전체 API 가 내려가는 것을 막는 가용성 방어.)
+process.on('unhandledRejection', (reason) => {
+  logger.error({ reason }, '처리되지 않은 Promise 거부 — 프로세스 유지');
+});
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, '처리되지 않은 예외 — 프로세스 유지');
+});
+
 const rawPort = process.env.PORT ?? '3000';
 const PORT = Number(rawPort);
 if (!Number.isInteger(PORT) || PORT < 0 || PORT > 65535) {

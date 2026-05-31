@@ -77,11 +77,13 @@ export class PaymentScheduler {
   start(): void {
     if (this.intervalHandle) return;
     logger.info({ intervalMs: this.config.intervalMs }, '결제 스케줄러 시작');
+    // tick() 은 fire-and-forget 이므로 반드시 .catch() — 내부에서 새는 거부(예: DB 단절)가
+    // unhandledRejection 으로 프로세스를 죽이지 않도록 방어(이중 안전: distributed-lock 도 fail-closed).
     this.intervalHandle = setInterval(() => {
-      void this.tick();
+      void this.tick().catch((err) => logger.error({ err }, '스케줄러 tick 실패(무시, 다음 주기 재시도)'));
     }, this.config.intervalMs);
     // Run immediately on start
-    void this.tick();
+    void this.tick().catch((err) => logger.error({ err }, '스케줄러 tick 실패(무시, 다음 주기 재시도)'));
   }
 
   stop(): void {
