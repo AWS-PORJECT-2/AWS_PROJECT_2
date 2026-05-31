@@ -159,16 +159,18 @@ img { max-width: 100%; }
   .wz-hd__nav { display: none; }
 }
 @media (max-width: 767px) {
-  .wz-hd__top { gap: 14px; padding: 12px 16px; }
-  .wz-hd__makerhome, .wz-hd__login, .wz-hd__create { display: none; }
+  /* flex-wrap: 우측 액션 클러스터(아이콘+아바타+만들기 버튼)가 360px 에서 가로로 넘치면 다음 줄로 내려가게 해
+     가로 스크롤/로고 압착을 원천 차단(헤더에 '만들기' 버튼이 후행 규칙으로 노출되므로 가로 예산이 빠듯함). */
+  .wz-hd__top { gap: 14px; padding: 12px 16px; flex-wrap: wrap; row-gap: 8px; }
+  .wz-hd__makerhome, .wz-hd__login { display: none; }
+  .wz-hd__divider { display: none; }  /* 모바일에선 구분선 숨겨 가로 공간 확보 */
   .wz-searchrow, .wz-cats { padding-left: 16px; padding-right: 16px; }
   .wz-search { height: 48px; }
   .wz-home { padding: 16px; }
   .wz-hero__cap h2 { font-size: 21px; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .wz-catmenu__inner { gap: 20px; }
-  /* 모바일 탭타깃 확대 — 아이콘 시각 크기(svg 24px)는 유지하고 클릭영역만 40px 로(손가락 오탭 방지). */
-  /* gap 은 6px 로 좁혀 40px 박스 4개+로고가 360px 폭에 들어오게 함(가로 넘침 방지). */
+  /* 모바일 탭타깃 확대 — 아이콘 시각 크기(svg 24px)는 유지하고 클릭영역만 40px 로(손가락 오탭 방지). gap 6px. */
   .wz-hd__right { gap: 6px; }
   .wz-hd__icon { width: 40px; height: 40px; }
   .wz-hd__avatar { width: 40px; height: 40px; }

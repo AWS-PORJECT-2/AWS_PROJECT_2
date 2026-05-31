@@ -252,7 +252,8 @@ export class PgUserRepository implements UserRepository {
       await client.query(`DELETE FROM project_subscriptions WHERE groupbuy_id IN (${softFunds})`, [userId]);
       await client.query(`DELETE FROM comments WHERE target_type = 'fund' AND target_id IN (SELECT id::text FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)`, [userId]);
       await client.query(`DELETE FROM reports WHERE target_type = 'project' AND target_id IN (${softFunds})`, [userId]);
-      await client.query(`DELETE FROM notifications WHERE fund_id IN (${softFunds})`, [userId]);
+      // NOTE: 그 펀드를 참조하는 '타 사용자' 알림(fund_id)은 일부러 지우지 않는다 — 024 알림 보존 설계 존중 +
+      //  fund_id 단글링은 알림 클릭 시 상세가 '삭제됨' 으로 안전 처리. (탈퇴자 본인 알림은 위 user_id 삭제로 이미 정리됨.)
       // 소프트삭제 펀드를 참조하는 (타 사용자 포함) 레거시 결제행 정리 — orders/participations 의 groupbuy_id 가
       //  ON DELETE RESTRICT 라, 정리하지 않으면 아래 groupbuys 하드삭제가 막혀 탈퇴가 영구 차단된다.
       await client.query(`DELETE FROM refunds WHERE order_id IN (SELECT id FROM orders WHERE groupbuy_id IN (${softFunds}))`, [userId]);

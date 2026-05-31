@@ -155,7 +155,8 @@ export function createMeFundUpdateHandler(groupBuyRepo: GroupBuyRepository) {
     try {
       const existing = await groupBuyRepo.findById(id);
       // 존재하지 않거나 본인 소유가 아니면 동일하게 404 — 타인 펀드 존재 여부 노출 방지.
-      if (!existing || existing.creatorId !== userId) {
+      // 소프트삭제(cancelFund → status='cancelled' + deleted_at)된 펀드는 수정 불가(수정 후 getDetail null→404 혼란 방지).
+      if (!existing || existing.creatorId !== userId || existing.status === 'cancelled') {
         res.status(404).json({ error: 'NOT_FOUND', message: '본인이 개설한 펀드만 수정할 수 있습니다' });
         return;
       }

@@ -10,8 +10,10 @@ import { logger } from '../logger.js';
 
 const CONTENT_MAX = 2000;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-// 댓글 가능한 펀드 상태 — 심사대기(pending)·대리의뢰(pending_review)·반려(rejected) 펀드엔 댓글 불가.
-const COMMENTABLE_FUND_STATUSES = new Set(['open', 'scheduled', 'achieved', 'executing', 'completed', 'failed', 'cancelled']);
+// 댓글 가능한 펀드 상태 — 심사대기(pending)·대리의뢰(pending_review)·반려(rejected) 불가.
+// 'cancelled' 제외: 관리자 펀드삭제(cancelFund)는 status='cancelled' + deleted_at 을 함께 설정하므로
+//  소프트삭제(모든 화면에서 404)된 펀드에 댓글이 달리는 것을 막는다.
+const COMMENTABLE_FUND_STATUSES = new Set(['open', 'scheduled', 'achieved', 'executing', 'completed', 'failed']);
 
 function isTargetType(v: unknown): v is CommentTargetType {
   return v === 'fund' || v === 'profile';
@@ -88,12 +90,16 @@ export function createCommentCreateHandler(
           return;
         }
       }
+    } else if (targetType === 'profile') {
+      // 프로필 댓글 대상은 user UUID — 형식 검증(비-UUID 스팸/22P02 차단).
+      if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
     }
 
     try {
       // 대댓글이면 부모가 같은 대상에 존재하는지 확인(엉뚱한 트리 방지). 답글 알림 대상도 여기서 캡처.
       let parentAuthorId: string | null = null;
       if (parentId) {
+        if (!UUID_RE.test(parentId)) { res.status(400).json({ error: 'INVALID_PARENT', message: '잘못된 상위 댓글입니다' }); return; }
         const parent = await repo.findById(parentId);
         if (!parent || parent.targetType !== targetType || parent.targetId !== targetId) {
           res.status(400).json({ error: 'INVALID_PARENT', message: '잘못된 상위 댓글입니다' });

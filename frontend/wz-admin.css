@@ -402,8 +402,9 @@ textarea.wza-input { height: auto; padding: 10px 14px; line-height: 1.6; resize:
   .wza-charts { grid-template-columns: 1fr; }
   .wza-form__row { grid-template-columns: 1fr; }
   .wza-dist__legend { grid-template-columns: repeat(2, 1fr); }
-  /* 문의 채팅: 고정 300px 2단 → 단일 컬럼 스택(좁은 화면 넘침 방지). */
-  .wza-chat { grid-template-columns: 1fr; height: auto; }
+  /* 문의 채팅: 고정 300px 2단 → 단일 컬럼 스택(좁은 화면 넘침 방지).
+     height 는 auto 대신 경계값(70vh)으로 둬야 메시지 영역(flex:1+overflow-y:auto)의 내부 스크롤이 동작한다. */
+  .wza-chat { grid-template-columns: 1fr; grid-template-rows: auto 1fr; height: 70vh; }
   .wza-chat__rooms { border-right: 0; border-bottom: 1px solid var(--c-border); max-height: 220px; }
   /* 데이터 표: 데스크탑은 모서리 라운드 위해 overflow:hidden 이지만, 모바일은 가로 스크롤 허용(우측 컬럼 잘림 방지). */
   .wza-tablewrap { overflow-x: auto; }

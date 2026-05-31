@@ -151,7 +151,8 @@ export function initSocketIO(
     // 읽음 처리
     socket.on('message:read', async (data: { roomId?: string }) => {
       try {
-        const roomId = data.roomId ?? socket.data.roomId;
+        // IDOR 방지 — 유저는 클라가 보낸 roomId 를 신뢰하지 않고 본인 방(서버가 join 시 설정)만. 관리자만 임의 방 지정 가능.
+        const roomId = userRole === 'ADMIN' ? (data.roomId ?? socket.data.roomId) : socket.data.roomId;
         if (!roomId) return;
 
         const readerRole = userRole === 'ADMIN' ? 'ADMIN' : 'USER';
@@ -164,15 +165,15 @@ export function initSocketIO(
       }
     });
 
-    // 타이핑 표시
+    // 타이핑 표시 — read 와 동일 원칙(유저는 본인 방만, 관리자만 임의 방).
     socket.on('typing:start', (data: { roomId?: string }) => {
-      const roomId = data.roomId ?? socket.data.roomId;
+      const roomId = userRole === 'ADMIN' ? (data.roomId ?? socket.data.roomId) : socket.data.roomId;
       if (!roomId) return;
       socket.to(`room:${roomId}`).emit('typing:start', { userId, userName, userRole });
     });
 
     socket.on('typing:stop', (data: { roomId?: string }) => {
-      const roomId = data.roomId ?? socket.data.roomId;
+      const roomId = userRole === 'ADMIN' ? (data.roomId ?? socket.data.roomId) : socket.data.roomId;
       if (!roomId) return;
       socket.to(`room:${roomId}`).emit('typing:stop', { userId });
     });

@@ -10,6 +10,8 @@ import { createErrorResponse } from '../errors/error-response.js';
 import { notify } from '../services/notify.js';
 import { logger } from '../logger.js';
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 // 무통장입금 계좌 — 구주문(awaiting_deposit) 내역 표시 호환용으로만 유지. 신규 후원은 사용 안 함.
 function depositAccount() {
   return {
@@ -59,8 +61,8 @@ export function createBackingHandler(
       // 주문 기록·재고 카운트에 쓸 안정 키 — id 있으면 id, 없으면 인덱스 문자열.
       const resolvedTierId = tier.id != null ? String(tier.id) : rewardTierId;
 
-      // 배송지 게이팅 — 본인 소유 배송지 필수
-      if (!addressId) { res.status(400).json({ error: 'ADDRESS_REQUIRED', message: '배송지를 먼저 등록·선택해 주세요' }); return; }
+      // 배송지 게이팅 — 본인 소유 배송지 필수(addressId 는 UUID 컬럼이라 형식 검증으로 22P02→500 방지).
+      if (!addressId || !UUID_RE.test(addressId)) { res.status(400).json({ error: 'ADDRESS_REQUIRED', message: '배송지를 먼저 등록·선택해 주세요' }); return; }
       const addr = await addressRepo.findById(addressId);
       if (!addr || addr.userId !== userId) {
         res.status(400).json({ error: 'INVALID_ADDRESS', message: '유효한 배송지를 선택해 주세요' }); return;
@@ -235,7 +237,7 @@ export function createOrderChangeHandler(
       if (!result.ok) {
         if (result.code === 'SOLD_OUT') { res.status(409).json({ error: 'SOLD_OUT', message: '변경하려는 리워드가 마감되었습니다' }); return; }
         if (result.code === 'INVALID_STATE') {
-          res.status(409).json({ error: 'INVALID_STATE', message: '예약(결제 전) 상태의 펀딩만 변경할 수 있어요. 결제 완료 후에는 취소 후 다시 참여해 주세요.' });
+          res.status(409).json({ error: 'INVALID_STATE', message: '캠페인 진행 중(결제 전)인 예약만 변경할 수 있어요. 마감되었거나 결제가 진행된 펀딩은 변경할 수 없어요.' });
           return;
         }
         // NOT_FOUND — 동시성으로 사라졌거나 소유 불일치. IDOR 비노출.
@@ -286,6 +288,15 @@ export function createOrderCancelRequestHandler(
       // 2) 결제완료(paid)/구 무통장 → 배치17 환불 플로우(cancel_requested).
       const order = await rewardOrderRepo.requestCancel(req.params.id, userId, reason || null);
       if (!order) {
+        // 자기취소·환불신청 둘 다 불가 — 본인 pledged 인데 막힌 경우는 '마감(성공/실패)되어 자유취소 불가'가 원인.
+        // 잘못된 '이미 취소됨' 메시지 대신 정확한 안내(마감 후엔 결제 진행→결제 후 환불 신청)를 준다.
+        try {
+          const cur = await rewardOrderRepo.findById(req.params.id);
+          if (cur && cur.userId === userId && cur.status === 'pledged') {
+            res.status(409).json({ error: 'CAMPAIGN_CLOSED', message: '마감된 프로젝트예요. 목표 달성 시 결제가 진행되며, 결제 완료 후 환불 신청만 가능해요.' });
+            return;
+          }
+        } catch { /* 조회 실패 시 아래 일반 메시지로 폴백 */ }
         res.status(409).json({ error: 'INVALID_STATE', message: '취소 신청할 수 없는 주문입니다(이미 취소 요청했거나 처리된 주문일 수 있어요).' });
         return;
       }

@@ -494,6 +494,8 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
   .wz-d-mbar__like.is-on { color: #ef4444; border-color: #fca5a5; }
   .wz-d-mbar__like.is-on svg { fill: #ef4444; }
   .wz-d-mbar .wz-btn { flex: 1; }
+  /* '맨위로' 버튼이 하단 고정 펀딩 바(약 72px)와 겹쳐 '후원하기' CTA 를 가리지 않도록 위로 올린다. */
+  .wz-totop { bottom: calc(86px + env(safe-area-inset-bottom)); }
 
   .wz-d-edit { padding: 16px; align-items: flex-end; }
   .wz-d-edit__box { max-height: calc(100vh - 32px); }
