@@ -196,6 +196,25 @@
     return (Number(f.finalPrice) || 0) * (Number(f.currentQuantity) || 0);
   }
 
+  /* ---------- 금액 기준 달성 (백엔드 계약) ----------
+   * 서버 계약: detail 에 targetAmount(목표금액)·achievedAmount(모인 금액)·achievementRate(금액 기준 %).
+   * 신규 펀드는 금액 기준으로 표기. targetAmount 가 없거나 0(구펀드)이면 수량 파생값으로 폴백
+   * (achievedAmount → finalPrice×currentQuantity, rate → W.rate, 목표 표기는 수량으로).
+   * 반환: { achieved, target, rate, isAmount }. isAmount=true 면 금액 목표가 존재(=금액 기준 표기). */
+  function detailAmounts(f) {
+    const target = Number(f.targetAmount) || 0;
+    const isAmount = target > 0;
+    // achievedAmount 계약 필드 우선, 없으면 수량×단가 폴백(구펀드/누락 대비)
+    const achieved = (typeof f.achievedAmount === 'number')
+      ? Math.max(0, f.achievedAmount)
+      : moneyRaised(f);
+    // achievementRate 계약 필드(금액 기준) 우선, 없으면 공용 rate(수량 기준) 폴백
+    const rate = (typeof f.achievementRate === 'number')
+      ? Math.max(0, Math.round(f.achievementRate))
+      : W.rate(f);
+    return { achieved, target, rate, isAmount };
+  }
+
   /* ---------- 대표 영상 파싱 ----------
    * videoUrl(공개 상세 키)이 있으면 대표 영역을 영상으로 대체.
    *  - data:video/(mp4|webm|quicktime) 또는 mp4/webm 으로 끝나는 http(s) → <video>
@@ -295,7 +314,6 @@
   }
 
   function render(f) {
-    const rate = W.rate(f);
     const backers = Number(f.currentQuantity) || 0;
     const dleft = daysLeft(f.deadline);
     const imgs = galleryImages(f);
@@ -331,7 +349,7 @@
 
     /* ----- 우측 sticky 후원 패널 ----- */
     const sideCol = W.el('aside', { class: 'wz-d-side' });
-    buildSide(sideCol, f, { rate, backers, dleft, tiers });
+    buildSide(sideCol, f, { backers, dleft, tiers });
     grid.append(mainCol, sideCol);
 
     const sections = { main: galleryEl, story: storyEl, comments: commentsEl };
@@ -662,7 +680,7 @@
    * 우측 sticky 후원 패널
    * =================================================================== */
   function buildSide(sideCol, f, ctx) {
-    const { rate, backers, dleft, tiers } = ctx;
+    const { backers, dleft, tiers } = ctx; // rate 는 아래 detailAmounts(f).rate 로 직접 산출(금액 기준)
     const owner = isOwner(f);
     const scheduled = isScheduled(f);
 
@@ -704,27 +722,30 @@
       sideCol.appendChild(vc);
     }
 
-    /* 모인 금액 · 목표금액 · 달성률
-     * 달성금액(X원 달성)과 함께 목표금액(목표 Y원)을 보조 텍스트로 표시 → 목표를 한눈에.
-     * targetAmount(목표수량×단가)가 없거나 0이면 금액 목표는 생략하고,
-     * 수량 기반 목표(targetQuantity)만 있으면 "목표 수량 N개"로 보조 표기. */
-    const targetAmt = Number(f.targetAmount) || 0;
+    /* 모인 금액 · 목표금액 · 달성률 (금액 기준 — 백엔드 계약)
+     *  표기: "{achievedAmount}원 달성 / 목표 {targetAmount}원 / {achievementRate}% 달성"
+     *  - achievedAmount: 모인 금액(서버 계약, 폴백: 단가×참여수)
+     *  - targetAmount:  목표금액(서버 계약). 있으면 "목표 N원"으로 노출.
+     *  - achievementRate: 금액 기준 달성률(폴백: 수량 기준 W.rate).
+     *  목표금액이 없는 구펀드는 금액 목표를 생략하고, 수량 목표(targetQuantity)만 있으면
+     *  "목표 수량 N개"로 보조 표기(기존 폴백 유지). "N명 참여"(currentQuantity)는 위 statsLine 그대로. */
+    const amt = detailAmounts(f);
     const targetQty = Number(f.targetQuantity) || 0;
     const amount = W.el('div', { class: 'wz-d-amount' });
     amount.append(
-      W.el('span', { class: 'wz-d-amount__money' }, W.money(moneyRaised(f)) + ' 달성'),
-      W.el('span', { class: 'wz-d-amount__rate' }, rate + '% 달성'));
-    if (targetAmt > 0) {
-      amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 ' + W.money(targetAmt)));
+      W.el('span', { class: 'wz-d-amount__money' }, W.money(amt.achieved) + ' 달성'),
+      W.el('span', { class: 'wz-d-amount__rate' }, amt.rate + '% 달성'));
+    if (amt.isAmount) {
+      amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 ' + W.money(amt.target)));
     } else if (targetQty > 0) {
       amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 수량 ' + targetQty.toLocaleString() + '개'));
     }
     sideCol.appendChild(amount);
 
-    /* 진행바 */
+    /* 진행바 — 금액 기준 달성률(amt.rate) */
     const bar = W.el('div', { class: 'wz-d-progress' });
     const fill = W.el('div', { class: 'wz-d-progress__fill' });
-    fill.style.width = Math.min(100, Math.max(0, rate)) + '%';
+    fill.style.width = Math.min(100, Math.max(0, amt.rate)) + '%';
     bar.appendChild(fill);
     sideCol.appendChild(bar);
 

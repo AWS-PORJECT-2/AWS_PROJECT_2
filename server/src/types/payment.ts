@@ -25,7 +25,13 @@ export interface GroupBuy {
   designFee: number;
   platformFee: number;
   finalPrice: number;
-  targetQuantity: number;
+  // 펀딩 목표 금액(원) — 와디즈/텀블벅식 금액 기준 목표. 신규 개설의 필수 입력 — 031_groupbuy_amount_funding.
+  //   NULL/0 이면 표시 시 폴백으로 (targetQuantity × finalPrice) 사용(기존 펀드 호환).
+  targetAmount?: number | null;
+  // 활성 후원 금액 합계 캐시(원) — 후원/취소 시 amount 만큼 증감 — 031_groupbuy_amount_funding.
+  currentAmount?: number;
+  // 목표 수량 — 유지하되 선택/파생(개설폼에서 안 받으면 NULL). "N명 참여"의 분모는 아님.
+  targetQuantity: number | null;
   currentQuantity: number;
   deadline: Date;
   status: GroupBuyStatus;

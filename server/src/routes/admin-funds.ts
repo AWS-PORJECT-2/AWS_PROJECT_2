@@ -59,6 +59,8 @@ export function createAdminFundsListHandler(repo: GroupBuyRepository) {
         mode: g.mode ?? 'normal',
         rewardCount: (g.rewardTiers ?? []).length,
         targetQuantity: g.targetQuantity,
+        targetAmount: g.targetAmount ?? null,
+        currentAmount: g.currentAmount ?? 0,
         finalPrice: g.finalPrice,
         deadline: g.deadline,
         createdAt: g.createdAt,
@@ -133,6 +135,9 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
 const TARGET_QTY_MAX = 500;
 const PRICE_MAX = 10_000_000;
+// 금액 기준 펀딩(031) — funds-create 와 동일 상한. 목표 금액 1,000~100억원.
+const TARGET_AMOUNT_MIN = 1_000;
+const TARGET_AMOUNT_MAX = 10_000_000_000;
 
 function isValidImage(v: string): boolean {
   if (v.length === 0 || v.length > MAX_IMG_CHARS) return false;
@@ -238,6 +243,11 @@ export function createAdminFundUpdateHandler(repo: GroupBuyRepository) {
       if (!Number.isFinite(n) || Math.floor(n) < 1 || Math.floor(n) > TARGET_QTY_MAX) errors.push('targetQuantity');
       else fields.targetQuantity = Math.floor(n);
     }
+    if ('targetAmount' in body) {
+      const n = Number(body.targetAmount);
+      if (!Number.isFinite(n) || Math.floor(n) < TARGET_AMOUNT_MIN || Math.floor(n) > TARGET_AMOUNT_MAX) errors.push('targetAmount');
+      else fields.targetAmount = Math.floor(n);
+    }
     if ('plan' in body) {
       const p = typeof body.plan === 'string' ? body.plan.trim() : '';
       if (p === 'start' || p === 'run' || p === 'boost') fields.plan = p;
@@ -283,6 +293,7 @@ export function createAdminFundUpdateHandler(repo: GroupBuyRepository) {
         designFee: updated.designFee,
         finalPrice: updated.finalPrice,
         targetQuantity: updated.targetQuantity,
+        targetAmount: updated.targetAmount ?? null,
         coverImageUrl: updated.coverImageUrl ?? null,
         contentBlocks: updated.contentBlocks ?? [],
         plan: updated.plan ?? 'start',

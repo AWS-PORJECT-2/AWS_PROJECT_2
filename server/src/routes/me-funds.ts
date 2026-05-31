@@ -58,7 +58,14 @@ export function createMeFundsHandler(groupBuyRepo: GroupBuyRepository) {
     try {
       const { items } = await groupBuyRepo.list({ creatorId: userId, sort: 'latest', limit: 100, offset: 0 });
       const funds = items.map((g) => {
-        const rate = g.targetQuantity > 0 ? Math.round((g.currentQuantity / g.targetQuantity) * 100) : 0;
+        // 금액 기준 달성(와디즈/텀블벅식, 031) — 목표 금액 폴백: (target_quantity × final_price).
+        const targetAmount = (g.targetAmount && g.targetAmount > 0)
+          ? g.targetAmount
+          : (g.targetQuantity ?? 0) * (g.finalPrice || 0);
+        const achievedAmount = g.currentAmount ?? 0;
+        const rate = targetAmount > 0
+          ? Math.round((achievedAmount / targetAmount) * 100)
+          : ((g.targetQuantity ?? 0) > 0 ? Math.round((g.currentQuantity / (g.targetQuantity as number)) * 100) : 0);
         return {
           id: g.id,
           title: g.title,
@@ -67,6 +74,8 @@ export function createMeFundsHandler(groupBuyRepo: GroupBuyRepository) {
           imageUrl: (g as { imageUrl?: string | null }).imageUrl ?? null,
           targetQuantity: g.targetQuantity,
           currentQuantity: g.currentQuantity,
+          targetAmount,
+          achievedAmount,
           achievementRate: rate,
           finalPrice: g.finalPrice,
           deadline: g.deadline,

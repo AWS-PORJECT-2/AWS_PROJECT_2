@@ -408,8 +408,9 @@
       description: '',
       coverImage: null,       // data URL
       videoUrl: '',           // 대표 영상: data URL(mp4/webm) 또는 http(s) 링크
-      basePrice: '',
-      targetQuantity: '',
+      targetAmount: '',       // 목표 금액(원) — 펀딩 성공 기준. 양수.
+      basePrice: '',          // (레거시) 기본가. 신규 개설은 미입력(서버 0 처리). 드래프트 하위호환용 보존.
+      targetQuantity: '',     // (레거시) 목표 수량. 신규 개설은 미입력. 드래프트 하위호환용 보존.
       deadline: '',
       openScheduled: false,   // 공개 예정으로 등록(run·boost 전용)
       openAt: '',             // 공개 예정일 'YYYY-MM-DD' (openScheduled 일 때만 사용)
@@ -506,8 +507,8 @@
         open: openPlanForm,
       },
       {
-        key: 'goal', name: '기본가 · 목표 · 일정', required: true,
-        done: function () { return validPrice(nstate.basePrice) && validQty(nstate.targetQuantity) && validDeadline(nstate.deadline); },
+        key: 'goal', name: '목표 금액 · 일정', required: true,
+        done: function () { return validTargetAmount(nstate.targetAmount) && validDeadline(nstate.deadline); },
         open: openGoalForm,
       },
       {
@@ -540,6 +541,8 @@
 
   function validPrice(v) { var n = Number(v); return Number.isFinite(n) && n >= 0 && String(v).trim() !== ''; }
   function validQty(v) { var n = Number(v); return Number.isFinite(n) && n >= 1 && n <= 500; }
+  // 목표 금액(원): 양수. 서버 계약 1,000원 ~ 100억원.
+  function validTargetAmount(v) { var n = Number(v); return Number.isFinite(n) && String(v).trim() !== '' && n >= 1000 && n <= 10000000000; }
   function validDeadline(s) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(s || '')) return false;
     var p = s.split('-').map(Number);
@@ -782,7 +785,7 @@
     wrap.appendChild(btn);
     wrap.appendChild(W.el('p', { class: 'wc-submit__hint' },
       ready ? '제출하면 창작자 약관 동의 후 관리자 심사를 거쳐 프로젝트가 공개됩니다.'
-            : '필수 항목(기본 정보 · 요금제 · 기본가/목표/일정 · 스토리 · 리워드 · 창작자 정보 · 정책 · 메이커 정보)을 모두 작성해 주세요.'));
+            : '필수 항목(기본 정보 · 요금제 · 목표 금액/일정 · 스토리 · 리워드 · 창작자 정보 · 정책 · 메이커 정보)을 모두 작성해 주세요.'));
     return wrap;
   }
 
@@ -802,7 +805,7 @@
     var ul = W.el('ul', { class: 'wc-banner__list' });
     [
       '제목과 한 줄 소개는 후원자가 가장 먼저 보는 정보입니다.',
-      '기본가·목표 수량·마감일을 명확히 설정해 주세요.',
+      '목표 금액과 마감일을 명확히 설정해 주세요.',
       '리워드는 최소 1개 이상 등록해야 합니다.',
       '스토리에 디자인 의도와 제작 일정을 담아 주세요.',
     ].forEach(function (t) { ul.appendChild(W.el('li', {}, t)); });
@@ -845,7 +848,7 @@
   function hasAnyInput() {
     return !!(String(nstate.title || '').trim() || String(nstate.description || '').trim() ||
       nstate.coverImage || String(nstate.videoUrl || '').trim() ||
-      String(nstate.basePrice) !== '' || String(nstate.targetQuantity) !== '' || nstate.deadline ||
+      String(nstate.targetAmount) !== '' || nstate.deadline ||
       (nstate.rewardTiers && nstate.rewardTiers.length) || (nstate.storyBlocks && nstate.storyBlocks.length) ||
       String(nstate.creatorName || '').trim() || nstate.creatorImage || String(nstate.creatorIntro || '').trim());
   }
@@ -1075,19 +1078,18 @@
       function renderPreview() {
         var info = PLAN_INFO[picked];
         previewEl.replaceChildren();
-        var base = Number(nstate.basePrice);
+        // 수수료 미리보기는 실제 결제액인 최저 리워드가 기준(목표 금액과 무관).
         var lowestReward = null;
         (nstate.rewardTiers || []).forEach(function (t) {
           var pr = Number(t.price);
           if (Number.isFinite(pr) && (lowestReward === null || pr < lowestReward)) lowestReward = pr;
         });
-        var refPrice = (lowestReward !== null) ? lowestReward : (Number.isFinite(base) && String(nstate.basePrice).trim() !== '' ? base : null);
-        if (refPrice !== null && Number.isFinite(refPrice)) {
-          var fee = Math.round(refPrice * info.feeRate);
+        if (lowestReward !== null && Number.isFinite(lowestReward)) {
+          var fee = Math.round(lowestReward * info.feeRate);
           previewEl.textContent = info.name + ' 요금제 기준 수수료 ' + info.feePct + '% — '
-            + '최저 리워드가 ' + W.money(refPrice) + ' 기준 약 ' + W.money(fee) + ' (참고용, 최종 금액은 서버에서 계산됩니다)';
+            + '최저 리워드가 ' + W.money(lowestReward) + ' 기준 약 ' + W.money(fee) + ' (참고용, 최종 금액은 서버에서 계산됩니다)';
         } else {
-          previewEl.textContent = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드·기본가를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
+          previewEl.textContent = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
         }
       }
     }, function () {
@@ -1098,25 +1100,22 @@
     });
   }
 
-  /* ---- 기본가 · 목표 · 일정 ---- */
+  /* ---- 목표 금액 · 일정 ---- */
   function openGoalForm() {
-    var priceIn, qtyIn, dlIn, openToggle, openDateIn;
+    var amountIn, dlIn, openToggle, openDateIn;
     var schedulable = nstate.plan === 'run' || nstate.plan === 'boost';
     var scheduled = schedulable && !!nstate.openScheduled;
     var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     var minDate = tomorrow.toISOString().slice(0, 10);
-    openOver('기본가 · 목표 · 일정', function (body) {
-      priceIn = input({ type: 'number', value: nstate.basePrice, min: '0', placeholder: '예: 30000' });
-      body.appendChild(field('기본가(원)', true, priceIn, '제품 1개의 기본 판매가입니다. 디자인비·플랫폼 수수료는 서버에서 자동 계산되어 최종가에 반영됩니다.'));
-
-      qtyIn = input({ type: 'number', value: nstate.targetQuantity, min: '1', max: '500', placeholder: '예: 50' });
-      body.appendChild(field('목표 수량', true, qtyIn, '펀딩 성공에 필요한 최소 수량입니다. (1 ~ 500개)'));
+    openOver('목표 금액 · 일정', function (body) {
+      amountIn = input({ type: 'number', value: nstate.targetAmount, min: '1000', max: '10000000000', step: '1000', placeholder: '예: 1000000' });
+      body.appendChild(field('목표 금액(원)', true, amountIn, '펀딩 성공에 필요한 총 모금 목표 금액입니다. 마감일까지 이 금액을 달성하면 결제·제작이 진행됩니다.'));
 
       dlIn = input({ type: 'date', value: nstate.deadline, min: minDate });
-      body.appendChild(field('마감일', true, dlIn, '이 날짜까지 목표 수량을 달성해야 펀딩이 성사됩니다. 오늘 이후 날짜만 가능합니다.'));
+      body.appendChild(field('마감일', true, dlIn, '이 날짜까지 목표 금액을 달성해야 펀딩이 성사됩니다. 오늘 이후 날짜만 가능합니다.'));
 
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
-        '최종 판매가와 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)는 서버에서 계산됩니다. 입력하신 기본가는 산정 기준값으로만 사용됩니다.'));
+        '목표 금액 달성 시 후원자 결제와 제작이 진행됩니다. 실제 결제 금액은 후원자가 선택한 리워드 가격이며, 목표 금액과 리워드 가격은 별개입니다. 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)와 최종 금액은 서버에서 계산됩니다.'));
 
       // ---- 공개 예정 등록(Plus·Professional 전용, 즉 key run·boost, 선택) ----
       if (schedulable) {
@@ -1147,14 +1146,13 @@
         body.appendChild(sched);
       }
     }, function () {
-      if (!validPrice(priceIn.value)) { toast('기본가를 0원 이상으로 입력해 주세요'); return false; }
-      if (!validQty(qtyIn.value)) { toast('목표 수량은 1~500 사이로 입력해 주세요'); return false; }
+      if (!validTargetAmount(amountIn.value)) { toast('목표 금액은 1,000원 이상으로 입력해 주세요'); return false; }
       if (!validDeadline(dlIn.value)) { toast('마감일은 오늘 이후 날짜로 선택해 주세요'); return false; }
       if (schedulable && scheduled) {
         if (!validOpenAt(openDateIn.value)) { toast('공개 예정일은 오늘 이후 날짜로 선택해 주세요'); return false; }
         if (openDateIn.value >= dlIn.value) { toast('공개 예정일은 마감일보다 앞선 날짜여야 합니다'); return false; }
       }
-      nstate.basePrice = priceIn.value; nstate.targetQuantity = qtyIn.value; nstate.deadline = dlIn.value;
+      nstate.targetAmount = amountIn.value; nstate.deadline = dlIn.value;
       nstate.openScheduled = schedulable && scheduled;
       nstate.openAt = (schedulable && scheduled) ? openDateIn.value : '';
       return true;
@@ -1321,7 +1319,7 @@
         W.el('span', { class: 'wc-aidraft__ic', html: IC.sparkle }),
         W.el('div', {},
           W.el('p', { class: 'wc-aidraft__name' }, 'AI로 초안 작성'),
-          W.el('p', { class: 'wc-aidraft__desc' }, '입력한 기본 정보(제목·카테고리·소개·기본가·목표수량)를 바탕으로 스토리 본문 초안을 만들어 드립니다.'),
+          W.el('p', { class: 'wc-aidraft__desc' }, '입력한 기본 정보(제목·카테고리·소개·목표 금액)를 바탕으로 스토리 본문 초안을 만들어 드립니다.'),
         ),
       );
       aiCard.appendChild(aiTop);
@@ -2005,8 +2003,7 @@
     var category = String(nstate.category || '').trim();
     var summary = String(nstate.description || '').trim();
     var basicInfo = { title: title, category: category, summary: summary };
-    if (String(nstate.basePrice).trim() !== '' && Number.isFinite(Number(nstate.basePrice))) basicInfo.basePrice = Math.floor(Number(nstate.basePrice));
-    if (String(nstate.targetQuantity).trim() !== '' && Number.isFinite(Number(nstate.targetQuantity))) basicInfo.targetQuantity = Math.floor(Number(nstate.targetQuantity));
+    if (String(nstate.targetAmount).trim() !== '' && Number.isFinite(Number(nstate.targetAmount))) basicInfo.targetAmount = Math.floor(Number(nstate.targetAmount));
 
     btn.disabled = true;
     statusEl.style.display = '';
@@ -2339,8 +2336,8 @@
           title: nstate.title,
           description: nstate.description,
           category: nstate.category,
-          basePrice: Math.floor(Number(nstate.basePrice)),
-          targetQuantity: Math.floor(Number(nstate.targetQuantity)),
+          // 목표 금액(원) — 펀딩 성공 기준. 기본가·목표 수량은 더 이상 보내지 않음(서버 옵션 처리).
+          targetAmount: Math.floor(Number(nstate.targetAmount)),
           deadline: deadlineToIso(nstate.deadline),
           contentBlocks: blocks,
           rewardTiers: rewards,

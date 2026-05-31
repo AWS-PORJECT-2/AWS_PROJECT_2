@@ -15,6 +15,11 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
 const TARGET_QTY_MAX = 500;
 const NOTE_MAX = 2000;
+
+// ─── 금액 기준 펀딩(와디즈/텀블벅식) — 031 ───
+// 개설 시 "목표 금액 + 마감일"만 필수. 목표 금액 하한 1,000원 / 상한 100억원.
+const TARGET_AMOUNT_MIN = 1_000;
+const TARGET_AMOUNT_MAX = 10_000_000_000;
 const PHONE_RE = /^[0-9\-+ ]{7,20}$/;
 
 const MAX_TIERS = 12;
@@ -159,7 +164,9 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   const description = stringField(body.description, '');
   const category = stringField(body.category);
   const deadline = stringField(body.deadline);
-  const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX);
+  // 금액 기준 펀딩(031): targetAmount(원) 필수. targetQuantity 는 선택(없으면 NULL).
+  const targetAmount = intField(body.targetAmount, TARGET_AMOUNT_MIN, TARGET_AMOUNT_MAX);
+  const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX); // 선택/파생
   const basePrice = intField(body.basePrice, 0, TIER_PRICE_MAX) ?? 0;
   const designFee = intField(body.designFee, 0, TIER_PRICE_MAX) ?? 0;
   const rewardTiers = parseRewardTiers(body.rewardTiers);
@@ -181,7 +188,8 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   if (description && description.length > DESCRIPTION_MAX) errors.push('description');
   if (!category || !isValidCategory(category)) errors.push('category');
   if (!isValidFutureDate(deadline)) errors.push('deadline');
-  if (targetQuantity === null) errors.push('targetQuantity');
+  // 금액 기준 펀딩: 목표 금액 필수(1,000~100억원). targetQuantity 는 더 이상 필수 아님(선택).
+  if (targetAmount === null) errors.push('targetAmount (목표 금액 필수, 1000원 이상)');
   if (!rewardTiers || rewardTiers.length === 0) errors.push('rewardTiers (최소 1개의 리워드 필요)');
 
   if (errors.length > 0) {
@@ -214,7 +222,10 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     designFee,
     platformFee,
     finalPrice,
-    targetQuantity: targetQuantity as number,
+    // 금액 기준 펀딩(031): 목표 금액이 핵심. 목표 수량은 선택(없으면 NULL). 달성 금액 캐시는 0으로 시작.
+    targetAmount: targetAmount as number,
+    currentAmount: 0,
+    targetQuantity: targetQuantity, // null 허용(선택)
     currentQuantity: 0,
     deadline: parseDeadline(deadline),
     // 공개예정(Run/Boost + 미래 openAt) 이면 scheduled, 그 외엔 기존대로 pending(관리자 승인 전 비공개).
@@ -242,6 +253,8 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
   const contactPhone = stringField(body.contactPhone);
   const requestNote = stringField(body.requestNote, '').slice(0, NOTE_MAX);
   const targetQuantity = intField(body.targetQuantity, 1, TARGET_QTY_MAX) ?? 1;
+  // 대리 의뢰도 목표 금액(선택) 수용 — 있으면 그대로 저장, 없으면 NULL(관리자가 가격 확정 시 설정).
+  const targetAmount = intField(body.targetAmount, TARGET_AMOUNT_MIN, TARGET_AMOUNT_MAX);
   const deadlineRaw = stringField(body.deadline);
 
   const errors: string[] = [];
@@ -291,6 +304,9 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
     designFee: 0,
     platformFee: 0, // 가격 미확정 → 0. 관리자 리워드/가격 설정 시 재계산.
     finalPrice: 0,
+    // 대리: 목표 금액은 선택(있으면 저장). 달성 금액 캐시는 0.
+    targetAmount: targetAmount ?? null,
+    currentAmount: 0,
     targetQuantity,
     currentQuantity: 0,
     deadline,

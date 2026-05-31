@@ -68,6 +68,27 @@ function achievementRate(current: number, target: number): number {
   return target > 0 ? Math.round((current / target) * 100) : 0;
 }
 
+// 펀딩 목표 금액 결정 — target_amount(금액 기준)가 있으면 그것, 없으면(NULL/0) 폴백으로
+// (target_quantity × final_price) 를 목표로 사용(기존 수량기준 펀드 호환).
+function resolveTargetAmount(row: Record<string, unknown>): number {
+  const ta = Number(row.target_amount);
+  if (Number.isFinite(ta) && ta > 0) return ta;
+  const tq = Number(row.target_quantity) || 0;
+  const fp = Number(row.final_price) || 0;
+  return tq * fp;
+}
+
+// 달성 금액 — current_amount 캐시(활성 후원 금액 합계). 없으면 0.
+function resolveAchievedAmount(row: Record<string, unknown>): number {
+  return Number(row.current_amount) || 0;
+}
+
+// 달성률(금액 기준) — round(achieved/target*100). 목표가 0(폴백도 0)이면 수량 기준으로 폴백.
+function amountAchievementRate(achievedAmount: number, targetAmount: number, currentQty: number, targetQty: number): number {
+  if (targetAmount > 0) return Math.round((achievedAmount / targetAmount) * 100);
+  return achievementRate(currentQty, targetQty); // 폴백: 수량 기준
+}
+
 // plus 요금제의 서포터 미리보기 개수(최근 N명). pro 는 전체(LIMIT 없음).
 const SUPPORTER_PREVIEW_LIMIT = 10;
 
@@ -85,7 +106,10 @@ function planToTier(plan: string): { tier: AnalyticsTier; planLabel: string } {
 // DB row → 계약 <groupbuy 목록 아이템>
 function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
   const current = Number(row.current_quantity) || 0;
-  const target = Number(row.target_quantity) || 0;
+  const target = row.target_quantity == null ? null : (Number(row.target_quantity) || 0);
+  // 금액 기준 달성(와디즈/텀블벅식). 목표 금액이 0이면(폴백도 0) achievementRate 는 수량 기준으로 폴백.
+  const targetAmount = resolveTargetAmount(row);
+  const achievedAmount = resolveAchievedAmount(row);
   return {
     id: row.id as string,
     title: row.title as string,
@@ -96,7 +120,9 @@ function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
     coverImageUrl: (row.cover_image_url as string | null) ?? null,
     currentQuantity: current,
     targetQuantity: target,
-    achievementRate: achievementRate(current, target),
+    targetAmount,
+    achievedAmount,
+    achievementRate: amountAchievementRate(achievedAmount, targetAmount, current, target ?? 0),
     deadline: new Date(row.deadline as string).toISOString(),
     status: row.status as GroupBuyStatus,
     createdAt: new Date(row.created_at as string).toISOString(),
@@ -142,8 +168,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   async create(groupbuy: GroupBuy): Promise<GroupBuy> {
     const result = await this.pool.query(
-      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, plan, video_url, creator_info, open_at, refund_policy, legal_notice, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31)
+      `INSERT INTO groupbuys (id, creator_id, fund_id, title, description, product_options, base_price, design_fee, platform_fee, final_price, target_quantity, current_quantity, deadline, status, design_image_url, tryon_image_url, content_blocks, category, reward_tiers, delegated, fee_rate, cover_image_url, mode, plan, video_url, creator_info, open_at, refund_policy, legal_notice, target_amount, current_amount, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30, $31, $32, $33)
        RETURNING *`,
       [
         groupbuy.id, groupbuy.creatorId, groupbuy.fundId, groupbuy.title, groupbuy.description,
@@ -158,6 +184,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         groupbuy.plan ?? 'start', groupbuy.videoUrl ?? null,
         groupbuy.creatorInfo ? JSON.stringify(groupbuy.creatorInfo) : null,
         groupbuy.openAt ?? null, groupbuy.refundPolicy ?? null, groupbuy.legalNotice ?? null,
+        // 펀딩 목표 금액(원). 신규 개설의 핵심 입력. 활성 후원 금액 합계 캐시는 개설 시 0.
+        groupbuy.targetAmount ?? null, groupbuy.currentAmount ?? 0,
         groupbuy.createdAt, groupbuy.updatedAt,
       ],
     );
@@ -244,6 +272,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       contentBlocks: 'content_blocks',
       deadline: 'deadline',
       targetQuantity: 'target_quantity',
+      targetAmount: 'target_amount',
       plan: 'plan',
       videoUrl: 'video_url',
       creatorInfo: 'creator_info',
@@ -343,7 +372,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const listQuery = `
       SELECT g.id, g.creator_id, g.fund_id, g.title, g.description, g.product_options,
              g.base_price, g.design_fee, g.platform_fee, g.final_price,
-             g.target_quantity, g.current_quantity, g.deadline, g.status, g.category,
+             g.target_quantity, g.current_quantity, g.target_amount, g.current_amount,
+             g.deadline, g.status, g.category,
              g.delegated, g.mode, g.reward_tiers,
              g.created_at, g.updated_at,
              COALESCE(g.tryon_image_url, g.design_image_url) AS image_url,
@@ -420,6 +450,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
     const listQuery = `
       SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
+             g.target_amount, g.current_amount, g.final_price,
              g.deadline, g.status, g.created_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
              u.name AS creator_name, u.slug AS creator_slug,
@@ -467,6 +498,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     // 찜: like_count 서브쿼리 + viewer($4) LEFT JOIN 으로 isLiked(목록 N+1 방지). 비로그인이면 false.
     const listQuery = `
       SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
+             g.target_amount, g.current_amount, g.final_price,
              g.deadline, g.status, g.created_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
              u.name AS creator_name, u.slug AS creator_slug,
@@ -533,6 +565,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       category: r.category,
       current_quantity: r.current_quantity,
       target_quantity: r.target_quantity,
+      target_amount: r.target_amount,
+      current_amount: r.current_amount,
+      final_price: r.final_price,
       deadline: r.deadline,
       status: effectiveStatus,
       created_at: r.created_at,
@@ -581,6 +616,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const off = Math.max(offset, 0);
     const listQuery = `
       SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
+             g.target_amount, g.current_amount, g.final_price,
              g.deadline, g.status, g.created_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
              u.name AS creator_name, u.slug AS creator_slug
@@ -736,7 +772,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
   // 추적 안 되는 지표는 만들어내지 않고 null/빈배열로 정직하게 둔다.
   async getAnalytics(id: string, ownerId: string): Promise<GroupBuyAnalytics | null> {
     const gRes = await this.pool.query(
-      `SELECT view_count, current_quantity, target_quantity, final_price, status, deadline, plan
+      `SELECT view_count, current_quantity, target_quantity, target_amount, current_amount, final_price, status, deadline, plan
          FROM groupbuys WHERE id = $1 AND creator_id = $2`,
       [id, ownerId],
     );
@@ -744,7 +780,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const g = gRes.rows[0];
     const target = Number(g.target_quantity) || 0;
     const current = Number(g.current_quantity) || 0;
-    const finalPrice = Number(g.final_price) || 0;
+    // 금액 기준 펀딩(031) — 목표 금액(폴백: 수량×대표가), 달성 금액(current_amount 캐시).
+    const targetAmount = resolveTargetAmount(g);
+    const achievedAmount = resolveAchievedAmount(g);
     const status = String(g.status ?? '');
     const plan = String(g.plan ?? 'start');
     const { tier, planLabel } = planToTier(plan);
@@ -777,8 +815,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const summary: GroupBuyAnalytics['summary'] = {
       backerCount: Number(agg.backer_count) || 0,
       totalAmount: Number(agg.total_amount) || 0,
-      targetAmount: target * finalPrice,
-      achievementRate: achievementRate(current, target),
+      // 금액 기준 펀딩(031) — 목표/달성 금액 + 금액 기준 달성률(목표 0이면 수량 기준 폴백).
+      targetAmount,
+      achievedAmount,
+      achievementRate: amountAchievementRate(achievedAmount, targetAmount, current, target),
       likeCount,
       daysLeft,
       status,
@@ -909,7 +949,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       designFee: row.design_fee as number,
       platformFee: row.platform_fee as number,
       finalPrice: row.final_price as number,
-      targetQuantity: row.target_quantity as number,
+      // 금액 기준 펀딩(031) — target_amount 가 핵심 목표, current_amount 는 활성 후원 합계 캐시.
+      targetAmount: row.target_amount == null ? null : (Number(row.target_amount) || 0),
+      currentAmount: Number(row.current_amount) || 0,
+      targetQuantity: row.target_quantity == null ? null : (Number(row.target_quantity) || 0),
       currentQuantity: row.current_quantity as number,
       deadline: new Date(row.deadline as string),
       status: row.status as GroupBuyStatus,

@@ -202,7 +202,16 @@ export class PaymentScheduler {
 
     for (const gb of expiredGroupBuys) {
       try {
-        const success = gb.currentQuantity >= gb.targetQuantity;
+        // 금액 기준 성공 판정(와디즈/텀블벅식, 031) — 달성 금액(current_amount 캐시) >= 목표 금액.
+        //   목표 금액(target_amount) 폴백: (target_quantity × final_price). 목표가 산정 불가(0)면
+        //   기존 수량 기준(current_quantity >= target_quantity)으로 폴백.
+        const targetAmount = (gb.targetAmount && gb.targetAmount > 0)
+          ? gb.targetAmount
+          : (gb.targetQuantity ?? 0) * (gb.finalPrice ?? 0);
+        const achievedAmount = gb.currentAmount ?? 0;
+        const success = targetAmount > 0
+          ? achievedAmount >= targetAmount
+          : gb.currentQuantity >= (gb.targetQuantity ?? 0);
         // 상태 전환 전에 후원자 목록을 미리 확보(전환 로직이 참여를 취소할 수 있으므로).
         const backers = this.notify ? await this.notify.rewardOrderRepo.backerUserIds(gb.id) : [];
 

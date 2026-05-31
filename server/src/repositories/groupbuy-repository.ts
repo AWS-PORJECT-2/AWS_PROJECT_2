@@ -26,6 +26,7 @@ export interface GroupBuyUpdateFields {
   contentBlocks?: ContentBlock[] | null;
   deadline?: Date;
   targetQuantity?: number;
+  targetAmount?: number;              // 펀딩 목표 금액(원) — 031_groupbuy_amount_funding
   plan?: string;                      // 'start'|'run'|'boost' — 022_create_extras
   videoUrl?: string | null;           // 대표 영상 — 022_create_extras
   creatorInfo?: CreatorInfo | null;   // 창작자 정보 — 022_create_extras
@@ -59,9 +60,12 @@ export interface GroupBuyCardItem {
   creatorSlug: string | null;
   category: string | null;
   coverImageUrl: string | null;
-  currentQuantity: number;
-  targetQuantity: number;
-  achievementRate: number;
+  currentQuantity: number;   // 참여 인원/건수 — "N명 참여" 표시용(목표 분모 아님)
+  targetQuantity: number | null; // 목표 수량 — 선택/파생(없으면 null)
+  // ─── 금액 기준 펀딩(와디즈/텀블벅식) — 031_groupbuy_amount_funding ───
+  targetAmount: number;      // 펀딩 목표 금액(원). target_amount 폴백: (target_quantity × final_price)
+  achievedAmount: number;    // 활성 후원 금액 합계(원) — groupbuys.current_amount 캐시
+  achievementRate: number;   // 금액 기준 round(achievedAmount/targetAmount*100). 목표 0이면 수량기준 폴백
   deadline: string;          // ISO
   status: GroupBuyStatus;
   createdAt: string;         // ISO
@@ -188,10 +192,11 @@ export interface SupporterItem {
 }
 
 export interface AnalyticsSummary {
-  backerCount: number;       // 유효 후원 건수(awaiting_deposit+confirmed)
-  totalAmount: number;       // 확정 후원 금액 합
-  targetAmount: number;      // 목표 금액(target_quantity * final_price; 미산정 시 0)
-  achievementRate: number;   // 수량 기준 current/target %
+  backerCount: number;       // 유효 후원 건수(pledged/paid/payment_failed + 구 awaiting_deposit/confirmed)
+  totalAmount: number;       // 확정(실결제/입금) 후원 금액 합
+  targetAmount: number;      // 펀딩 목표 금액(원) — target_amount, 폴백 (target_quantity × final_price) — 031
+  achievedAmount: number;    // 활성 후원 금액 합계(원) — groupbuys.current_amount 캐시 — 031
+  achievementRate: number;   // 금액 기준 round(achievedAmount/targetAmount*100), 목표 0이면 수량 기준 폴백 — 031
   likeCount: number;         // 찜(좋아요) 수
   daysLeft: number | null;   // 마감까지 남은 일수(마감 지났으면 0, 산정 불가 시 null)
   status: string;            // 펀드 상태

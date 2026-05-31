@@ -8,6 +8,13 @@
   const W = window.WZ;
   const state = { sort: 'popular', category: 'all' };
 
+  /* 카드 달성률 — 서버 계약의 금액 기준 achievementRate 우선, 없으면(구펀드) 공용 W.rate(수량 기준) 폴백.
+   * loadProductsFromBackend 가 서버 achievementRate 를 product.achievementRate 로 매핑해 둔다.
+   * (카드는 .wz-pcard__rate 한 줄만 — 목표/모인 금액 보조 표기는 카드 CSS(wz.css, 미배정) 의존이라 상세에서만 노출) */
+  function cardRate(p) {
+    return (p && typeof p.achievementRate === 'number') ? Math.max(0, Math.round(p.achievementRate)) : W.rate(p);
+  }
+
   function run() {
     const root = document.getElementById('wz-home');
     if (!root || !W) return;
@@ -256,7 +263,7 @@
         info.append(
           W.el('p', { class: 'wz-rank__author' }, p.author || p.creatorName || '익명'),
           W.el('p', { class: 'wz-rank__name' }, p.title || ''),
-          W.el('p', { class: 'wz-rank__rate' }, W.rate(p) + '% 달성'));
+          W.el('p', { class: 'wz-rank__rate' }, cardRate(p) + '% 달성'));
         li.appendChild(info); ol.appendChild(li);
       });
       wrap.appendChild(ol);
@@ -370,7 +377,7 @@
     window.addEventListener('likes:updated', onLikesUpdated);
     th.appendChild(heart);
     card.appendChild(th);
-    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, W.rate(p) + '% 달성'));
+    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성'));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.author || p.creatorName || '익명'));
     return card;
@@ -448,8 +455,7 @@
     const badge = DdayBadge(p);
     if (badge) th.appendChild(badge);
     card.appendChild(th);
-    const rateVal = (typeof p.achievementRate === 'number') ? p.achievementRate : W.rate(p);
-    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, rateVal + '% 달성'));
+    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성'));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || '익명'));
     return card;

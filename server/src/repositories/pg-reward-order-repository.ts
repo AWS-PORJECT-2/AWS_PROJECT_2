@@ -109,10 +109,10 @@ export class PgRewardOrderRepository {
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
         [o.id, o.fundId, o.rewardTierId, o.rewardTitle, o.userId, o.addressId, o.depositorName, o.amount, o.status, o.createdAt],
       );
-      // 예약 즉시 수량 반영 — 펀드 current_quantity +1.
+      // 예약 즉시 반영 — 펀드 current_quantity +1(참여 인원), current_amount += amount(달성 금액 캐시, 031).
       await client.query(
-        `UPDATE groupbuys SET current_quantity = current_quantity + 1, updated_at = NOW() WHERE id = $1`,
-        [o.fundId],
+        `UPDATE groupbuys SET current_quantity = current_quantity + 1, current_amount = current_amount + $2, updated_at = NOW() WHERE id = $1`,
+        [o.fundId, o.amount],
       );
       await bumpTierSoldCount(client, o.fundId, o.rewardTierId, +1);
       await client.query('COMMIT');
@@ -204,9 +204,10 @@ export class PgRewardOrderRepository {
       if (upd.rows.length === 0) { await client.query('ROLLBACK'); return null; }
       const order = mapRow(upd.rows[0]);
 
+      // 입금확인 시 수량 +1 + 달성 금액 캐시 += amount(031).
       await client.query(
-        `UPDATE groupbuys SET current_quantity = current_quantity + 1, updated_at = NOW() WHERE id = $1`,
-        [order.fundId],
+        `UPDATE groupbuys SET current_quantity = current_quantity + 1, current_amount = current_amount + $2, updated_at = NOW() WHERE id = $1`,
+        [order.fundId, order.amount],
       );
       await bumpTierSoldCount(client, order.fundId, order.rewardTierId, +1);
 
@@ -245,9 +246,10 @@ export class PgRewardOrderRepository {
         r.confirmedAt != null,
       );
       for (const r of restore) {
+        // 펀드 삭제: 반영돼 있던 주문 복구 — 수량 -1, 달성 금액 캐시 -= amount(031, GREATEST 로 음수 방지).
         await client.query(
-          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
-          [fundId],
+          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
+          [fundId, r.amount],
         );
         await bumpTierSoldCount(client, fundId, r.rewardTierId, -1);
       }
@@ -340,9 +342,10 @@ export class PgRewardOrderRepository {
       if (sel.rows.length === 0) { await client.query('ROLLBACK'); return null; }
       const order = mapRow(sel.rows[0]);
       await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
+      // 사용자 자기취소(pledged): 수량 -1 + 달성 금액 캐시 -= amount(031).
       await client.query(
-        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
-        [order.fundId],
+        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
+        [order.fundId, order.amount],
       );
       await bumpTierSoldCount(client, order.fundId, order.rewardTierId, -1);
       const upd = await client.query(
@@ -411,6 +414,16 @@ export class PgRewardOrderRepository {
       if (!sameTier) {
         await bumpTierSoldCount(client, order.fundId, oldTierId, -1);
         await bumpTierSoldCount(client, order.fundId, newTierId, +1);
+      }
+
+      // 리워드 변경: 수량(참여 인원)은 1 그대로지만 후원 금액이 바뀌므로 달성 금액 캐시를 차액만큼 조정(031).
+      //   delta = newAmount - oldAmount. 음수면 감소(GREATEST 로 0 미만 방지).
+      const amountDelta = newAmount - order.amount;
+      if (amountDelta !== 0) {
+        await client.query(
+          `UPDATE groupbuys SET current_amount = GREATEST(0, current_amount + $2), updated_at = NOW() WHERE id = $1`,
+          [order.fundId, amountDelta],
+        );
       }
 
       const upd = await client.query(
@@ -506,11 +519,11 @@ export class PgRewardOrderRepository {
       if (wasConfirmed) {
         // 실결제 건은 환불표시(refunded_at) 선행 필수.
         if (current.refundedAt == null) { await client.query('ROLLBACK'); return { ok: false, code: 'REFUND_REQUIRED' }; }
-        // 재고/수량 되돌리기 — 예약/입금확인 시 +1 의 역연산.
+        // 재고/수량/달성금액 되돌리기 — 예약/입금확인 시 +1·+amount 의 역연산(031).
         await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [current.fundId]);
         await client.query(
-          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
-          [current.fundId],
+          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
+          [current.fundId, current.amount],
         );
         await bumpTierSoldCount(client, current.fundId, current.rewardTierId, -1);
       }
@@ -630,9 +643,10 @@ export class PgRewardOrderRepository {
       if (sel.rows.length === 0) { await client.query('ROLLBACK'); return null; }
       const order = mapRow(sel.rows[0]);
       await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
+      // 결제 3진아웃 자동취소: 수량 -1 + 달성 금액 캐시 -= amount(031).
       await client.query(
-        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), updated_at = NOW() WHERE id = $1`,
-        [order.fundId],
+        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
+        [order.fundId, order.amount],
       );
       await bumpTierSoldCount(client, order.fundId, order.rewardTierId, -1);
       const upd = await client.query(
