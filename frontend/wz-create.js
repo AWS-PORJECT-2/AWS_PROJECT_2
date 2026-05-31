@@ -249,6 +249,7 @@
    * ===================================================================== */
   function renderPick() {
     root.replaceChildren();
+    try { window.scrollTo(0, 0); } catch (_) {}
     var wrap = W.el('div', { class: 'wc-choose' });
 
     var head = W.el('div', { class: 'wc-choose__head' });
@@ -451,6 +452,7 @@
   /* 카테고리 선택(일반 첫 단계) */
   function renderCategoryPick() {
     root.replaceChildren();
+    try { window.scrollTo(0, 0); } catch (_) {}
     var wrap = W.el('div', { class: 'wc-pick' });
     var head = W.el('div', { class: 'wc-pick__head' });
     head.append(
@@ -650,6 +652,7 @@
   /* ---- 작성 현황(메인) ---- */
   function renderStudio() {
     root.replaceChildren();
+    try { window.scrollTo(0, 0); } catch (_) {}
     var studio = W.el('div', { class: 'wc-studio' });
     studio.append(Sidebar(), MainColumn(), AsideBanners());
     root.appendChild(studio);

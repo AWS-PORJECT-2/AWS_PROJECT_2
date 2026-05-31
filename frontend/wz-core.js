@@ -226,7 +226,12 @@
     document.body.appendChild(pop);
     const r = anchor.getBoundingClientRect();
     pop.style.top = (r.bottom + 8) + 'px';
-    pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+    // 모바일: 하트가 헤더 중앙에 있어 우측 정렬하면 폭(300px)이 화면 왼쪽 밖으로 넘어간다 → 화면 좌우 여백에 맞춰 펼침.
+    if (window.innerWidth <= 600) {
+      pop.style.left = '12px'; pop.style.right = '12px'; pop.style.width = 'auto';
+    } else {
+      pop.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+    }
 
     const close = (ev) => { if (!pop.contains(ev.target) && ev.target !== anchor && !anchor.contains(ev.target)) { closeAllPops(); detach(); } };
     const onKey = (ev) => { if (ev.key === 'Escape') { closeAllPops(); detach(); } };
