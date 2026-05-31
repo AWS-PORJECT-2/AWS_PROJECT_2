@@ -59,8 +59,7 @@ import { createAuthRequired, createOptionalAuth } from './middleware/auth-requir
 import { PgFollowRepository } from './repositories/pg-follow-repository.js';
 import { createFollowStatusHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
-import { AppError } from './errors/app-error.js';
-import { createErrorResponse } from './errors/error-response.js';
+import { uuidParamGuard } from './middleware/uuid-param.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
 import { GeminiImageService } from './services/ai/gemini-image-service.js';
 import { GeminiTextService } from './services/ai/gemini-text-service.js';
@@ -197,15 +196,7 @@ export function createApp(
 
   // 경로 파라미터 UUID 가드 — :id/:orderId 는 모두 UUID 컬럼이므로 비-UUID 입력은 SQL(22P02)까지 가기 전에 400 으로 차단.
   //  (핸들러가 자체 try/catch 로 500 을 반환하는 잔여 경로까지 일괄 커버. :idOrSlug 는 슬러그 허용이라 가드 대상 아님.)
-  const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-  const uuidParamGuard = (_req: express.Request, res: express.Response, next: express.NextFunction, val: string) => {
-    if (!UUID_PARAM_RE.test(val)) {
-      const e = new AppError('INVALID_INPUT');
-      res.status(e.httpStatus).json(createErrorResponse(e));
-      return;
-    }
-    next();
-  };
+  //  서브라우터(announcements/chat/payment-methods/addresses)는 각 팩토리에서 router.param 으로 동일 가드 적용.
   app.param('id', uuidParamGuard);
   app.param('orderId', uuidParamGuard);
 

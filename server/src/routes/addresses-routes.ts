@@ -2,9 +2,11 @@ import { Router } from 'express';
 import type { Request, Response, NextFunction } from 'express';
 import type { AddressService } from '../services/address-service-impl.js';
 import { AppError } from '../errors/app-error.js';
+import { uuidParamGuard } from '../middleware/uuid-param.js';
 
 export function createAddressesHandlers(service: AddressService): Router {
   const router = Router();
+  router.param('id', uuidParamGuard);  // :id(addresses UUID) 비-UUID 입력 → 400(22P02→500 방지)
 
   // POST /api/addresses — create
   router.post('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {

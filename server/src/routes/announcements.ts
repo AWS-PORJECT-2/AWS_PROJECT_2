@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { AnnouncementRepository } from '../repositories/announcement-repository.js';
+import { uuidParamGuard } from '../middleware/uuid-param.js';
 import { logger } from '../logger.js';
 
 /**
@@ -17,6 +18,7 @@ export function createAnnouncementsRouter(
   requireAdmin: (req: Request, res: Response, next: () => void) => void,
 ) {
   const router = Router();
+  router.param('id', uuidParamGuard);  // :id(announcement UUID) 비-UUID 입력 → 400(22P02→500 방지)
 
   // 공용: 목록
   router.get('/', async (req: Request, res: Response) => {

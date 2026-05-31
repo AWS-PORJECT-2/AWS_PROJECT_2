@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import type { ChatRepository } from '../repositories/chat-repository.js';
+import { uuidParamGuard } from '../middleware/uuid-param.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import { notify } from '../services/notify.js';
 import { logger } from '../logger.js';
@@ -28,6 +29,7 @@ export function createChatRouter(
   notificationRepo?: NotificationRepository,
 ) {
   const router = Router();
+  router.param('roomId', uuidParamGuard);  // :roomId(chat_rooms UUID) 비-UUID 입력 → 400(22P02→500 방지)
 
   // ─── 유저 라우트 ───
 
