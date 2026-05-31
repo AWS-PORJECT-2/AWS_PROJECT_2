@@ -1,11 +1,13 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository, GroupBuyUpdateFields } from '../repositories/groupbuy-repository.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { pool } from '../db.js';
+import { notify } from '../services/notify.js';
 import { logAudit } from '../services/audit-log.js';
 import { isValidCategory } from '../constants/categories.js';
 import { MAX_IMG_CHARS, normalizeContentBlocks } from '../utils/content-blocks.js';
@@ -69,7 +71,12 @@ export function createAdminFundsListHandler(repo: GroupBuyRepository) {
   };
 }
 
-function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected', label: string) {
+function createReviewHandler(
+  repo: GroupBuyRepository,
+  next: 'open' | 'rejected',
+  label: string,
+  notificationRepo?: NotificationRepository,
+) {
   return async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
     try {
@@ -86,6 +93,28 @@ function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected'
       await repo.updateStatus(id, next);
       logger.info({ id, adminId: req.userId, next }, `관리자 펀드 ${label}`);
       void logAudit(pool, { level: 'info', source: 'admin', message: `펀드 ${label}`, meta: { fundId: id, next }, userId: req.userId ?? null });
+
+      // 알림(best-effort) — 심사 결과를 창작자에게. notify()/실패는 흡수돼 메인 응답에 영향 없음.
+      if (notificationRepo && fund.creatorId) {
+        if (next === 'open') {
+          await notify(notificationRepo, {
+            userId: fund.creatorId,
+            type: 'fund_approved',
+            title: '프로젝트가 공개되었어요',
+            body: `심사가 완료되어 '${fund.title}' 프로젝트가 공개되었습니다.`,
+            fundId: id,
+          });
+        } else {
+          await notify(notificationRepo, {
+            userId: fund.creatorId,
+            type: 'fund_rejected',
+            title: '프로젝트가 반려되었어요',
+            body: `'${fund.title}' 프로젝트가 반려되었습니다. 내용을 보완해 다시 제출해 주세요.`,
+            fundId: id,
+          });
+        }
+      }
+
       res.json({ id, status: next });
     } catch (err) {
       logger.error({ err, id }, `관리자 펀드 ${label} 실패`);
@@ -94,8 +123,10 @@ function createReviewHandler(repo: GroupBuyRepository, next: 'open' | 'rejected'
   };
 }
 
-export const createAdminFundApproveHandler = (repo: GroupBuyRepository) => createReviewHandler(repo, 'open', '승인');
-export const createAdminFundRejectHandler = (repo: GroupBuyRepository) => createReviewHandler(repo, 'rejected', '반려');
+export const createAdminFundApproveHandler = (repo: GroupBuyRepository, notificationRepo?: NotificationRepository) =>
+  createReviewHandler(repo, 'open', '승인', notificationRepo);
+export const createAdminFundRejectHandler = (repo: GroupBuyRepository, notificationRepo?: NotificationRepository) =>
+  createReviewHandler(repo, 'rejected', '반려', notificationRepo);
 
 // ─── 관리자 펀드 편집(대리개설 대행 작성) 검증 상수 — funds-create.ts 와 동일 기준 유지 ───
 const TITLE_MAX = 80;
@@ -306,16 +337,30 @@ export function createAdminDeleteRequestsHandler(repo: GroupBuyRepository) {
 export function createAdminFundDeleteHandler(
   repo: GroupBuyRepository,
   rewardOrderRepo: { cancelAllForFund: (fundId: string) => Promise<{ refundable: unknown[]; cancelledCount: number }> },
+  notificationRepo?: NotificationRepository,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
     try {
+      // 삭제 전에 제목·창작자를 확보 — cancelFund 이후엔 조회가 안 될 수 있으므로 알림용으로 미리 캡처.
       const fund = await repo.findById(id);
       if (!fund) { res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' }); return; }
       const result = await rewardOrderRepo.cancelAllForFund(id);
       await repo.cancelFund(id);
       logger.info({ id, adminId: req.userId, cancelled: result.cancelledCount, refundable: result.refundable.length }, '관리자 펀드 삭제 처리');
       void logAudit(pool, { level: 'info', source: 'admin', message: '펀드 삭제 처리', meta: { fundId: id, cancelledBackings: result.cancelledCount, refundable: result.refundable.length }, userId: req.userId ?? null });
+
+      // 알림(best-effort) — 창작자에게 삭제 사실 통지. 미리 캡처한 fund.title/creatorId 사용.
+      if (notificationRepo && fund.creatorId) {
+        await notify(notificationRepo, {
+          userId: fund.creatorId,
+          type: 'fund_deleted',
+          title: '프로젝트가 삭제되었어요',
+          body: `'${fund.title}' 프로젝트가 관리자에 의해 삭제되었습니다.`,
+          fundId: id,
+        });
+      }
+
       res.json({ id, status: 'cancelled', cancelledBackings: result.cancelledCount, refundable: result.refundable });
     } catch (err) {
       logger.error({ err, id }, '펀드 삭제 처리 실패');

@@ -4,7 +4,7 @@ import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier, CreatorInfo } 
 import type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
   GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyUpdateFields, GroupBuyAnalytics,
-  ContentBlockContract,
+  AnalyticsTier, ContentBlockContract,
 } from './groupbuy-repository.js';
 import { normalizeContentBlocks } from '../utils/content-blocks.js';
 import { logger } from '../logger.js';
@@ -66,6 +66,20 @@ function parseCreatorInfo(raw: unknown): CreatorInfo | null {
 
 function achievementRate(current: number, target: number): number {
   return target > 0 ? Math.round((current / target) * 100) : 0;
+}
+
+// plus 요금제의 서포터 미리보기 개수(최근 N명). pro 는 전체(LIMIT 없음).
+const SUPPORTER_PREVIEW_LIMIT = 10;
+
+// 요금제(plan) → 분석 티어/라벨 매핑. start=Basic, run=Plus, boost=Professional.
+// 알 수 없는 값은 안전하게 basic 으로 폴백.
+function planToTier(plan: string): { tier: AnalyticsTier; planLabel: string } {
+  switch (plan) {
+    case 'run': return { tier: 'plus', planLabel: 'Plus' };
+    case 'boost': return { tier: 'pro', planLabel: 'Professional' };
+    case 'start':
+    default: return { tier: 'basic', planLabel: 'Basic' };
+  }
 }
 
 // DB row → 계약 <groupbuy 목록 아이템>
@@ -697,10 +711,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return res.rows.map((r) => r.id as string);
   }
 
-  // 본인 펀드 분석 — 본인 소유가 아니면 null. reward_orders 실제 컬럼 집계.
+  // 본인 펀드 분석 — 본인 소유가 아니면 null. reward_orders 실제 컬럼 집계 + 요금제(plan) 게이팅.
+  // basic(start): summary + rewardBreakdown 만. plus(run): +추이/입금현황 + 서포터 최근 일부.
+  // pro(boost): 전부 + 서포터 전체. 잠긴 기능은 lockedFeatures 로 알린다.
+  // 추적 안 되는 지표는 만들어내지 않고 null/빈배열로 정직하게 둔다.
   async getAnalytics(id: string, ownerId: string): Promise<GroupBuyAnalytics | null> {
     const gRes = await this.pool.query(
-      `SELECT view_count, current_quantity, target_quantity
+      `SELECT view_count, current_quantity, target_quantity, final_price, status, deadline, plan
          FROM groupbuys WHERE id = $1 AND creator_id = $2`,
       [id, ownerId],
     );
@@ -708,38 +725,144 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const g = gRes.rows[0];
     const target = Number(g.target_quantity) || 0;
     const current = Number(g.current_quantity) || 0;
+    const finalPrice = Number(g.final_price) || 0;
+    const status = String(g.status ?? '');
+    const plan = String(g.plan ?? 'start');
+    const { tier, planLabel } = planToTier(plan);
+
+    // 마감까지 남은 일수 — deadline 이 있으면 ceil(일), 지났으면 0, 없으면 null.
+    let daysLeft: number | null = null;
+    if (g.deadline) {
+      const ms = new Date(g.deadline as string).getTime() - Date.now();
+      daysLeft = Number.isFinite(ms) ? Math.max(0, Math.ceil(ms / 86_400_000)) : null;
+    }
 
     // 후원 집계 — reward_orders(awaiting_deposit+confirmed=유효 후원), confirmed=입금확정.
     const aggRes = await this.pool.query(
       `SELECT
           COUNT(*) FILTER (WHERE status IN ('awaiting_deposit','confirmed'))::int AS backer_count,
-          COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed_count,
           COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS total_amount
          FROM reward_orders WHERE fund_id = $1`,
       [id],
     );
     const agg = aggRes.rows[0] ?? {};
 
-    // 최근 14일 일자별 후원 건수 — created_at 기준(awaiting_deposit+confirmed).
-    const dailyRes = await this.pool.query(
-      `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS date, COUNT(*)::int AS backers
+    const likeCount = await this.countLikes(id);
+
+    const summary: GroupBuyAnalytics['summary'] = {
+      backerCount: Number(agg.backer_count) || 0,
+      totalAmount: Number(agg.total_amount) || 0,
+      targetAmount: target * finalPrice,
+      achievementRate: achievementRate(current, target),
+      likeCount,
+      daysLeft,
+      status,
+      soldQuantity: current,
+      viewCount: Number(g.view_count) || 0,
+      subscriberCount: await this.subscriberCount(id),
+    };
+
+    // 리워드(tier)별 후원 분포 — 주문 시점 스냅샷(reward_title)으로 그룹. 전 티어 공통(basic 포함).
+    const breakdownRes = await this.pool.query(
+      `SELECT reward_title, COUNT(*)::int AS count,
+              COALESCE(SUM(amount), 0)::bigint AS amount
          FROM reward_orders
-        WHERE fund_id = $1
-          AND status IN ('awaiting_deposit','confirmed')
-          AND created_at >= NOW() - INTERVAL '14 days'
+        WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')
+        GROUP BY reward_title
+        ORDER BY count DESC, reward_title ASC`,
+      [id],
+    );
+    const rewardBreakdown = breakdownRes.rows.map((r) => ({
+      rewardLabel: (r.reward_title as string) || '리워드',
+      count: Number(r.count) || 0,
+      amount: Number(r.amount) || 0,
+    }));
+
+    // ── basic 기본값: 풍부한 지표는 비우고 lockedFeatures 로 잠금 표시 ──
+    const result: GroupBuyAnalytics = {
+      plan, planLabel, tier,
+      summary,
+      rewardBreakdown,
+      fundingTimeline: [],
+      likeTimeline: [],
+      depositStatus: null,
+      supporters: [],
+      lockedFeatures: [],
+    };
+
+    if (tier === 'basic') {
+      result.lockedFeatures = ['fundingTimeline', 'likeTimeline', 'depositStatus', 'supporters'];
+      return result;
+    }
+
+    // ── plus/pro 공통: 일자별 후원 추이 / 좋아요 추이 / 입금 현황 ──
+    const fundingRes = await this.pool.query(
+      `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS date,
+              COUNT(*)::int AS backer_count,
+              COALESCE(SUM(amount), 0)::bigint AS amount
+         FROM reward_orders
+        WHERE fund_id = $1 AND status IN ('awaiting_deposit','confirmed')
         GROUP BY 1 ORDER BY 1 ASC`,
       [id],
     );
+    result.fundingTimeline = fundingRes.rows.map((d) => ({
+      date: d.date as string,
+      backerCount: Number(d.backer_count) || 0,
+      amount: Number(d.amount) || 0,
+    }));
 
-    return {
-      viewCount: Number(g.view_count) || 0,
-      backerCount: Number(agg.backer_count) || 0,
-      confirmedCount: Number(agg.confirmed_count) || 0,
-      totalAmount: Number(agg.total_amount) || 0,
-      achievementRate: achievementRate(current, target),
-      subscriberCount: await this.subscriberCount(id),
-      daily: dailyRes.rows.map((d) => ({ date: d.date as string, backers: Number(d.backers) || 0 })),
+    const likeTlRes = await this.pool.query(
+      `SELECT to_char(date_trunc('day', created_at), 'YYYY-MM-DD') AS date, COUNT(*)::int AS count
+         FROM project_likes
+        WHERE groupbuy_id = $1
+        GROUP BY 1 ORDER BY 1 ASC`,
+      [id],
+    );
+    result.likeTimeline = likeTlRes.rows.map((d) => ({ date: d.date as string, count: Number(d.count) || 0 }));
+
+    const depRes = await this.pool.query(
+      `SELECT
+          COUNT(*) FILTER (WHERE status = 'confirmed')::int AS confirmed_count,
+          COUNT(*) FILTER (WHERE status = 'awaiting_deposit')::int AS pending_count,
+          COALESCE(SUM(amount) FILTER (WHERE status = 'confirmed'), 0)::bigint AS confirmed_amount,
+          COALESCE(SUM(amount) FILTER (WHERE status = 'awaiting_deposit'), 0)::bigint AS pending_amount
+         FROM reward_orders WHERE fund_id = $1`,
+      [id],
+    );
+    const dep = depRes.rows[0] ?? {};
+    result.depositStatus = {
+      confirmedCount: Number(dep.confirmed_count) || 0,
+      pendingCount: Number(dep.pending_count) || 0,
+      confirmedAmount: Number(dep.confirmed_amount) || 0,
+      pendingAmount: Number(dep.pending_amount) || 0,
     };
+
+    // ── 서포터: 닉네임만(없으면 '익명 서포터'). 이메일/실명/전화 절대 미포함.
+    //    pro=전체, plus=최근 일부(SUPPORTER_PREVIEW_LIMIT)만 + supporters_full 잠금.
+    const supporterLimit = tier === 'pro' ? null : SUPPORTER_PREVIEW_LIMIT;
+    const supRes = await this.pool.query(
+      `SELECT COALESCE(NULLIF(TRIM(u.nickname), ''), '익명 서포터') AS nickname,
+              o.amount, o.reward_title, o.status, o.created_at
+         FROM reward_orders o
+         LEFT JOIN "user" u ON u.id = o.user_id
+        WHERE o.fund_id = $1 AND o.status IN ('awaiting_deposit','confirmed')
+        ORDER BY o.created_at DESC
+        ${supporterLimit != null ? 'LIMIT $2' : ''}`,
+      supporterLimit != null ? [id, supporterLimit] : [id],
+    );
+    result.supporters = supRes.rows.map((r) => ({
+      nickname: (r.nickname as string) || '익명 서포터',
+      amount: Number(r.amount) || 0,
+      rewardLabel: (r.reward_title as string) || '리워드',
+      status: r.status as string,
+      backedAt: new Date(r.created_at as string).toISOString(),
+    }));
+
+    if (tier === 'plus') {
+      result.lockedFeatures = ['supporters_full'];
+    }
+
+    return result;
   }
 
   private mapRow(row: Record<string, unknown>): GroupBuy {

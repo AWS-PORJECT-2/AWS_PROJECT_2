@@ -11,7 +11,11 @@ export type NotificationType =
   | 'fund_failed'      // 펀딩 무산 — 창작자
   | 'backed_success'   // 펀딩 성공 — 후원자
   | 'backed_failed'    // 펀딩 무산 — 후원자
-  | 'scheduled_open';  // 공개예정 알림신청 프로젝트 오픈 — 구독자
+  | 'scheduled_open'   // 공개예정 알림신청 프로젝트 오픈 — 구독자
+  | 'fund_approved'    // 관리자 심사 승인(공개) — 창작자
+  | 'fund_rejected'    // 관리자 심사 반려 — 창작자
+  | 'fund_deleted'     // 관리자 펀드 삭제 — 창작자
+  | 'deposit_confirmed'; // 입금 확인(참여 확정) — 후원자
 
 export interface Notification {
   id: string;

@@ -52,18 +52,18 @@
   /* ---- 요금제(서버가 최종 수수료율 계산; 표시는 참고용) ---- */
   var PLAN_INFO = {
     start: {
-      key: 'start', name: 'Start', feePct: 5, feeRate: 0.05,
-      tagline: '처음 시작하는 창작자를 위한 기본 요금제',
+      key: 'start', name: 'Basic', feePct: 5, feeRate: 0.05,
+      tagline: 'Basic · 처음 시작하는 창작자를 위한 기본 요금제',
       points: ['플랫폼 수수료 5% (가장 낮음)', '프로젝트 공개 및 후원 모집', '기본 결제·정산 지원'],
     },
     run: {
-      key: 'run', name: 'Run', feePct: 9, feeRate: 0.09,
-      tagline: '더 많은 후원자에게 닿고 싶은 창작자를 위한 요금제',
+      key: 'run', name: 'Plus', feePct: 9, feeRate: 0.09,
+      tagline: 'Plus · 더 많은 후원자에게 닿고 싶은 창작자를 위한 요금제',
       points: ['플랫폼 수수료 9%', '공개 예정(오픈 알림) 페이지 제공', '후원·유입 데이터 분석 리포트'],
     },
     boost: {
-      key: 'boost', name: 'Boost', feePct: 15, feeRate: 0.15,
-      tagline: '최대 노출로 펀딩을 끌어올리는 요금제',
+      key: 'boost', name: 'Professional', feePct: 15, feeRate: 0.15,
+      tagline: 'Professional · 최대 노출로 펀딩을 끌어올리는 요금제',
       points: ['플랫폼 수수료 15%', '홈·카테고리 상단 노출 부스팅', 'SNS 광고 집행 및 데이터 분석', '공개 예정 페이지 제공'],
     },
   };
@@ -932,7 +932,7 @@
       }
     }, function () {
       nstate.plan = picked;
-      // Start 요금제는 공개 예정 옵션이 없으므로 예약 상태를 해제.
+      // Basic 요금제(key: start)는 공개 예정 옵션이 없으므로 예약 상태를 해제.
       if (picked !== 'run' && picked !== 'boost') { nstate.openScheduled = false; nstate.openAt = ''; }
       return true;
     });
@@ -958,7 +958,7 @@
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
         '최종 판매가와 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)는 서버에서 계산됩니다. 입력하신 기본가는 산정 기준값으로만 사용됩니다.'));
 
-      // ---- 공개 예정 등록(Run·Boost 전용, 선택) ----
+      // ---- 공개 예정 등록(Plus·Professional 전용, 즉 key run·boost, 선택) ----
       if (schedulable) {
         var sched = W.el('div', { class: 'wc-sched' });
         var schedRow = W.el('div', { class: 'wc-sched__row' });

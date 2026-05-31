@@ -418,8 +418,7 @@
       img.addEventListener('error', () => img.remove());
       empty.append(
         img,
-        W.el('p', {}, '팔로우한 창작자가 없어요'),
-        W.el('a', { class: 'wz-btn wz-btn--primary', href: '/main.html' }, '둘러보기')
+        W.el('p', {}, '팔로우한 창작자가 없어요')
       );
       sec.appendChild(empty);
       return sec;

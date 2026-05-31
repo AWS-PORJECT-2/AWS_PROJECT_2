@@ -148,12 +148,32 @@ export function createAdminDepositsListHandler(rewardOrderRepo: PgRewardOrderRep
 }
 
 /** POST /api/admin/deposits/:id/confirm — 입금 확인 → 참여 확정 */
-export function createAdminConfirmDepositHandler(rewardOrderRepo: PgRewardOrderRepository) {
+export function createAdminConfirmDepositHandler(
+  rewardOrderRepo: PgRewardOrderRepository,
+  groupBuyRepo?: GroupBuyRepository,
+  notificationRepo?: NotificationRepository,
+) {
   return async (req: Request, res: Response): Promise<void> => {
     try {
       const order = await rewardOrderRepo.confirm(req.params.id);
       if (!order) { res.status(409).json({ error: 'INVALID_STATE', message: '입금 대기 상태의 주문만 확인할 수 있습니다' }); return; }
       logger.info({ orderId: order.id, adminId: req.userId }, '관리자 입금 확인 → 참여 확정');
+
+      // 알림(best-effort) — 후원자에게 입금 확인 통지. 펀드 제목은 있으면 포함(없어도 무해).
+      if (notificationRepo && order.userId) {
+        let fundTitle: string | null = null;
+        try { fundTitle = (await groupBuyRepo?.findById(order.fundId))?.title ?? null; } catch { /* 제목 조회 실패는 무시 */ }
+        await notify(notificationRepo, {
+          userId: order.userId,
+          type: 'deposit_confirmed',
+          title: '입금이 확인되었습니다',
+          body: fundTitle
+            ? `'${fundTitle}' 프로젝트 후원 입금이 확인되어 참여가 확정되었습니다.`
+            : '후원 입금이 확인되어 참여가 확정되었습니다.',
+          fundId: order.fundId,
+        });
+      }
+
       res.json({ id: order.id, status: 'confirmed' });
     } catch (err) {
       logger.error({ err, id: req.params.id }, '입금 확인 실패');

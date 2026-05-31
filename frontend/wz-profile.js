@@ -774,167 +774,61 @@
     card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, f.title || '프로젝트'));
     card.appendChild(W.el('p', { class: 'wz-mp-card__meta' },
       (Number(f.currentQuantity) || 0) + ' / ' + (Number(f.targetQuantity) || 0) + '명 참여'));
-    // 분석 보기 — 카드(<a>) 내부 버튼. 클릭 시 이동 막고 분석 모달 오픈.
-    var analyzeBtn = W.el('button', { class: 'wz-mp-card__analyze', type: 'button', html: IC.chart });
-    analyzeBtn.appendChild(W.el('span', {}, '분석 보기'));
-    analyzeBtn.addEventListener('click', function (e) {
-      e.preventDefault(); e.stopPropagation();
-      openAnalytics(f);
-    });
-    card.appendChild(analyzeBtn);
+
+    /* 분석 진입(요금제별):
+     *  - /me/funds 목록 응답엔 plan/tier 가 없으므로 카드 단위로 분석 API(tier)를 한 번 조회해 분기.
+     *  - plus/pro → "분석 리포트" 버튼 → 전용 창(analytics.html?id=).
+     *  - basic    → 전용 창/버튼 없음(사용자 명시). 후원자 수/달성률/좋아요만 인라인 간단 요약.
+     *  조회 실패/심사중(분석 미제공)은 아무것도 추가하지 않음(조용히 생략). */
+    var hook = W.el('div', { class: 'wz-mp-card__analytics' });
+    card.appendChild(hook);
+    window.api.get('/me/funds/' + encodeURIComponent(f.id) + '/analytics', { silentAuthFail: true })
+      .then(function (a) { fillFundAnalyticsHook(hook, f, a || {}); })
+      .catch(function () { /* 미제공/오류 → 진입점 생략 */ });
     return card;
   }
 
-  /* =================== 메이커 분석 대시보드 ===================
-   * GET /api/me/funds/:id/analytics →
-   *   { viewCount, backerCount, confirmedCount, totalAmount, achievementRate,
-   *     subscriberCount, daily: [{date:'YYYY-MM-DD', backers}] }
-   * 외부 차트 라이브러리 없이 인라인 SVG 막대그래프로 최근 14일 후원 추이 표시. */
-  var analyticsModal = null;
-  function openAnalytics(f) {
-    closeAnalytics();
-    var overlay = W.el('div', { class: 'wz-mp-amodal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '프로젝트 분석' });
-    var panel = W.el('div', { class: 'wz-mp-amodal__panel' });
-
-    var head = W.el('div', { class: 'wz-mp-amodal__head' });
-    var titleWrap = W.el('div', { class: 'wz-mp-amodal__titlewrap' });
-    titleWrap.append(
-      W.el('p', { class: 'wz-mp-amodal__eyebrow' }, '프로젝트 분석'),
-      W.el('h2', { class: 'wz-mp-amodal__title' }, f.title || '프로젝트')
-    );
-    var closeBtn = W.el('button', { class: 'wz-mp-amodal__close', type: 'button', 'aria-label': '닫기', html: IC.close });
-    closeBtn.addEventListener('click', closeAnalytics);
-    head.append(titleWrap, closeBtn);
-    panel.appendChild(head);
-
-    var body = W.el('div', { class: 'wz-mp-amodal__body' });
-    body.appendChild(loading());
-    panel.appendChild(body);
-
-    overlay.appendChild(panel);
-    // 바깥 클릭 시 닫기(패널 내부 클릭은 유지)
-    overlay.addEventListener('click', function (e) { if (e.target === overlay) closeAnalytics(); });
-    document.body.appendChild(overlay);
-    document.addEventListener('keydown', onAnalyticsKey);
-    analyticsModal = overlay;
-
-    window.api.get('/me/funds/' + encodeURIComponent(f.id) + '/analytics')
-      .then(function (a) { renderAnalytics(body, a || {}); })
-      .catch(function () {
-        body.replaceChildren(W.el('div', { class: 'wz-mp-empty' },
-          W.el('div', { class: 'wz-mp-empty__ic', html: IC.chart }),
-          W.el('p', {}, '분석 정보를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.')));
+  /* 카드 분석 진입점 렌더. tier 로 분기.
+   *  plus/pro: "분석 리포트" 버튼(전용 창 이동). basic: 인라인 간단 요약. */
+  function fillFundAnalyticsHook(hook, f, a) {
+    hook.replaceChildren();
+    var tier = (a && a.tier) || 'basic';
+    if (tier === 'plus' || tier === 'pro') {
+      // 카드(<a>) 내부 버튼 — 클릭 시 카드 이동을 막고 전용 분석 창으로.
+      var btn = W.el('button', { class: 'wz-mp-card__analyze', type: 'button', html: IC.chart });
+      btn.appendChild(W.el('span', {}, '분석 리포트'));
+      btn.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        location.href = '/analytics.html?id=' + encodeURIComponent(f.id);
       });
-  }
-  function onAnalyticsKey(e) { if (e.key === 'Escape') closeAnalytics(); }
-  function closeAnalytics() {
-    if (!analyticsModal) return;
-    document.removeEventListener('keydown', onAnalyticsKey);
-    analyticsModal.remove();
-    analyticsModal = null;
-  }
-
-  function renderAnalytics(body, a) {
-    body.replaceChildren();
-    var viewCount = Number(a.viewCount) || 0;
-    var backerCount = Number(a.backerCount) || 0;
-    var confirmedCount = Number(a.confirmedCount) || 0;
-    var totalAmount = Number(a.totalAmount) || 0;
-    var rate = Number(a.achievementRate) || 0;
-    var subscriberCount = Number(a.subscriberCount) || 0;
-    var daily = Array.isArray(a.daily) ? a.daily : [];
-
-    // 요약 스탯 그리드
-    var stats = W.el('div', { class: 'wz-mp-amodal__stats' });
-    stats.append(
-      analyticStat('조회수', String(viewCount)),
-      analyticStat('후원자수', String(backerCount) + '명'),
-      analyticStat('참여 확정', String(confirmedCount) + '명'),
-      analyticStat('총 모금액', W.money(totalAmount)),
-      analyticStat('달성률', rate + '%'),
-      analyticStat('알림 신청', String(subscriberCount) + '명')
-    );
-    body.appendChild(stats);
-
-    // 달성률 진행 바
-    var rateSec = W.el('div', { class: 'wz-mp-amodal__rate' });
-    var rateHead = W.el('div', { class: 'wz-mp-amodal__rate-head' });
-    rateHead.append(
-      W.el('span', { class: 'wz-mp-amodal__rate-label' }, '목표 달성률'),
-      W.el('span', { class: 'wz-mp-amodal__rate-val' }, rate + '%')
-    );
-    rateSec.appendChild(rateHead);
-    var track = W.el('div', { class: 'wz-mp-amodal__rate-track' });
-    var fill = W.el('div', { class: 'wz-mp-amodal__rate-fill' });
-    fill.style.width = Math.max(0, Math.min(100, rate)) + '%';
-    track.appendChild(fill);
-    rateSec.appendChild(track);
-    body.appendChild(rateSec);
-
-    // 최근 14일 후원 추이 (인라인 SVG 막대)
-    var chartSec = W.el('section', { class: 'wz-mp-amodal__chart' });
-    chartSec.appendChild(W.el('p', { class: 'wz-mp-amodal__chart-title' }, '최근 14일 후원 추이'));
-    var total14 = daily.reduce(function (s, d) { return s + (Number(d && d.backers) || 0); }, 0);
-    if (!daily.length || total14 === 0) {
-      chartSec.appendChild(W.el('p', { class: 'wz-mp-amodal__chart-empty' }, '최근 14일간 후원 내역이 없어요.'));
-    } else {
-      chartSec.appendChild(barChart(daily));
+      hook.appendChild(btn);
+      return;
     }
-    body.appendChild(chartSec);
+    // basic — 전용 창 없이 아주 간단한 요약만(후원자/달성률/좋아요).
+    // wz-profile.css 미배정 → 인라인 style 로 자급(보라 토큰 사용).
+    var s = (a && a.summary) || {};
+    var backerCount = Number(s.backerCount) || 0;
+    var rate = (typeof s.achievementRate === 'number') ? s.achievementRate
+      : ((typeof f.achievementRate === 'number') ? f.achievementRate : W.rate(f));
+    var likeCount = Number(s.likeCount) || 0;
+    var sum = W.el('div', { class: 'wz-mp-card__sum' });
+    sum.style.cssText = 'display:flex;gap:10px;margin-top:9px;padding:9px 11px;border:1px solid var(--c-divider);border-radius:8px;background:var(--c-bg);';
+    sum.append(
+      cardSumItem('후원자', String(backerCount) + '명'),
+      cardSumItem('달성률', rate + '%'),
+      cardSumItem('관심', String(likeCount))
+    );
+    hook.appendChild(sum);
   }
-
-  function analyticStat(label, value) {
-    return W.el('div', { class: 'wz-mp-astat' },
-      W.el('span', { class: 'wz-mp-astat__label' }, label),
-      W.el('span', { class: 'wz-mp-astat__value' }, value));
-  }
-
-  /* 순수 인라인 SVG 막대그래프. daily: [{date:'YYYY-MM-DD', backers}] */
-  function barChart(daily) {
-    var SVGNS = 'http://www.w3.org/2000/svg';
-    var W_ = 100, H = 100; // viewBox 단위(%), preserveAspectRatio none 로 컨테이너에 맞춤
-    var n = daily.length;
-    var max = daily.reduce(function (m, d) { return Math.max(m, Number(d && d.backers) || 0); }, 0);
-    if (max <= 0) max = 1;
-    var gap = 14 / n;               // 막대 사이 비율 간격
-    var bw = (W_ - gap * (n + 1)) / n;
-    var svg = document.createElementNS(SVGNS, 'svg');
-    svg.setAttribute('viewBox', '0 0 ' + W_ + ' ' + H);
-    svg.setAttribute('preserveAspectRatio', 'none');
-    svg.setAttribute('class', 'wz-mp-bars');
-    svg.setAttribute('role', 'img');
-    svg.setAttribute('aria-label', '최근 14일 일별 후원자 수');
-    daily.forEach(function (d, i) {
-      var v = Number(d && d.backers) || 0;
-      var bh = (v / max) * (H - 4); // 상단 4 단위 여백
-      var x = gap + i * (bw + gap);
-      var rect = document.createElementNS(SVGNS, 'rect');
-      rect.setAttribute('x', String(x));
-      rect.setAttribute('y', String(H - bh));
-      rect.setAttribute('width', String(bw));
-      rect.setAttribute('height', String(Math.max(bh, v > 0 ? 1 : 0.6)));
-      rect.setAttribute('rx', '1');
-      rect.setAttribute('class', v > 0 ? 'wz-mp-bars__bar' : 'wz-mp-bars__bar is-zero');
-      var t = document.createElementNS(SVGNS, 'title');
-      t.textContent = (d && d.date ? d.date : '') + ' · ' + v + '명';
-      rect.appendChild(t);
-      svg.appendChild(rect);
-    });
-    var chartBox = W.el('div', { class: 'wz-mp-bars__box' });
-    chartBox.appendChild(svg);
-    // x축 라벨(처음·중간·끝)
-    var axis = W.el('div', { class: 'wz-mp-bars__axis' });
-    var first = daily[0] && daily[0].date ? mmdd(daily[0].date) : '';
-    var last = daily[n - 1] && daily[n - 1].date ? mmdd(daily[n - 1].date) : '';
-    axis.append(W.el('span', {}, first), W.el('span', {}, last));
-    var wrap = W.el('div', { class: 'wz-mp-bars__wrap' });
-    wrap.append(chartBox, axis);
-    return wrap;
-  }
-  // 'YYYY-MM-DD' → 'MM.DD'
-  function mmdd(s) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(s || ''));
-    return m ? (m[2] + '.' + m[3]) : String(s || '');
+  function cardSumItem(label, value) {
+    var box = W.el('div', { class: 'wz-mp-card__sumitem' });
+    box.style.cssText = 'display:flex;flex-direction:column;gap:2px;flex:1 1 0;min-width:0;';
+    var l = W.el('span', { class: 'wz-mp-card__sumlabel' }, label);
+    l.style.cssText = 'font-size:11px;color:var(--c-text-muted);font-weight:600;';
+    var v = W.el('span', { class: 'wz-mp-card__sumval' }, value);
+    v.style.cssText = 'font-size:14px;font-weight:800;color:var(--c-primary-700);line-height:1.15;';
+    box.append(l, v);
+    return box;
   }
 
   /* 관심 프로젝트 카드 — <groupbuy 목록 아이템>(coverImageUrl/achievementRate 등) */

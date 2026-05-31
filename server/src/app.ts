@@ -354,8 +354,8 @@ export function createApp(
   app.get('/api/admin/funds', authRequired, requireAdmin, createAdminFundsListHandler(groupBuyRepository));
   // 관리자 대리개설 대행 작성/수정 — 제공된 필드만 갱신(creatorId 불변).
   app.patch('/api/admin/funds/:id', authRequired, requireAdmin, createAdminFundUpdateHandler(groupBuyRepository));
-  app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository));
-  app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository));
+  app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository, notificationRepository));
+  app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository, notificationRepository));
   app.post('/api/admin/funds/:id/rewards', authRequired, requireAdmin, createAdminSetRewardsHandler(groupBuyRepository));
 
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
@@ -393,12 +393,12 @@ export function createApp(
   app.delete('/api/me/drafts/:id', authRequired, createMeDraftDeleteHandler(projectDraftRepository));
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
   app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
-  app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository));
+  app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
 
   // --- 펀드 삭제 요청(작성자) → 관리자 삭제+환불 (항목 11) ---
   app.post('/api/me/funds/:id/delete-request', authRequired, createFundDeleteRequestHandler(groupBuyRepository));
   app.get('/api/admin/fund-delete-requests', authRequired, requireAdmin, createAdminDeleteRequestsHandler(groupBuyRepository));
-  app.post('/api/admin/funds/:id/delete', authRequired, requireAdmin, createAdminFundDeleteHandler(groupBuyRepository, rewardOrderRepository));
+  app.post('/api/admin/funds/:id/delete', authRequired, requireAdmin, createAdminFundDeleteHandler(groupBuyRepository, rewardOrderRepository, notificationRepository));
 
   // --- 사용자 관리 (항목 10) ---
   app.get('/api/admin/users', authRequired, requireAdmin, createAdminUsersListHandler(userRepository));

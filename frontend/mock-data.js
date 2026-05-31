@@ -57,12 +57,40 @@ function _currentReturn() {
 }
 
 /**
- * 좋아요 토글 — 낙관적 UI + 서버 동기화.
- *  - product.isLiked 를 즉시 뒤집고 likeCount ±1 (새 boolean 반환).
- *  - 백그라운드로 POST/DELETE /api/funds/:id/like → 서버 likeCount 로 동기화.
- *  - 미로그인(401)이면 토글을 취소하고 /login.html?return=<현재경로> 로 이동.
+ * 좋아요 토글 — 로그인-우선 + 낙관적 UI + 서버 동기화.
+ *  - 미로그인이 확실(window.__WZ_AUTHED === false)하면 토글하지 않고 즉시 로그인 페이지로.
+ *  - 로그인 확정(=== true)이면 product.isLiked 즉시 뒤집고 likeCount ±1 후 POST/DELETE 동기화.
+ *  - undefined(미확정)면 fetchMe 로 확인 후 진행. fetchMe 가 없으면 기존 폴백(낙관적 + 401 리다이렉트).
  */
 function toggleLike(productId) {
+  // 현재(변경 전) 찜 상태 — 토글을 막을 때 호출부의 하트 UI 를 실제 상태로 되돌리기 위해 반환.
+  const curLiked = (typeof isLiked === 'function') ? isLiked(productId) : false;
+
+  // 1) 로그인 안 한 게 확실하면 토글 없이 즉시 로그인으로(early return).
+  //    반환값은 변경 전 상태 — classList.toggle('is-on', curLiked) 가 하트를 켜지 않게 함.
+  if (window.__WZ_AUTHED === false) {
+    location.href = '/login.html?return=' + _currentReturn();
+    return curLiked;
+  }
+  // 2) 미확정(undefined)이면 캐시된 인증 상태를 fetchMe 로 확인 후 진행.
+  //    동기 반환이 필요한 호출부(하트 토글)를 위해 일단 현재 상태를 반환하고,
+  //    로그인 확정 시 _applyToggleLike 가 likes:updated 를 발행해 하트를 갱신한다.
+  if (window.__WZ_AUTHED === undefined && window.WZ && typeof window.WZ.fetchMe === 'function') {
+    window.WZ.fetchMe().then((me) => {
+      window.__WZ_AUTHED = !!me;
+      if (!me) { location.href = '/login.html?return=' + _currentReturn(); return; }
+      _applyToggleLike(productId);
+    }).catch(() => { _applyToggleLike(productId); });
+    return curLiked;
+  }
+  // 3) 로그인 확정(true) 또는 fetchMe 미가용 — 기존 낙관적 토글 수행.
+  return _applyToggleLike(productId);
+}
+
+/**
+ * 실제 낙관적 토글 + 서버 동기화. 미로그인(401) 폴백 포함(인증 미확정 경로 대비).
+ */
+function _applyToggleLike(productId) {
   const product = MOCK_PRODUCTS.find((p) => p.id === productId);
   // 현재 상태: product 우선, 없으면 서버 찜 집합
   const wasLiked = product ? !!product.isLiked : !!_likedIdSet[String(productId)];
@@ -82,7 +110,8 @@ function toggleLike(productId) {
   fetch(path, { method: nowLiked ? 'POST' : 'DELETE', credentials: 'include' })
     .then((res) => {
       if (res.status === 401) {
-        // 미로그인 — 낙관적 토글 취소 후 로그인으로 유도
+        // 미로그인 — 캐시 갱신 + 낙관적 토글 취소 후 로그인으로 유도
+        window.__WZ_AUTHED = false;
         _markLiked(productId, wasLiked);
         if (product) {
           product.isLiked = wasLiked;
@@ -272,6 +301,7 @@ async function syncMyLikes() {
   try {
     if (!(window.WZ && typeof window.WZ.fetchMe === 'function')) return;
     const me = await window.WZ.fetchMe();
+    window.__WZ_AUTHED = !!me; // 인증 상태 캐시(찜 로그인-우선 가드용)
     if (!me) return; // 비로그인: 서버 찜 없음
     const base = window.API_BASE_URL || (window.location.origin + '/api');
     const res = await fetch(base + '/me/likes', { credentials: 'include' });
@@ -292,6 +322,21 @@ window.MOCK_PRODUCTS = MOCK_PRODUCTS;
 window.loadProductsFromBackend = loadProductsFromBackend;
 window.getLikeCount = getLikeCount;
 window.syncMyLikes = syncMyLikes;
+
+/**
+ * 인증 상태 캐시 초기화 — 찜 로그인-우선 가드(window.__WZ_AUTHED)를 한 번 채운다.
+ * httpOnly 쿠키라 동기로 못 읽으므로 fetchMe 결과를 캐시한다(확정 전까진 undefined → 폴백 경로).
+ * loadProductsFromBackend → syncMyLikes 가 같은 플래그를 갱신하므로 중복 1회는 허용.
+ */
+function _initAuthFlag() {
+  if (window.__WZ_AUTHED !== undefined) return; // 이미 확정됨
+  if (window.WZ && typeof window.WZ.fetchMe === 'function') {
+    window.WZ.fetchMe()
+      .then((me) => { window.__WZ_AUTHED = !!me; })
+      .catch(() => { /* 실패 시 undefined 유지 → 폴백 경로 */ });
+  }
+}
+_initAuthFlag();
 
 // 페이지 로드 후 자동 실행
 if (document.readyState === 'loading') {

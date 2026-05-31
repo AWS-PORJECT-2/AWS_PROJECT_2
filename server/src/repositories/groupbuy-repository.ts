@@ -156,15 +156,57 @@ export interface GroupBuyRepository {
   getAnalytics(id: string, ownerId: string): Promise<GroupBuyAnalytics | null>;
 }
 
-// 본인 펀드 분석(GET /api/me/funds/:id/analytics) — 023_plan_features
-export interface GroupBuyAnalytics {
-  viewCount: number;
-  backerCount: number;       // 후원 주문 건수(awaiting_deposit+confirmed)
-  confirmedCount: number;    // 입금확정 건수
+// 본인 펀드 분석(GET /api/me/funds/:id/analytics) — 023_plan_features + 요금제 게이팅
+// 요금제(plan)별로 채워지는 필드가 다르다. basic=요약+리워드분포만, plus=+추이/입금현황+서포터 일부,
+// pro=전부. 잠긴 기능은 lockedFeatures 키 배열로 알려 프론트가 자물쇠 UI 를 표시한다.
+export type AnalyticsTier = 'basic' | 'plus' | 'pro';
+
+/** 잠금 기능 키 — 프론트 자물쇠 UI 매핑용. */
+export type LockedFeature =
+  | 'fundingTimeline'
+  | 'likeTimeline'
+  | 'depositStatus'
+  | 'supporters'
+  | 'supporters_full';
+
+export interface RewardBreakdownItem { rewardLabel: string; count: number; amount: number }
+export interface FundingTimelinePoint { date: string; backerCount: number; amount: number }
+export interface LikeTimelinePoint { date: string; count: number }
+export interface DepositStatusSummary {
+  confirmedCount: number; pendingCount: number; confirmedAmount: number; pendingAmount: number;
+}
+export interface SupporterItem {
+  nickname: string;          // 닉네임만(없으면 '익명 서포터') — 이메일/실명/전화 절대 미포함
+  amount: number;
+  rewardLabel: string;
+  status: string;            // 'confirmed' | 'awaiting_deposit'
+  backedAt: string;          // ISO
+}
+
+export interface AnalyticsSummary {
+  backerCount: number;       // 유효 후원 건수(awaiting_deposit+confirmed)
   totalAmount: number;       // 확정 후원 금액 합
-  achievementRate: number;   // current/target %
+  targetAmount: number;      // 목표 금액(target_quantity * final_price; 미산정 시 0)
+  achievementRate: number;   // 수량 기준 current/target %
+  likeCount: number;         // 찜(좋아요) 수
+  daysLeft: number | null;   // 마감까지 남은 일수(마감 지났으면 0, 산정 불가 시 null)
+  status: string;            // 펀드 상태
+  soldQuantity: number;      // 확정(입금완료) 수량 = current_quantity
+  viewCount: number;         // 상세 조회수
   subscriberCount: number;   // 공개예정 알림 구독자 수
-  daily: Array<{ date: string; backers: number }>; // 최근 14일 일자별 후원 건수
+}
+
+export interface GroupBuyAnalytics {
+  plan: string;              // 'start' | 'run' | 'boost'
+  planLabel: string;         // 'Basic' | 'Plus' | 'Professional'
+  tier: AnalyticsTier;       // 'basic' | 'plus' | 'pro'
+  summary: AnalyticsSummary;
+  rewardBreakdown: RewardBreakdownItem[];
+  fundingTimeline: FundingTimelinePoint[]; // plus/pro 만 채움(basic=[])
+  likeTimeline: LikeTimelinePoint[];        // plus/pro 만 채움(basic=[])
+  depositStatus: DepositStatusSummary | null; // plus/pro 만 채움(basic=null)
+  supporters: SupporterItem[];              // pro=전체, plus=최근 일부, basic=[]
+  lockedFeatures: LockedFeature[];          // 이 티어에서 잠긴 기능 키
 }
 
 export interface DeleteRequestItem {

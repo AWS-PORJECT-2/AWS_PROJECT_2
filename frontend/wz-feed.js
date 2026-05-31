@@ -8,7 +8,7 @@
 (function () {
   const W = window.WZ;
   const SORTS = [['popular', '인기순'], ['latest', '신규순'], ['ending', '마감임박순']];
-  const state = { feed: '', sort: 'popular', category: 'all', q: '' };
+  const state = { feed: '', sort: 'popular', category: 'all', q: '', lastItems: [] };
 
   function run() {
     const root = document.getElementById('wz-feed');
@@ -28,8 +28,10 @@
 
     // 제목
     const head = W.el('div', { class: 'wz-feedpage__head' });
-    head.appendChild(W.el('h1', { class: 'wz-feedpage__title' },
-      isFollowing ? '팔로잉' : (state.q ? '"' + state.q + '" 검색 결과' : '프로젝트 전체보기')));
+    const titleEl = W.el('h1', { class: 'wz-feedpage__title' }, titleText(isFollowing));
+    head.appendChild(titleEl);
+    // 검색결과/전체보기에서 그 자리 재검색용 검색바(팔로잉 피드는 제외)
+    if (!isFollowing) head.appendChild(SearchBar().node);
     wrap.appendChild(head);
 
     // 필터(팔로잉 피드는 정렬/카테고리 필터 없이 최신순 전체)
@@ -72,10 +74,65 @@
       }
     }
 
+    // 검색결과 제목 텍스트(현재 q 기준)
+    function titleText(following) {
+      if (following) return '팔로잉';
+      return state.q ? '"' + state.q + '" 검색 결과' : '프로젝트 전체보기';
+    }
+
+    // q 변경 적용 — URL/제목 갱신 후 캐시된 목록을 그 자리에서 재필터(네트워크 호출 없음).
+    function applyQuery() {
+      pushUrl();
+      titleEl.textContent = titleText(isFollowing);
+      render(body, state.lastItems, isFollowing);
+    }
+
+    // 검색결과 헤더 검색바 — 현재 q 프리필 + 디바운스(300ms) 라이브 + 엔터/버튼 즉시 재검색.
+    function SearchBar() {
+      // CSS 파일을 건드리지 않으므로 색/배경은 인라인으로 명확히(흰 배경·진한 글자).
+      const node = W.el('form', {
+        class: 'wz-feedpage__search', role: 'search',
+        style: 'display:flex;align-items:center;gap:8px;max-width:420px;margin:12px 0 4px;'
+          + 'background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:6px 10px;',
+      });
+      const input = W.el('input', {
+        class: 'wz-feedpage__searchinput', type: 'search',
+        placeholder: '검색어를 입력하세요', 'aria-label': '검색', value: state.q || '',
+        style: 'flex:1;min-width:0;border:0;outline:none;background:transparent;'
+          + 'color:#111;font-size:15px;line-height:1.4;',
+      });
+      const btn = W.el('button', {
+        class: 'wz-feedpage__searchbtn', type: 'submit', 'aria-label': '검색', html: W.ICON.search,
+        style: 'display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;'
+          + 'flex:0 0 auto;border:0;background:transparent;color:#8B5CF6;cursor:pointer;padding:0;',
+      });
+      const svg = btn.querySelector('svg'); // 아이콘 크기 명시(외부 CSS 없이도 또렷이)
+      if (svg) { svg.setAttribute('width', '18'); svg.setAttribute('height', '18'); }
+      node.append(input, btn);
+
+      let timer = null;
+      function commit() {
+        if (timer) { clearTimeout(timer); timer = null; }
+        const v = input.value.trim();
+        if (v === state.q) return; // 변동 없음
+        state.q = v;
+        applyQuery();
+      }
+      input.addEventListener('input', () => {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(commit, 300); // 라이브(디바운스) 재검색
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); commit(); } // 엔터 즉시
+      });
+      node.addEventListener('submit', (e) => { e.preventDefault(); commit(); }); // 버튼 즉시
+      return { node, input };
+    }
+
     function load() {
       body.replaceChildren(W.el('p', { class: 'wz-feedpage__loading' }, '불러오는 중…'));
-      const onItems = (items) => render(body, items, isFollowing);
-      const onError = () => render(body, [], isFollowing);
+      const onItems = (items) => { state.lastItems = items || []; render(body, state.lastItems, isFollowing); };
+      const onError = () => { state.lastItems = []; render(body, [], isFollowing); };
       if (isFollowing) {
         window.api.get('/me/following-feed?limit=200', { silentAuthFail: true })
           .then((data) => onItems((data && Array.isArray(data.items)) ? data.items : []))
@@ -122,8 +179,7 @@
     if (isFollowing) {
       const img = W.el('img', { src: '/assets/empty-following.png', alt: '' });
       img.addEventListener('error', () => img.remove());
-      empty.append(img, W.el('p', {}, '팔로우한 창작자의 프로젝트가 없어요'),
-        W.el('a', { class: 'wz-btn wz-btn--primary', href: '/main.html' }, '둘러보기'));
+      empty.append(img, W.el('p', {}, '팔로우한 창작자의 프로젝트가 없어요'));
     } else if (state.q) {
       const img = W.el('img', { src: '/assets/empty-feed.png', alt: '' });
       img.addEventListener('error', () => img.remove());
