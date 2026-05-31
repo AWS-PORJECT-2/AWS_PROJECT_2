@@ -107,6 +107,8 @@ export interface GroupBuyFindManyOptions {
   creatorId?: string;
   limit?: number;
   offset?: number;
+  // creatorId 조회 시 true 면 비공개 상태(pending/pending_review/rejected)를 숨김(비소유자 공개 메이커 페이지용).
+  publicOnly?: boolean;
 }
 
 export interface GroupBuyRepository {
@@ -129,10 +131,12 @@ export interface GroupBuyRepository {
   // ─── 공개 목록/상세 (006_social_features 계약) ───
   // viewerId 가 있으면 각 카드의 isLiked 를 한 번의 IN 조회로 채운다(목록 N+1 방지). likeCount 는 서브쿼리.
   findMany(options: GroupBuyFindManyOptions, viewerId?: string): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
-  findByCreator(creatorId: string): Promise<GroupBuyCardItem[]>;
+  // publicOnly=true(비소유자)면 비공개 상태(pending/pending_review/rejected) 제외. 소유자는 전체(rejected만 제외).
+  findByCreator(creatorId: string, opts?: { publicOnly?: boolean }): Promise<GroupBuyCardItem[]>;
   // 여러 창작자의 공개(open) 펀드를 최신순으로 — 팔로잉 피드용. creatorIds 가 비면 빈 결과.
   findOpenByCreators(creatorIds: string[], limit?: number, offset?: number, viewerId?: string): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
-  getDetail(id: string, viewerId?: string): Promise<GroupBuyDetail | null>;
+  // viewerIsAdmin/소유자가 아니면 비공개 상태(pending/pending_review/rejected) 상세는 null(→404)로 가린다.
+  getDetail(id: string, viewerId?: string, viewerIsAdmin?: boolean): Promise<GroupBuyDetail | null>;
 
   // ─── 찜(좋아요) — 026_project_likes ───
   // 찜 추가(UPSERT, ON CONFLICT DO NOTHING) → 펀드 존재 시 좋아요 수, 없으면 null(404).

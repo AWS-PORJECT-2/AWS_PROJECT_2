@@ -9,6 +9,9 @@ import { notify } from '../services/notify.js';
 import { logger } from '../logger.js';
 
 const CONTENT_MAX = 2000;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 댓글 가능한 펀드 상태 — 심사대기(pending)·대리의뢰(pending_review)·반려(rejected) 펀드엔 댓글 불가.
+const COMMENTABLE_FUND_STATUSES = new Set(['open', 'scheduled', 'achieved', 'executing', 'completed', 'failed', 'cancelled']);
 
 function isTargetType(v: unknown): v is CommentTargetType {
   return v === 'fund' || v === 'profile';
@@ -72,6 +75,19 @@ export function createCommentCreateHandler(
     if (!content || content.length > CONTENT_MAX) {
       res.status(400).json({ error: 'INVALID', message: '댓글은 1~2000자입니다' });
       return;
+    }
+
+    // 펀드 댓글은 대상 펀드가 실제 존재하고 공개(댓글 가능) 상태인지 검증 — 없는/심사중/반려 펀드에 댓글 생성 차단.
+    if (targetType === 'fund') {
+      if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
+      if (groupBuyRepo) {
+        let fund = null;
+        try { fund = await groupBuyRepo.findById(targetId); } catch { fund = null; }
+        if (!fund || !COMMENTABLE_FUND_STATUSES.has(fund.status)) {
+          res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '댓글을 달 수 없는 프로젝트입니다' });
+          return;
+        }
+      }
     }
 
     try {

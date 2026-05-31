@@ -168,9 +168,12 @@ img { max-width: 100%; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .wz-catmenu__inner { gap: 20px; }
   /* 모바일 탭타깃 확대 — 아이콘 시각 크기(svg 24px)는 유지하고 클릭영역만 40px 로(손가락 오탭 방지). */
-  .wz-hd__right { gap: 10px; }
+  /* gap 은 6px 로 좁혀 40px 박스 4개+로고가 360px 폭에 들어오게 함(가로 넘침 방지). */
+  .wz-hd__right { gap: 6px; }
   .wz-hd__icon { width: 40px; height: 40px; }
   .wz-hd__avatar { width: 40px; height: 40px; }
+  /* 40px 박스 기준으로 배지를 24px 글리프에 가깝게 재배치(모서리에 떠 보이지 않게). */
+  .wz-hd__icon .wz-dot { top: 4px; right: 4px; }
 }
 
 /* 큐레이션 선반(가로 캐러셀) + 프로모션 밴드 — 홈을 풍성하게 */

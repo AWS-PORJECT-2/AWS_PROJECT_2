@@ -422,11 +422,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const where: string[] = ['g.deleted_at IS NULL'];
     const params: unknown[] = [];
 
-    // 특정 메이커 페이지(creatorId)면 그 사람 전체(rejected 제외), 아니면 공개(open)만.
+    // 특정 메이커 페이지(creatorId)면: 비소유자 공개조회(publicOnly)는 비공개 상태(심사대기/대리의뢰/반려) 숨김,
+    // 소유자(본인)는 rejected 만 제외한 전체. creatorId 없으면 공개(open)만.
     if (options.creatorId) {
       params.push(options.creatorId);
       where.push(`g.creator_id = $${params.length}`);
-      where.push(`g.status <> 'rejected'`);
+      if (options.publicOnly) where.push(`g.status NOT IN ('pending','pending_review','rejected')`);
+      else where.push(`g.status <> 'rejected'`);
     } else {
       where.push(`g.status = 'open'`);
     }
@@ -478,8 +480,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     };
   }
 
-  async findByCreator(creatorId: string): Promise<GroupBuyCardItem[]> {
-    const { rows } = await this.findMany({ creatorId, sort: 'latest', limit: 100, offset: 0 });
+  async findByCreator(creatorId: string, opts?: { publicOnly?: boolean }): Promise<GroupBuyCardItem[]> {
+    const { rows } = await this.findMany({ creatorId, publicOnly: opts?.publicOnly, sort: 'latest', limit: 100, offset: 0 });
     return rows;
   }
 
@@ -527,7 +529,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     };
   }
 
-  async getDetail(id: string, viewerId?: string): Promise<GroupBuyDetail | null> {
+  async getDetail(id: string, viewerId?: string, viewerIsAdmin?: boolean): Promise<GroupBuyDetail | null> {
     const res = await this.pool.query(
       `SELECT g.*,
               COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url_resolved,
@@ -551,6 +553,14 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
     if (res.rows.length === 0) return null;
     const r = res.rows[0];
+
+    // 비공개 상태(심사대기/대리의뢰/반려) 상세는 소유자 또는 관리자만 열람 가능 — 그 외엔 null(→404)로 가린다.
+    //  (scheduled/open/achieved/failed/executing/completed/cancelled 는 공개. scheduled 는 '공개예정' 노출 설계.)
+    const PRIVATE_STATUSES = new Set(['pending', 'pending_review', 'rejected']);
+    if (PRIVATE_STATUSES.has(r.status as string)) {
+      const isOwner = !!viewerId && viewerId === (r.creator_id as string);
+      if (!isOwner && !viewerIsAdmin) return null;
+    }
 
     // 방어적: open_at 이 지난 scheduled 는 상세에서 open 으로 노출(스케줄러 전환 전 표시 보정).
     const openAt = r.open_at ? new Date(r.open_at as string) : null;

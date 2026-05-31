@@ -236,6 +236,9 @@ export class PgUserRepository implements UserRepository {
       await client.query('DELETE FROM reports WHERE reporter_id = $1 OR target_id = $1', [userId]);
       await client.query('DELETE FROM project_likes WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM project_subscriptions WHERE user_id = $1', [userId]);
+      // 본인 메이커 프로필을 대상으로 한 타인 댓글(target_type='profile', target_id=내 userId)도 정리.
+      //  (본인이 작성한 댓글은 comments.user_id ON DELETE CASCADE 로 user 삭제 시 함께 제거됨.)
+      await client.query(`DELETE FROM comments WHERE target_type = 'profile' AND target_id = $1::text`, [userId]);
 
       // 2) 레거시 결제(미사용) RESTRICT 해소 — 자식(refunds/payments)부터 → orders → participations.
       //    payment_events 는 payments ON DELETE CASCADE 라 payments 삭제 시 함께 정리됨.
@@ -250,6 +253,12 @@ export class PgUserRepository implements UserRepository {
       await client.query(`DELETE FROM comments WHERE target_type = 'fund' AND target_id IN (SELECT id::text FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL)`, [userId]);
       await client.query(`DELETE FROM reports WHERE target_type = 'project' AND target_id IN (${softFunds})`, [userId]);
       await client.query(`DELETE FROM notifications WHERE fund_id IN (${softFunds})`, [userId]);
+      // 소프트삭제 펀드를 참조하는 (타 사용자 포함) 레거시 결제행 정리 — orders/participations 의 groupbuy_id 가
+      //  ON DELETE RESTRICT 라, 정리하지 않으면 아래 groupbuys 하드삭제가 막혀 탈퇴가 영구 차단된다.
+      await client.query(`DELETE FROM refunds WHERE order_id IN (SELECT id FROM orders WHERE groupbuy_id IN (${softFunds}))`, [userId]);
+      await client.query(`DELETE FROM payments WHERE order_id IN (SELECT id FROM orders WHERE groupbuy_id IN (${softFunds}))`, [userId]);
+      await client.query(`DELETE FROM orders WHERE groupbuy_id IN (${softFunds})`, [userId]);
+      await client.query(`DELETE FROM participations WHERE groupbuy_id IN (${softFunds})`, [userId]);
 
       // 4) 소프트삭제 펀드 하드삭제(reward_orders.fund_id CASCADE 로 그 펀드의 모든 후원 함께 정리).
       //    활성 펀드(deleted_at IS NULL)는 절대 건드리지 않음 — 남아 있으면 user 삭제가 FK 로 막혀 상위 라우트가 409 로 흡수.

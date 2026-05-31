@@ -328,7 +328,8 @@
     postRead(id);
     renderList();
     updateNotificationBadges();
-    if (href) {
+    // 알림 link 는 서버 생성값이지만, 방어적으로 동일 출처 상대경로('/...')만 허용(오픈 리다이렉트/javascript: 차단).
+    if (href && typeof href === 'string' && /^\/[^/]/.test(href)) {
       window.location.href = href;
     }
   }

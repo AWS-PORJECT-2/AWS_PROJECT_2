@@ -24,9 +24,14 @@ export function createDevAuthRouter(userRepo: UserRepository, tokenService: Toke
         return;
       }
       // 도메인 허용목록 강제(실제 OAuth 경로와 동일 기준) — 임의 외부 이메일 사칭 차단.
-      if (emailValidator && !emailValidator.isAllowedDomain(email)) {
-        res.status(403).json({ error: 'INVALID_EMAIL_DOMAIN', message: '허용되지 않은 이메일 도메인' });
-        return;
+      // isAllowedDomain 은 형식 불량 이메일에 throw 하므로 try/catch 로 403 매핑(500 누출 방지).
+      if (emailValidator) {
+        let domainOk = false;
+        try { domainOk = emailValidator.isAllowedDomain(email); } catch { domainOk = false; }
+        if (!domainOk) {
+          res.status(403).json({ error: 'INVALID_EMAIL_DOMAIN', message: '허용되지 않은 이메일 도메인' });
+          return;
+        }
       }
 
       let user = await userRepo.findByEmail(email);

@@ -59,6 +59,8 @@ import { createAuthRequired, createOptionalAuth } from './middleware/auth-requir
 import { PgFollowRepository } from './repositories/pg-follow-repository.js';
 import { createFollowStatusHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
+import { AppError } from './errors/app-error.js';
+import { createErrorResponse } from './errors/error-response.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
 import { GeminiImageService } from './services/ai/gemini-image-service.js';
 import { GeminiTextService } from './services/ai/gemini-text-service.js';
@@ -193,6 +195,20 @@ export function createApp(
   });
   app.use(cookieParser());
 
+  // 경로 파라미터 UUID 가드 — :id/:orderId 는 모두 UUID 컬럼이므로 비-UUID 입력은 SQL(22P02)까지 가기 전에 400 으로 차단.
+  //  (핸들러가 자체 try/catch 로 500 을 반환하는 잔여 경로까지 일괄 커버. :idOrSlug 는 슬러그 허용이라 가드 대상 아님.)
+  const UUID_PARAM_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const uuidParamGuard = (_req: express.Request, res: express.Response, next: express.NextFunction, val: string) => {
+    if (!UUID_PARAM_RE.test(val)) {
+      const e = new AppError('INVALID_INPUT');
+      res.status(e.httpStatus).json(createErrorResponse(e));
+      return;
+    }
+    next();
+  };
+  app.param('id', uuidParamGuard);
+  app.param('orderId', uuidParamGuard);
+
   const emailValidator = new EmailValidatorImpl(allowedDomains);
 
   const oauthClient = USE_MOCK_OAUTH
@@ -294,7 +310,7 @@ export function createApp(
   // 공개예정 알림 구독/취소 — :id 하위 고정 세그먼트(/subscribe)라 :id 충돌 없음.
   app.post('/api/groupbuys/:id/subscribe', authRequired, createSubscribeHandler(groupBuyRepository));
   app.delete('/api/groupbuys/:id/subscribe', authRequired, createUnsubscribeHandler(groupBuyRepository));
-  app.get('/api/groupbuys/:id', optionalAuth, createGroupBuyDetailHandler(groupBuyRepository));
+  app.get('/api/groupbuys/:id', optionalAuth, createGroupBuyDetailHandler(groupBuyRepository, userRepository));
 
   // NOTE: 레거시 Toss 단건결제/참여(orders·participations·payment-refund/events·config/toss·garments-fetch)
   //  HTTP 라우트는 모두 제거됨(프론트 미사용, reward_orders 무통장+모의결제 플로우로 단일화).
@@ -417,7 +433,7 @@ export function createApp(
   app.get('/api/users/:id/following', optionalAuth, createFollowingHandler(followRepository));
 
   // 메이커 공구 목록 — '/:idOrSlug/funds' 는 '/:idOrSlug' 보다 먼저.
-  app.get('/api/users/:idOrSlug/funds', createUserFundsHandler(userRepository, groupBuyRepository));
+  app.get('/api/users/:idOrSlug/funds', optionalAuth, createUserFundsHandler(userRepository, groupBuyRepository));
 
   // 공개 프로필(가장 일반적인 패턴이므로 위 구체 경로들 뒤에 등록) — soft-auth.
   app.get('/api/users/:idOrSlug', optionalAuth, createPublicProfileHandler(userRepository));

@@ -110,6 +110,18 @@
       throw new Error('NOT_AUTHENTICATED');
     }
 
+    // 410 GONE — 토큰은 유효하나 계정이 삭제됨(회원탈퇴/관리자 삭제). 401과 동일하게 종결 처리(재로그인 유도).
+    if (res.status === 410) {
+      if (options.silentAuthFail) {
+        var errGone = new Error('USER_NOT_FOUND');
+        errGone.code = 'USER_NOT_FOUND';
+        errGone.status = 410;
+        throw errGone;
+      }
+      redirectToLogin();
+      throw new Error('USER_NOT_FOUND');
+    }
+
     var text = await res.text();
     var data = text ? safeJson(text) : null;
 

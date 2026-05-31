@@ -10,7 +10,7 @@ import { logger } from '../logger.js';
 import { serializeMe, resolvePrefs } from './profile-serializer.js';
 
 const NAME_MAX = 40;
-const NICK_MAX = 50;
+const NICK_MAX = 40;  // DB 컬럼 nickname VARCHAR(40)과 일치(초과 시 22001 → 500 방지).
 const INTRO_MAX = 500;
 const WEBSITE_MAX = 255;
 const SLUG_MAX = 50;
@@ -46,7 +46,7 @@ export function createUpdateMeHandler(userRepo: UserRepository) {
     }
     if (typeof body.nickname === 'string') {
       const v = body.nickname.trim();
-      if (v.length === 0 || v.length > NICK_MAX) { bad('닉네임은 1~50자입니다'); return; }
+      if (v.length === 0 || v.length > NICK_MAX) { bad('닉네임은 1~40자입니다'); return; }
       patch.nickname = v;
       patch.onboarded = true; // 닉네임 설정 = 온보딩 완료(기존 동작 유지)
     }
@@ -198,7 +198,11 @@ export function createDeleteMeHandler(
         try { await refreshTokenRepo.deleteByUserId(userId); } catch { /* best-effort */ }
       }
       await userRepo.delete(userId);
-      ['access_token', 'refresh_token', 'accessToken', 'refreshToken'].forEach((c) => res.clearCookie(c));
+      // 쿠키 path 를 발급 시점과 일치시켜야 실제로 삭제됨(refreshToken 은 '/api/auth' path 로 발급).
+      res.clearCookie('accessToken', { path: '/' });
+      res.clearCookie('refreshToken', { path: '/api/auth' });
+      res.clearCookie('access_token', { path: '/' });   // 레거시 쿠키명 호환
+      res.clearCookie('refresh_token', { path: '/' });
       logger.info({ userId }, '회원 탈퇴 완료');
       res.status(204).end();
     } catch (err) {
@@ -206,6 +210,8 @@ export function createDeleteMeHandler(
       // 23503=foreign_key_violation, 23001=restrict_violation(소프트삭제 펀드/레거시 참조 등).
       const code = (err as { code?: string })?.code;
       if (code === '23503' || code === '23001') {
+        // 어떤 제약/참조가 막았는지 진단 로그(조용한 fail-close 방지) — 추후 연쇄삭제 보강 지점 파악용.
+        logger.warn({ userId, code, constraint: (err as { constraint?: string }).constraint, detail: (err as { detail?: string }).detail }, '회원 탈퇴 FK 제약으로 차단');
         res.status(409).json({ error: 'HAS_ACTIVITY', message: '진행했던 펀드·주문 정리가 필요해 바로 탈퇴할 수 없어요. 고객지원(1:1 문의)으로 요청해 주세요.' });
         return;
       }

@@ -49,7 +49,9 @@ export function createUserFundsHandler(userRepo: UserRepository, groupBuyRepo: G
         if (!u) { res.status(404).json({ error: 'USER_NOT_FOUND', message: '사용자를 찾을 수 없습니다' }); return; }
         creatorId = u.id;
       }
-      const items = await groupBuyRepo.findByCreator(creatorId);
+      // 본인 메이커 페이지면 전체(rejected 제외), 타인(또는 비로그인)이면 비공개 상태(심사대기/대리의뢰/반려) 숨김.
+      const isOwner = !!req.userId && req.userId === creatorId;
+      const items = await groupBuyRepo.findByCreator(creatorId, { publicOnly: !isOwner });
       res.json({ items });
     } catch (err) {
       logger.error({ err, idOrSlug }, '메이커 공구 목록 조회 실패');

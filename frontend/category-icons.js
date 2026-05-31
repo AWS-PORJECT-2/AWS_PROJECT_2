@@ -31,7 +31,7 @@ function categoryIconSvg(key) {
   if (!src) return categoryFallbackSvg(key);
   var fb = categoryFallbackSvg(key);
   return (
-    '<img src="' + src + '" alt="' + key + '" ' +
+    '<img src="' + src + '" alt="' + escapeHtmlAttr(key) + '" ' +
     'style="width:100%;height:100%;object-fit:contain;display:block;" ' +
     'onerror="this.outerHTML=this.dataset.fb;" ' +
     'data-fb="' + escapeHtmlAttr(fb) + '">'
