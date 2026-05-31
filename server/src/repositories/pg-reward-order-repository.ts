@@ -5,6 +5,9 @@ import type { RewardOrder, RewardOrderStatus } from '../types/index.js';
 export interface RewardOrderListItem extends RewardOrder {
   fundTitle: string;
   fundImageUrl: string | null;
+  fundStatus?: string | null;
+  fundAchievementRate?: number;
+  creatorName?: string | null;
   userName?: string | null;
   userNickname?: string | null;
 }
@@ -148,14 +151,32 @@ export class PgRewardOrderRepository {
   async listByUser(userId: string): Promise<RewardOrderListItem[]> {
     const res = await this.pool.query(
       `SELECT o.*, g.title AS fund_title,
-              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS fund_image_url
+              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS fund_image_url,
+              g.status AS fund_status, g.current_amount, g.target_amount,
+              g.current_quantity, g.target_quantity, g.final_price,
+              COALESCE(u.nickname, u.name) AS creator_name
          FROM reward_orders o
          JOIN groupbuys g ON g.id = o.fund_id
+         LEFT JOIN "user" u ON u.id = g.creator_id
         WHERE o.user_id = $1
         ORDER BY o.created_at DESC`,
       [userId],
     );
-    return res.rows.map((r) => ({ ...mapRow(r), fundTitle: r.fund_title, fundImageUrl: r.fund_image_url ?? null }));
+    return res.rows.map((r) => {
+      // 펀드 달성률(금액 기준, 폴백 수량) — 후원 카드를 관심 프로젝트처럼 리치하게 표시하기 위함.
+      const cur = Number(r.current_amount) || 0;
+      const tgtA = Number(r.target_amount) || 0;
+      const cq = Number(r.current_quantity) || 0;
+      const tq = Number(r.target_quantity) || 0;
+      const fp = Number(r.final_price) || 0;
+      const target = tgtA > 0 ? tgtA : tq * fp;
+      const rate = target > 0 ? Math.round((cur / target) * 100) : (tq > 0 ? Math.round((cq / tq) * 100) : 0);
+      return {
+        ...mapRow(r), fundTitle: r.fund_title, fundImageUrl: r.fund_image_url ?? null,
+        fundStatus: (r.fund_status as string | null) ?? null, fundAchievementRate: rate,
+        creatorName: (r.creator_name as string | null) ?? null,
+      };
+    });
   }
 
   async listByStatus(status: RewardOrderStatus): Promise<RewardOrderListItem[]> {

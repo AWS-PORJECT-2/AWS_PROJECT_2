@@ -816,11 +816,16 @@
 
   /* =================== 카드 렌더 (WZ.fillThumb 사용) =================== */
   function recentCard(it) {
+    // 관심 프로젝트와 동일한 리치 카드(이미지 + 상태 배지 + 달성률 + 제목 + 창작자).
     var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(it.id) });
     var th = W.el('div', { class: 'wz-mp-card__thumb' });
-    W.fillThumb(th, { id: it.id, title: it.title, imageUrl: it.imageUrl, category: it.category });
+    W.fillThumb(th, { id: it.id, title: it.title, imageUrl: it.coverImageUrl || it.imageUrl, category: it.category });
+    var st = FUND_STATUS[String(it.status || '').toLowerCase()];
+    if (st && st.label) th.appendChild(W.el('span', { class: 'wz-mp-card__badge wz-mp-card__badge--' + st.cls }, st.label));
     card.appendChild(th);
+    if (typeof it.achievementRate === 'number') card.appendChild(W.el('p', { class: 'wz-mp-card__rate' }, it.achievementRate + '% 달성'));
     card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, it.title || '프로젝트'));
+    if (it.creatorName) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, it.creatorName));
     return card;
   }
 
@@ -948,18 +953,28 @@
       : W.el('div', { class: 'wz-mp-card' });
     var th = W.el('div', { class: 'wz-mp-card__thumb' });
     W.fillThumb(th, { id: fid, title: o.fundTitle, imageUrl: o.fundImageUrl });
+    // 관심 프로젝트처럼 펀드 정보(진행 상태 배지 + 달성률 + 제목 + 창작자)를 리치하게 노출.
+    var fst = FUND_STATUS[String(o.fundStatus || '').toLowerCase()];
+    if (fst && fst.label) th.appendChild(W.el('span', { class: 'wz-mp-card__badge wz-mp-card__badge--' + fst.cls }, fst.label));
+    card.appendChild(th);
+    if (typeof o.fundAchievementRate === 'number') card.appendChild(W.el('p', { class: 'wz-mp-card__rate' }, o.fundAchievementRate + '% 달성'));
+    card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, o.fundTitle || '프로젝트'));
+    if (o.creatorName) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, o.creatorName));
+
+    // 내 후원 정보(주문 상태 + 리워드·금액) — 펀드 정보 아래 구분선으로.
     var statusKey = String(o.status || '').toLowerCase();
     var st = BACK_STATUS[statusKey] || { label: String(o.status || ''), cls: 'awaiting' };
-    // 상태 배지를 보관해 두고(취소 신청 성공 시 갱신), 카드에 부착.
+    var orderRow = W.el('div', {});
+    orderRow.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:9px;padding-top:9px;border-top:1px solid var(--c-divider);';
     var badge = null;
     if (st.label) {
-      badge = W.el('span', { class: 'wz-mp-card__badge wz-mp-card__badge--' + st.cls }, st.label);
-      th.appendChild(badge);
+      badge = W.el('span', {});
+      badge.style.cssText = 'font-size:11px;font-weight:700;padding:3px 9px;border-radius:999px;background:var(--c-primary-50);color:var(--c-primary-700);';
+      badge.textContent = st.label;
+      orderRow.appendChild(badge);
     }
-    card.appendChild(th);
-    card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, o.fundTitle || '프로젝트'));
-    if (o.rewardTitle) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, o.rewardTitle));
-    card.appendChild(W.el('p', { class: 'wz-mp-card__amount' }, W.money(o.amount)));
+    orderRow.appendChild(W.el('span', { style: 'font-size:13px;color:var(--c-text-sub);font-weight:600;' }, (o.rewardTitle ? o.rewardTitle + ' · ' : '') + W.money(o.amount)));
+    card.appendChild(orderRow);
 
     // 취소 버튼 — 주문 id 가 있고(=/me/orders 보강분) 취소 가능 상태일 때만.
     //  pledged → 즉시 취소("펀딩 취소"), paid → 취소 신청(환불 흐름), 구 무통장 → 취소 신청.
@@ -977,7 +992,7 @@
           var key = String(resultStatus || act.resultStatus || '').toLowerCase();
           var fin = BACK_STATUS[key] || { label: act.resultLabel, cls: act.resultCls };
           o.status = key || act.resultStatus;
-          if (badge) { badge.textContent = fin.label; badge.className = 'wz-mp-card__badge wz-mp-card__badge--' + fin.cls; }
+          if (badge) badge.textContent = fin.label;
           actions.remove();
         });
       });
@@ -1125,7 +1140,13 @@
         .then(function (f) {
           // 조회 성공: 저장된 stub 대신 실제 펀드 데이터로 렌더(커버 이미지 포함 — stub 은 data:URL 을 못 담아 비어있음).
           if (f && f.id != null) {
-            return { keep: true, it: { id: f.id, title: f.title || it.title || '', imageUrl: f.coverImageUrl || f.designImageUrl || '', category: f.category || it.category || '' } };
+            // 관심 프로젝트처럼 리치 카드로 렌더하기 위해 달성률/상태/창작자/커버까지 보존.
+            return { keep: true, it: {
+              id: f.id, title: f.title || it.title || '',
+              coverImageUrl: f.coverImageUrl || f.designImageUrl || '', category: f.category || it.category || '',
+              achievementRate: (typeof f.achievementRate === 'number') ? f.achievementRate : null,
+              status: f.status || '', creatorName: f.creatorName || '',
+            } };
           }
           return { keep: false, it: it };
         })

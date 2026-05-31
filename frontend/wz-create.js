@@ -754,17 +754,23 @@
   function SectionList() {
     var list = W.el('div', { class: 'wc-list' });
     sections().forEach(function (sec) {
-      var done = sec.done();
-      var card = W.el('div', { class: 'wc-card' + (done ? ' is-done' : '') });
+      var locked = !!(sec.locked && sec.locked());
+      var done = !locked && sec.done();
+      var card = W.el('div', { class: 'wc-card' + (locked ? ' is-locked' : '') + (done ? ' is-done' : '') });
       var check = W.el('div', { class: 'wc-card__check', html: IC.check });
       var body = W.el('div', { class: 'wc-card__body' });
       var name = W.el('p', { class: 'wc-card__name' }, sec.name);
-      if (sec.required) name.appendChild(W.el('span', { class: 'wc-card__req' }, '필수'));
-      body.append(name, W.el('p', { class: 'wc-card__state' }, done ? '작성 완료' : '작성 전'));
+      if (sec.required && !locked) name.appendChild(W.el('span', { class: 'wc-card__req' }, '필수'));
+      body.append(name, W.el('p', { class: 'wc-card__state' }, locked ? (sec.lockedLabel || '잠김') : (done ? '작성 완료' : '작성 전')));
       var btnWrap = W.el('div', { class: 'wc-card__btn' });
-      var btn = W.el('button', { class: 'wz-btn ' + (done ? 'wz-btn--outline' : 'wz-btn--primary'), type: 'button' }, done ? '수정하기' : '작성하기');
-      btn.addEventListener('click', function () { sec.open(); });
-      btnWrap.appendChild(btn);
+      if (locked) {
+        // Basic 요금제 — 회색 비활성, 클릭 불가.
+        btnWrap.appendChild(W.el('span', { class: 'wc-card__lockbtn' }, 'Plus 또는 Professional만 이용 가능'));
+      } else {
+        var btn = W.el('button', { class: 'wz-btn ' + (done ? 'wz-btn--outline' : 'wz-btn--primary'), type: 'button' }, done ? '수정하기' : '작성하기');
+        btn.addEventListener('click', function () { sec.open(); });
+        btnWrap.appendChild(btn);
+      }
       card.append(check, body, btnWrap);
       list.appendChild(card);
     });

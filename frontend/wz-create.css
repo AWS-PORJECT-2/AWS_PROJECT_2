@@ -143,6 +143,13 @@
 .wc-card__req { font-size: 11px; font-weight: 700; color: var(--c-primary-600); margin-left: 6px; }
 .wc-card__state { font-size: 13px; margin: 4px 0 0; color: var(--c-text-muted); }
 .wc-card.is-done .wc-card__state { color: var(--c-primary-700); font-weight: 600; }
+/* 잠긴 단계(공개 예정 — Basic 요금제): 회색 완전 비활성, 클릭 불가 */
+.wc-card.is-locked { background: var(--c-bg); border-color: var(--c-divider); box-shadow: none; opacity: .7; }
+.wc-card.is-locked:hover { box-shadow: none; }
+.wc-card.is-locked .wc-card__check { border-color: var(--c-divider); background: var(--c-divider); color: transparent; }
+.wc-card.is-locked .wc-card__name,
+.wc-card.is-locked .wc-card__state { color: var(--c-text-faint); }
+.wc-card__lockbtn { font-size: 12px; font-weight: 700; color: var(--c-text-muted); background: #fff; border: 1px solid var(--c-divider); border-radius: var(--r-full); padding: 8px 14px; white-space: nowrap; cursor: not-allowed; }
 .wc-card__btn { flex-shrink: 0; }
 
 /* AI 가상피팅 별도 버튼 카드 */
