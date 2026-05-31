@@ -195,6 +195,15 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
+  // 회원 탈퇴 가드(#3) — 본인이 개설한 살아있는 펀드 수(soft-delete 제외).
+  async countActiveByCreator(creatorId: string): Promise<number> {
+    const res = await this.pool.query(
+      `SELECT COUNT(*)::int AS cnt FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NULL`,
+      [creatorId],
+    );
+    return Number(res.rows[0]?.cnt) || 0;
+  }
+
   async listDeleteRequests() {
     const res = await this.pool.query(
       `SELECT g.id, g.title, g.creator_id, g.status, g.delete_reason, g.delete_requested_at,

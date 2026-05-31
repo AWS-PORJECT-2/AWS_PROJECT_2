@@ -325,6 +325,9 @@
     if (legalEl) mainCol.appendChild(legalEl);
     const makerInfoEl = MakerInfoSection(f);
     if (makerInfoEl) mainCol.appendChild(makerInfoEl);
+    // 작성자 본인일 때만: 프로젝트 삭제 요청(관리자 처리). 타인/관리자에겐 미노출.
+    const delReqEl = OwnerDeleteRequest(f);
+    if (delReqEl) mainCol.appendChild(delReqEl);
 
     /* ----- 우측 sticky 후원 패널 ----- */
     const sideCol = W.el('aside', { class: 'wz-d-side' });
@@ -994,6 +997,102 @@
     box.append(head, body);
     overlay.appendChild(box);
     document.body.appendChild(overlay);
+  }
+
+  /* ===================================================================
+   * 작성자 본인 — 프로젝트 삭제 요청 (#5)
+   *  - isOwner(f) 가 true 일 때만 노출(타인/비로그인엔 미노출). 관리자 위험영역(AdminDanger)과는 별개.
+   *  - 클릭 → 사유 입력(옵션) 확인 모달 → POST /api/me/funds/:id/delete-request.
+   *  - 성공 시 안내 토스트 + 버튼을 '삭제 요청됨'(비활성)으로 전환.
+   *  - 상세 응답엔 delete_requested 플래그가 없어 초기 '요청됨' 상태는 표시 못함 → 클릭 후 상태만 갱신.
+   * =================================================================== */
+  function OwnerDeleteRequest(f) {
+    if (!isOwner(f)) return null; // 본인 소유 펀드일 때만(서버도 owner 전용이지만 UI 가드)
+
+    const sec = W.el('section', { class: 'wz-d-delreq' });
+    sec.appendChild(W.el('p', { class: 'wz-d-delreq__label' },
+      W.el('span', { class: 'wz-d-delreq__ic', html: SVG.alert }),
+      W.el('span', {}, '내 프로젝트 관리')));
+    sec.appendChild(W.el('p', { class: 'wz-d-delreq__desc' },
+      '더 이상 진행하지 않는다면 삭제를 요청할 수 있어요. 요청하면 관리자가 후원·환불 상태를 확인한 뒤 처리합니다.'));
+
+    const btn = W.el('button', { class: 'wz-d-delreq__btn', type: 'button' },
+      W.el('span', { class: 'wz-d-delreq__btn-ic', html: SVG.trash }),
+      W.el('span', {}, '이 프로젝트 삭제 요청'));
+    btn.addEventListener('click', () => openDeleteRequestModal(f, btn));
+    sec.appendChild(btn);
+    return sec;
+  }
+
+  /* 삭제 요청 버튼을 '삭제 요청됨'(비활성)으로 전환. */
+  function markDeleteRequested(btn) {
+    if (!btn) return;
+    btn.disabled = true;
+    btn.classList.add('is-requested');
+    btn.replaceChildren(
+      W.el('span', { class: 'wz-d-delreq__btn-ic', html: SVG.shield }),
+      W.el('span', {}, '삭제 요청됨'));
+  }
+
+  /* 삭제 요청 확인 모달(사유 입력 옵션) → POST /api/me/funds/:id/delete-request. */
+  function openDeleteRequestModal(f, triggerBtn) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '프로젝트 삭제 요청' });
+    const box = W.el('div', { class: 'wz-d-modal__box' });
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    const head = W.el('div', { class: 'wz-d-modal__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '프로젝트 삭제 요청'), closeBtn);
+
+    const body = W.el('div', { class: 'wz-d-modal__body' });
+    body.appendChild(W.el('div', { class: 'wz-d-delwarn' },
+      W.el('span', { class: 'wz-d-delwarn__ic', html: SVG.alert }),
+      W.el('span', {}, '“' + (f.title || '제목 없음') + '” 삭제를 요청합니다. 관리자 확인 후 처리되며, 후원·환불 정리가 필요한 경우 즉시 삭제되지 않을 수 있어요.')));
+
+    const label = W.el('label', { class: 'wz-d-modal__note', for: 'wz-delreq-reason' }, '삭제 사유 (선택)');
+    const reason = W.el('textarea', {
+      class: 'wz-d-modal__input wz-d-delreq__reason',
+      id: 'wz-delreq-reason',
+      rows: '3',
+      maxlength: '500',
+      placeholder: '예) 더 이상 진행하지 않으려고 해요',
+    });
+    body.append(label, reason);
+
+    const foot = W.el('div', { class: 'wz-d-delfoot' });
+    const cancel = W.el('button', { class: 'wz-btn wz-btn--ghost', type: 'button' }, '취소');
+    cancel.addEventListener('click', close);
+    const submit = W.el('button', { class: 'wz-btn wz-btn--block wz-d-delconfirm', type: 'button' }, '삭제 요청');
+    submit.addEventListener('click', async () => {
+      submit.disabled = true; cancel.disabled = true;
+      const prev = submit.textContent; submit.textContent = '요청 중...';
+      const payload = {};
+      const txt = reason.value.trim();
+      if (txt) payload.reason = txt; // 사유는 옵션(서버가 trim/500자 컷)
+      try {
+        await window.api.post('/me/funds/' + encodeURIComponent(f.id) + '/delete-request', payload);
+      } catch (e) {
+        submit.disabled = false; cancel.disabled = false; submit.textContent = prev;
+        if (e && e.status === 401) { location.href = '/login.html'; return; }
+        if (e && e.status === 404) { toast('본인이 개설한 프로젝트만 삭제 요청할 수 있어요'); return; }
+        toast((e && e.message) ? e.message : '삭제 요청에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      close();
+      markDeleteRequested(triggerBtn);
+      toast('삭제 요청이 접수되었어요. 관리자 확인 후 처리됩니다');
+    });
+    foot.append(cancel, submit);
+    body.appendChild(foot);
+
+    box.append(head, body);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+    setTimeout(() => { try { reason.focus(); } catch (_) {} }, 30);
   }
 
   /* 창작자 정보(creatorInfo) 정규화 — 저장된 필드만 추림. 하나도 없으면 null. */

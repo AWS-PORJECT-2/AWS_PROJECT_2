@@ -114,6 +114,8 @@ export interface GroupBuyRepository {
   decrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void>;
   list(options: GroupBuyListOptions): Promise<{ items: GroupBuyListItem[]; total: number }>;
   requestDelete(id: string, userId: string, reason: string): Promise<boolean>;
+  // 회원 탈퇴 가드(#3) — 해당 창작자가 개설한 살아있는(deleted_at IS NULL) 펀드 수.
+  countActiveByCreator(creatorId: string): Promise<number>;
   listDeleteRequests(): Promise<DeleteRequestItem[]>;
   cancelFund(id: string): Promise<void>;
   updateRewards(id: string, rewardTiers: import('../types/index.js').RewardTier[], finalPrice: number): Promise<void>;

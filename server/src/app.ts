@@ -53,6 +53,8 @@ import { PgCommentRepository } from './repositories/pg-comment-repository.js';
 import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
   createAdminDepositsListHandler, createAdminConfirmDepositHandler,
+  createMyOrdersHandler, createOrderCancelRequestHandler,
+  createAdminOrderCancelRequestsHandler, createAdminOrderRefundHandler, createAdminOrderCancelHandler,
 } from './routes/reward-orders.js';
 import { createAuthRequired, createOptionalAuth } from './middleware/auth-required.js';
 import { PgFollowRepository } from './repositories/pg-follow-repository.js';
@@ -371,13 +373,16 @@ export function createApp(
   app.patch('/api/me', authRequired, createUpdateMeHandler(userRepository));
   app.patch('/api/me/notifications', authRequired, createUpdateNotificationsHandler(userRepository));
   app.post('/api/me/consent', authRequired, createConsentHandler(userRepository));
-  app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository, refreshTokenRepository));
+  app.delete('/api/me', authRequired, createDeleteMeHandler(userRepository, refreshTokenRepository, groupBuyRepository, rewardOrderRepository));
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
   // 창작자 본인 펀드 수정 — 기본정보·스토리만(화이트리스트). creatorId/가격/상태/일정 등은 변경 불가.
   app.patch('/api/me/funds/:id', authRequired, writeRateLimit, createMeFundUpdateHandler(groupBuyRepository));
   // 본인 펀드 분석(요금제 분석 기능) — 본인 소유 아니면 404.
   app.get('/api/me/funds/:id/analytics', authRequired, createMeFundAnalyticsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
+  // 내 주문 목록(취소 신청 화면용) + 본인 주문 취소 신청(#4).
+  app.get('/api/me/orders', authRequired, createMyOrdersHandler(rewardOrderRepository));
+  app.post('/api/me/orders/:id/cancel-request', authRequired, writeRateLimit, createOrderCancelRequestHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
   // 내가 찜한 펀드 id 목록 — 기기간 유지(서버 저장).
   app.get('/api/me/likes', authRequired, createMyLikesHandler(groupBuyRepository));
 
@@ -396,6 +401,10 @@ export function createApp(
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
   app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
   app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
+  // 펀딩(주문) 취소 신청 처리(#4) — 관리자: 목록 조회 → 환불 표시 → 최종 취소.
+  app.get('/api/admin/order-cancel-requests', authRequired, requireAdmin, createAdminOrderCancelRequestsHandler(rewardOrderRepository));
+  app.post('/api/admin/orders/:id/refund', authRequired, requireAdmin, createAdminOrderRefundHandler(rewardOrderRepository));
+  app.post('/api/admin/orders/:id/cancel', authRequired, requireAdmin, createAdminOrderCancelHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
 
   // --- 펀드 삭제 요청(작성자) → 관리자 삭제+환불 (항목 11) ---
   app.post('/api/me/funds/:id/delete-request', authRequired, createFundDeleteRequestHandler(groupBuyRepository));

@@ -482,17 +482,50 @@
     var body = el('div', {},
       el('p', { style: 'font-size:14px;color:var(--c-text-sub);line-height:1.7;margin:0' },
         '정말 탈퇴하시겠어요? 계정과 프로필·결제수단·배송지 정보가 모두 삭제되며 되돌릴 수 없습니다.'));
+    // 에러 안내 영역은 단 한 곳만 둔다(재시도해도 메시지가 중복으로 쌓이지 않도록).
+    var errBox = el('div', { class: 'wzs-withdraw-err', style: 'display:none;margin-top:14px' });
+    body.appendChild(errBox);
+
+    // 에러를 errBox 안에 1개 블록으로만 표시. action: {label, view} 면 마이페이지 패널로 유도 버튼 추가.
+    function showError(msg, action) {
+      errBox.replaceChildren();
+      errBox.style.display = '';
+      errBox.appendChild(el('p', { class: 'wzs-fld__err is-show', style: 'margin:0' }, msg));
+      if (action) {
+        var go = el('a', {
+          class: 'wzs-mini', style: 'display:inline-flex;margin-top:10px;text-decoration:none',
+          href: '/profile.html#' + action.view,
+        }, action.label);
+        errBox.appendChild(go);
+      }
+    }
+    function clearError() { errBox.replaceChildren(); errBox.style.display = 'none'; }
+
     var m = openModal({
       title: '회원 탈퇴', body: body, primaryLabel: '탈퇴하기',
       onPrimary: function () {
+        clearError();
         m.primaryBtn.disabled = true; m.primaryBtn.textContent = '처리 중...';
         api.del('/me').then(function () {
           m.close(); toast('탈퇴가 완료되었습니다');
           setTimeout(function () { location.href = '/landing.html'; }, 1000);
         }).catch(function (e) {
           m.primaryBtn.disabled = false; m.primaryBtn.textContent = '탈퇴하기';
-          var msg = (e && e.message) || '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.';
-          body.appendChild(el('p', { class: 'wzs-fld__err is-show', style: 'margin-top:12px' }, msg));
+          var code = e && e.code;
+          if (e && e.status === 409 && code === 'HAS_FUNDS') {
+            // 개설한 프로젝트가 남아 있음 → 먼저 삭제 요청하도록 안내 + 개설 프로젝트로 유도
+            showError('개설한 프로젝트가 있어 바로 탈퇴할 수 없어요. 먼저 프로젝트 삭제를 요청해 주세요. 처리되면 탈퇴할 수 있어요.',
+              { label: '개설한 프로젝트 보기', view: 'funds' });
+          } else if (e && e.status === 409 && code === 'HAS_ORDERS') {
+            // 참여 중인 펀딩이 남아 있음 → 먼저 취소하도록 안내 + 후원 프로젝트로 유도
+            showError('참여 중인 펀딩이 있어 바로 탈퇴할 수 없어요. 펀딩을 먼저 취소한 뒤 탈퇴해 주세요.',
+              { label: '후원한 프로젝트 보기', view: 'backings' });
+          } else if (e && e.status === 409) {
+            // HAS_ACTIVITY 등 그 외 409(안전 메시지)
+            showError((e && e.message) || '진행 중인 활동이 있어 탈퇴할 수 없어요. 활동을 정리한 뒤 다시 시도해 주세요.');
+          } else {
+            showError((e && e.message) || '탈퇴 처리에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+          }
         });
         return false;
       },

@@ -336,7 +336,10 @@ export function createAdminDeleteRequestsHandler(repo: GroupBuyRepository) {
  */
 export function createAdminFundDeleteHandler(
   repo: GroupBuyRepository,
-  rewardOrderRepo: { cancelAllForFund: (fundId: string) => Promise<{ refundable: unknown[]; cancelledCount: number }> },
+  rewardOrderRepo: {
+    cancelAllForFund: (fundId: string) => Promise<{ refundable: unknown[]; cancelledCount: number }>;
+    countUnrefundedConfirmedForFund: (fundId: string) => Promise<number>;
+  },
   notificationRepo?: NotificationRepository,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -345,6 +348,19 @@ export function createAdminFundDeleteHandler(
       // 삭제 전에 제목·창작자를 확보 — cancelFund 이후엔 조회가 안 될 수 있으므로 알림용으로 미리 캡처.
       const fund = await repo.findById(id);
       if (!fund) { res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' }); return; }
+
+      // #6 가드 — 환불되지 않은 confirmed(입금완료) 후원이 있으면 삭제 금지.
+      //   awaiting_deposit(미입금) 만 있으면 환불 불필요 → cancelAllForFund 가 정리하므로 삭제 허용.
+      const unrefunded = await rewardOrderRepo.countUnrefundedConfirmedForFund(id);
+      if (unrefunded > 0) {
+        res.status(409).json({
+          error: 'REFUND_REQUIRED',
+          message: '환불되지 않은 후원자가 있어 삭제할 수 없어요. 후원 건을 먼저 환불·취소해 주세요.',
+          unrefunded,
+        });
+        return;
+      }
+
       const result = await rewardOrderRepo.cancelAllForFund(id);
       await repo.cancelFund(id);
       logger.info({ id, adminId: req.userId, cancelled: result.cancelledCount, refundable: result.refundable.length }, '관리자 펀드 삭제 처리');

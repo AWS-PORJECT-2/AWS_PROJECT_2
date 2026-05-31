@@ -57,7 +57,7 @@
   };
 
   /* 상태(스탯/패널 공유) */
-  var state = { me: null, funds: null, backings: null, drafts: null, likedCount: null };
+  var state = { me: null, funds: null, backings: null, orders: null, drafts: null, likedCount: null };
   var refs = {};
 
   function run() {
@@ -469,7 +469,9 @@
     matched.forEach(function (f) { grid.appendChild(likedCard(f)); });
   }
 
-  /* 패널: 후원한 프로젝트 (GET /api/me/backings) */
+  /* 패널: 후원한 프로젝트.
+   *  취소 신청에는 주문 id 가 필요해 GET /api/me/orders(계약 보장: id·status 포함)를 우선 사용하고,
+   *  없으면(미구현/오류) 기존 GET /api/me/backings 로 폴백한다(이 경우 취소 버튼은 id 가 없으면 숨김). */
   function panelBackings() {
     refs.curView = 'backings';
     var grid = panelShell('후원한 프로젝트', 'backings');
@@ -477,10 +479,25 @@
     whenMeKnown(function (me) {
       if (refs.curView !== 'backings') return; // 그 사이 다른 패널로 이동했으면 무시
       if (!me) { grid.replaceChildren(loginEmpty('후원 내역을 보려면 로그인하세요')); return; }
-      if (Array.isArray(state.backings)) return fillBackings(grid, state.backings);
-      window.api.get('/me/backings')
-        .then(function (r) { state.backings = backingItems(r); fillBackings(grid, state.backings); refreshStats(); })
-        .catch(function () { grid.replaceChildren(errorState()); });
+      if (Array.isArray(state.orders)) return fillBackings(grid, state.orders);
+      grid.replaceChildren(loading());
+      window.api.get('/me/orders')
+        .then(function (r) {
+          if (refs.curView !== 'backings') return;
+          state.orders = backingItems(r);
+          fillBackings(grid, state.orders);
+        })
+        .catch(function () {
+          if (refs.curView !== 'backings') return;
+          // /me/orders 미제공/오류 → 기존 backings 소스로 폴백.
+          if (Array.isArray(state.backings)) { fillBackings(grid, state.backings); return; }
+          window.api.get('/me/backings')
+            .then(function (r2) {
+              if (refs.curView !== 'backings') return;
+              state.backings = backingItems(r2); fillBackings(grid, state.backings); refreshStats();
+            })
+            .catch(function () { if (refs.curView === 'backings') grid.replaceChildren(errorState()); });
+        });
     }, grid);
   }
   // /me/backings 응답({items}) 과 /me/orders 응답({orders}) 양쪽 형태를 모두 수용
@@ -895,21 +912,108 @@
   }
   var BACK_STATUS = {
     awaiting_deposit: { label: '입금 대기', cls: 'awaiting' },
-    confirmed:        { label: '참여 확정', cls: 'confirmed' },
+    confirmed:        { label: '입금 완료', cls: 'confirmed' },
+    cancel_requested: { label: '취소 요청', cls: 'pending' },
     cancelled:        { label: '취소됨',    cls: 'cancelled' },
+    refunded:         { label: '환불 완료', cls: 'cancelled' },
   };
+  // 취소 신청이 가능한 상태(미입금/입금완료). 취소요청·취소·환불 건은 버튼 숨김.
+  var CANCELLABLE = { awaiting_deposit: true, confirmed: true };
+
   function backingCard(o) {
     var fid = o.fundId || o.fund_id;
     var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(fid || '') });
     var th = W.el('div', { class: 'wz-mp-card__thumb' });
     W.fillThumb(th, { id: fid, title: o.fundTitle, imageUrl: o.fundImageUrl });
-    var st = BACK_STATUS[String(o.status || '').toLowerCase()] || { label: String(o.status || ''), cls: 'awaiting' };
-    if (st.label) th.appendChild(W.el('span', { class: 'wz-mp-card__badge wz-mp-card__badge--' + st.cls }, st.label));
+    var statusKey = String(o.status || '').toLowerCase();
+    var st = BACK_STATUS[statusKey] || { label: String(o.status || ''), cls: 'awaiting' };
+    // 상태 배지를 보관해 두고(취소 신청 성공 시 갱신), 카드에 부착.
+    var badge = null;
+    if (st.label) {
+      badge = W.el('span', { class: 'wz-mp-card__badge wz-mp-card__badge--' + st.cls }, st.label);
+      th.appendChild(badge);
+    }
     card.appendChild(th);
     card.appendChild(W.el('p', { class: 'wz-mp-card__title' }, o.fundTitle || '프로젝트'));
     if (o.rewardTitle) card.appendChild(W.el('p', { class: 'wz-mp-card__meta' }, o.rewardTitle));
     card.appendChild(W.el('p', { class: 'wz-mp-card__amount' }, W.money(o.amount)));
+
+    // 취소 신청 버튼 — 주문 id 가 있고(=/me/orders 보강분) 취소 가능 상태일 때만.
+    var orderId = o.id != null ? o.id : (o.orderId != null ? o.orderId : null);
+    if (orderId != null && CANCELLABLE[statusKey]) {
+      var actions = W.el('div', { class: 'wz-mp-card__actions' });
+      var cancelBtn = W.el('button', { class: 'wz-mp-card__cancel', type: 'button' }, '펀딩 취소 신청');
+      cancelBtn.style.cssText = 'margin-top:9px;width:100%;padding:8px 10px;border:1px solid var(--c-divider);border-radius:8px;background:var(--c-bg);color:var(--c-text-sub);font-size:13px;font-weight:700;cursor:pointer;';
+      cancelBtn.addEventListener('click', function (e) {
+        // 카드(<a>) 내부 버튼 — 카드 이동을 막고 취소 확인 모달을 연다.
+        e.preventDefault(); e.stopPropagation();
+        openCancelConfirm(o, orderId, function () {
+          // 성공: 배지를 '취소 요청'으로 갱신하고 버튼 숨김.
+          o.status = 'cancel_requested';
+          if (badge) { badge.textContent = '취소 요청'; badge.className = 'wz-mp-card__badge wz-mp-card__badge--pending'; }
+          actions.remove();
+        });
+      });
+      actions.appendChild(cancelBtn);
+      card.appendChild(actions);
+    }
     return card;
+  }
+
+  /* 펀딩 취소 신청 확인 모달 → POST /api/me/orders/:id/cancel-request.
+   *  성공 시 onDone() 호출(배지 갱신·버튼 숨김). window.confirm 대신 간단 모달로 안내. */
+  function openCancelConfirm(o, orderId, onDone) {
+    var back = W.el('div', { class: 'wz-mp-modal-back' });
+    back.style.cssText = 'position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:20px;';
+    var box = W.el('div', { class: 'wz-mp-modal' });
+    box.style.cssText = 'background:var(--c-surface,#fff);border-radius:14px;max-width:380px;width:100%;padding:22px 22px 18px;box-shadow:0 12px 40px rgba(0,0,0,.18);';
+    box.appendChild(W.el('h2', { style: 'margin:0 0 10px;font-size:17px;font-weight:800;color:var(--c-text)' }, '펀딩 취소 신청'));
+    var desc = W.el('p', { style: 'margin:0;font-size:14px;line-height:1.7;color:var(--c-text-sub)' });
+    desc.append(
+      W.el('b', { style: 'color:var(--c-text)' }, o.fundTitle || '이 프로젝트'),
+      document.createTextNode(' 펀딩을 취소 신청할까요? 신청하면 메이커 확인 후 취소·환불이 진행돼요.')
+    );
+    box.appendChild(desc);
+    var errLine = W.el('p', { style: 'display:none;margin:12px 0 0;font-size:13px;color:#d33;font-weight:600' });
+    box.appendChild(errLine);
+
+    var foot = W.el('div', { style: 'display:flex;gap:8px;justify-content:flex-end;margin-top:18px' });
+    var cancel = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, '닫기');
+    var confirm = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, '취소 신청');
+    foot.append(cancel, confirm);
+    box.appendChild(foot);
+    back.appendChild(box);
+    document.body.appendChild(back);
+    var prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function close() {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+      back.remove();
+    }
+    function onKey(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', onKey);
+    back.addEventListener('click', function (e) { if (e.target === back) close(); });
+    cancel.addEventListener('click', close);
+
+    confirm.addEventListener('click', function () {
+      confirm.disabled = true; confirm.textContent = '처리 중...';
+      errLine.style.display = 'none';
+      window.api.post('/me/orders/' + encodeURIComponent(orderId) + '/cancel-request', {})
+        .then(function () {
+          close();
+          if (onDone) onDone();
+        })
+        .catch(function (err) {
+          confirm.disabled = false; confirm.textContent = '취소 신청';
+          var msg = (err && err.code === 'INVALID_STATE')
+            ? '이미 취소 신청했거나 취소할 수 없는 상태예요. 새로고침 후 확인해 주세요.'
+            : ((err && err.message) || '취소 신청에 실패했어요. 잠시 후 다시 시도해 주세요.');
+          errLine.textContent = msg;
+          errLine.style.display = '';
+        });
+    });
   }
 
   /* =================== 공용 빈/로딩/에러 상태 ===================

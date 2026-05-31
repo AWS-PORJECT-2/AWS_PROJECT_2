@@ -125,6 +125,175 @@ export function createMyBackingsHandler(rewardOrderRepo: PgRewardOrderRepository
   };
 }
 
+/**
+ * GET /api/me/orders — 내 후원(주문) 목록(취소 신청 UI 용 경량 형태).
+ * (GET /api/me/backings 와 동일 데이터지만 프론트 주문/취소 화면용 슬림 필드.)
+ */
+export function createMyOrdersHandler(rewardOrderRepo: PgRewardOrderRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    try {
+      const rows = await rewardOrderRepo.listByUser(userId);
+      const items = rows.map((o) => ({
+        id: o.id,
+        fundId: o.fundId,
+        fundTitle: o.fundTitle,
+        rewardTitle: o.rewardTitle,
+        amount: o.amount,
+        status: o.status,
+        createdAt: o.createdAt,
+      }));
+      res.json({ items });
+    } catch (err) {
+      logger.error({ err, userId }, '내 주문 목록 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/**
+ * POST /api/me/orders/:id/cancel-request — 사용자가 본인 펀딩(주문) 취소 신청 (#4).
+ * 본인 주문이고 status IN ('awaiting_deposit','confirmed') 일 때만 → cancel_requested.
+ * 이미 취소요청/취소/환불 상태거나 본인 소유가 아니면 409(IDOR 방지 — 존재 여부 비노출).
+ */
+export function createOrderCancelRequestHandler(
+  rewardOrderRepo: PgRewardOrderRepository,
+  groupBuyRepo?: GroupBuyRepository,
+  notificationRepo?: NotificationRepository,
+) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const reason = typeof req.body?.reason === 'string' ? req.body.reason.trim().slice(0, 500) : null;
+    try {
+      const order = await rewardOrderRepo.requestCancel(req.params.id, userId, reason || null);
+      if (!order) {
+        res.status(409).json({ error: 'INVALID_STATE', message: '취소 신청할 수 없는 주문입니다(이미 취소 요청했거나 처리된 주문일 수 있어요).' });
+        return;
+      }
+      logger.info({ orderId: order.id, userId }, '펀딩 주문 취소 신청');
+
+      // 알림(best-effort) — 펀드 창작자에게 취소 신청 통지.
+      if (notificationRepo && groupBuyRepo) {
+        try {
+          const fund = await groupBuyRepo.findById(order.fundId);
+          if (fund?.creatorId && fund.creatorId !== userId) {
+            await notify(notificationRepo, {
+              userId: fund.creatorId,
+              type: 'new_backer',
+              title: '후원 취소 신청이 접수되었어요',
+              body: `'${fund.title}' 프로젝트에 후원 취소 신청이 들어왔어요. 관리자 확인 후 처리됩니다.`,
+              fundId: order.fundId,
+            });
+          }
+        } catch { /* 알림 실패는 무시 */ }
+      }
+
+      res.json({ ok: true, status: order.status });
+    } catch (err) {
+      logger.error({ err, userId, id: req.params.id }, '펀딩 취소 신청 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** GET /api/admin/order-cancel-requests — 취소 신청된 주문 목록(관리자). */
+export function createAdminOrderCancelRequestsHandler(rewardOrderRepo: PgRewardOrderRepository) {
+  return async (_req: Request, res: Response): Promise<void> => {
+    try {
+      const rows = await rewardOrderRepo.listCancelRequests();
+      const items = rows.map((o) => ({
+        id: o.id,
+        fundId: o.fundId,
+        fundTitle: o.fundTitle,
+        userNickname: o.userNickname ?? null, // 닉네임만 노출(개인정보 최소화)
+        rewardTitle: o.rewardTitle,
+        amount: o.amount,
+        // 취소요청 전 confirmed 였는지: confirmed_at(=confirmedAt) 유무로 추정.
+        originalStatus: o.confirmedAt ? 'confirmed' : 'awaiting_deposit',
+        refunded: o.refundedAt != null,
+        cancelReason: o.cancelReason ?? null,
+        requestedAt: o.cancelRequestedAt ?? null,
+      }));
+      res.json({ items });
+    } catch (err) {
+      logger.error({ err }, '취소 신청 목록 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/**
+ * POST /api/admin/orders/:id/refund — 관리자 환불 표시 (#4).
+ * confirmed 였던(confirmed_at 있음) 주문에 refunded_at 기록(실제 송금은 외부). 멱등.
+ * 미입금 건이면 환불 대상 아님 → 409.
+ */
+export function createAdminOrderRefundHandler(rewardOrderRepo: PgRewardOrderRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const order = await rewardOrderRepo.markRefunded(req.params.id);
+      if (!order) {
+        res.status(409).json({ error: 'NOT_REFUNDABLE', message: '환불할 수 없는 주문입니다(미입금이거나 이미 취소·완료된 주문).' });
+        return;
+      }
+      logger.info({ orderId: order.id, adminId: req.userId }, '관리자 환불 표시');
+      res.json({ ok: true, id: order.id, status: order.status, refundedAt: order.refundedAt });
+    } catch (err) {
+      logger.error({ err, id: req.params.id }, '관리자 환불 표시 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/**
+ * POST /api/admin/orders/:id/cancel — 관리자 최종 취소 (#4).
+ * confirmed 였던 건은 환불표시(refunded_at) 선행 필수(없으면 409 REFUND_REQUIRED) → 'refunded' + 재고 복구.
+ * 미입금 건은 환불 없이 'cancelled'. 이미 취소/환불된 건은 409.
+ */
+export function createAdminOrderCancelHandler(
+  rewardOrderRepo: PgRewardOrderRepository,
+  groupBuyRepo?: GroupBuyRepository,
+  notificationRepo?: NotificationRepository,
+) {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await rewardOrderRepo.adminCancel(req.params.id);
+      if (!result.ok) {
+        if (result.code === 'NOT_FOUND') { res.status(404).json({ error: 'NOT_FOUND', message: '주문을 찾을 수 없습니다' }); return; }
+        if (result.code === 'REFUND_REQUIRED') {
+          res.status(409).json({ error: 'REFUND_REQUIRED', message: '입금이 확정된 후원입니다. 먼저 환불 처리(환불 버튼) 후 취소할 수 있어요.' });
+          return;
+        }
+        res.status(409).json({ error: 'INVALID_STATE', message: '이미 취소·환불된 주문입니다.' });
+        return;
+      }
+      const order = result.order;
+      logger.info({ orderId: order.id, adminId: req.userId, status: order.status }, '관리자 주문 취소 완료');
+
+      // 알림(best-effort) — 후원자에게 취소 완료 통지.
+      if (notificationRepo && order.userId) {
+        let fundTitle: string | null = null;
+        try { fundTitle = (await groupBuyRepo?.findById(order.fundId))?.title ?? null; } catch { /* 무시 */ }
+        await notify(notificationRepo, {
+          userId: order.userId,
+          type: 'order_cancelled',
+          title: '펀딩이 취소되었어요',
+          body: fundTitle
+            ? `'${fundTitle}' 프로젝트 후원이 취소 처리되었습니다.${result.wasConfirmed ? ' 환불이 진행됩니다.' : ''}`
+            : `후원이 취소 처리되었습니다.${result.wasConfirmed ? ' 환불이 진행됩니다.' : ''}`,
+          fundId: order.fundId,
+        });
+      }
+
+      res.json({ ok: true, id: order.id, status: order.status });
+    } catch (err) {
+      logger.error({ err, id: req.params.id }, '관리자 주문 취소 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
 /** POST /api/me/backings/:orderId/report — 입금자명 보고 */
 export function createReportDepositorHandler(rewardOrderRepo: PgRewardOrderRepository) {
   return async (req: Request, res: Response): Promise<void> => {

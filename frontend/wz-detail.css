@@ -335,6 +335,22 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-delbtn__ic { display: inline-flex; width: 18px; height: 18px; }
 .wz-d-delbtn__ic svg { width: 100%; height: 100%; }
 
+/* ---------- 작성자 본인 — 프로젝트 삭제 요청 (#5) ----------
+ * 관리자 위험영역(빨강)과 구분되도록 중립 톤 카드. 본문 컬럼 하단에 표시. */
+.wz-d-delreq { margin: 28px 0 8px; border: 1px solid var(--c-border); background: var(--c-bg-subtle, #f9fafb); border-radius: 14px; padding: 18px 18px 16px; }
+.wz-d-delreq__label { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--c-text-sub); margin: 0 0 6px; }
+.wz-d-delreq__ic { display: inline-flex; width: 15px; height: 15px; color: var(--c-text-muted); }
+.wz-d-delreq__ic svg { width: 100%; height: 100%; }
+.wz-d-delreq__desc { font-size: 13px; line-height: 1.6; color: var(--c-text-muted); margin: 0 0 14px; }
+.wz-d-delreq__btn { appearance: none; box-sizing: border-box; font-family: inherit; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 44px; padding: 0 18px; border-radius: 10px; border: 1px solid #ef4444; background: #fff; color: #dc2626; font-size: 14px; font-weight: 800; transition: background .15s, color .15s; }
+.wz-d-delreq__btn:hover { background: #ef4444; color: #fff; }
+.wz-d-delreq__btn-ic { display: inline-flex; width: 17px; height: 17px; }
+.wz-d-delreq__btn-ic svg { width: 100%; height: 100%; }
+.wz-d-delreq__btn.is-requested { border-color: var(--c-border); background: var(--c-bg-subtle, #f3f4f6); color: var(--c-text-muted); cursor: default; }
+.wz-d-delreq__btn.is-requested:hover { background: var(--c-bg-subtle, #f3f4f6); color: var(--c-text-muted); }
+.wz-d-delreq__btn:disabled { cursor: default; }
+.wz-d-delreq__reason { min-height: 76px; height: auto; padding: 10px 12px; line-height: 1.5; resize: vertical; }
+
 /* 삭제 확인 모달 내부 */
 .wz-d-delwarn { display: flex; gap: 10px; align-items: flex-start; font-size: 14px; line-height: 1.6; color: var(--c-text-sub); margin-bottom: 12px; word-break: break-word; }
 .wz-d-delwarn__ic { flex-shrink: 0; width: 22px; height: 22px; color: #dc2626; margin-top: 1px; }

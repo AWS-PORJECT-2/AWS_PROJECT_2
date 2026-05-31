@@ -60,6 +60,7 @@
     grip:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>',
     send:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
     flag:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22v-7"/></svg>',
+    cancel:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>',
   };
 
   // 신고 사유 한글 라벨
@@ -99,6 +100,7 @@
     { id: 'funds',     label: '펀드 심사', icon: 'review',  render: renderFunds },
     { id: 'proxy',     label: '대리 개설', icon: 'proxy',   render: renderProxy },
     { id: 'deposits',  label: '입금 확인', icon: 'deposit', render: renderDeposits },
+    { id: 'ordercancels', label: '펀딩 취소', icon: 'cancel', render: renderOrderCancels },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
     { id: 'reports',   label: '신고',      icon: 'flag',    render: renderReports },
@@ -116,8 +118,8 @@
   var root, sideEl, panelEl;
   var current = 'dashboard';
   // 사이드바 대기 배지 — 섹션 id → 배지 DOM. 매핑은 pending-counts 키 ↔ 섹션 id.
-  // funds←fundsReview, proxy←proxy, deposits←deposits, deletes←deletes,
-  // reports←reports, chat←chatUnread, logs←logsNew
+  // funds←fundsReview, proxy←proxy, deposits←deposits, ordercancels←orderCancels,
+  // deletes←deletes, reports←reports, chat←chatUnread, logs←logsNew
   var badgeEls = {};           // { funds, proxy, deposits, deletes, reports, chat, logs } → <span>
   var badgeState = {};         // 동일 키 → 현재 숫자(로컬 state, 처리 시 -1)
   var pendingBadgeEl = null;   // (구) 펀드 심사 탭 배지 — badgeEls.funds 와 동일
@@ -127,8 +129,8 @@
 
   // pending-counts 응답 키 → 배지를 붙일 섹션 id
   var BADGE_MAP = {
-    fundsReview: 'funds', proxy: 'proxy', deposits: 'deposits', deletes: 'deletes',
-    reports: 'reports', chatUnread: 'chat', logsNew: 'logs',
+    fundsReview: 'funds', proxy: 'proxy', deposits: 'deposits', orderCancels: 'ordercancels',
+    deletes: 'deletes', reports: 'reports', chatUnread: 'chat', logsNew: 'logs',
   };
 
   document.addEventListener('DOMContentLoaded', init);
@@ -1090,6 +1092,121 @@
   }
 
   /* ============================================================
+   * 4.5) 펀딩 취소 (사용자 취소 신청 처리 — #4 관리자측)
+   *   GET /api/admin/order-cancel-requests → { items:[{id,fundId,fundTitle,
+   *     userNickname,rewardTitle,amount,originalStatus,refunded,cancelReason,requestedAt}] }
+   *   입금완료(originalStatus='confirmed')건: 환불표시 후 취소 확정.
+   *     POST /api/admin/orders/:id/refund → POST /api/admin/orders/:id/cancel
+   *   미입금(originalStatus='awaiting_deposit')건: 바로 취소 확정.
+   *     POST /api/admin/orders/:id/cancel
+   * ============================================================ */
+  function renderOrderCancels(panel) {
+    panel.appendChild(panelHead('펀딩 취소', '후원자가 취소를 신청한 펀딩입니다. 입금 완료 건은 먼저 환불 처리한 뒤 취소를 확정합니다.'));
+    var list = el('div', { class: 'wza-list' });
+    panel.appendChild(list);
+    loadOrderCancels(list);
+  }
+
+  async function loadOrderCancels(list) {
+    list.textContent = ''; list.appendChild(loadingNode());
+    try {
+      var res = await window.api.get('/admin/order-cancel-requests');
+      var items = (res && res.items) || [];
+      list.textContent = '';
+      if (!items.length) { list.appendChild(emptyNode('취소 신청된 펀딩이 없습니다.')); return; }
+      items.forEach(function (o) { list.appendChild(orderCancelItem(o, list)); });
+    } catch (e) { list.textContent = ''; list.appendChild(errorNode(e)); }
+  }
+
+  function orderCancelItem(o, list) {
+    var wasConfirmed = o.originalStatus === 'confirmed';
+    var item = el('div', { class: 'wza-item wza-item--warn' });
+
+    var body = el('div', { class: 'wza-item__body' });
+
+    // 제목 줄: 펀드 제목(링크) + 입금완료/미입금 배지 + (환불됨 표시)
+    var title = el('div', { class: 'wza-item__title' });
+    var href = '/detail.html?id=' + encodeURIComponent(o.fundId);
+    var link = el('a', { class: 'wza-report__target', href: href, target: '_blank', rel: 'noopener' });
+    link.appendChild(document.createTextNode(o.fundTitle || '(제목 없음)'));
+    title.appendChild(link);
+    title.appendChild(el('span', { class: 'wza-badge ' + (wasConfirmed ? 'wza-badge--ok' : 'wza-badge--reject') }, wasConfirmed ? '입금 완료' : '미입금'));
+    if (o.refunded) title.appendChild(el('span', { class: 'wza-badge wza-badge--proxy' }, '환불 표시됨'));
+    body.appendChild(title);
+
+    // 후원자 닉네임 · 리워드 · 금액 · 요청일시
+    var meta = el('div', { class: 'wza-item__meta wza-item__meta--warn' });
+    meta.appendChild(document.createTextNode('후원자 '));
+    meta.appendChild(document.createTextNode(o.userNickname || '-'));
+    meta.appendChild(document.createTextNode(' · 리워드 '));
+    meta.appendChild(document.createTextNode(o.rewardTitle || '-'));
+    meta.appendChild(document.createTextNode(' · ' + money(o.amount) + ' · 요청 ' + fmtDateTime(o.requestedAt)));
+    body.appendChild(meta);
+
+    // 취소 사유(사용자값) — 있으면 별도 줄
+    if (o.cancelReason) {
+      var reason = el('div', { class: 'wza-report__detail' });
+      reason.appendChild(document.createTextNode('사유: ' + o.cancelReason));
+      body.appendChild(reason);
+    }
+    item.appendChild(body);
+
+    var actions = el('div', { class: 'wza-item__actions' });
+    // 입금완료건: 환불 전이면 [환불 처리], 환불 후면 [취소 확정].
+    // 미입금건: 바로 [취소 확정].
+    if (wasConfirmed && !o.refunded) {
+      var refundBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '환불 처리');
+      refundBtn.addEventListener('click', function () { refundOrder(o, list); });
+      actions.appendChild(refundBtn);
+    } else {
+      var cancelBtn = el('button', { class: 'wza-btn wza-btn--danger', type: 'button' }, '취소 확정');
+      cancelBtn.addEventListener('click', function () { cancelOrder(o, list); });
+      actions.appendChild(cancelBtn);
+    }
+    item.appendChild(actions);
+    return item;
+  }
+
+  // 환불 표시(입금완료건) — POST /api/admin/orders/:id/refund. 성공 시 목록 갱신(취소 확정 단계로 전환).
+  function refundOrder(o, list) {
+    confirmModal({
+      title: '환불 처리',
+      desc: '“' + (o.fundTitle || '') + '” — 후원자 ' + (o.userNickname || '-') + ' / ' + money(o.amount) + ' 건을 환불 처리(표시)합니다.',
+      note: '실제 송금은 외부에서 진행해 주세요. 환불 표시 후 [취소 확정]으로 마무리합니다.',
+      okLabel: '환불 처리', okClass: 'wza-modal__btn--primary',
+      onOk: async function () {
+        await window.api.post('/admin/orders/' + encodeURIComponent(o.id) + '/refund', {});
+        loadOrderCancels(list);
+      },
+    });
+  }
+
+  // 취소 확정 — POST /api/admin/orders/:id/cancel. 환불 전 입금완료건은 서버가 409 REFUND_REQUIRED → 안내.
+  function cancelOrder(o, list) {
+    var wasConfirmed = o.originalStatus === 'confirmed';
+    confirmModal({
+      title: '취소 확정',
+      desc: '“' + (o.fundTitle || '') + '” — 후원자 ' + (o.userNickname || '-') + ' / ' + money(o.amount) + ' 건의 취소를 확정합니다.' +
+        (wasConfirmed ? ' 확정 후 재고가 복구됩니다.' : ''),
+      okLabel: '취소 확정', okClass: 'wza-modal__btn--danger',
+      onOk: async function () {
+        try {
+          await window.api.post('/admin/orders/' + encodeURIComponent(o.id) + '/cancel', {});
+        } catch (e) {
+          if (e && e.code === 'REFUND_REQUIRED') {
+            // 입금 확정 건은 환불 표시가 선행되어야 함 — 안내 후 목록 갱신.
+            loadOrderCancels(list);
+            throw new Error('입금이 확정된 후원입니다. 먼저 [환불 처리] 후 취소를 확정해 주세요.');
+          }
+          throw e;
+        }
+        bumpBadge('ordercancels', -1);
+        loadOrderCancels(list); loadBadges();
+      },
+    });
+  }
+
+  /* ============================================================
    * 5) 삭제 요청
    * ============================================================ */
   function renderDeletes(panel) {
@@ -1130,7 +1247,17 @@
         note: '입금 완료(확정) 건은 실제 환불이 필요합니다. 삭제 후 환불 대상 목록이 표시됩니다.',
         okLabel: '삭제 승인', okClass: 'wza-modal__btn--danger',
         onOk: async function () {
-          var res = await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/delete', {});
+          var res;
+          try {
+            res = await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/delete', {});
+          } catch (e) {
+            // #6 환불가드 — 환불되지 않은 confirmed 후원이 있으면 서버가 409 REFUND_REQUIRED.
+            if (e && e.code === 'REFUND_REQUIRED') {
+              var n = (e.data && Number(e.data.unrefunded)) || 0;
+              throw new Error('환불되지 않은 후원자가 ' + (n || '여러') + '명 있어요. ‘펀딩 취소’ 탭에서 먼저 환불·취소해 주세요.');
+            }
+            throw e;
+          }
           var refundable = (res && res.refundable) || [];
           bumpBadge('deletes', -1);
           loadDeletes(list); loadBadges();

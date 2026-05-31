@@ -207,8 +207,13 @@ export function createAdminPendingCountsHandler(pool: pg.Pool) {
             COUNT(*) FILTER (WHERE delete_requested = TRUE)::int   AS deletes
           FROM groupbuys
         `),
-        // 입금 대기(미확정) 주문 수.
-        pool.query(`SELECT COUNT(*)::int AS deposits FROM reward_orders WHERE status = 'awaiting_deposit'`),
+        // 입금 대기(미확정) 주문 수 + 취소 신청 대기 주문 수(#4).
+        pool.query(`
+          SELECT
+            COUNT(*) FILTER (WHERE status = 'awaiting_deposit')::int AS deposits,
+            COUNT(*) FILTER (WHERE status = 'cancel_requested')::int AS order_cancels
+          FROM reward_orders
+        `),
         // 관리자가 안 읽은 문의 메시지 합계(방별 unread_admin_count 합).
         pool.query(`SELECT COALESCE(SUM(unread_admin_count), 0)::int AS chat_unread FROM chat_rooms`),
         // 미처리 신고 수(reports 미적용 DB 방어).
@@ -229,6 +234,7 @@ export function createAdminPendingCountsHandler(pool: pg.Pool) {
         fundsReview: Number(f.funds_review) || 0,
         proxy: Number(f.proxy) || 0,
         deposits: Number(ordersRow.rows[0]?.deposits) || 0,
+        orderCancels: Number(ordersRow.rows[0]?.order_cancels) || 0,
         deletes: Number(f.deletes) || 0,
         reports: Number(reportsRow.rows[0]?.reports) || 0,
         chatUnread: Number(chatRow.rows[0]?.chat_unread) || 0,

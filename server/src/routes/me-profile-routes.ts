@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
 import type { UserRepository, ProfilePatch } from '../repositories/user-repository.js';
 import type { RefreshTokenRepository } from '../repositories/refresh-token-repository.js';
+import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
+import type { PgRewardOrderRepository } from '../repositories/pg-reward-order-repository.js';
 import type { NotificationPrefs } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -151,14 +153,46 @@ export function createConsentHandler(userRepo: UserRepository) {
 }
 
 /**
- * DELETE /api/me — 회원 탈퇴. refresh 토큰/세션 정리 후 204.
- * 진행 중 펀드/주문(ON DELETE RESTRICT)이 있으면 23503 → 409 안내.
+ * DELETE /api/me — 회원 탈퇴 (#3).
+ * 사전 점검: 개설한 펀드(살아있는 것)나 활성 주문(입금대기/확정/취소요청)이 있으면 바로 탈퇴 불가(409).
+ *  - 둘 다 없으면 refresh 세션 정리 후 user 삭제(204).
+ *  - 사전 점검으로 FK RESTRICT 류 500 을 회피하되, 그래도 23503 이 나면 안전 메시지로 흡수.
  */
-export function createDeleteMeHandler(userRepo: UserRepository, refreshTokenRepo?: RefreshTokenRepository) {
+export function createDeleteMeHandler(
+  userRepo: UserRepository,
+  refreshTokenRepo?: RefreshTokenRepository,
+  groupBuyRepo?: GroupBuyRepository,
+  rewardOrderRepo?: PgRewardOrderRepository,
+) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
     try {
+      // 사전 점검 1 — 본인이 개설한 살아있는 펀드가 있으면 차단.
+      if (groupBuyRepo) {
+        const funds = await groupBuyRepo.countActiveByCreator(userId);
+        if (funds > 0) {
+          res.status(409).json({
+            error: 'HAS_FUNDS',
+            message: '개설한 프로젝트가 있어 바로 탈퇴할 수 없어요. 프로젝트 삭제 요청 후 처리되면 탈퇴할 수 있어요.',
+            funds,
+          });
+          return;
+        }
+      }
+      // 사전 점검 2 — 활성 주문(입금대기/확정/취소요청)이 있으면 차단.
+      if (rewardOrderRepo) {
+        const orders = await rewardOrderRepo.countActiveByUser(userId);
+        if (orders > 0) {
+          res.status(409).json({
+            error: 'HAS_ORDERS',
+            message: '참여 중인 펀딩이 있어 바로 탈퇴할 수 없어요. 펀딩 취소 후 탈퇴해 주세요.',
+            orders,
+          });
+          return;
+        }
+      }
+
       // refresh 세션 우선 정리(있으면). user 삭제는 CASCADE 로 정리되지만 명시적으로 먼저 시도.
       if (refreshTokenRepo) {
         try { await refreshTokenRepo.deleteByUserId(userId); } catch { /* best-effort */ }
@@ -168,6 +202,7 @@ export function createDeleteMeHandler(userRepo: UserRepository, refreshTokenRepo
       logger.info({ userId }, '회원 탈퇴 완료');
       res.status(204).end();
     } catch (err) {
+      // 사전 점검을 통과해도 남은 FK RESTRICT 류가 있으면 안전 메시지로 흡수(500 회피).
       if ((err as { code?: string })?.code === '23503') {
         res.status(409).json({ error: 'HAS_ACTIVITY', message: '진행 중인 펀드·주문 내역이 있어 바로 탈퇴할 수 없습니다. 고객지원(1:1 문의)으로 요청해 주세요.' });
         return;
