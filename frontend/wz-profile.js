@@ -5,7 +5,7 @@
  * 메인 기본 화면: 인사 + 스탯 카드 + "최근에 봤어요" + 안내 배너.
  * 사이드바 메뉴 클릭 시 메인이 전용 패널로 전환:
  *   - 최근 본 프로젝트  = localStorage recentFunds
- *   - 후원한 프로젝트    = GET /api/me/backings
+ *   - 펀딩 참여한 프로젝트 = GET /api/me/orders (폴백: /api/me/backings)
  *   - 개설한 프로젝트    = GET /api/me/funds
  *   - 미구현(간편결제/문의/팔로잉 등) = "준비 중" 비활성
  *
@@ -46,7 +46,7 @@
     activity: [
       { key: 'recent',     label: '최근 본 프로젝트',  icon: 'clock',  view: 'recent' },
       { key: 'liked',      label: '관심 프로젝트',     icon: 'heart',  view: 'liked',     hash: 'liked' },
-      { key: 'backings',   label: '후원한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
+      { key: 'backings',   label: '펀딩 참여한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
       { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds',     hash: 'funds' },
       { key: 'drafts',     label: '개설 중인 프로젝트', icon: 'edit',  view: 'drafts',    hash: 'drafts' },
       { key: 'friends',    label: '사용자 검색',       icon: 'users',  view: 'friends',   hash: 'friends' },
@@ -281,7 +281,7 @@
     var draftsN = Array.isArray(state.drafts) ? state.drafts.length : 0;
     var cards = [
       statCard('개설한 프로젝트', String(fundsN), function () { selectView('funds'); }),
-      statCard('후원한 프로젝트', String(backN), function () { selectView('backings'); }),
+      statCard('펀딩 참여한 프로젝트', String(backN), function () { selectView('backings'); }),
       statCard('관심 프로젝트', String(likedN), function () { selectView('liked'); }),
     ];
     // 작성 중인 초안이 있을 때만 노출(빈 0개 카드 노이즈 방지)
@@ -469,16 +469,16 @@
     matched.forEach(function (f) { grid.appendChild(likedCard(f)); });
   }
 
-  /* 패널: 후원한 프로젝트.
+  /* 패널: 펀딩 참여한 프로젝트.
    *  취소 신청에는 주문 id 가 필요해 GET /api/me/orders(계약 보장: id·status 포함)를 우선 사용하고,
    *  없으면(미구현/오류) 기존 GET /api/me/backings 로 폴백한다(이 경우 취소 버튼은 id 가 없으면 숨김). */
   function panelBackings() {
     refs.curView = 'backings';
-    var grid = panelShell('후원한 프로젝트', 'backings');
+    var grid = panelShell('펀딩 참여한 프로젝트', 'backings');
     // 딥링크 직접 진입(state.me 미확정)도 안전: 로그인 여부가 확정될 때까지 로딩 표시 후 분기.
     whenMeKnown(function (me) {
       if (refs.curView !== 'backings') return; // 그 사이 다른 패널로 이동했으면 무시
-      if (!me) { grid.replaceChildren(loginEmpty('후원 내역을 보려면 로그인하세요')); return; }
+      if (!me) { grid.replaceChildren(loginEmpty('참여한 펀딩을 보려면 로그인하세요')); return; }
       if (Array.isArray(state.orders)) return fillBackings(grid, state.orders);
       grid.replaceChildren(loading());
       window.api.get('/me/orders')
@@ -510,10 +510,17 @@
   function fillBackings(grid, items) {
     grid.replaceChildren();
     if (!items.length) {
-      grid.appendChild(emptyState('box', '아직 후원한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-backings.png'));
+      grid.appendChild(emptyState('box', '아직 참여한 펀딩이 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-backings.png'));
       return;
     }
-    items.forEach(function (o) { grid.appendChild(backingCard(o)); });
+    // 한 건이라도 렌더 중 예외가 나면 forEach 전체가 멈춰 화면이 통째로 비어버린다("참여한 펀딩이 안 떠").
+    // 항목별 try 로 격리 — 한 건이 깨져도 나머지 참여 내역은 모두 표시되게 한다.
+    items.forEach(function (o) {
+      try {
+        var c = backingCard(o);
+        if (c) grid.appendChild(c);
+      } catch (_) { /* 깨진 한 건은 건너뛰고 나머지는 계속 렌더 */ }
+    });
   }
 
   /* 패널: 개설한 프로젝트 (GET /api/me/funds) */
@@ -933,8 +940,12 @@
   };
 
   function backingCard(o) {
+    o = o || {};
     var fid = o.fundId || o.fund_id;
-    var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(fid || '') });
+    // 카드는 항상 렌더되어야 한다(상태/필드 누락에도). fid 가 없으면 상세 링크 대신 클릭 불가 카드로.
+    var card = (fid != null && fid !== '')
+      ? W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(fid) })
+      : W.el('div', { class: 'wz-mp-card' });
     var th = W.el('div', { class: 'wz-mp-card__thumb' });
     W.fillThumb(th, { id: fid, title: o.fundTitle, imageUrl: o.fundImageUrl });
     var statusKey = String(o.status || '').toLowerCase();

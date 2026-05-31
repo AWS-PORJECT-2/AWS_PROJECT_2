@@ -275,6 +275,26 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-reward__pick { margin-top: 12px; }
 .wz-d-rewards__empty { padding: 24px 0; text-align: center; color: var(--c-text-muted); font-size: 14px; }
 
+/* ---------- 이미 참여 중 안내(1인 1펀딩) ---------- */
+.wz-d-backed { border: 1px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+.wz-d-backed__head { display: flex; gap: 9px; align-items: flex-start; margin-bottom: 10px; }
+.wz-d-backed__ic { width: 18px; height: 18px; flex-shrink: 0; color: var(--c-primary-600); margin-top: 1px; }
+.wz-d-backed__ic svg { width: 100%; height: 100%; }
+.wz-d-backed__head span { font-size: 13px; line-height: 1.55; color: var(--c-text-sub); }
+.wz-d-backed__head b { display: block; color: var(--c-text); font-weight: 800; font-size: 14px; margin-bottom: 2px; }
+.wz-d-backed__meta { font-size: 13px; color: var(--c-text-muted); margin: 0 0 12px; }
+.wz-d-backed__meta b { color: var(--c-primary-700); font-weight: 800; }
+.wz-d-backed .wz-d-cta { margin-bottom: 10px; }
+.wz-d-backed__note { font-size: 12px; line-height: 1.55; color: var(--c-text-muted); margin: 0 0 10px; }
+
+/* ---------- 펀딩 변경 모달 — 리워드 다시 선택 ---------- */
+.wz-d-changelist { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+.wz-d-changeitem { position: relative; border: 1.5px solid var(--c-border); border-radius: 12px; padding: 14px; cursor: pointer; transition: border-color .15s, background .15s; }
+.wz-d-changeitem:hover { border-color: var(--c-primary-300); }
+.wz-d-changeitem.is-sel { border-color: var(--c-primary-500); background: var(--c-primary-50); }
+.wz-d-changeitem.is-soldout { opacity: .55; cursor: not-allowed; }
+.wz-d-changeitem__cur { display: inline-block; margin-top: 8px; font-size: 11px; font-weight: 800; color: var(--c-primary-700); background: var(--c-primary-100); border-radius: 999px; padding: 3px 10px; }
+
 /* ---------- 모바일 하단 고정 펀딩 바 ---------- */
 .wz-d-mbar { display: none; }
 
@@ -296,6 +316,9 @@ a.wz-d-maker__head:hover .wz-d-maker__name { color: var(--c-primary-700); text-d
 .wz-d-modal__input { width: 100%; box-sizing: border-box; height: 48px; padding: 0 14px; font-family: inherit; font-size: 15px; color: var(--c-text); border: 1px solid var(--c-border); border-radius: 8px; outline: none; margin-bottom: 12px; }
 .wz-d-modal__input:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
 .wz-d-modal__done { padding: 22px 0; text-align: center; font-size: 14px; font-weight: 700; color: var(--c-success); }
+/* 세로로 쌓인 모달 본문 버튼 간격 — 확인/내 후원 내역, 결제수단 등록/나중에 하기 등이 붙어 보이는 문제 해소.
+ * .wz-btn--block 두 개가 연속될 때만 위 버튼과 간격(겹침 방지). 가로 풋(.wz-d-delfoot 등)엔 영향 없음(flex 컨테이너 안에 있어 여기 선택자에 안 걸림). */
+.wz-d-modal__body > .wz-btn--block + .wz-btn--block { margin-top: 10px; }
 
 /* 후원 예약 완료 모달: 상단 보라 방패 아이콘 */
 .wz-d-pledge-done { width: 56px; height: 56px; margin: 4px auto 16px; display: flex; align-items: center; justify-content: center; border-radius: 50%; background: var(--c-primary-50); color: var(--c-primary-600); }

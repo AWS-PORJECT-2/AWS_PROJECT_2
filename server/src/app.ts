@@ -53,7 +53,7 @@ import { PgCommentRepository } from './repositories/pg-comment-repository.js';
 import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
   createAdminDepositsListHandler, createAdminConfirmDepositHandler,
-  createMyOrdersHandler, createOrderCancelRequestHandler,
+  createMyOrdersHandler, createOrderCancelRequestHandler, createOrderChangeHandler,
   createAdminOrderCancelRequestsHandler, createAdminOrderRefundHandler, createAdminOrderCancelHandler,
 } from './routes/reward-orders.js';
 import { createAuthRequired, createOptionalAuth } from './middleware/auth-required.js';
@@ -382,6 +382,8 @@ export function createApp(
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
   // 내 주문 목록(취소 신청 화면용) + 본인 주문 취소 신청(#4).
   app.get('/api/me/orders', authRequired, createMyOrdersHandler(rewardOrderRepository));
+  // 펀딩(리워드) 변경 — 본인 pledged 주문의 티어만 교체(/cancel-request 보다 먼저든 뒤든 :id 충돌 없음, 고정 세그먼트).
+  app.post('/api/me/orders/:id/change', authRequired, writeRateLimit, createOrderChangeHandler(rewardOrderRepository, groupBuyRepository));
   app.post('/api/me/orders/:id/cancel-request', authRequired, writeRateLimit, createOrderCancelRequestHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
   // 내가 찜한 펀드 id 목록 — 기기간 유지(서버 저장).
   app.get('/api/me/likes', authRequired, createMyLikesHandler(groupBuyRepository));

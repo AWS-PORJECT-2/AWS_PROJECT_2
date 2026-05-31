@@ -820,6 +820,9 @@
     } else if (scheduled) {
       /* 공개예정: 펀딩 대신 "공개 알림신청" 버튼 + "N일 후 공개" 안내. */
       sideCol.appendChild(SubscribeBox(f));
+    } else if (_myActiveOrder) {
+      /* 이미 참여 중(1인 1펀딩): 펀딩하기 대신 참여중 안내 + 변경(예약 상태만)·취소(마이페이지). */
+      sideCol.appendChild(AlreadyBacked(f, _myActiveOrder));
     } else {
       /* 펀딩하기 큰 버튼 */
       const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
@@ -1253,6 +1256,153 @@
     return sec;
   }
 
+  /* ---------- 이미 참여 중 안내(1인 1펀딩) ----------
+   * _myActiveOrder 가 있을 때 '펀딩하기' 대신 노출. 상태에 따라:
+   *  - pledged(예약/결제 전): [펀딩 변경](리워드 다시 선택) + [후원 내역 보기](취소는 마이페이지).
+   *  - 그 외(결제완료/진행 중): 변경 불가 안내 + [후원 내역 보기].
+   * 변경/취소 모두 마이페이지(후원 내역)로 연결되며, 변경은 여기서 바로 가능. */
+  function isPledged(order) {
+    return String(order && order.status || '').toLowerCase() === 'pledged';
+  }
+  function AlreadyBacked(f, order) {
+    const box = W.el('div', { class: 'wz-d-backed' });
+
+    const head = W.el('div', { class: 'wz-d-backed__head' });
+    head.append(
+      W.el('span', { class: 'wz-d-backed__ic', html: SVG.shield }),
+      W.el('span', {}, W.el('b', {}, '이미 이 프로젝트에 참여하고 있어요'),
+        document.createTextNode(' 한 프로젝트에는 한 번만 참여할 수 있어요.')));
+    box.appendChild(head);
+
+    // 현재 선택한 리워드 표기(있으면)
+    const rwTitle = (order && order.rewardTitle) ? String(order.rewardTitle) : '';
+    const meta = W.el('p', { class: 'wz-d-backed__meta' });
+    meta.append(document.createTextNode('선택한 리워드 · '), W.el('b', {}, rwTitle || '리워드'));
+    box.appendChild(meta);
+
+    const pledged = isPledged(order);
+    if (pledged) {
+      // 변경 가능(예약 상태)
+      const changeBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' },
+        W.el('span', { class: 'wz-d-cta__ic', html: EDIT_IC.pen }), W.el('span', {}, '펀딩 변경'));
+      changeBtn.addEventListener('click', () => openChangeRewardModal(f, order));
+      box.appendChild(changeBtn);
+      box.appendChild(W.el('p', { class: 'wz-d-backed__note' },
+        '아직 결제 전(예약)이라 리워드를 변경할 수 있어요. 참여를 그만두려면 후원 내역에서 취소해 주세요.'));
+    } else {
+      // 변경 불가(결제완료/진행 중)
+      box.appendChild(W.el('p', { class: 'wz-d-backed__note' },
+        '결제가 진행된 후원이라 리워드는 변경할 수 없어요. 변경하려면 후원 내역에서 취소한 뒤 다시 참여해 주세요.'));
+    }
+
+    const myBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--lg wz-btn--block', type: 'button' },
+      pledged ? '펀딩 취소 · 내 후원 내역' : '내 후원 내역 보기');
+    myBtn.addEventListener('click', () => { location.href = '/profile.html'; });
+    box.appendChild(myBtn);
+    return box;
+  }
+
+  /* 펀딩 변경 모달 — 예약(pledged) 주문의 리워드 티어를 다시 선택.
+   * 기존 리워드 목록(마감 제외)을 재사용해 라디오식 선택 → POST /api/me/orders/:id/change {rewardTierId}.
+   * 성공 시 토스트 + _myActiveOrder 갱신 후 화면 재렌더. */
+  function openChangeRewardModal(f, order) {
+    const tiers = Array.isArray(f.rewardTiers) ? f.rewardTiers : [];
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '펀딩 변경' });
+    const boxEl = W.el('div', { class: 'wz-d-modal__box' });
+    const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    const head = W.el('div', { class: 'wz-d-modal__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '펀딩 변경'), closeBtn);
+
+    const body = W.el('div', { class: 'wz-d-modal__body' });
+    body.appendChild(W.el('p', { class: 'wz-d-modal__note' },
+      '변경할 리워드를 선택해 주세요. 예약(결제 전) 상태에서만 변경할 수 있어요.'));
+
+    // 변경용 리워드 선택 — 현재 리워드를 기본 선택. 마감 리워드는 선택 불가.
+    let chosenTierId = (order && order.rewardTierId != null) ? order.rewardTierId : null;
+    const list = W.el('div', { class: 'wz-d-changelist' });
+    if (!tiers.length) {
+      list.appendChild(W.el('p', { class: 'wz-d-rewards__empty' }, '선택할 리워드가 없어요.'));
+    }
+    tiers.forEach((t, ti) => {
+      const tid = (t.id != null) ? t.id : ti;
+      const rawStock = (t.stock != null) ? t.stock : t.stockLimit;
+      const stockLimit = (rawStock == null) ? null : Number(rawStock);
+      const sold = Number(t.soldCount) || 0;
+      const remain = stockLimit == null ? null : Math.max(0, stockLimit - sold);
+      const isCurrent = chosenTierId != null && String(tid) === String(chosenTierId);
+      // 같은 티어로의 변경은 재고와 무관히 허용(현재 내가 점유 중). 다른 티어는 마감이면 선택 불가.
+      const soldOut = !isCurrent && remain === 0;
+
+      const item = W.el('div', { class: 'wz-d-changeitem' + (isCurrent ? ' is-sel' : '') + (soldOut ? ' is-soldout' : '') });
+      const top = W.el('div', { class: 'wz-d-reward__top' });
+      if (stockLimit != null) {
+        top.appendChild(W.el('span', { class: 'wz-d-reward__stock' + (soldOut ? ' wz-d-reward__stock--out' : '') },
+          soldOut ? '마감' : ('남은 수량 ' + remain + '개')));
+      }
+      top.appendChild(W.el('span', { class: 'wz-d-reward__price' }, W.money(t.price)));
+      item.appendChild(top);
+      item.appendChild(W.el('p', { class: 'wz-d-reward__t' }, t.title || '리워드'));
+      const tdesc = t.desc != null ? t.desc : t.description;
+      if (tdesc) item.appendChild(W.el('p', { class: 'wz-d-reward__d' }, tdesc));
+      if (isCurrent) item.appendChild(W.el('span', { class: 'wz-d-changeitem__cur' }, '현재 선택'));
+
+      if (!soldOut) {
+        item.addEventListener('click', () => {
+          chosenTierId = tid;
+          list.querySelectorAll('.wz-d-changeitem').forEach((n) => n.classList.remove('is-sel'));
+          item.classList.add('is-sel');
+        });
+      }
+      list.appendChild(item);
+    });
+    body.appendChild(list);
+
+    const submit = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '변경하기');
+    submit.addEventListener('click', async () => {
+      if (chosenTierId == null) { toast('변경할 리워드를 선택해 주세요'); return; }
+      submit.disabled = true;
+      const prev = submit.textContent; submit.textContent = '변경 중...';
+      let res;
+      try {
+        res = await window.api.post('/me/orders/' + encodeURIComponent(order.id) + '/change', { rewardTierId: chosenTierId });
+      } catch (e) {
+        submit.disabled = false; submit.textContent = prev;
+        if (e && e.status === 401) { location.href = '/login.html'; return; }
+        if (e && (e.code === 'SOLD_OUT' || (e.data && e.data.error === 'SOLD_OUT'))) { toast('선택한 리워드가 방금 마감되었어요'); return; }
+        if (e && (e.code === 'INVALID_STATE' || (e.data && e.data.error === 'INVALID_STATE'))) {
+          toast((e && e.message) || '예약(결제 전) 상태의 펀딩만 변경할 수 있어요'); return;
+        }
+        toast((e && e.message) ? e.message : '변경에 실패했어요. 잠시 후 다시 시도해 주세요.');
+        return;
+      }
+      close();
+      toast('펀딩을 변경했어요');
+      // 활성 주문 갱신(응답값 우선) 후 화면 재렌더 → 참여중 안내가 새 리워드로 갱신.
+      _myActiveOrder = Object.assign({}, order, {
+        rewardTierId: (res && res.rewardTierId != null) ? res.rewardTierId : chosenTierId,
+        rewardTitle: (res && res.rewardTitle != null) ? res.rewardTitle : order.rewardTitle,
+        status: (res && res.status) ? res.status : order.status,
+      });
+      _selectedTierId = null; _tierSelected = false;
+      render(f);
+      window.scrollTo({ top: 0 });
+    });
+    body.appendChild(submit);
+    const cancelBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block', type: 'button' }, '닫기');
+    cancelBtn.addEventListener('click', close);
+    body.appendChild(cancelBtn);
+
+    boxEl.append(head, body);
+    overlay.appendChild(boxEl);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
+  }
+
   /* 하트 팝 애니메이션 — 클래스 재부여로 keyframe 재생(연타 시 재시작). */
   function popHeart(btn) {
     btn.classList.remove('is-pop');
@@ -1300,6 +1450,16 @@
         if (sideBtn) { sideBtn.click(); sideBtn.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       });
       bar.append(like, alarm);
+    } else if (_myActiveOrder) {
+      /* 이미 참여 중: 모바일도 펀딩하기 대신 우측 패널의 참여중 영역으로 안내(변경/취소). */
+      const go = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' },
+        isPledged(_myActiveOrder) ? '펀딩 변경 · 취소' : '내 후원 내역');
+      go.addEventListener('click', () => {
+        const sideBacked = document.querySelector('.wz-d-backed');
+        if (sideBacked) sideBacked.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        else location.href = '/profile.html';
+      });
+      bar.append(like, go);
     } else {
       const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
       fund.addEventListener('click', () => backFlow(f));
@@ -1413,6 +1573,40 @@
     document.body.appendChild(overlay);
   }
 
+  /* 이미 참여 중 안내 모달(서버 409 ALREADY_BACKED 대비 이중 안전).
+   * 안내 메시지 + [후원 내역 보기]. 닫으면 활성 주문을 다시 조회해 참여중 UI 로 재렌더(중복 시도 차단). */
+  function showAlreadyBackedGate(f, msg) {
+    const overlay = W.el('div', { class: 'wz-d-modal', role: 'dialog', 'aria-modal': 'true', 'aria-label': '이미 참여 중' });
+    const box = W.el('div', { class: 'wz-d-modal__box' });
+    let resynced = false;
+    async function resyncAndRender() {
+      if (resynced) return; resynced = true;
+      _myActiveOrder = await fetchMyActiveOrder(f.id);
+      if (_myActiveOrder) { _selectedTierId = null; _tierSelected = false; render(f); }
+    }
+    const close = () => { overlay.remove(); resyncAndRender(); };
+
+    const head = W.el('div', { class: 'wz-d-modal__head' });
+    const closeBtn = W.el('button', { class: 'wz-d-modal__close', type: 'button', 'aria-label': '닫기', html: SVG.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '이미 참여 중이에요'), closeBtn);
+
+    const body = W.el('div', { class: 'wz-d-modal__body' });
+    body.appendChild(W.el('p', { class: 'wz-d-modal__note' },
+      (msg && String(msg).trim()) || '이미 이 프로젝트에 참여 중이에요. 펀딩을 변경하거나 취소한 뒤 다시 참여할 수 있어요.'));
+    const goBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '내 후원 내역 보기');
+    goBtn.addEventListener('click', () => { location.href = '/profile.html'; });
+    body.appendChild(goBtn);
+    const laterBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--block', type: 'button' }, '닫기');
+    laterBtn.addEventListener('click', close);
+    body.appendChild(laterBtn);
+
+    box.append(head, body);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.body.appendChild(overlay);
+  }
+
   async function backFlow(f) {
     if (!_tierSelected) {
       alert('후원할 리워드를 먼저 선택해 주세요.');
@@ -1456,6 +1650,11 @@
       // 결제수단 게이트(서버 최종 판정): 400 PAYMENT_METHOD_REQUIRED.
       if (e && (e.code === 'PAYMENT_METHOD_REQUIRED' || (e.data && e.data.error === 'PAYMENT_METHOD_REQUIRED'))) {
         showPaymentMethodGate(e && e.message);
+        return;
+      }
+      // 1인 1펀딩 이중 안전: 서버가 409 ALREADY_BACKED 면 안내 + 참여중 UI 로 갱신.
+      if (e && (e.code === 'ALREADY_BACKED' || (e.data && e.data.error === 'ALREADY_BACKED'))) {
+        showAlreadyBackedGate(f, e && e.message);
         return;
       }
       alert('후원 신청에 실패했어요: ' + ((e && e.message) || '알 수 없는 오류'));
@@ -1843,11 +2042,34 @@
     if (!f || !f.id) { showDeleted(); return; }
     // 로그인 사용자 조회(실패/비로그인 시 null) → 작성자 본인 여부 판단
     _me = await W.fetchMe();
+    // 로그인 상태면 이 펀드에 이미 활성 참여(예약/결제 등)가 있는지 미리 조회(1인 1펀딩). 실패/비로그인은 무시.
+    _myActiveOrder = await fetchMyActiveOrder(f.id);
     render(f);
+  }
+
+  /* ---------- 1인 1펀딩: 이 펀드에 대한 내 활성 주문 조회 ----------
+   * GET /api/me/orders 에서 fundId 일치 && status 가 종료(cancelled/refunded)가 아닌 주문을 찾는다.
+   * 비로그인/오류는 조용히 무시(null) — 후원 흐름은 막지 않고 서버 게이트(409)가 최종 판정.
+   * 반환: { id, rewardTitle, status, rewardTierId? } 또는 null. */
+  const ENDED_ORDER_STATUSES = ['cancelled', 'canceled', 'refunded'];
+  async function fetchMyActiveOrder(fundId) {
+    if (!_me || !_me.userId) return null;
+    let items;
+    try {
+      const r = await window.api.get('/me/orders', { silentAuthFail: true });
+      items = Array.isArray(r) ? r : (r && r.items) || [];
+    } catch (_) { return null; } // 비로그인/오류는 무시
+    if (!Array.isArray(items)) return null;
+    const fid = String(fundId);
+    const active = items.find((o) => o && String(o.fundId) === fid
+      && ENDED_ORDER_STATUSES.indexOf(String(o.status || '').toLowerCase()) === -1);
+    return active || null;
   }
 
   /* 현재 로그인 사용자(없으면 null). 본인 소유(작성자) 여부 판단에 사용. */
   let _me = null;
+  /* 이 펀드에 대한 내 활성 주문(있으면 중복 펀딩 차단 + 변경/취소 안내). 없으면 null. */
+  let _myActiveOrder = null;
   function isOwner(f) {
     return !!(_me && _me.userId && f && f.creatorId && _me.userId === f.creatorId);
   }

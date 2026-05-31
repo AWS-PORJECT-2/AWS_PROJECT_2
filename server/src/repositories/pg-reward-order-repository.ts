@@ -77,12 +77,24 @@ export class PgRewardOrderRepository {
    *  - 재고(stockLimit) 카운트는 활성 후원(pledged/paid/payment_failed + 구 awaiting_deposit/confirmed) 기준.
    * stockLimit == null 이면 무제한. 재고가 한도에 도달했으면 null 반환(SOLD_OUT).
    */
-  async createWithStockGuard(o: RewardOrder, stockLimit: number | null): Promise<RewardOrder | null> {
+  async createWithStockGuard(
+    o: RewardOrder,
+    stockLimit: number | null,
+  ): Promise<RewardOrder | { error: 'SOLD_OUT' | 'ALREADY_BACKED' }> {
     const client = await this.pool.connect();
     try {
       await client.query('BEGIN');
       // 펀드 행 잠금 — reward_tier 별 재고가 groupbuys JSON 컬럼에 있어 펀드 단위 직렬화로 충분.
+      // 같은 펀드의 동시 후원이 직렬화되므로, 잠금 이후의 1인1펀딩 재검사도 경합 안전(유니크성 보장).
       await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [o.fundId]);
+      // 1인 1펀딩 가드(트랜잭션 내 재검사) — 펀드 잠금 후 활성 주문 존재 시 차단.
+      const dup = await client.query(
+        `SELECT 1 FROM reward_orders
+          WHERE user_id = $1 AND fund_id = $2 AND status IN (${ACTIVE_STATUS_SQL}, 'cancel_requested')
+          LIMIT 1`,
+        [o.userId, o.fundId],
+      );
+      if ((dup.rowCount ?? 0) > 0) { await client.query('ROLLBACK'); return { error: 'ALREADY_BACKED' }; }
       if (stockLimit != null) {
         const cnt = await client.query(
           `SELECT COUNT(*)::int AS cnt FROM reward_orders
@@ -90,7 +102,7 @@ export class PgRewardOrderRepository {
           [o.fundId, o.rewardTierId],
         );
         const taken = Number(cnt.rows[0]?.cnt) || 0;
-        if (taken >= stockLimit) { await client.query('ROLLBACK'); return null; }
+        if (taken >= stockLimit) { await client.query('ROLLBACK'); return { error: 'SOLD_OUT' }; }
       }
       const res = await client.query(
         `INSERT INTO reward_orders (id, fund_id, reward_tier_id, reward_title, user_id, address_id, depositor_name, amount, status, created_at)
@@ -115,6 +127,21 @@ export class PgRewardOrderRepository {
 
   async findById(id: string): Promise<RewardOrder | null> {
     const res = await this.pool.query('SELECT * FROM reward_orders WHERE id = $1', [id]);
+    return res.rows.length ? mapRow(res.rows[0]) : null;
+  }
+
+  /**
+   * 1인 1펀딩 가드 — 같은 사용자가 같은 펀드에 이미 "활성" 주문을 가졌는지.
+   * 활성 = pledged/paid/payment_failed + 구 무통장(awaiting_deposit/confirmed) + cancel_requested(아직 살아있는 취소요청).
+   * 후원 신청 전 사전 검사(빠른 차단)용. 경합 안전성은 createWithStockGuard 의 트랜잭션 내 재검사로 보장.
+   */
+  async findActiveByUserFund(userId: string, fundId: string): Promise<RewardOrder | null> {
+    const res = await this.pool.query(
+      `SELECT * FROM reward_orders
+        WHERE user_id = $1 AND fund_id = $2 AND status IN (${ACTIVE_STATUS_SQL}, 'cancel_requested')
+        ORDER BY created_at DESC LIMIT 1`,
+      [userId, fundId],
+    );
     return res.rows.length ? mapRow(res.rows[0]) : null;
   }
 
@@ -324,6 +351,79 @@ export class PgRewardOrderRepository {
       );
       await client.query('COMMIT');
       return mapRow(upd.rows[0]);
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
+  /**
+   * 펀딩(리워드) 변경 — 본인 소유 + status='pledged' 주문의 리워드 티어만 교체(텀블벅식: 마감 전 변경).
+   *  - 원자 트랜잭션: 펀드 행 FOR UPDATE 잠금 → 티어별 soldCount 이전 -1·새 +1 조정 + reward_tier_id/reward_title/amount 갱신.
+   *  - 수량(current_quantity)은 1개 그대로(티어만 변경)라 불변.
+   *  - 새 티어 재고(stockLimit) 초과면 SOLD_OUT. 같은 티어로의 변경은 그대로 통과(soldCount 순증감 0).
+   *  - 본인 소유 아님/주문 없음 → NOT_FOUND(0행, IDOR 비노출). status!='pledged' → INVALID_STATE.
+   * 반환: { ok:true, order } | { ok:false, code:'NOT_FOUND'|'INVALID_STATE'|'SOLD_OUT' }
+   */
+  async changeReward(
+    orderId: string,
+    userId: string,
+    newTierId: string,
+    newTitle: string,
+    newAmount: number,
+    oldTierId: string,
+    newStockLimit: number | null,
+  ): Promise<
+    | { ok: true; order: RewardOrder }
+    | { ok: false; code: 'NOT_FOUND' | 'INVALID_STATE' | 'SOLD_OUT' }
+  > {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      // 본인 소유 주문 잠금 — 없으면 NOT_FOUND(소유자 아님 포함, 존재 여부 비노출).
+      const sel = await client.query(
+        'SELECT * FROM reward_orders WHERE id = $1 AND user_id = $2 FOR UPDATE',
+        [orderId, userId],
+      );
+      if (sel.rows.length === 0) { await client.query('ROLLBACK'); return { ok: false, code: 'NOT_FOUND' }; }
+      const order = mapRow(sel.rows[0]);
+      // 예약(pledged) 상태에서만 변경 가능 — 결제완료 후엔 취소 후 재참여로 안내.
+      if (order.status !== 'pledged') { await client.query('ROLLBACK'); return { ok: false, code: 'INVALID_STATE' }; }
+
+      // 펀드 행 잠금(soldCount JSON 갱신·재고 검사 직렬화).
+      await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
+
+      const sameTier = oldTierId === newTierId;
+      if (!sameTier && newStockLimit != null) {
+        // 새 티어 재고 확인 — 현재 새 티어를 점유한 활성 주문 수가 한도 미만이어야 함.
+        const cnt = await client.query(
+          `SELECT COUNT(*)::int AS cnt FROM reward_orders
+            WHERE fund_id = $1 AND reward_tier_id = $2 AND status IN (${ACTIVE_STATUS_SQL})`,
+          [order.fundId, newTierId],
+        );
+        const taken = Number(cnt.rows[0]?.cnt) || 0;
+        if (taken >= newStockLimit) { await client.query('ROLLBACK'); return { ok: false, code: 'SOLD_OUT' }; }
+      }
+
+      // 티어별 soldCount 조정 — 이전 티어 -1, 새 티어 +1 (같은 티어면 둘 다 스킵).
+      if (!sameTier) {
+        await bumpTierSoldCount(client, order.fundId, oldTierId, -1);
+        await bumpTierSoldCount(client, order.fundId, newTierId, +1);
+      }
+
+      const upd = await client.query(
+        `UPDATE reward_orders
+            SET reward_tier_id = $2, reward_title = $3, amount = $4
+          WHERE id = $1 AND status = 'pledged'
+          RETURNING *`,
+        [orderId, newTierId, newTitle, newAmount],
+      );
+      // status='pledged' 가드 재확인 — 위 SELECT…FOR UPDATE 이후라 사실상 항상 1행.
+      if (upd.rows.length === 0) { await client.query('ROLLBACK'); return { ok: false, code: 'INVALID_STATE' }; }
+      await client.query('COMMIT');
+      return { ok: true, order: mapRow(upd.rows[0]) };
     } catch (err) {
       await client.query('ROLLBACK').catch(() => {});
       throw err;
