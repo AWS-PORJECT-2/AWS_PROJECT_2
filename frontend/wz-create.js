@@ -42,6 +42,11 @@
     save: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8M7 3v5h8"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>',
     resume: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>',
+    drag: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="6" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="18" r="1"/><circle cx="15" cy="6" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="18" r="1"/></svg>',
+    alignLeft: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M3 12h12M3 18h15"/></svg>',
+    alignCenter: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M6 12h12M5 18h14"/></svg>',
+    alignRight: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M9 12h12M6 18h15"/></svg>',
+    swap: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3l4 4-4 4"/><path d="M20 7H4"/><path d="M8 21l-4-4 4-4"/><path d="M4 17h16"/></svg>',
   };
 
   /* ---- 요금제(서버가 최종 수수료율 계산; 표시는 참고용) ---- */
@@ -375,7 +380,7 @@
       },
       {
         key: 'story', name: '스토리', required: true,
-        done: function () { return nstate.storyBlocks.some(function (b) { return b.type === 'text' ? b.value.trim() : b.value; }); },
+        done: function () { return nstate.storyBlocks.some(storyBlockHasContent); },
         open: openStoryForm,
       },
       {
@@ -414,6 +419,58 @@
   function validTier(t) { return !!String(t.title || '').trim() && Number.isFinite(Number(t.price)) && Number(t.price) >= 0; }
   // 공개 예정일: 마감일과 동일하게 오늘 이후 날짜만 허용(미래 검증).
   function validOpenAt(s) { return validDeadline(s); }
+
+  /* =====================================================================
+   * 리치 스토리 블록 — 스키마(content_blocks)와 1:1.
+   *   text:  { type:'text',  value, variant(heading|subheading|body|quote), align(left|center|right) }
+   *   image: { type:'image', value, width(sm|md|lg|full), align(left|center|right) }
+   *   split: { type:'split', text, image, imageSide(left|right), align(left|center|right) }
+   * 서버 normalizeContentBlocks 와 동일한 enum·기본값을 사용한다(미통과 → 기본값 강등).
+   * ===================================================================== */
+  var STORY_TEXT_VARIANTS = ['heading', 'subheading', 'body', 'quote'];
+  var STORY_ALIGNS = ['left', 'center', 'right'];
+  var STORY_IMG_WIDTHS = ['sm', 'md', 'lg', 'full'];
+  var STORY_IMG_SIDES = ['left', 'right'];
+
+  var STORY_VARIANT_LABEL = { heading: '제목', subheading: '소제목', body: '본문', quote: '인용' };
+  var STORY_WIDTH_LABEL = { sm: '작게', md: '보통', lg: '크게', full: '꽉차게' };
+  var STORY_ALIGN_LABEL = { left: '왼쪽', center: '가운데', right: '오른쪽' };
+  var STORY_ALIGN_ICON = { left: IC.alignLeft, center: IC.alignCenter, right: IC.alignRight };
+
+  // 허용 enum 이면 그대로, 아니면 기본값으로 강등(서버 pickEnum 과 동일 정책).
+  function storyEnum(v, allowed, fallback) { return (allowed.indexOf(v) !== -1) ? v : fallback; }
+
+  // 블록 타입 라벨(에디터 헤더 표시용).
+  function storyBlockTypeLabel(b) {
+    if (b.type === 'image') return '이미지';
+    if (b.type === 'split') return '글+사진';
+    return '글';
+  }
+
+  // 블록에 표시할 내용이 있는지(빈 블록 판정 — 서버 검증과 동일 기준).
+  function storyBlockHasContent(b) {
+    if (!b) return false;
+    if (b.type === 'image') return !!b.value;
+    if (b.type === 'split') return !!String(b.text || '').trim() && !!b.image;
+    return !!String(b.value || '').trim();
+  }
+
+  // 임의 블록(드래프트/AI 결과 포함)을 스키마 형태로 정규화. 빈 블록은 null.
+  function normalizeStoryBlock(b) {
+    if (!b || typeof b !== 'object') return null;
+    if (b.type === 'image') {
+      if (!b.value) return null;
+      return { type: 'image', value: b.value, width: storyEnum(b.width, STORY_IMG_WIDTHS, 'full'), align: storyEnum(b.align, STORY_ALIGNS, 'center') };
+    }
+    if (b.type === 'split') {
+      var stext = String(b.text || '').trim();
+      if (!stext || !b.image) return null;
+      return { type: 'split', text: stext.slice(0, 5000), image: b.image, imageSide: storyEnum(b.imageSide, STORY_IMG_SIDES, 'right'), align: storyEnum(b.align, STORY_ALIGNS, 'left') };
+    }
+    var t = String(b.value || '').trim();
+    if (!t) return null;
+    return { type: 'text', value: t.slice(0, 5000), variant: storyEnum(b.variant, STORY_TEXT_VARIANTS, 'body'), align: storyEnum(b.align, STORY_ALIGNS, 'left') };
+  }
 
   function progressPct() {
     var reqs = sections().filter(function (s) { return s.required; });
@@ -1013,13 +1070,19 @@
     });
   }
 
-  /* ---- 스토리 ---- */
+  /* ---- 스토리 (블록 기반 리치 에디터) ---- */
   function openStoryForm() {
-    var draft = nstate.storyBlocks.map(function (b) { return Object.assign({}, b); });
+    // 기존 블록을 스키마 형태로 정규화해 복제(하위호환: variant/align/width 누락분은 기본값 채움).
+    var draft = nstate.storyBlocks.map(function (b) {
+      if (b.type === 'image') return { type: 'image', value: b.value, width: storyEnum(b.width, STORY_IMG_WIDTHS, 'full'), align: storyEnum(b.align, STORY_ALIGNS, 'center') };
+      if (b.type === 'split') return { type: 'split', text: String(b.text || ''), image: b.image, imageSide: storyEnum(b.imageSide, STORY_IMG_SIDES, 'right'), align: storyEnum(b.align, STORY_ALIGNS, 'left') };
+      return { type: 'text', value: String(b.value || ''), variant: storyEnum(b.variant, STORY_TEXT_VARIANTS, 'body'), align: storyEnum(b.align, STORY_ALIGNS, 'left') };
+    });
     var listEl;
+    var dragFrom = -1;   // 드래그 이동 시작 인덱스
     openOver('스토리', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
-        '프로젝트의 이야기를 글과 이미지 블록으로 구성하세요. 최소 1개 블록이 필요합니다.'));
+        '프로젝트의 이야기를 글·이미지·글+사진 블록으로 자유롭게 구성하세요. 글은 제목·소제목·본문·인용 스타일과 정렬을, 이미지는 크기·정렬을 고를 수 있습니다. 블록은 끌어서 순서를 바꿀 수 있어요. 최소 1개 블록이 필요합니다.'));
 
       // ---- AI 스토리 초안 ----
       var aiCard = W.el('div', { class: 'wc-aidraft' });
@@ -1039,12 +1102,12 @@
       aiCard.append(aiBtn, aiStatus);
       body.appendChild(aiCard);
 
-      // 초안 결과를 현재 draft 블록에 반영(덮어쓸지/추가할지 확인)
+      // 초안 결과를 현재 draft 블록에 반영(덮어쓸지/추가할지 확인). AI 초안은 본문(body) 텍스트 블록으로 삽입.
       function applyAiBlocks(blocks) {
         var textBlocks = blocks.filter(function (b) { return b && b.type === 'text' && String(b.value || '').trim(); })
-          .map(function (b) { return { type: 'text', value: String(b.value).slice(0, 5000) }; });
+          .map(function (b) { return { type: 'text', value: String(b.value).slice(0, 5000), variant: 'body', align: 'left' }; });
         if (!textBlocks.length) { toast('AI 초안을 받지 못했습니다'); return; }
-        var hasContent = draft.some(function (b) { return b.type === 'text' ? String(b.value || '').trim() : b.value; });
+        var hasContent = draft.some(storyBlockHasContent);
         if (!hasContent) {
           draft = textBlocks; renderBlocks();
           toast('AI 초안을 불러왔습니다');
@@ -1060,57 +1123,283 @@
       // 외부에서 결과를 넘기기 위한 클로저 등록
       _applyAiBlocks = applyAiBlocks;
 
-      listEl = W.el('div', {});
+      listEl = W.el('div', { class: 'wc-blocks' });
       renderBlocks();
       body.appendChild(listEl);
 
+      // ---- 블록 추가 3종: 글 / 이미지 / 글+사진 ----
       var add = W.el('div', { class: 'wc-blockadd' });
-      var addText = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', html: IC.plus + '<span>글 추가</span>' });
-      addText.addEventListener('click', function () { draft.push({ type: 'text', value: '' }); renderBlocks(); });
-      var addImg = W.el('label', { class: 'wz-btn wz-btn--outline', html: IC.upload + '<span>이미지 추가</span>' });
-      var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
-      fileIn.addEventListener('change', function () {
-        readImage(fileIn.files && fileIn.files[0], function (dataUrl) { draft.push({ type: 'image', value: dataUrl }); renderBlocks(); });
-        fileIn.value = '';
+      var addText = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', html: IC.pen + '<span>글 추가</span>' });
+      addText.addEventListener('click', function () {
+        if (draft.length >= 40) { toast('블록은 최대 40개까지 추가할 수 있어요'); return; }
+        draft.push({ type: 'text', value: '', variant: 'body', align: 'left' }); renderBlocks();
       });
-      addImg.appendChild(fileIn);
-      add.append(addText, addImg);
+      var addImg = W.el('label', { class: 'wz-btn wz-btn--outline', html: IC.upload + '<span>이미지 추가</span>' });
+      var imgFileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+      imgFileIn.addEventListener('change', function () {
+        if (draft.length >= 40) { toast('블록은 최대 40개까지 추가할 수 있어요'); imgFileIn.value = ''; return; }
+        readImage(imgFileIn.files && imgFileIn.files[0], function (dataUrl) { draft.push({ type: 'image', value: dataUrl, width: 'full', align: 'center' }); renderBlocks(); });
+        imgFileIn.value = '';
+      });
+      addImg.appendChild(imgFileIn);
+      var addSplit = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', html: IC.swap + '<span>글+사진 추가</span>' });
+      addSplit.addEventListener('click', function () {
+        if (draft.length >= 40) { toast('블록은 최대 40개까지 추가할 수 있어요'); return; }
+        draft.push({ type: 'split', text: '', image: null, imageSide: 'right', align: 'left' }); renderBlocks();
+      });
+      add.append(addText, addImg, addSplit);
       body.appendChild(add);
 
+      // 글(text) 블록 편집 UI
+      function buildTextBlock(box, b) {
+        var tools = W.el('div', { class: 'wc-btools' });
+        // 스타일(variant) 칩 그룹
+        var styleGroup = W.el('div', { class: 'wc-chipset', role: 'group', 'aria-label': '글 스타일' });
+        var styleChips = {};
+        STORY_TEXT_VARIANTS.forEach(function (v) {
+          var chip = W.el('button', { class: 'wc-chip' + (b.variant === v ? ' is-on' : ''), type: 'button', 'aria-pressed': b.variant === v ? 'true' : 'false' }, STORY_VARIANT_LABEL[v]);
+          chip.addEventListener('click', function () {
+            b.variant = v;
+            STORY_TEXT_VARIANTS.forEach(function (k) { styleChips[k].classList.toggle('is-on', k === v); styleChips[k].setAttribute('aria-pressed', k === v ? 'true' : 'false'); });
+            applyTextStyle();
+          });
+          styleChips[v] = chip;
+          styleGroup.appendChild(chip);
+        });
+        tools.appendChild(styleGroup);
+        // 정렬(align) 아이콘 그룹
+        var alignGroup = alignChipset(b, function () { applyTextStyle(); });
+        tools.appendChild(alignGroup);
+        box.appendChild(tools);
+
+        var ta = textarea({ maxlength: '5000', placeholder: '내용을 입력하세요' });
+        ta.value = b.value || '';
+        ta.addEventListener('input', function () { b.value = ta.value; });
+        box.appendChild(ta);
+
+        function applyTextStyle() {
+          ta.className = 'wc-textarea wc-textarea--' + b.variant + ' wc-al-' + b.align;
+        }
+        applyTextStyle();
+      }
+
+      // 이미지(image) 블록 편집 UI
+      function buildImageBlock(box, b, idx) {
+        var preview = W.el('div', { class: 'wc-bimg' });
+        function renderImg() {
+          preview.replaceChildren();
+          if (b.value) {
+            var holder = W.el('div', { class: 'wc-bimg__holder wc-al-' + b.align });
+            var fig = W.el('div', { class: 'wc-bimg__fig wc-w-' + b.width });
+            fig.appendChild(W.el('img', { src: b.value, alt: '스토리 이미지' }));
+            // 우측 하단 핸들 드래그로 width 단계(sm→md→lg→full) 조절
+            var handle = W.el('span', { class: 'wc-bimg__handle', 'aria-hidden': 'true' });
+            enableWidthHandle(handle, b, function () { fig.className = 'wc-bimg__fig wc-w-' + b.width; syncWidthChips(); });
+            fig.appendChild(handle);
+            holder.appendChild(fig);
+            preview.appendChild(holder);
+          } else {
+            var up = W.el('label', { class: 'wc-upload' });
+            up.appendChild(W.el('div', { html: IC.upload }));
+            up.appendChild(W.el('div', { class: 'wc-upload__text' }, '이미지 업로드'));
+            up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · PNG · JPG · WEBP (최대 8MB)'));
+            var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+            fileIn.addEventListener('change', function () { readImage(fileIn.files && fileIn.files[0], function (d) { b.value = d; renderImg(); }); fileIn.value = ''; });
+            up.appendChild(fileIn);
+            enableDrop(up, function (d) { b.value = d; renderImg(); });
+            preview.appendChild(up);
+          }
+        }
+        renderImg();
+        box.appendChild(preview);
+
+        var tools = W.el('div', { class: 'wc-btools' });
+        // 크기(width) 칩 그룹
+        var widthChips = {};
+        var widthGroup = W.el('div', { class: 'wc-chipset', role: 'group', 'aria-label': '이미지 크기' });
+        STORY_IMG_WIDTHS.forEach(function (w) {
+          var chip = W.el('button', { class: 'wc-chip' + (b.width === w ? ' is-on' : ''), type: 'button', 'aria-pressed': b.width === w ? 'true' : 'false' }, STORY_WIDTH_LABEL[w]);
+          chip.addEventListener('click', function () { b.width = w; syncWidthChips(); renderImg(); });
+          widthChips[w] = chip;
+          widthGroup.appendChild(chip);
+        });
+        tools.appendChild(widthGroup);
+        tools.appendChild(alignChipset(b, function () { renderImg(); }));
+        box.appendChild(tools);
+
+        function syncWidthChips() {
+          STORY_IMG_WIDTHS.forEach(function (w) { widthChips[w].classList.toggle('is-on', w === b.width); widthChips[w].setAttribute('aria-pressed', w === b.width ? 'true' : 'false'); });
+        }
+      }
+
+      // 분할(split) 블록 편집 UI — 글 + 이미지 + 이미지 위치 토글
+      function buildSplitBlock(box, b) {
+        // 이미지 위치(imageSide) 토글
+        var tools = W.el('div', { class: 'wc-btools' });
+        var sideLabel = W.el('span', { class: 'wc-btools__label' }, '이미지 위치');
+        var sideGroup = W.el('div', { class: 'wc-chipset', role: 'group', 'aria-label': '이미지 위치' });
+        var sideChips = {};
+        STORY_IMG_SIDES.forEach(function (s) {
+          var chip = W.el('button', { class: 'wc-chip' + (b.imageSide === s ? ' is-on' : ''), type: 'button', 'aria-pressed': b.imageSide === s ? 'true' : 'false' }, s === 'left' ? '사진 왼쪽' : '사진 오른쪽');
+          chip.addEventListener('click', function () {
+            b.imageSide = s;
+            STORY_IMG_SIDES.forEach(function (k) { sideChips[k].classList.toggle('is-on', k === s); sideChips[k].setAttribute('aria-pressed', k === s ? 'true' : 'false'); });
+            renderPair();
+          });
+          sideChips[s] = chip;
+          sideGroup.appendChild(chip);
+        });
+        tools.append(sideLabel, sideGroup, alignChipset(b, function () { applyTextAlign(); }));
+        box.appendChild(tools);
+
+        var pair = W.el('div', { class: 'wc-split' });
+        var textCell, imgCell, taEl;
+        function buildTextCell() {
+          var cell = W.el('div', { class: 'wc-split__text' });
+          taEl = textarea({ maxlength: '5000', placeholder: '사진 옆에 들어갈 글을 입력하세요' });
+          taEl.value = b.text || '';
+          taEl.addEventListener('input', function () { b.text = taEl.value; });
+          cell.appendChild(taEl);
+          return cell;
+        }
+        function buildImageCell() {
+          var cell = W.el('div', { class: 'wc-split__img' });
+          if (b.image) {
+            var pv = W.el('div', { class: 'wc-preview' });
+            pv.appendChild(W.el('img', { src: b.image, alt: '스토리 이미지' }));
+            var del = W.el('button', { class: 'wc-preview__del', type: 'button', 'aria-label': '이미지 삭제', html: IC.close });
+            del.addEventListener('click', function () { b.image = null; renderPair(); });
+            pv.appendChild(del);
+            cell.appendChild(pv);
+          } else {
+            var up = W.el('label', { class: 'wc-upload' });
+            up.appendChild(W.el('div', { html: IC.upload }));
+            up.appendChild(W.el('div', { class: 'wc-upload__text' }, '이미지 업로드'));
+            up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · PNG · JPG · WEBP (최대 8MB)'));
+            var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
+            fileIn.addEventListener('change', function () { readImage(fileIn.files && fileIn.files[0], function (d) { b.image = d; renderPair(); }); fileIn.value = ''; });
+            up.appendChild(fileIn);
+            enableDrop(up, function (d) { b.image = d; renderPair(); });
+            cell.appendChild(up);
+          }
+          return cell;
+        }
+        function renderPair() {
+          pair.replaceChildren();
+          pair.className = 'wc-split wc-split--' + b.imageSide;
+          textCell = buildTextCell();
+          imgCell = buildImageCell();
+          // imageSide=right → 글 먼저(왼쪽), 사진 나중(오른쪽). left → 사진 먼저. DOM 순서로 좌우 결정.
+          if (b.imageSide === 'left') pair.append(imgCell, textCell);
+          else pair.append(textCell, imgCell);
+          applyTextAlign();
+        }
+        function applyTextAlign() { if (taEl) taEl.className = 'wc-textarea wc-al-' + b.align; }
+        renderPair();
+        box.appendChild(pair);
+      }
+
+      // 정렬(align) 아이콘 칩 그룹(text/image/split 공용). onChange 후 b.align 갱신 + 콜백.
+      function alignChipset(b, onChange) {
+        var group = W.el('div', { class: 'wc-chipset wc-chipset--align', role: 'group', 'aria-label': '정렬' });
+        var chips = {};
+        STORY_ALIGNS.forEach(function (a) {
+          var chip = W.el('button', { class: 'wc-chip wc-chip--icon' + (b.align === a ? ' is-on' : ''), type: 'button', 'aria-pressed': b.align === a ? 'true' : 'false', 'aria-label': STORY_ALIGN_LABEL[a] + ' 정렬', title: STORY_ALIGN_LABEL[a] + ' 정렬', html: STORY_ALIGN_ICON[a] });
+          chip.addEventListener('click', function () {
+            b.align = a;
+            STORY_ALIGNS.forEach(function (k) { chips[k].classList.toggle('is-on', k === a); chips[k].setAttribute('aria-pressed', k === a ? 'true' : 'false'); });
+            if (onChange) onChange();
+          });
+          chips[a] = chip;
+          group.appendChild(chip);
+        });
+        return group;
+      }
+
       // 모달 전체에 이미지를 끌어다 놓으면 이미지 블록으로 추가
-      enableDrop(body, function (dataUrl) { draft.push({ type: 'image', value: dataUrl }); renderBlocks(); }, true);
+      enableDrop(body, function (dataUrl) {
+        if (draft.length >= 40) { toast('블록은 최대 40개까지 추가할 수 있어요'); return; }
+        draft.push({ type: 'image', value: dataUrl, width: 'full', align: 'center' }); renderBlocks();
+      }, true);
 
       function renderBlocks() {
         listEl.replaceChildren();
         draft.forEach(function (b, i) {
-          var box = W.el('div', { class: 'wc-block' });
+          // 블록 순서 이동: 핸들을 잡았을 때만 draggable 활성(textarea 텍스트 선택 방해 방지).
+          var box = W.el('div', { class: 'wc-block wc-block--' + b.type, draggable: 'false' });
+          box.addEventListener('dragstart', function (e) { dragFrom = i; box.classList.add('is-dragging'); if (e.dataTransfer) { e.dataTransfer.effectAllowed = 'move'; try { e.dataTransfer.setData('text/plain', String(i)); } catch (_) {} } });
+          box.addEventListener('dragend', function () { dragFrom = -1; box.setAttribute('draggable', 'false'); box.classList.remove('is-dragging'); listEl.querySelectorAll('.wc-block').forEach(function (x) { x.classList.remove('is-dropover'); }); });
+          box.addEventListener('dragover', function (e) { if (dragFrom === -1 || dragFrom === i) return; e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = 'move'; box.classList.add('is-dropover'); });
+          box.addEventListener('dragleave', function () { box.classList.remove('is-dropover'); });
+          box.addEventListener('drop', function (e) {
+            e.preventDefault(); box.classList.remove('is-dropover');
+            if (dragFrom === -1 || dragFrom === i) return;
+            var moved = draft.splice(dragFrom, 1)[0];
+            draft.splice(i, 0, moved);
+            dragFrom = -1; renderBlocks();
+          });
+
           var head = W.el('div', { class: 'wc-block__head' });
+          var handle = W.el('span', { class: 'wc-block__handle', html: IC.drag, 'aria-label': '끌어서 순서 변경', role: 'button' });
+          // 핸들을 누르고 있는 동안에만 블록을 draggable 로 — 누르면 enable, 떼면 disable.
+          handle.addEventListener('mousedown', function () { box.setAttribute('draggable', 'true'); });
+          handle.addEventListener('touchstart', function () { box.setAttribute('draggable', 'true'); }, { passive: true });
+          handle.addEventListener('mouseup', function () { box.setAttribute('draggable', 'false'); });
+          var typeWrap = W.el('div', { class: 'wc-block__typewrap' });
+          typeWrap.append(handle, W.el('span', { class: 'wc-block__type' }, storyBlockTypeLabel(b)));
           var del = W.el('button', { class: 'wc-block__del', type: 'button' }, '삭제');
           del.addEventListener('click', function () { draft.splice(i, 1); renderBlocks(); });
-          head.append(W.el('span', { class: 'wc-block__type' }, b.type === 'image' ? '이미지' : '글'), del);
+          head.append(typeWrap, del);
           box.appendChild(head);
-          if (b.type === 'text') {
-            var ta = textarea({ maxlength: '5000', placeholder: '본문을 입력하세요' });
-            ta.value = b.value || '';
-            ta.addEventListener('input', function () { b.value = ta.value; });
-            box.appendChild(ta);
-          } else {
-            box.appendChild(W.el('img', { src: b.value, alt: '스토리 이미지' }));
-          }
+
+          if (b.type === 'image') buildImageBlock(box, b, i);
+          else if (b.type === 'split') buildSplitBlock(box, b);
+          else buildTextBlock(box, b);
+
           listEl.appendChild(box);
         });
-        if (!draft.length) listEl.appendChild(W.el('p', { class: 'wc-fld__help' }, '아직 추가된 블록이 없습니다.'));
+        if (!draft.length) listEl.appendChild(W.el('p', { class: 'wc-fld__help' }, '아직 추가된 블록이 없습니다. 위 버튼으로 글·이미지·글+사진 블록을 추가해 보세요.'));
       }
     }, function () {
+      // 스키마 형태로 정규화 + 빈/무효 블록 제외(서버 normalizeContentBlocks 와 동일 기준).
       var cleaned = [];
-      draft.forEach(function (b) {
-        if (b.type === 'text') { var t = String(b.value || '').trim(); if (t) cleaned.push({ type: 'text', value: t.slice(0, 5000) }); }
-        else if (b.type === 'image' && b.value) cleaned.push({ type: 'image', value: b.value });
-      });
+      draft.forEach(function (b) { var n = normalizeStoryBlock(b); if (n) cleaned.push(n); });
+      cleaned = cleaned.slice(0, 40);
       if (!cleaned.length) { toast('스토리에 최소 1개 블록을 작성해 주세요'); return false; }
       nstate.storyBlocks = cleaned;
       return true;
     });
+  }
+
+  // 이미지 우측 하단 핸들 드래그 → width 단계(sm→md→lg→full) 조절. 가로 이동량 기준.
+  function enableWidthHandle(handle, b, onChange) {
+    var dragging = false, startX = 0, startIdx = 0;
+    function idxOf(w) { var i = STORY_IMG_WIDTHS.indexOf(w); return i === -1 ? 3 : i; }
+    function onMove(e) {
+      if (!dragging) return;
+      var x = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+      var step = Math.round((x - startX) / 70);   // 70px 당 한 단계
+      var next = Math.max(0, Math.min(3, startIdx + step));
+      var w = STORY_IMG_WIDTHS[next];
+      if (w !== b.width) { b.width = w; if (onChange) onChange(); }
+      if (e.cancelable) e.preventDefault();
+    }
+    function onUp() { dragging = false; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); document.removeEventListener('touchmove', onMove); document.removeEventListener('touchend', onUp); }
+    function onDown(e) {
+      dragging = true;
+      startX = (e.touches && e.touches[0]) ? e.touches[0].clientX : e.clientX;
+      startIdx = idxOf(b.width);
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+      document.addEventListener('touchmove', onMove, { passive: false });
+      document.addEventListener('touchend', onUp);
+      if (e.cancelable) e.preventDefault();
+      e.stopPropagation();
+    }
+    handle.addEventListener('mousedown', onDown);
+    handle.addEventListener('touchstart', onDown, { passive: false });
+    // 핸들에서 시작하는 드래그가 블록 순서 이동(draggable)과 충돌하지 않도록.
+    handle.addEventListener('dragstart', function (e) { e.preventDefault(); e.stopPropagation(); });
   }
 
   // 현재 열린 스토리 폼의 블록 적용 콜백(폼이 열려 있을 때만 유효)
@@ -1433,10 +1722,14 @@
         if (!agreed) { toast('창작자 약관에 동의해야 프로젝트를 만들 수 있어요'); return; }
         disable();
 
-        // contentBlocks: API 계약 {type:"text"|"image", text?, url?}
+        // contentBlocks: 리치 스키마 그대로 전송(서버 normalizeContentBlocks 가 재검증·정규화).
+        //   text  → {type, value, variant, align}   image → {type, value, width, align}
+        //   split → {type, text, image, imageSide, align}
         // 정책·메이커 정보는 스토리에 합치지 않고 별도 필드로 전송(상세에서 따로 표시).
         var blocks = nstate.storyBlocks.map(function (b) {
-          return b.type === 'image' ? { type: 'image', url: b.value } : { type: 'text', text: b.value };
+          if (b.type === 'image') return { type: 'image', value: b.value, width: b.width, align: b.align };
+          if (b.type === 'split') return { type: 'split', text: b.text, image: b.image, imageSide: b.imageSide, align: b.align };
+          return { type: 'text', value: b.value, variant: b.variant, align: b.align };
         });
 
         // rewardTiers: API 계약 {title, price, desc, stock?}

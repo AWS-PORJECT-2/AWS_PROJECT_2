@@ -4,18 +4,20 @@ import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier, CreatorInfo } 
 import type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
   GroupBuyCardItem, GroupBuyDetail, GroupBuyFindManyOptions, GroupBuyUpdateFields, GroupBuyAnalytics,
+  ContentBlockContract,
 } from './groupbuy-repository.js';
+import { normalizeContentBlocks } from '../utils/content-blocks.js';
 import { logger } from '../logger.js';
 
-// content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱
+// content_blocks (TEXT/JSON) → ContentBlock[] 안전 파싱.
+// 리치 스키마(text/image/split + variant/align/width/imageSide)를 그대로 복원·재검증.
+// DB 는 내부 ContentBlock 형태(JSON)로 저장하므로 normalizeContentBlocks 가 그대로 수용.
 function parseContentBlocks(raw: unknown): ContentBlock[] | null {
   if (raw == null) return null;
   try {
     const arr = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    if (!Array.isArray(arr)) return null;
-    return arr
-      .filter((b) => b && (b.type === 'text' || b.type === 'image') && typeof b.value === 'string')
-      .map((b) => ({ type: b.type, value: b.value }));
+    const blocks = normalizeContentBlocks(arr);
+    return blocks.length ? blocks : null;
   } catch {
     return null;
   }
@@ -87,11 +89,20 @@ function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
   };
 }
 
-// 내부 ContentBlock({type,value}) → 계약 형태({type, text?, url?})
-function contentBlocksToContract(blocks: ContentBlock[] | null): Array<{ type: 'text' | 'image'; text?: string; url?: string }> {
+// 내부 ContentBlock → 공개 상세 계약(ContentBlockContract). 리치 필드(스타일/정렬/크기/좌우배치)를 보존.
+// 스타일 미지정(하위호환 원본)이면 스키마 기본값(text body/left, image full/center, split right/left)으로 채운다.
+function contentBlocksToContract(blocks: ContentBlock[] | null): ContentBlockContract[] {
   if (!blocks) return [];
-  return blocks.map((b) =>
-    b.type === 'text' ? { type: 'text' as const, text: b.value } : { type: 'image' as const, url: b.value });
+  return blocks.map((b): ContentBlockContract => {
+    if (b.type === 'text') {
+      return { type: 'text', text: b.value, variant: b.variant ?? 'body', align: b.align ?? 'left' };
+    }
+    if (b.type === 'image') {
+      return { type: 'image', url: b.value, width: b.width ?? 'full', align: b.align ?? 'center' };
+    }
+    // split
+    return { type: 'split', text: b.text, url: b.image, imageSide: b.imageSide ?? 'right', align: b.align ?? 'left' };
+  });
 }
 
 // 내부 RewardTier → 계약 형태({title, price, desc, soldCount, stock?})

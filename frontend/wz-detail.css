@@ -74,6 +74,56 @@ body.wz-detail-page .wz-hd { position: static; }
 .wz-d-story__more-ic { display: inline-flex; width: 16px; height: 16px; transform: rotate(90deg); }
 .wz-d-story__more-ic svg { width: 100%; height: 100%; }
 
+/* ---------- 스토리 리치 블록 (text/image/split) ----------
+ * 스타일은 모두 클래스/제한 enum 으로만 적용. 사용자 텍스트는 textContent(.wz-d-blk__text). */
+.wz-d-blk { margin: 0; }
+
+/* 텍스트 정렬(좌/중/우) — text·split 공용 */
+.wz-d-blk--a-left  .wz-d-blk__text { text-align: left; }
+.wz-d-blk--a-center .wz-d-blk__text { text-align: center; }
+.wz-d-blk--a-right .wz-d-blk__text { text-align: right; }
+
+/* 텍스트 블록 — variant 별 글자 스타일. 줄바꿈 보존(pre-wrap). */
+.wz-d-blk__text { white-space: pre-wrap; word-break: break-word; }
+.wz-d-blk--text .wz-d-blk__text { font-size: 16px; line-height: 1.8; color: var(--c-text-sub); }
+.wz-d-blk--heading .wz-d-blk__text { font-size: 26px; line-height: 1.4; font-weight: 800; color: var(--c-text); }
+.wz-d-blk--subheading .wz-d-blk__text { font-size: 20px; line-height: 1.5; font-weight: 700; color: var(--c-text); }
+.wz-d-blk--body .wz-d-blk__text { font-size: 16px; line-height: 1.8; color: var(--c-text-sub); }
+.wz-d-blk--quote { padding: 4px 0 4px 18px; border-left: 4px solid var(--c-primary-500); }
+.wz-d-blk--quote .wz-d-blk__text { font-size: 17px; line-height: 1.7; font-style: italic; color: var(--c-text); }
+
+/* 이미지 블록 — width(표시 너비) + align(블록 내 가로 정렬) */
+.wz-d-blk--image { display: flex; }
+.wz-d-blk--image.wz-d-blk--a-left { justify-content: flex-start; }
+.wz-d-blk--image.wz-d-blk--a-center { justify-content: center; }
+.wz-d-blk--image.wz-d-blk--a-right { justify-content: flex-end; }
+.wz-d-blk__img { display: block; width: 100%; height: auto; border-radius: 10px; }
+.wz-d-blk--image .wz-d-blk__img { width: auto; max-width: 100%; }
+.wz-d-blk--w-sm .wz-d-blk__img { width: 40%; }
+.wz-d-blk--w-md .wz-d-blk__img { width: 60%; }
+.wz-d-blk--w-lg .wz-d-blk__img { width: 80%; }
+.wz-d-blk--w-full .wz-d-blk__img { width: 100%; }
+
+/* 분할 블록 — 글+이미지 2열. DOM 순서는 텍스트→이미지, 좌우 배치는 order 로 제어. */
+.wz-d-blk--split { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: center; }
+.wz-d-blk--split .wz-d-blk__split-text { min-width: 0; }
+.wz-d-blk--split .wz-d-blk__split-img { min-width: 0; }
+.wz-d-blk--split .wz-d-blk__img { width: 100%; }
+/* imageSide=right → 글 왼쪽/사진 오른쪽(기본). left → 사진 왼쪽/글 오른쪽. */
+.wz-d-blk--side-right .wz-d-blk__split-text { order: 0; }
+.wz-d-blk--side-right .wz-d-blk__split-img { order: 1; }
+.wz-d-blk--side-left .wz-d-blk__split-text { order: 1; }
+.wz-d-blk--side-left .wz-d-blk__split-img { order: 0; }
+/* 모바일(좁은 폭): 1열 스택 — 이미지가 위, 글이 아래. */
+@media (max-width: 720px) {
+  .wz-d-blk--split { grid-template-columns: 1fr; gap: 14px; }
+  .wz-d-blk--split .wz-d-blk__split-img { order: 0; }
+  .wz-d-blk--split .wz-d-blk__split-text { order: 1; }
+  .wz-d-blk--w-sm .wz-d-blk__img,
+  .wz-d-blk--w-md .wz-d-blk__img,
+  .wz-d-blk--w-lg .wz-d-blk__img { width: 100%; }
+}
+
 /* ---------- 끝 섹션: 교환·환불 정책 / 안내사항 ---------- */
 .wz-d-policy { margin-top: 40px; padding-top: 28px; border-top: 1px solid var(--c-divider); }
 .wz-d-policy__h2 { font-size: 18px; font-weight: 800; color: var(--c-text); margin: 0 0 14px; }

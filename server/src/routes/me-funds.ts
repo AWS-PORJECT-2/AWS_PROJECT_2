@@ -1,19 +1,17 @@
 import type { Request, Response } from 'express';
 import type { GroupBuyRepository, GroupBuyUpdateFields } from '../repositories/groupbuy-repository.js';
 import type { FollowRepository } from '../repositories/follow-repository.js';
-import type { ContentBlock, CreatorInfo } from '../types/index.js';
+import type { CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { isValidCategory } from '../constants/categories.js';
+import { MAX_IMG_CHARS, normalizeContentBlocks } from '../utils/content-blocks.js';
 
 // ─── 본인 펀드 수정 검증 상수 — funds-create.ts / admin-funds.ts 와 동일 기준 ───
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
-const MAX_IMG_CHARS = 12_000_000;   // base64 data URL 약 8MB
 const MAX_VIDEO_CHARS = 48_000_000; // base64 data URL 약 36MB
-const MAX_BLOCKS = 40;
-const MAX_TEXT_CHARS = 5000;
 const CREATOR_NAME_MAX = 20;
 const CREATOR_INTRO_MAX = 300;
 const CREATOR_REGION_MAX = 30;
@@ -28,24 +26,9 @@ function isValidVideo(v: string): boolean {
   return /^https?:\/\//.test(v) || /^data:video\/(mp4|webm|quicktime);base64,/.test(v);
 }
 
-// content_blocks 정규화 — 계약({type:'text',text}|{type:'image',url})·내부({type,value}) 양쪽 수용.
-function parseBlocks(v: unknown): ContentBlock[] {
-  if (!Array.isArray(v)) return [];
-  const blocks: ContentBlock[] = [];
-  for (const raw of v.slice(0, MAX_BLOCKS)) {
-    if (!raw || typeof raw !== 'object') continue;
-    const b = raw as Record<string, unknown>;
-    if (b.type === 'text') {
-      const src = typeof b.text === 'string' ? b.text : (typeof b.value === 'string' ? b.value : '');
-      const text = src.trim();
-      if (text) blocks.push({ type: 'text', value: text.slice(0, MAX_TEXT_CHARS) });
-    } else if (b.type === 'image') {
-      const src = typeof b.url === 'string' ? b.url : (typeof b.value === 'string' ? b.value : '');
-      if (typeof src === 'string' && isValidImage(src)) blocks.push({ type: 'image', value: src });
-    }
-  }
-  return blocks;
-}
+// content_blocks 정규화 — 리치 스키마(text/image/split + variant/align/width/imageSide) 보존, 하위호환.
+// funds-create / admin-funds 와 동일한 공유 normalizeContentBlocks 위임.
+const parseBlocks = normalizeContentBlocks;
 
 // 창작자 정보 검증 — funds-create.ts creatorInfoField 와 동일 상한. 유효 필드 없으면 null.
 function parseCreatorInfo(v: unknown): CreatorInfo | null {

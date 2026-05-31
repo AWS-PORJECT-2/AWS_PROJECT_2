@@ -121,6 +121,19 @@
     if (!b || b.type !== 'text') return '';
     return b.text != null ? b.text : (b.value != null ? b.value : '');
   }
+  /* 분할(split) 블록 이미지 url — 계약 키 url 우선, 구버전 image/value 폴백. */
+  function splitImageUrl(b) {
+    if (!b || b.type !== 'split') return '';
+    return b.url || b.image || b.value || '';
+  }
+  /* 허용 enum 중 하나면 그대로, 아니면 기본값(서버가 이미 정규화하지만 프론트도 방어). */
+  function pickEnum(v, allowed, fallback) {
+    return (typeof v === 'string' && allowed.indexOf(v) !== -1) ? v : fallback;
+  }
+  const TEXT_VARIANTS = ['heading', 'subheading', 'body', 'quote'];
+  const BLK_ALIGNS = ['left', 'center', 'right'];
+  const IMG_WIDTHS = ['sm', 'md', 'lg', 'full'];
+  const IMG_SIDES = ['left', 'right'];
   function galleryImages(f) {
     const out = [];
     [f.coverImageUrl, f.designImageUrl, f.tryonImageUrl].forEach((u) => { if (u && out.indexOf(u) === -1) out.push(u); });
@@ -362,6 +375,68 @@
     return box;
   }
 
+  /* ---------- 스토리 블록 빌더 (리치 스키마) ----------
+   * 모든 스타일은 클래스/enum 으로만 적용한다(임의 CSS·HTML 문자열 금지).
+   * 사용자/외부 텍스트는 W.el 의 문자열 자식(textContent)으로만 넣는다(raw HTML 주입 금지).
+   * 알 수 없는 variant/align/width/imageSide 는 기본값으로 강등(서버가 이미 정규화하지만 프론트도 방어). */
+
+  // 이미지 엘리먼트(스토리 본문/분할 공용). onerror 시 onFail()(없으면 자기 제거).
+  function storyImg(url, extraClass, onFail) {
+    const im = W.el('img', { class: extraClass, src: url, alt: '', loading: 'lazy' });
+    im.addEventListener('error', () => { if (typeof onFail === 'function') onFail(im); else im.remove(); });
+    return im;
+  }
+
+  // text 블록: variant(제목/소제목/본문/인용) + align(좌/중/우). 줄바꿈 보존은 CSS(pre-wrap).
+  function buildTextBlock(b) {
+    const txt = blockText(b);
+    if (!txt || !String(txt).trim()) return null;
+    const variant = pickEnum(b.variant, TEXT_VARIANTS, 'body');
+    const align = pickEnum(b.align, BLK_ALIGNS, 'left');
+    const cls = 'wz-d-blk wz-d-blk--text wz-d-blk--' + variant
+      + ' wz-d-blk--a-' + align;
+    // 인용/제목/소제목은 동일 .wz-d-blk__text 컨테이너, 클래스로 스타일 분기.
+    return W.el('div', { class: cls }, W.el('div', { class: 'wz-d-blk__text' }, String(txt)));
+  }
+
+  // image 블록: width(sm/md/lg/full) + align(좌/중/우). 로드 실패 시 블록 통째 제거.
+  function buildImageBlock(b) {
+    const u = blockImageUrl(b);
+    if (!u) return null;
+    const width = pickEnum(b.width, IMG_WIDTHS, 'full');
+    const align = pickEnum(b.align, BLK_ALIGNS, 'center');
+    const cls = 'wz-d-blk wz-d-blk--image wz-d-blk--w-' + width + ' wz-d-blk--a-' + align;
+    const fig = W.el('div', { class: cls });
+    fig.appendChild(storyImg(u, 'wz-d-blk__img', () => fig.remove()));
+    return fig;
+  }
+
+  // split 블록: 글+이미지 2열. imageSide=left/right 로 좌우 배치, 모바일 1열 스택(CSS, 이미지 위).
+  function buildSplitBlock(b) {
+    const txt = (b && typeof b.text === 'string') ? b.text : '';
+    const u = splitImageUrl(b);
+    // 글·이미지 둘 다 있어야 의미가 있다(서버 정규화와 동일 기준). 하나라도 없으면 제외.
+    if (!txt.trim() || !u) return null;
+    const side = pickEnum(b.imageSide, IMG_SIDES, 'right');
+    const align = pickEnum(b.align, BLK_ALIGNS, 'left');
+    const wrapCls = 'wz-d-blk wz-d-blk--split wz-d-blk--side-' + side + ' wz-d-blk--a-' + align;
+    const row = W.el('div', { class: wrapCls });
+    const textCol = W.el('div', { class: 'wz-d-blk__split-text' }, W.el('div', { class: 'wz-d-blk__text' }, txt));
+    const imgCol = W.el('div', { class: 'wz-d-blk__split-img' });
+    imgCol.appendChild(storyImg(u, 'wz-d-blk__img', (im) => im.remove()));
+    // DOM 순서는 항상 텍스트→이미지. 좌우 배치는 CSS(side 클래스의 order)로, 모바일 스택은 이미지가 위로.
+    row.append(textCol, imgCol);
+    return row;
+  }
+
+  function buildStoryBlock(b) {
+    if (!b) return null;
+    if (b.type === 'text') return buildTextBlock(b);
+    if (b.type === 'image') return buildImageBlock(b);
+    if (b.type === 'split') return buildSplitBlock(b);
+    return null;
+  }
+
   /* ---------- 프로젝트 스토리 (contentBlocks) ---------- */
   function Story(f) {
     const sec = W.el('section', { class: 'wz-d-story' });
@@ -370,22 +445,8 @@
     const wrap = W.el('div', { class: 'wz-d-story__blocks' });
     let rendered = 0;
     blocks.forEach((b) => {
-      if (!b) return;
-      if (b.type === 'text') {
-        const txt = blockText(b);
-        if (txt && String(txt).trim()) {
-          wrap.appendChild(W.el('p', { class: 'wz-d-story__text' }, String(txt)));
-          rendered++;
-        }
-      } else if (b.type === 'image') {
-        const u = blockImageUrl(b);
-        if (u) {
-          const im = W.el('img', { class: 'wz-d-story__img', src: u, alt: '', loading: 'lazy' });
-          im.addEventListener('error', () => im.remove());
-          wrap.appendChild(im);
-          rendered++;
-        }
-      }
+      const node = buildStoryBlock(b);
+      if (node) { wrap.appendChild(node); rendered++; }
     });
     if (!rendered && f.description && f.description.trim()) {
       wrap.appendChild(W.el('p', { class: 'wz-d-story__text' }, f.description));

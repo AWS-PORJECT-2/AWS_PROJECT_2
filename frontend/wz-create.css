@@ -227,14 +227,64 @@
 .wc-addtier svg { width: 16px; height: 16px; }
 .wc-addtier:hover { background: var(--c-primary-100); }
 
-/* 스토리 본문 블록 */
-.wc-block { border: 1px solid var(--c-border); border-radius: var(--r-md); padding: 14px; margin-bottom: 12px; position: relative; }
-.wc-block__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.wc-block__type { font-size: 12px; font-weight: 700; color: var(--c-text-sub); }
-.wc-block__del { border: 0; background: none; color: var(--c-danger); font-size: 12px; font-weight: 700; cursor: pointer; }
-.wc-block img { width: 100%; max-height: 360px; object-fit: contain; background: var(--c-surface-2, #f4f4f6); border-radius: var(--r-sm); display: block; }
-.wc-blockadd { display: flex; gap: 10px; }
-.wc-blockadd .wz-btn { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+/* 스토리 본문 블록 (리치 에디터) */
+.wc-blocks { display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px; }
+.wc-block { border: 1px solid var(--c-border); border-radius: var(--r-md); padding: 14px; position: relative; background: #fff; transition: border-color .15s, box-shadow .15s, opacity .15s; }
+.wc-block.is-dragging { opacity: .5; }
+.wc-block.is-dropover { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
+.wc-block__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.wc-block__typewrap { display: inline-flex; align-items: center; gap: 7px; }
+.wc-block__handle { display: inline-flex; width: 18px; height: 18px; color: var(--c-text-faint); cursor: grab; }
+.wc-block__handle svg { width: 18px; height: 18px; }
+.wc-block__type { font-size: 12px; font-weight: 700; color: var(--c-primary-700); background: var(--c-primary-50); border-radius: var(--r-full); padding: 3px 10px; }
+.wc-block__del { border: 0; background: none; color: var(--c-danger); font-size: 12px; font-weight: 700; cursor: pointer; padding: 4px 6px; }
+
+/* 블록 편집 툴바(스타일·크기·정렬·이미지위치 칩) */
+.wc-btools { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 10px; }
+.wc-btools__label { font-size: 12px; font-weight: 700; color: var(--c-text-sub); }
+.wc-chipset { display: inline-flex; gap: 4px; background: var(--c-divider); border-radius: var(--r-full); padding: 3px; }
+.wc-chip { border: 0; background: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--c-text-sub); border-radius: var(--r-full); padding: 6px 12px; line-height: 1; transition: background .12s, color .12s; }
+.wc-chip:hover { color: var(--c-primary-700); }
+.wc-chip.is-on { background: #fff; color: var(--c-primary-700); box-shadow: var(--sh-1); }
+.wc-chip--icon { display: inline-flex; align-items: center; justify-content: center; padding: 6px 9px; }
+.wc-chip--icon svg { width: 16px; height: 16px; display: block; }
+
+/* 텍스트 정렬 유틸(에디터 미리보기용) */
+.wc-al-left { text-align: left; }
+.wc-al-center { text-align: center; }
+.wc-al-right { text-align: right; }
+
+/* 글 블록 textarea — variant 에 따라 글자 크기/굵기 실제 변화 */
+.wc-textarea--heading { font-size: 24px; font-weight: 800; line-height: 1.35; color: var(--c-text); min-height: 70px; }
+.wc-textarea--subheading { font-size: 18px; font-weight: 700; line-height: 1.4; color: var(--c-text); min-height: 60px; }
+.wc-textarea--body { font-size: 15px; font-weight: 400; line-height: 1.6; }
+.wc-textarea--quote { font-size: 16px; font-style: italic; line-height: 1.6; color: var(--c-text-sub); border-left: 3px solid var(--c-primary-300); padding-left: 14px; background: var(--c-primary-50); }
+
+/* 이미지 블록 — 크기(width)·정렬(align) 미리보기 */
+.wc-bimg { margin-bottom: 4px; }
+.wc-bimg__holder { display: flex; }
+.wc-bimg__holder.wc-al-left { justify-content: flex-start; }
+.wc-bimg__holder.wc-al-center { justify-content: center; }
+.wc-bimg__holder.wc-al-right { justify-content: flex-end; }
+.wc-bimg__fig { position: relative; max-width: 100%; }
+.wc-bimg__fig.wc-w-sm { width: 40%; }
+.wc-bimg__fig.wc-w-md { width: 60%; }
+.wc-bimg__fig.wc-w-lg { width: 80%; }
+.wc-bimg__fig.wc-w-full { width: 100%; }
+.wc-bimg__fig img { width: 100%; max-height: 360px; object-fit: contain; background: var(--c-divider); border-radius: var(--r-sm); display: block; }
+.wc-bimg__handle { position: absolute; right: 6px; bottom: 6px; width: 20px; height: 20px; border-radius: var(--r-sm); background: var(--c-primary-500); border: 2px solid #fff; box-shadow: var(--sh-1); cursor: ew-resize; touch-action: none; }
+
+/* 분할(split) 블록 — 글+이미지 2열, 모바일 1열(이미지 위) */
+.wc-split { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+.wc-split__text .wc-textarea { min-height: 150px; margin: 0; }
+.wc-split__img .wc-upload { min-height: 150px; }
+.wc-split__img .wc-preview img { max-height: 260px; }
+
+/* 블록 안 이미지 미리보기 공통(이미지/분할 외 fallback) */
+.wc-block .wc-preview img { max-height: 320px; }
+
+.wc-blockadd { display: flex; gap: 10px; flex-wrap: wrap; }
+.wc-blockadd .wz-btn { flex: 1; min-width: 130px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .wc-blockadd .wz-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 .wc-blockadd .wz-btn span { line-height: 1; }
 
@@ -434,4 +484,9 @@
   .wc-done__actions .wz-btn { width: 100%; }
   .wc-pick__actions { flex-direction: column-reverse; align-items: stretch; }
   .wc-pick__actions .wz-btn, .wc-pick__actions .wz-btn--primary { width: 100%; min-width: 0; }
+  /* 분할 블록은 모바일에서 1열 스택 — 이미지(사진)가 항상 위로. */
+  .wc-split, .wc-split--left, .wc-split--right { grid-template-columns: 1fr; }
+  .wc-split__img { order: -1; }
+  .wc-split__text .wc-textarea { min-height: 110px; }
+  .wc-blockadd .wz-btn { flex: 1 1 100%; }
 }

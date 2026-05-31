@@ -1,13 +1,14 @@
 import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository, GroupBuyUpdateFields } from '../repositories/groupbuy-repository.js';
-import type { RewardTier, ContentBlock, CreatorInfo } from '../types/index.js';
+import type { RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { pool } from '../db.js';
 import { logAudit } from '../services/audit-log.js';
 import { isValidCategory } from '../constants/categories.js';
+import { MAX_IMG_CHARS, normalizeContentBlocks } from '../utils/content-blocks.js';
 
 // 관리자 리워드 입력 검증 — id/soldCount 는 서버 부여, 가격/수량 범위 검증.
 function sanitizeTiers(v: unknown): RewardTier[] {
@@ -101,9 +102,6 @@ const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
 const TARGET_QTY_MAX = 500;
 const PRICE_MAX = 10_000_000;
-const MAX_IMG_CHARS = 12_000_000; // base64 data URL 약 8MB 상한
-const MAX_BLOCKS = 40;
-const MAX_TEXT_CHARS = 5000;
 
 function isValidImage(v: string): boolean {
   if (v.length === 0 || v.length > MAX_IMG_CHARS) return false;
@@ -147,24 +145,9 @@ function parseDeadline(s: string): Date {
   return dateOnly ? new Date(s + 'T23:59:59') : new Date(s);
 }
 
-// content_blocks 정규화 — 계약({type:'text',text}|{type:'image',url})·내부({type,value}) 양쪽 수용.
-function parseBlocks(v: unknown): ContentBlock[] {
-  if (!Array.isArray(v)) return [];
-  const blocks: ContentBlock[] = [];
-  for (const raw of v.slice(0, MAX_BLOCKS)) {
-    if (!raw || typeof raw !== 'object') continue;
-    const b = raw as Record<string, unknown>;
-    if (b.type === 'text') {
-      const src = typeof b.text === 'string' ? b.text : (typeof b.value === 'string' ? b.value : '');
-      const text = src.trim();
-      if (text) blocks.push({ type: 'text', value: text.slice(0, MAX_TEXT_CHARS) });
-    } else if (b.type === 'image') {
-      const src = typeof b.url === 'string' ? b.url : (typeof b.value === 'string' ? b.value : '');
-      if (typeof src === 'string' && isValidImage(src)) blocks.push({ type: 'image', value: src });
-    }
-  }
-  return blocks;
-}
+// content_blocks 정규화 — 리치 스키마(text/image/split + variant/align/width/imageSide) 보존, 하위호환.
+// funds-create / me-funds 와 동일한 공유 normalizeContentBlocks 위임.
+const parseBlocks = normalizeContentBlocks;
 
 /**
  * PATCH /api/admin/funds/:id — 관리자가 (대리개설 의뢰 등) 펀드를 대신 작성/수정.

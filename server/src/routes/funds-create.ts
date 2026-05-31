@@ -9,16 +9,13 @@ import { createErrorResponse } from '../errors/error-response.js';
 import { notify, notifyMany } from '../services/notify.js';
 import { logger } from '../logger.js';
 import { isValidCategory } from '../constants/categories.js';
+import { imageField, normalizeContentBlocks } from '../utils/content-blocks.js';
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
 const TARGET_QTY_MAX = 500;
 const NOTE_MAX = 2000;
 const PHONE_RE = /^[0-9\-+ ]{7,20}$/;
-
-const MAX_IMG_CHARS = 12_000_000; // base64 data URL 약 8MB 상한
-const MAX_BLOCKS = 40;
-const MAX_TEXT_CHARS = 5000;
 
 const MAX_TIERS = 12;
 const TIER_TITLE_MAX = 60;
@@ -198,7 +195,7 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   // 요금제(plan)별 수수료율 — Start 5% / Run 9% / Boost 15%. 서버에서만 결정.
   const feeRate = PLAN_FEE_RATE[plan] ?? NORMAL_FEE_RATE;
   const platformFee = Math.round(finalPrice * feeRate);
-  const firstContentImage = contentBlocks?.find((b) => b.type === 'image')?.value ?? null;
+  const firstContentImage = firstBlockImage(contentBlocks);
   const thumbnail = cover ?? firstContentImage;
   const now = new Date();
 
@@ -319,14 +316,6 @@ function stringField(v: unknown, fallback?: string): string {
   return v.trim();
 }
 
-function imageField(v: unknown): string | null {
-  if (typeof v !== 'string' || v.length === 0) return null;
-  if (v.length > MAX_IMG_CHARS) return null;
-  const isHttp = /^https?:\/\//.test(v);
-  const isDataImage = /^data:image\/(png|jpe?g|webp);base64,/.test(v);
-  return (isHttp || isDataImage) ? v : null;
-}
-
 /**
  * 리워드 티어 파싱. 계약 형태({title, price, desc, stock?})와 내부 형태({description, stockLimit})
  * 양쪽 키를 모두 수용. id/soldCount 는 서버가 부여(클라 신뢰 안 함).
@@ -355,26 +344,23 @@ function parseRewardTiers(v: unknown): RewardTier[] | null {
 }
 
 /**
- * 본문 블록 파싱. 계약 형태({type:'text', text} | {type:'image', url})와
- * 내부 형태({type, value}) 양쪽을 수용해 내부 {type, value} 로 정규화.
+ * 본문 블록 파싱(리치 스키마, 하위호환) — 공유 normalizeContentBlocks 위임.
+ * text/image/split 타입별로 스타일·정렬·크기·좌우배치를 보존하고 빈/무효 블록은 제외.
+ * 빈 배열은 null 로(저장 생략) 반환해 기존 계약 유지.
  */
 function parseBlocks(v: unknown): ContentBlock[] | null {
-  if (!Array.isArray(v) || v.length === 0) return null;
-  const blocks: ContentBlock[] = [];
-  for (const raw of v.slice(0, MAX_BLOCKS)) {
-    if (!raw || typeof raw !== 'object') continue;
-    const b = raw as Record<string, unknown>;
-    if (b.type === 'text') {
-      const src = typeof b.text === 'string' ? b.text : (typeof b.value === 'string' ? b.value : '');
-      const text = src.trim();
-      if (text) blocks.push({ type: 'text', value: text.slice(0, MAX_TEXT_CHARS) });
-    } else if (b.type === 'image') {
-      const src = typeof b.url === 'string' ? b.url : (typeof b.value === 'string' ? b.value : '');
-      const img = imageField(src);
-      if (img) blocks.push({ type: 'image', value: img });
-    }
-  }
+  const blocks = normalizeContentBlocks(v);
   return blocks.length ? blocks : null;
+}
+
+// 본문 블록에서 첫 이미지 URL 추출(썸네일 폴백). image 블록은 value, split 블록은 image.
+function firstBlockImage(blocks: ContentBlock[] | null): string | null {
+  if (!blocks) return null;
+  for (const b of blocks) {
+    if (b.type === 'image') return b.value;
+    if (b.type === 'split') return b.image;
+  }
+  return null;
 }
 
 function intField(v: unknown, min: number, max: number): number | null {

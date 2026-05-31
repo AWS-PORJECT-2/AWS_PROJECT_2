@@ -54,10 +54,40 @@ export interface CreatorInfo {
   sigungu?: string;     // 시/군/구
 }
 
-// 게시글 본문 블록 — 텍스트와 이미지를 사용자가 원하는 순서로 섞음
-export interface ContentBlock {
-  type: 'text' | 'image';
-  value: string; // text: 본문 문자열 / image: data URL 또는 http URL
+// 스토리 본문 블록 스타일 enum — 알 수 없는 값은 파서가 기본값으로 강등(아래 기본값 주석 참고).
+export type ContentTextVariant = 'heading' | 'subheading' | 'body' | 'quote'; // 기본 'body'
+export type ContentAlign = 'left' | 'center' | 'right';                       // 텍스트 기본 'left', 이미지 기본 'center'
+export type ContentImageWidth = 'sm' | 'md' | 'lg' | 'full';                  // sm≈40 / md≈60 / lg≈80 / full=100%. 기본 'full'
+export type ContentImageSide = 'left' | 'right';                              // 분할 블록 이미지 위치. 기본 'right'
+
+// 게시글 본문 블록 — 텍스트/이미지/분할(글+이미지 2열)을 사용자가 원하는 순서로 섞음.
+// 리치 스키마(스타일/정렬/크기/좌우배치)를 보존. 하위호환: 기존 {type:'text'|'image', value} 도 유효(스타일 미지정 → 기본값).
+export type ContentBlock = ContentTextBlock | ContentImageBlock | ContentSplitBlock;
+
+// 텍스트 블록 — value: 본문 문자열(≤5000). variant: 글자 스타일(기본 body). align: 정렬(기본 left).
+export interface ContentTextBlock {
+  type: 'text';
+  value: string;
+  variant?: ContentTextVariant;
+  align?: ContentAlign;
+}
+
+// 이미지 블록 — value: data URL 또는 http(s) URL. width: 표시 너비(기본 full). align: 블록 내 가로 정렬(기본 center).
+export interface ContentImageBlock {
+  type: 'image';
+  value: string;
+  width?: ContentImageWidth;
+  align?: ContentAlign;
+}
+
+// 분할 블록 — 글(text, ≤5000) + 이미지(image URL) 좌우 2열. imageSide=right → 글 왼쪽/사진 오른쪽(기본).
+// align: 텍스트 정렬(기본 left). 모바일에선 1열 스택(이미지가 위).
+export interface ContentSplitBlock {
+  type: 'split';
+  text: string;
+  image: string;
+  imageSide?: ContentImageSide;
+  align?: ContentAlign;
 }
 
 // 리워드(선물) 티어 — 후원 옵션. 가격은 창작자 설정, 재고(stockLimit) 선택.

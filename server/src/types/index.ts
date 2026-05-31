@@ -12,7 +12,10 @@ export type { OAuthTokenResponse } from './oauth-token-response.js';
 export type { UserInfo } from './user-info.js';
 export type {
   GroupBuyStatus, ParticipationStatus, OrderStatus, OrderKind, PaymentStatus, RefundStatus,
-  ProductOption, GroupBuy, CreatorInfo, ContentBlock, RewardTier, Participation, Order, Payment, PaymentEvent, Refund,
+  ProductOption, GroupBuy, CreatorInfo,
+  ContentBlock, ContentTextBlock, ContentImageBlock, ContentSplitBlock,
+  ContentTextVariant, ContentAlign, ContentImageWidth, ContentImageSide,
+  RewardTier, Participation, Order, Payment, PaymentEvent, Refund,
   ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,
 } from './payment.js';
 export type { PaymentMethod } from './payment-method.js';
