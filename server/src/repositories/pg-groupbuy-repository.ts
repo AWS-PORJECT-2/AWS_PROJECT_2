@@ -117,6 +117,9 @@ function contentBlocksToContract(blocks: ContentBlock[] | null): ContentBlockCon
     if (b.type === 'image') {
       return { type: 'image', url: b.value, width: b.width ?? 'full', align: b.align ?? 'center' };
     }
+    if (b.type === 'html') {
+      return { type: 'html', html: b.html };
+    }
     // split
     return { type: 'split', text: b.text, url: b.image, imageSide: b.imageSide ?? 'right', align: b.align ?? 'left' };
   });

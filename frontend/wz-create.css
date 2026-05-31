@@ -288,11 +288,103 @@
 .wc-blockadd .wz-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
 .wc-blockadd .wz-btn span { line-height: 1; }
 
+/* =================== 스토리 WYSIWYG 에디터 =================== */
+.wc-rte { border: 1px solid var(--c-border); border-radius: var(--r-md); background: #fff; display: flex; flex-direction: column; overflow: hidden; }
+
+/* 툴바 */
+.wc-rte__toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--c-divider); background: var(--c-surface, #fafafb); position: sticky; top: 0; z-index: 2; }
+.wc-rte__btn { width: 32px; height: 32px; border: 0; background: none; border-radius: var(--r-sm); cursor: pointer; color: var(--c-text-sub); display: inline-flex; align-items: center; justify-content: center; font-family: inherit; font-size: 13px; font-weight: 700; padding: 0; transition: background .12s, color .12s; }
+.wc-rte__btn:hover { background: var(--c-primary-50); color: var(--c-primary-700); }
+.wc-rte__btn svg { width: 18px; height: 18px; display: block; }
+.wc-rte__btn--wide { width: auto; padding: 0 12px; color: var(--c-primary-700); }
+.wc-rte__btn--right { margin-left: auto; }
+.wc-rte__divider { width: 1px; height: 22px; background: var(--c-border); margin: 0 6px; flex-shrink: 0; }
+.wc-rte__select { height: 32px; border: 1px solid var(--c-border); background: #fff; border-radius: var(--r-sm); font-family: inherit; font-size: 13px; color: var(--c-text); padding: 0 8px; cursor: pointer; }
+.wc-rte__select:focus { outline: none; border-color: var(--c-primary-500); }
+
+/* 본문 (contenteditable) — 흰 배경 가독성 위해 글자색 진하게 */
+.wc-rte__editor { min-height: 280px; max-height: 60vh; overflow-y: auto; padding: 18px 20px; font-size: 16px; line-height: 1.75; color: var(--c-text); outline: none; word-break: break-word; }
+.wc-rte__editor.is-dropfile { box-shadow: 0 0 0 3px var(--c-primary-100) inset; }
+.wc-rte__editor.is-empty::before { content: attr(data-placeholder); color: var(--c-text-faint); pointer-events: none; }
+.wc-rte__editor h1 { font-size: 28px; font-weight: 800; margin: 18px 0 10px; line-height: 1.3; }
+.wc-rte__editor h2 { font-size: 23px; font-weight: 800; margin: 16px 0 9px; line-height: 1.35; }
+.wc-rte__editor h3 { font-size: 19px; font-weight: 700; margin: 14px 0 8px; line-height: 1.4; }
+.wc-rte__editor h4 { font-size: 16px; font-weight: 700; margin: 12px 0 6px; }
+.wc-rte__editor p { margin: 0 0 10px; }
+.wc-rte__editor ul, .wc-rte__editor ol { margin: 0 0 12px; padding-left: 26px; }
+.wc-rte__editor li { margin: 3px 0; }
+.wc-rte__editor blockquote { margin: 12px 0; padding: 8px 16px; border-left: 3px solid var(--c-primary-300); background: var(--c-primary-50); color: var(--c-text-sub); font-style: italic; border-radius: 0 var(--r-sm) var(--r-sm) 0; }
+.wc-rte__editor hr { border: 0; border-top: 1px solid var(--c-border); margin: 20px 0; }
+.wc-rte__editor a { color: var(--c-primary-600); text-decoration: underline; }
+.wc-rte__editor img { max-width: 100%; }
+.wc-rte__editor table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.wc-rte__editor th, .wc-rte__editor td { border: 1px solid var(--c-border); padding: 6px 10px; }
+
+/* 이미지 figure — 자유 크기 + 좌/우 배치 */
+.wc-rte__editor figure.wz-rt-fig { position: relative; display: block; margin: 14px auto; width: 60%; max-width: 100%; clear: both; }
+.wc-rte__editor figure.wz-rt-fig img { width: 100%; display: block; border-radius: var(--r-sm); }
+.wc-rte__editor figure.wz-rt-fig[data-align="center"] { margin-left: auto; margin-right: auto; float: none; }
+.wc-rte__editor figure.wz-rt-fig[data-align="full"] { width: 100%; margin-left: auto; margin-right: auto; float: none; }
+.wc-rte__editor figure.wz-rt-fig[data-align="left"] { float: left; margin: 6px 18px 12px 0; }
+.wc-rte__editor figure.wz-rt-fig[data-align="right"] { float: right; margin: 6px 0 12px 18px; }
+.wc-rte__editor figure.wz-rt-fig.is-selected { outline: 2px solid var(--c-primary-500); outline-offset: 2px; }
+
+/* 영상/오디오 embed */
+.wc-rte__editor figure.wz-rt-embed { position: relative; width: 100%; margin: 16px 0; padding-top: 56.25%; height: 0; clear: both; }
+.wc-rte__editor figure.wz-rt-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: var(--r-sm); }
+.wc-rte__editor figure.wz-rt-audio { margin: 14px 0; clear: both; }
+.wc-rte__editor figure.wz-rt-audio audio { width: 100%; }
+
+/* 리사이즈 핸들 (이미지 테두리) */
+.wc-rte__handle { position: absolute; width: 14px; height: 14px; background: var(--c-primary-500); border: 2px solid #fff; border-radius: 3px; box-shadow: var(--sh-1); z-index: 4; touch-action: none; }
+.wc-rte__handle--nw { top: -7px; left: -7px; cursor: nwse-resize; }
+.wc-rte__handle--ne { top: -7px; right: -7px; cursor: nesw-resize; }
+.wc-rte__handle--sw { bottom: -7px; left: -7px; cursor: nesw-resize; }
+.wc-rte__handle--se { bottom: -7px; right: -7px; cursor: nwse-resize; }
+.wc-rte__handle--e { top: calc(50% - 7px); right: -7px; cursor: ew-resize; }
+.wc-rte__handle--w { top: calc(50% - 7px); left: -7px; cursor: ew-resize; }
+
+/* 이미지 플로팅 미니툴바 */
+.wc-rte__mini { position: absolute; top: -44px; left: 50%; transform: translateX(-50%); display: flex; align-items: center; gap: 2px; background: var(--c-text); color: #fff; border-radius: var(--r-full); padding: 4px 6px; box-shadow: var(--sh-3); z-index: 5; white-space: nowrap; }
+.wc-rte__mini-btn { border: 0; background: none; color: #fff; font-family: inherit; font-size: 12px; font-weight: 700; padding: 5px 9px; border-radius: var(--r-full); cursor: pointer; line-height: 1; }
+.wc-rte__mini-btn:hover { background: rgba(255, 255, 255, .18); }
+.wc-rte__mini-sep { width: 1px; height: 16px; background: rgba(255, 255, 255, .3); margin: 0 3px; }
+
+/* 인라인 패널(링크/영상 입력) */
+.wc-rte__inline { margin-top: 12px; padding: 14px; border: 1px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: var(--r-md); }
+.wc-rte__inline-label { font-size: 12px; color: var(--c-text-sub); margin: 0 0 8px; font-weight: 600; }
+.wc-rte__inline-row { display: flex; gap: 8px; align-items: center; }
+.wc-rte__inline-row .wc-input { flex: 1; }
+.wc-rte__inline-row .wz-btn { flex-shrink: 0; height: 42px; padding: 0 16px; }
+
+/* 전체화면 */
+.wc-rte.is-fullscreen { position: fixed; inset: 0; z-index: 1200; border-radius: 0; max-height: none; }
+.wc-rte.is-fullscreen .wc-rte__editor { max-height: none; flex: 1; height: calc(100vh - 50px); }
+
+/* 템플릿 모달 그리드 */
+.wc-tplgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 4px; }
+.wc-tplcard { text-align: left; background: #fff; border: 1.5px solid var(--c-border); border-radius: var(--r-md); padding: 16px; cursor: pointer; font-family: inherit; transition: border-color .15s, box-shadow .15s, transform .12s; }
+.wc-tplcard:hover { border-color: var(--c-primary-400); box-shadow: var(--sh-1); transform: translateY(-2px); }
+.wc-tplcard__name { font-size: 15px; font-weight: 800; color: var(--c-text); margin: 0 0 6px; }
+.wc-tplcard__desc { font-size: 12.5px; color: var(--c-text-muted); margin: 0; line-height: 1.5; }
+
+/* 모바일: float 해제(이미지 전체폭) */
+@media (max-width: 767px) {
+  .wc-rte__editor figure.wz-rt-fig,
+  .wc-rte__editor figure.wz-rt-fig[data-align="left"],
+  .wc-rte__editor figure.wz-rt-fig[data-align="right"] { float: none; width: 100% !important; margin: 14px 0; }
+  .wc-rte__mini { font-size: 11px; padding: 3px 4px; }
+  .wc-rte__mini-btn { padding: 5px 6px; }
+  .wc-tplgrid { grid-template-columns: 1fr; }
+  .wc-rte__inline-row { flex-wrap: wrap; }
+  .wc-rte__inline-row .wc-input { flex: 1 1 100%; }
+}
+
 /* 안내(저장 불가 필드) */
 .wc-fld__notice { font-size: 12px; color: var(--c-warning); background: #FEF3C7; border-radius: var(--r-sm); padding: 8px 10px; margin-top: 8px; line-height: 1.5; }
 
 /* =================== AI 가상피팅 모달 =================== */
-.wc-modal { position: fixed; inset: 0; z-index: 950; display: none; align-items: center; justify-content: center; padding: 24px; }
+.wc-modal { position: fixed; inset: 0; z-index: 1300; display: none; align-items: center; justify-content: center; padding: 24px; }
 .wc-modal.is-open { display: flex; }
 .wc-modal__dim { position: absolute; inset: 0; background: rgba(16, 24, 40, .5); }
 .wc-modal__box { position: relative; width: 540px; max-width: 100%; max-height: 90vh; overflow-y: auto; background: #fff; border-radius: var(--r-lg); box-shadow: var(--sh-3); padding: 28px; }

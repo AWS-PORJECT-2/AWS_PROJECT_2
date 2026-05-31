@@ -40,6 +40,36 @@
 
   const root = document.getElementById('wz-detail');
 
+  /* ===================================================================
+   * 스토리 HTML 새니타이즈 (DOMPurify) — 렌더 시점 1차 방어.
+   * 공유 allowlist 와 동일. DOMPurify 미로드 시 빈 문자열 반환(안전측 가드).
+   * 저장된 HTML 에 악성 코드가 있어도 화면 삽입 전에 제거 → 실행 불가.
+   * =================================================================== */
+  var _wzPurifyHookDone = false;
+  function wzInstallPurifyHook() {
+    if (_wzPurifyHookDone || !window.DOMPurify || typeof DOMPurify.addHook !== 'function') return;
+    // iframe src 화이트리스트(youtube/youtube-nocookie/vimeo embed 아니면 노드 제거). 1회 등록.
+    DOMPurify.addHook('uponSanitizeElement', function (node, data) {
+      if (data.tagName === 'iframe') {
+        var src = (node.getAttribute && node.getAttribute('src')) || '';
+        if (!/^https:\/\/(www\.youtube\.com\/embed\/|www\.youtube-nocookie\.com\/embed\/|player\.vimeo\.com\/video\/)/.test(src)) {
+          if (typeof node.remove === 'function') node.remove();
+        }
+      }
+    });
+    _wzPurifyHookDone = true;
+  }
+  function wzSanitize(html) {
+    if (!window.DOMPurify) return ''; // 가드: 미로드 시 빈값(안전측)
+    wzInstallPurifyHook();
+    return DOMPurify.sanitize(html, {
+      ALLOWED_TAGS: ['p', 'br', 'h1', 'h2', 'h3', 'h4', 'strong', 'b', 'em', 'i', 'u', 's', 'strike', 'del', 'mark', 'span', 'div', 'ul', 'ol', 'li', 'blockquote', 'hr', 'a', 'img', 'figure', 'figcaption', 'iframe', 'table', 'thead', 'tbody', 'tr', 'th', 'td', 'audio', 'video', 'source'],
+      ALLOWED_ATTR: ['href', 'target', 'rel', 'src', 'alt', 'title', 'width', 'height', 'style', 'class', 'data-align', 'data-width', 'controls', 'allow', 'allowfullscreen', 'frameborder', 'colspan', 'rowspan'],
+      ALLOW_DATA_ATTR: true,
+      ADD_ATTR: ['target'],
+    });
+  }
+
   /* ---------- helpers ---------- */
   function getId() {
     const u = new URL(location.href);
@@ -126,6 +156,27 @@
     if (!b || b.type !== 'split') return '';
     return b.url || b.image || b.value || '';
   }
+  /* html 블록 본문에서 <img src> 들을 추출(갤러리/og 폴백용, best-effort).
+   * 새니타이즈 후 임시 DOM 에서 추출 → 안전한 src 만 수집(http(s)/상대/허용 data:image).
+   * DOMPurify 미로드 등으로 깨지면 빈 배열(무시). */
+  function htmlBlockImages(b) {
+    if (!b || b.type !== 'html' || typeof b.html !== 'string') return [];
+    const safe = wzSanitize(b.html);
+    if (!safe) return [];
+    const out = [];
+    try {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = safe;
+      tmp.querySelectorAll('img').forEach((im) => {
+        const src = im.getAttribute('src') || '';
+        if (!src) return;
+        if (/^https?:\/\//i.test(src) || /^\//.test(src) || /^data:image\/(png|jpe?g|webp|gif)/i.test(src)) {
+          if (out.indexOf(src) === -1) out.push(src);
+        }
+      });
+    } catch (_) { /* 무시 */ }
+    return out;
+  }
   /* 허용 enum 중 하나면 그대로, 아니면 기본값(서버가 이미 정규화하지만 프론트도 방어). */
   function pickEnum(v, allowed, fallback) {
     return (typeof v === 'string' && allowed.indexOf(v) !== -1) ? v : fallback;
@@ -140,6 +191,10 @@
     (Array.isArray(f.contentBlocks) ? f.contentBlocks : []).forEach((b) => {
       const u = blockImageUrl(b);
       if (u && out.indexOf(u) === -1) out.push(u);
+      // html 블록이면 본문 첫 이미지들도 갤러리 후보로(best-effort).
+      if (b && b.type === 'html') {
+        htmlBlockImages(b).forEach((src) => { if (out.indexOf(src) === -1) out.push(src); });
+      }
     });
     return out;
   }
@@ -429,11 +484,29 @@
     return row;
   }
 
+  // html 블록(리치 에디터 산출물): {type:'html', html}. 반드시 wzSanitize 거쳐 innerHTML.
+  // raw b.html 직접 삽입 금지 — 렌더 시점 DOMPurify 가 1차 방어. 미로드 시 빈값.
+  function buildHtmlBlock(b) {
+    const raw = (b && typeof b.html === 'string') ? b.html : '';
+    const safe = wzSanitize(raw);
+    if (!safe || !safe.trim()) return null; // 내용 없으면 블록 생략
+    const wrap = W.el('div', { class: 'wz-d-blk wz-d-blk--html' });
+    wrap.innerHTML = safe; // 새니타이즈된 HTML 만 삽입(위 wzSanitize 경유 — raw 삽입 경로 없음)
+    // 본문 링크는 새 탭 + 안전 rel 보정(없을 때만 추가).
+    wrap.querySelectorAll('a').forEach((a) => {
+      if (!a.getAttribute('target')) a.setAttribute('target', '_blank');
+      const rel = (a.getAttribute('rel') || '').toLowerCase();
+      if (!/\bnoopener\b/.test(rel) || !/\bnoreferrer\b/.test(rel)) a.setAttribute('rel', 'noopener noreferrer');
+    });
+    return wrap;
+  }
+
   function buildStoryBlock(b) {
     if (!b) return null;
     if (b.type === 'text') return buildTextBlock(b);
     if (b.type === 'image') return buildImageBlock(b);
     if (b.type === 'split') return buildSplitBlock(b);
+    if (b.type === 'html') return buildHtmlBlock(b);
     return null;
   }
 

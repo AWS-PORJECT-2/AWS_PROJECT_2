@@ -7,10 +7,12 @@ import type { PoolClient } from 'pg';
 // 공개 상세 응답의 스토리 블록 계약(리치 스키마 보존). 내부 ContentBlock 을 계약 키로 옮긴 형태.
 // text: {type:'text', text, variant, align} / image: {type:'image', url, width, align}
 // split: {type:'split', text, url, imageSide, align} — image 는 계약상 url 키로 노출.
+// html: {type:'html', html} — WYSIWYG 새니타이즈된 HTML(서버에서 한 번 더 새니타이즈됨). 프론트는 렌더 시 DOMPurify 로 1차 방어.
 export type ContentBlockContract =
   | { type: 'text'; text: string; variant: ContentTextVariant; align: ContentAlign }
   | { type: 'image'; url: string; width: ContentImageWidth; align: ContentAlign }
-  | { type: 'split'; text: string; url: string; imageSide: ContentImageSide; align: ContentAlign };
+  | { type: 'split'; text: string; url: string; imageSide: ContentImageSide; align: ContentAlign }
+  | { type: 'html'; html: string };
 
 // 관리자 부분 수정에 허용되는 필드(화이트리스트). 모두 선택적 — 제공된 키만 갱신.
 // creatorId/status/finalPrice/rewardTiers 등은 의도적으로 제외(다른 전용 메서드/플로우가 담당).

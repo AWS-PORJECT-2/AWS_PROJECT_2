@@ -483,3 +483,83 @@ a.wz-btn--primary:focus,
 a.wz-btn--primary:active { color: #fff; }
 a.wz-btn--primary svg,
 a.wz-btn--primary svg path { color: #fff; stroke: #fff; }
+
+/* =================== [7-8] 스토리 HTML 블록 (리치 에디터 산출물) ===================
+ * detail.html 의 {type:'html'} 스토리 블록. 내부 HTML 은 wzSanitize(DOMPurify) 거친
+ * allowlist 태그만 들어온다(p/h1~h4/ul/ol/blockquote/a/img/figure/iframe/table/mark 등).
+ * 사용자 작성 본문이라 폭/높이 넘침 방지(img/iframe 반응형) + 깔끔한 타이포를 보장한다.
+ * 다른 블록(text/image/split)의 .wz-d-blk__* 클래스는 직접 자식이 raw 태그라 영향 없음. */
+.wz-d-blk--html { font-size: 16px; line-height: 1.7; color: var(--c-text-sub); word-break: break-word; overflow-wrap: anywhere; }
+
+/* 제목 — 크기/굵기/여백 */
+.wz-d-blk--html h1 { font-size: 28px; line-height: 1.35; font-weight: 800; color: var(--c-text); margin: 1.2em 0 .5em; }
+.wz-d-blk--html h2 { font-size: 23px; line-height: 1.4; font-weight: 800; color: var(--c-text); margin: 1.1em 0 .5em; }
+.wz-d-blk--html h3 { font-size: 19px; line-height: 1.45; font-weight: 700; color: var(--c-text); margin: 1em 0 .4em; }
+.wz-d-blk--html h4 { font-size: 17px; line-height: 1.5; font-weight: 700; color: var(--c-text); margin: 1em 0 .4em; }
+.wz-d-blk--html h1:first-child,
+.wz-d-blk--html h2:first-child,
+.wz-d-blk--html h3:first-child,
+.wz-d-blk--html h4:first-child,
+.wz-d-blk--html p:first-child { margin-top: 0; }
+
+/* 본문 단락 */
+.wz-d-blk--html p { margin: 0 0 1em; line-height: 1.7; color: var(--c-text-sub); }
+.wz-d-blk--html p:last-child { margin-bottom: 0; }
+
+/* 인용 — 좌측 보더 + 들여쓰기 + 회색 */
+.wz-d-blk--html blockquote { margin: 1.2em 0; padding: .4em 0 .4em 18px; border-left: 4px solid var(--c-primary-300); color: var(--c-text-muted); font-style: italic; }
+.wz-d-blk--html blockquote p { color: inherit; }
+
+/* 목록 — 들여쓰기/마커 */
+.wz-d-blk--html ul,
+.wz-d-blk--html ol { margin: 0 0 1em; padding-left: 1.6em; }
+.wz-d-blk--html ul { list-style: disc; }
+.wz-d-blk--html ol { list-style: decimal; }
+.wz-d-blk--html li { margin: .25em 0; line-height: 1.7; }
+.wz-d-blk--html li > ul,
+.wz-d-blk--html li > ol { margin: .25em 0; }
+
+/* 구분선 */
+.wz-d-blk--html hr { border: 0; border-top: 1px solid var(--c-divider); margin: 1.6em 0; }
+
+/* 형광펜 / 강조 / 링크 */
+.wz-d-blk--html mark { background: #FEF3C7; color: inherit; padding: 0 .15em; border-radius: 2px; }
+.wz-d-blk--html strong, .wz-d-blk--html b { font-weight: 700; color: var(--c-text); }
+.wz-d-blk--html em, .wz-d-blk--html i { font-style: italic; }
+.wz-d-blk--html u { text-decoration: underline; }
+.wz-d-blk--html s, .wz-d-blk--html strike, .wz-d-blk--html del { text-decoration: line-through; }
+.wz-d-blk--html a { color: var(--c-primary-600); text-decoration: underline; word-break: break-all; }
+.wz-d-blk--html a:hover { color: var(--c-primary-700); }
+
+/* 이미지 — 절대 컨테이너 넘침 방지 */
+.wz-d-blk--html img { max-width: 100%; height: auto; border-radius: 8px; display: block; }
+
+/* 표 */
+.wz-d-blk--html table { width: 100%; border-collapse: collapse; margin: 1.2em 0; font-size: 15px; }
+.wz-d-blk--html th,
+.wz-d-blk--html td { border: 1px solid var(--c-divider); padding: 8px 10px; text-align: left; vertical-align: top; }
+.wz-d-blk--html th { background: var(--c-primary-50); font-weight: 700; color: var(--c-text); }
+
+/* figure 정렬(에디터 data-align/float) + clearfix. width 인라인 스타일 존중. */
+.wz-d-blk--html figure { margin: 1em 0; max-width: 100%; }
+.wz-d-blk--html figure figcaption { font-size: 13px; color: var(--c-text-muted); text-align: center; margin-top: .5em; }
+.wz-d-blk--html figure[data-align="left"]  { float: left;  margin: .2em 1.2em .8em 0; }
+.wz-d-blk--html figure[data-align="right"] { float: right; margin: .2em 0 .8em 1.2em; }
+.wz-d-blk--html figure[data-align="center"] { display: block; margin: 1em auto; }
+/* float 해제 — 컨테이너가 떠 있는 figure 를 감싸도록 */
+.wz-d-blk--html::after { content: ""; display: block; clear: both; }
+
+/* 영상 임베드 — 16:9 반응형. figure.wz-rt-embed 또는 단독 iframe 모두 대응. */
+.wz-d-blk--html figure.wz-rt-embed { position: relative; padding-top: 56.25%; width: 100%; margin: 1.2em 0; }
+.wz-d-blk--html figure.wz-rt-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: 8px; }
+/* figure 로 감싸지 않은 단독 iframe 폴백 — 폭 100%, 16:9 비율. */
+.wz-d-blk--html iframe:not(figure.wz-rt-embed iframe) { display: block; width: 100%; max-width: 100%; aspect-ratio: 16 / 9; border: 0; border-radius: 8px; margin: 1.2em 0; }
+.wz-d-blk--html video,
+.wz-d-blk--html audio { max-width: 100%; }
+
+/* 모바일 — 떠 있는 figure 는 1열로(float 해제, 폭 100%) */
+@media (max-width: 640px) {
+  .wz-d-blk--html figure[data-align="left"],
+  .wz-d-blk--html figure[data-align="right"],
+  .wz-d-blk--html figure[data-align="center"] { float: none; width: 100% !important; margin: 1em 0; }
+}

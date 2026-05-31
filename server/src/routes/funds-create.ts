@@ -9,7 +9,7 @@ import { createErrorResponse } from '../errors/error-response.js';
 import { notify, notifyMany } from '../services/notify.js';
 import { logger } from '../logger.js';
 import { isValidCategory } from '../constants/categories.js';
-import { imageField, normalizeContentBlocks } from '../utils/content-blocks.js';
+import { imageField, normalizeContentBlocks, firstHtmlImageSrc } from '../utils/content-blocks.js';
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
@@ -353,12 +353,18 @@ function parseBlocks(v: unknown): ContentBlock[] | null {
   return blocks.length ? blocks : null;
 }
 
-// 본문 블록에서 첫 이미지 URL 추출(썸네일 폴백). image 블록은 value, split 블록은 image.
+// 본문 블록에서 첫 이미지 URL 추출(썸네일 폴백).
+// image 블록은 value, split 블록은 image, html 블록은 본문 첫 <img src> 를 추출(imageField 검증 통과분만).
 function firstBlockImage(blocks: ContentBlock[] | null): string | null {
   if (!blocks) return null;
   for (const b of blocks) {
     if (b.type === 'image') return b.value;
     if (b.type === 'split') return b.image;
+    if (b.type === 'html') {
+      const src = firstHtmlImageSrc(b.html);
+      const img = src ? imageField(src) : null;
+      if (img) return img;
+    }
   }
   return null;
 }

@@ -13,7 +13,7 @@ export type { UserInfo } from './user-info.js';
 export type {
   GroupBuyStatus, ParticipationStatus, OrderStatus, OrderKind, PaymentStatus, RefundStatus,
   ProductOption, GroupBuy, CreatorInfo,
-  ContentBlock, ContentTextBlock, ContentImageBlock, ContentSplitBlock,
+  ContentBlock, ContentTextBlock, ContentImageBlock, ContentSplitBlock, ContentHtmlBlock,
   ContentTextVariant, ContentAlign, ContentImageWidth, ContentImageSide,
   RewardTier, Participation, Order, Payment, PaymentEvent, Refund,
   ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,

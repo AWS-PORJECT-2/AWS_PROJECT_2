@@ -62,7 +62,8 @@ export type ContentImageSide = 'left' | 'right';                              //
 
 // 게시글 본문 블록 — 텍스트/이미지/분할(글+이미지 2열)을 사용자가 원하는 순서로 섞음.
 // 리치 스키마(스타일/정렬/크기/좌우배치)를 보존. 하위호환: 기존 {type:'text'|'image', value} 도 유효(스타일 미지정 → 기본값).
-export type ContentBlock = ContentTextBlock | ContentImageBlock | ContentSplitBlock;
+// html 블록은 WYSIWYG(임의 HTML)용. 신규 펀드는 보통 html 블록 1개로 스토리를 표현. text/image/split 은 구버전 펀드 하위호환용으로 유지.
+export type ContentBlock = ContentTextBlock | ContentImageBlock | ContentSplitBlock | ContentHtmlBlock;
 
 // 텍스트 블록 — value: 본문 문자열(≤5000). variant: 글자 스타일(기본 body). align: 정렬(기본 left).
 export interface ContentTextBlock {
@@ -89,6 +90,9 @@ export interface ContentSplitBlock {
   imageSide?: ContentImageSide;
   align?: ContentAlign;
 }
+
+// html 블록 — WYSIWYG가 생성한 새니타이즈된 HTML 한 덩어리. 새 펀드는 보통 이 블록 1개로 스토리를 표현.
+export interface ContentHtmlBlock { type: 'html'; html: string; }
 
 // 리워드(선물) 티어 — 후원 옵션. 가격은 창작자 설정, 재고(stockLimit) 선택.
 export interface RewardTier {
