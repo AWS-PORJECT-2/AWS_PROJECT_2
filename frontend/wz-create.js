@@ -512,6 +512,11 @@
         open: openGoalForm,
       },
       {
+        key: 'schedule', name: '공개 예정', required: false,
+        done: function () { return !nstate.openScheduled || !!nstate.openAt; },
+        open: openScheduleForm,
+      },
+      {
         key: 'story', name: '스토리', required: true,
         done: function () { return nstate.storyBlocks.some(storyBlockHasContent); },
         open: openStoryForm,
@@ -649,7 +654,7 @@
 
   // 섹션 key → 사이드바 아이콘
   var SECTION_ICON = {
-    basic: IC.doc, plan: IC.tier, goal: IC.calendar, story: IC.pen,
+    basic: IC.doc, plan: IC.tier, goal: IC.calendar, schedule: IC.calendar, story: IC.pen,
     reward: IC.wallet, creator: IC.user, policy: IC.shield, maker: IC.mega,
   };
 
@@ -1070,7 +1075,6 @@
           card.classList.add('is-on'); card.setAttribute('aria-pressed', 'true');
           sel.textContent = '선택됨';
           renderPreview();
-          renderSched(); // 비용 선택 즉시 공개예정 토글 노출/숨김 갱신
         });
         cardsWrap.appendChild(card);
       });
@@ -1079,45 +1083,6 @@
       previewEl = W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' });
       renderPreview();
       body.appendChild(previewEl);
-
-      // ---- 공개 예정 등록 — 요금제(비용) 단계에서 Plus/Professional 선택 시 바로 노출(반응형) ----
-      var _tom = new Date(); _tom.setDate(_tom.getDate() + 1);
-      var _minOpen = _tom.toISOString().slice(0, 10);
-      var planSched = (picked === 'run' || picked === 'boost') && !!nstate.openScheduled;
-      var schedSlot = W.el('div', {});
-      body.appendChild(schedSlot);
-      var schedDateIn = null;
-      function renderSched() {
-        schedSlot.replaceChildren();
-        if (picked !== 'run' && picked !== 'boost') { planSched = false; return; }
-        var sched = W.el('div', { class: 'wc-sched' });
-        var row = W.el('div', { class: 'wc-sched__row' });
-        var txt = W.el('div', { class: 'wc-sched__text' });
-        txt.append(
-          W.el('p', { class: 'wc-sched__title' }, '공개 예정으로 등록 (선택)'),
-          W.el('p', { class: 'wc-sched__desc' }, '지금 바로 오픈하지 않고 공개 예정일을 정해 올리면, 오픈 전까지 공개 예정 목록에 노출되고 후원자들이 오픈 알림을 신청할 수 있어요.')
-        );
-        var toggle = W.el('button', { class: 'wc-toggle' + (planSched ? ' is-on' : ''), type: 'button', role: 'switch', 'aria-checked': planSched ? 'true' : 'false', 'aria-label': '공개 예정으로 등록' });
-        toggle.appendChild(W.el('span', { class: 'wc-toggle__knob' }));
-        row.append(txt, toggle);
-        sched.appendChild(row);
-        var dateWrap = W.el('div', { class: 'wc-sched__date' });
-        schedDateIn = input({ type: 'date', value: nstate.openAt || '', min: _minOpen });
-        dateWrap.appendChild(field('공개 예정일', true, schedDateIn, '이 날짜에 프로젝트가 자동으로 공개됩니다. 마감일보다 앞서야 합니다(마감일은 다음 단계에서 설정).'));
-        dateWrap.style.display = planSched ? '' : 'none';
-        sched.appendChild(dateWrap);
-        toggle.addEventListener('click', function () {
-          planSched = !planSched;
-          toggle.classList.toggle('is-on', planSched);
-          toggle.setAttribute('aria-checked', planSched ? 'true' : 'false');
-          dateWrap.style.display = planSched ? '' : 'none';
-          nstate.openScheduled = planSched;
-          if (!planSched) nstate.openAt = '';
-        });
-        schedDateIn.addEventListener('change', function () { nstate.openAt = schedDateIn.value; });
-        schedSlot.appendChild(sched);
-      }
-      renderSched();
 
       function renderPreview() {
         var info = PLAN_INFO[picked];
@@ -1137,10 +1102,10 @@
           feeLine = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
         }
         previewEl.appendChild(W.el('p', { style: 'margin:0' }, feeLine));
-        // 공개 예정(오픈 알림) 페이지는 Plus/Professional 전용 — 선택 시 안내 강화.
+        // 공개 예정 등록은 Plus/Professional 전용 — '공개 예정' 단계에서 켤 수 있음을 안내.
         if (picked === 'run' || picked === 'boost') {
           previewEl.appendChild(W.el('p', { style: 'margin:8px 0 0; font-weight:600' },
-            '공개 예정으로 등록 가능 — 다음 "목표 금액·일정" 단계에서 공개 예정일을 설정하면 오픈 전 알림신청을 받을 수 있어요.'));
+            '공개 예정 등록 가능 — 작성 단계의 "공개 예정"에서 공개 예정일을 설정하면 오픈 전 알림신청을 받을 수 있어요.'));
         }
       }
     }, function () {
@@ -1153,9 +1118,7 @@
 
   /* ---- 목표 금액 · 일정 ---- */
   function openGoalForm() {
-    var amountIn, dlIn, openToggle, openDateIn;
-    var schedulable = nstate.plan === 'run' || nstate.plan === 'boost';
-    var scheduled = schedulable && !!nstate.openScheduled;
+    var amountIn, dlIn;
     var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
     var minDate = tomorrow.toISOString().slice(0, 10);
     openOver('목표 금액 · 일정', function (body) {
@@ -1168,48 +1131,74 @@
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
         '목표 금액 달성 시 후원자 결제와 제작이 진행됩니다. 실제 결제 금액은 후원자가 선택한 리워드 가격이며, 목표 금액과 리워드 가격은 별개입니다. 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)와 최종 금액은 서버에서 계산됩니다.'));
 
-      // ---- 공개 예정 등록(Plus·Professional 전용, 즉 key run·boost, 선택) ----
-      if (schedulable) {
-        var sched = W.el('div', { class: 'wc-sched' });
-        var schedRow = W.el('div', { class: 'wc-sched__row' });
-        var schedText = W.el('div', { class: 'wc-sched__text' });
-        schedText.append(
-          W.el('p', { class: 'wc-sched__title' }, '공개 예정으로 등록 (선택)'),
-          W.el('p', { class: 'wc-sched__desc' }, '공개 예정으로 올리면 오픈 전 알림신청을 받을 수 있어요. 설정한 날짜 전까지는 공개 예정 페이지로 노출됩니다.'),
-        );
-        openToggle = W.el('button', { class: 'wc-toggle' + (scheduled ? ' is-on' : ''), type: 'button', role: 'switch', 'aria-checked': scheduled ? 'true' : 'false', 'aria-label': '공개 예정으로 등록' });
-        openToggle.appendChild(W.el('span', { class: 'wc-toggle__knob' }));
-        schedRow.append(schedText, openToggle);
-        sched.appendChild(schedRow);
-
-        var dateWrap = W.el('div', { class: 'wc-sched__date' });
-        openDateIn = input({ type: 'date', value: nstate.openAt, min: minDate });
-        dateWrap.appendChild(field('공개 예정일', true, openDateIn, '이 날짜에 프로젝트가 자동으로 공개됩니다. 마감일보다 앞서야 합니다.'));
-        dateWrap.style.display = scheduled ? '' : 'none';
-        sched.appendChild(dateWrap);
-
-        openToggle.addEventListener('click', function () {
-          scheduled = !scheduled;
-          openToggle.classList.toggle('is-on', scheduled);
-          openToggle.setAttribute('aria-checked', scheduled ? 'true' : 'false');
-          dateWrap.style.display = scheduled ? '' : 'none';
-        });
-        body.appendChild(sched);
-      } else {
-        // Basic(start) 요금제 안내 — 공개 예정(오픈 알림) 페이지는 Plus/Professional 전용.
-        body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
-          '공개 예정(오픈 전 알림신청)으로 등록하려면 Plus 또는 Professional 요금제가 필요합니다. 요금제 단계에서 변경할 수 있어요.'));
-      }
+      // (공개 예정 등록은 별도 "공개 예정" 단계에서 설정 — 여기선 목표 금액·마감일만.)
     }, function () {
       if (!validTargetAmount(amountIn.value)) { toast('목표 금액은 1,000원 이상으로 입력해 주세요'); return false; }
       if (!validDeadline(dlIn.value)) { toast('마감일은 오늘 이후 날짜로 선택해 주세요'); return false; }
-      if (schedulable && scheduled) {
-        if (!validOpenAt(openDateIn.value)) { toast('공개 예정일은 오늘 이후 날짜로 선택해 주세요'); return false; }
-        if (openDateIn.value >= dlIn.value) { toast('공개 예정일은 마감일보다 앞선 날짜여야 합니다'); return false; }
+      // 마감일이 공개 예정일보다 앞이면(이미 공개예정 설정된 경우) 정합성 경고.
+      if (nstate.openScheduled && nstate.openAt && nstate.openAt >= dlIn.value) {
+        toast('마감일은 공개 예정일 이후여야 해요. 공개 예정 단계에서 날짜를 조정해 주세요'); return false;
       }
       nstate.targetAmount = amountIn.value; nstate.deadline = dlIn.value;
-      nstate.openScheduled = schedulable && scheduled;
-      nstate.openAt = (schedulable && scheduled) ? openDateIn.value : '';
+      return true;
+    });
+  }
+
+  /* ---- 공개 예정 (Plus/Professional 전용, 선택) — 토글 + 예상 공개 일시 ---- */
+  function openScheduleForm() {
+    var schedulable = nstate.plan === 'run' || nstate.plan === 'boost';
+    var scheduled = schedulable && !!nstate.openScheduled;
+    var openIn;
+    // ISO ↔ datetime-local('YYYY-MM-DDTHH:MM', 로컬) 변환.
+    function toLocalDt(v) {
+      if (!v) return '';
+      var d = new Date(v); if (isNaN(d.getTime())) return '';
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+    var minDt = toLocalDt(new Date(Date.now() + 60000).toISOString());
+    openOver('공개 예정', function (body) {
+      body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
+        '지금 바로 오픈하지 않고 공개 예정 일시를 정해 올릴 수 있어요. 공개 예정 프로젝트는 관리자 승인 없이 바로 "공개 예정" 목록에 노출되고, 설정한 일시가 되면 자동으로 공개됩니다.'));
+      if (!schedulable) {
+        body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
+          '공개 예정 등록은 Plus 또는 Professional 요금제에서 이용할 수 있어요. 요금제 단계에서 변경해 주세요.'));
+        return;
+      }
+      var sched = W.el('div', { class: 'wc-sched' });
+      var row = W.el('div', { class: 'wc-sched__row' });
+      var txt = W.el('div', { class: 'wc-sched__text' });
+      txt.append(
+        W.el('p', { class: 'wc-sched__title' }, '공개 예정으로 등록'),
+        W.el('p', { class: 'wc-sched__desc' }, '켜면 아래 설정한 일시에 자동으로 공개됩니다. 끄면 작성 완료 후 바로 공개됩니다.')
+      );
+      var toggle = W.el('button', { class: 'wc-toggle' + (scheduled ? ' is-on' : ''), type: 'button', role: 'switch', 'aria-checked': scheduled ? 'true' : 'false', 'aria-label': '공개 예정으로 등록' });
+      toggle.appendChild(W.el('span', { class: 'wc-toggle__knob' }));
+      row.append(txt, toggle);
+      sched.appendChild(row);
+      var dateWrap = W.el('div', { class: 'wc-sched__date' });
+      openIn = input({ type: 'datetime-local', value: toLocalDt(nstate.openAt), min: minDt });
+      dateWrap.appendChild(field('예상 공개 일시', true, openIn, '이 날짜·시간이 되면 자동으로 공개됩니다. 마감일보다 앞선 시각이어야 해요.'));
+      dateWrap.style.display = scheduled ? '' : 'none';
+      sched.appendChild(dateWrap);
+      toggle.addEventListener('click', function () {
+        scheduled = !scheduled;
+        toggle.classList.toggle('is-on', scheduled);
+        toggle.setAttribute('aria-checked', scheduled ? 'true' : 'false');
+        dateWrap.style.display = scheduled ? '' : 'none';
+      });
+      body.appendChild(sched);
+    }, function () {
+      if (!schedulable) { nstate.openScheduled = false; nstate.openAt = ''; return true; }
+      if (scheduled) {
+        var v = openIn.value;
+        var t = v ? new Date(v).getTime() : NaN;
+        if (!v || isNaN(t) || t <= Date.now()) { toast('예상 공개 일시는 현재 이후로 선택해 주세요'); return false; }
+        if (nstate.deadline && t >= new Date(nstate.deadline).getTime()) { toast('공개 일시는 마감일보다 앞서야 해요'); return false; }
+        nstate.openAt = new Date(v).toISOString();
+      } else {
+        nstate.openAt = '';
+      }
+      nstate.openScheduled = scheduled;
       return true;
     });
   }

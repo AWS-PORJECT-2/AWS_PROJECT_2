@@ -148,7 +148,7 @@ export class PgRewardOrderRepository {
   async listByUser(userId: string): Promise<RewardOrderListItem[]> {
     const res = await this.pool.query(
       `SELECT o.*, g.title AS fund_title,
-              COALESCE(g.tryon_image_url, g.design_image_url) AS fund_image_url
+              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS fund_image_url
          FROM reward_orders o
          JOIN groupbuys g ON g.id = o.fund_id
         WHERE o.user_id = $1

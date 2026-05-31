@@ -546,23 +546,39 @@
       return Array.isArray(l) ? l.filter((x) => x && x.id != null) : [];
     } catch (_) { return []; }
   }
+  // 상세 응답(coverImageUrl 등) → 카드 데이터로 매핑(Card 는 imageUrl 을 씀).
+  function recentCardData(f) {
+    return {
+      id: f.id, title: f.title || '', category: f.category || '',
+      creatorName: f.creatorName || f.author || '', creatorSlug: f.creatorSlug || null,
+      imageUrl: f.coverImageUrl || f.designImageUrl || f.imageUrl || '',
+      deadline: f.deadline || '', status: f.status,
+      achievementRate: (typeof f.achievementRate === 'number') ? f.achievementRate : null,
+      currentQuantity: f.currentQuantity, likeCount: f.likeCount,
+    };
+  }
   function buildRecent(wrap, products) {
     const recent = readRecent();
     if (!recent.length) { wrap.replaceChildren(); return; }
-    // 현재 로드된 목록(products)에 있으면 최신 데이터를 쓰고, 없으면 저장된 recentFunds 항목을 그대로 렌더.
-    // (예전엔 products 교집합만 그려서, 본 펀드가 현재 목록에 없으면 "최근 본"이 비어 보였음.)
+    // 최근 본 펀드를 실제 데이터(실이미지 포함)로 렌더한다.
+    // 현재 로드된 목록(products)에 있으면 그걸 쓰고, 없으면 id 로 조회(GET /groupbuys/:id) — 커버가 data:URL 이라
+    // localStorage 에 저장 못 하므로, 카드 이미지는 항상 서버에서 가져온다.
     const byId = {};
     (products || []).forEach((p) => { byId[String(p.id)] = p; });
-    const items = [];
+    const ids = [];
     const seen = {};
-    recent.forEach((r) => {
-      const id = String(r.id);
-      if (seen[id]) return;
-      seen[id] = 1;
-      items.push(byId[id] || r); // 전체 데이터 우선, 없으면 저장본(id/title/imageUrl/deadline/achievementRate/...)
+    recent.forEach((r) => { const id = String(r.id); if (id && !seen[id]) { seen[id] = 1; ids.push(id); } });
+    const top = ids.slice(0, 12);
+    Promise.all(top.map((id) => {
+      if (byId[id]) return Promise.resolve(byId[id]); // 이미 이미지 포함된 목록 데이터
+      return window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true })
+        .then((f) => (f && f.id) ? recentCardData(f) : null)
+        .catch(() => null); // 삭제/없는 펀드는 제외
+    })).then((list) => {
+      const items = list.filter(Boolean);
+      if (!items.length) { wrap.replaceChildren(); return; }
+      wrap.replaceChildren(RecentSection(items));
     });
-    if (!items.length) { wrap.replaceChildren(); return; }
-    wrap.replaceChildren(RecentSection(items.slice(0, 12)));
   }
   function RecentSection(items) {
     const sec = W.el('section', { class: 'wz-shelf wz-recent' });

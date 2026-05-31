@@ -170,6 +170,7 @@ export function createMyOrdersHandler(rewardOrderRepo: PgRewardOrderRepository) 
         id: o.id,
         fundId: o.fundId,
         fundTitle: o.fundTitle,
+        fundImageUrl: o.fundImageUrl ?? null,
         rewardTitle: o.rewardTitle,
         amount: o.amount,
         status: o.status,
