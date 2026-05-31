@@ -1655,14 +1655,14 @@
       setTimeout(function () { txt.focus(); }, 0);
     }
 
-    // 소켓은 핸드셰이크에 access token 이 필요(httpOnly 쿠키라 JS 접근 불가)하므로
-    // 토큰이 없으면 조용히 폴링으로 동작. window.__ACCESS_TOKEN 이 있으면 시도.
+    // 실시간 수신/송신용 소켓. 인증은 httpOnly accessToken 쿠키로(withCredentials) — JS 로 토큰을 못 읽으므로.
+    // 연결 후 selectRoom 이 admin:join 으로 해당 방에 합류. 실패해도 폴링이 받쳐줌.
     function tryConnectSocket() {
       if (typeof window.io !== 'function') return;
-      var token = window.__ACCESS_TOKEN || null;
-      if (!token) return; // 토큰 없으면 폴링만 사용(에러/준비중 표시 없음)
       try {
-        var socket = window.io('/chat', { auth: { token: token }, transports: ['websocket', 'polling'] });
+        var socket = window.io({ withCredentials: true, transports: ['websocket', 'polling'] });
+        // 연결되면 현재 보고 있는 방에 재합류(연결 끊겼다 재연결 시에도).
+        socket.on('connect', function () { if (state.activeId) { try { socket.emit('admin:join', state.activeId); } catch (_) {} } });
         socket.on('message:new', function (m) {
           if (!m) return;
           if (state.activeId && m.roomId === state.activeId) loadMessages(state.activeId, true);

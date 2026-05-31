@@ -180,7 +180,8 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   // 정책: 스토리(contentBlocks)에 합치지 않고 별도 컬럼에 저장(023). 빈 값 허용(과거 데이터 호환).
   const refundPolicy = policyField(body.refundPolicy); // 교환·반품 정책(선택)
   const legalNotice = policyField(body.legalNotice);   // 정보고시/법적 고지(선택)
-  // 공개예정: plan 이 run|boost 이고 openAt(미래)가 오면 scheduled, 그 외는 기존대로 pending.
+  // 공개예정 일시(plan 이 run|boost 이고 미래일 때만) — 값은 저장하되, 공개예정 전환은 '관리자 승인 후'에만 일어난다.
+  //  (신규 펀드는 무조건 pending 으로 들어가 심사를 거치고, 승인 시 openAt 이 미래면 scheduled, 아니면 open 으로 전환.)
   const openAt = (plan === 'run' || plan === 'boost') ? futureDateField(body.openAt) : null;
 
   const errors: string[] = [];
@@ -228,8 +229,8 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     targetQuantity: targetQuantity, // null 허용(선택)
     currentQuantity: 0,
     deadline: parseDeadline(deadline),
-    // 공개예정(Run/Boost + 미래 openAt) 이면 scheduled, 그 외엔 기존대로 pending(관리자 승인 전 비공개).
-    status: openAt ? 'scheduled' : 'pending',
+    // 신규 펀드는 항상 pending(관리자 승인 전 비공개) — openAt 유무와 무관. 승인 시 admin 핸들러가 scheduled/open 결정.
+    status: 'pending',
     designImageUrl: cover ?? thumbnail,
     tryonImageUrl: null,
     contentBlocks,

@@ -9,6 +9,19 @@ import { logger } from './logger.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
 
+/** handshake 쿠키 헤더에서 특정 쿠키 값을 파싱(httpOnly accessToken 은 JS 로 못 읽으므로 소켓 인증은 쿠키로 받는다). */
+function readCookie(header: string | undefined, name: string): string | undefined {
+  if (!header) return undefined;
+  for (const part of header.split(';')) {
+    const idx = part.indexOf('=');
+    if (idx < 0) continue;
+    if (part.slice(0, idx).trim() === name) {
+      try { return decodeURIComponent(part.slice(idx + 1).trim()); } catch { return part.slice(idx + 1).trim(); }
+    }
+  }
+  return undefined;
+}
+
 /**
  * Socket.io 서버 초기화.
  * 1:1 상담 실시간 메시징 전용.
@@ -34,7 +47,9 @@ export function initSocketIO(
   // 인증 미들웨어
   io.use(async (socket, next) => {
     try {
-      const token = socket.handshake.auth?.token as string | undefined;
+      // 토큰 우선순위: handshake.auth.token(있으면) → accessToken 쿠키(httpOnly, withCredentials 로 전달).
+      const token = (socket.handshake.auth?.token as string | undefined)
+        || readCookie(socket.handshake.headers.cookie, 'accessToken');
       if (!token) {
         next(new Error('인증 토큰이 필요합니다'));
         return;
@@ -117,9 +132,10 @@ export function initSocketIO(
         const senderRole = userRole === 'ADMIN' ? 'ADMIN' : 'USER';
         const chatMessage = await chatRepo.createMessage(targetRoomId, userId, senderRole, message);
 
-        // 방에 있는 모든 소켓에 브로드캐스트
+        // 방에 있는 모든 소켓에 브로드캐스트 — HTTP 전송 경로(chat.ts)와 동일한 { roomId, message } 형태로 통일.
         io.to(`room:${targetRoomId}`).emit('message:new', {
-          ...chatMessage,
+          roomId: targetRoomId,
+          message: chatMessage,
           senderName: userName,
         });
 

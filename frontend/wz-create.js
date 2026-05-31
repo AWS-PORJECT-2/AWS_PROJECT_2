@@ -1179,7 +1179,7 @@
     var minDt = toLocalDt(new Date(Date.now() + 60000).toISOString());
     openOver('공개 예정', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
-        '지금 바로 오픈하지 않고 공개 예정 일시를 정해 올릴 수 있어요. 공개 예정 프로젝트는 관리자 승인 없이 바로 "공개 예정" 목록에 노출되고, 설정한 일시가 되면 자동으로 공개됩니다.'));
+        '지금 바로 오픈하지 않고 공개 예정 일시를 정해 올릴 수 있어요. 제출 후 관리자 심사를 통과하면 "공개 예정" 목록에 노출되고, 설정한 일시가 되면 자동으로 공개됩니다.'));
       if (!schedulable) {
         body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
           '공개 예정 등록은 Plus 또는 Professional 요금제에서 이용할 수 있어요. 요금제 단계에서 변경해 주세요.'));

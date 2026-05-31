@@ -92,18 +92,25 @@ function createReviewHandler(
         res.status(409).json({ error: 'INVALID_STATE', message: `심사 대기 상태만 ${label}할 수 있습니다 (현재: ${fund.status})` });
         return;
       }
-      await repo.updateStatus(id, next);
-      logger.info({ id, adminId: req.userId, next }, `관리자 펀드 ${label}`);
-      void logAudit(pool, { level: 'info', source: 'admin', message: `펀드 ${label}`, meta: { fundId: id, next }, userId: req.userId ?? null });
+      // 승인(open)인데 미래 공개예정일(openAt)이 설정돼 있으면 즉시 공개가 아니라 'scheduled'(공개예정)로 전환 —
+      //  스케줄러(promoteScheduledToOpen)가 openAt 도래 시 자동으로 open 으로 바꾼다. (승인 전에는 절대 공개 안 됨.)
+      const effectiveNext: 'open' | 'scheduled' | 'rejected' =
+        (next === 'open' && fund.openAt && new Date(fund.openAt).getTime() > Date.now()) ? 'scheduled' : next;
+      await repo.updateStatus(id, effectiveNext);
+      logger.info({ id, adminId: req.userId, next: effectiveNext }, `관리자 펀드 ${label}`);
+      void logAudit(pool, { level: 'info', source: 'admin', message: `펀드 ${label}`, meta: { fundId: id, next: effectiveNext }, userId: req.userId ?? null });
 
       // 알림(best-effort) — 심사 결과를 창작자에게. notify()/실패는 흡수돼 메인 응답에 영향 없음.
       if (notificationRepo && fund.creatorId) {
         if (next === 'open') {
+          const isScheduled = effectiveNext === 'scheduled';
           await notify(notificationRepo, {
             userId: fund.creatorId,
             type: 'fund_approved',
-            title: '프로젝트가 공개되었어요',
-            body: `심사가 완료되어 '${fund.title}' 프로젝트가 공개되었습니다.`,
+            title: isScheduled ? '프로젝트가 승인되었어요 (공개 예정)' : '프로젝트가 공개되었어요',
+            body: isScheduled
+              ? `심사가 완료되었어요. '${fund.title}' 프로젝트는 설정한 공개 예정일에 자동으로 공개됩니다.`
+              : `심사가 완료되어 '${fund.title}' 프로젝트가 공개되었습니다.`,
             fundId: id,
           });
         } else {
@@ -117,7 +124,7 @@ function createReviewHandler(
         }
       }
 
-      res.json({ id, status: next });
+      res.json({ id, status: effectiveNext });
     } catch (err) {
       logger.error({ err, id }, `관리자 펀드 ${label} 실패`);
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));

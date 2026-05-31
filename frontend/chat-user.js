@@ -209,27 +209,20 @@
     container.scrollTop = container.scrollHeight;
   }
 
-  /* opportunistic 소켓: 토큰이 있을 때만. 실패해도 폴링이 받쳐주므로 표시하지 않는다. */
+  /* opportunistic 소켓: 실시간 수신용. 실패해도 폴링이 받쳐주므로 에러 표시 안 함.
+     인증은 httpOnly accessToken 쿠키로(withCredentials) — JS 로 토큰을 못 읽으므로. 서버가 연결 시 본인 방에 자동 join. */
   function tryConnectSocket() {
     if (typeof window.io !== 'function') return;
-    var token = window.__ACCESS_TOKEN || null;
-    if (!token) return; // 토큰 없으면 폴링만 — "연결 중"/에러 표시 안 함
-
     try {
-      var socket = window.io('/chat', { auth: { token: token }, transports: ['websocket', 'polling'] });
+      var socket = window.io({ withCredentials: true, transports: ['websocket', 'polling'] });
 
-      socket.on('connect', function () {
-        try { socket.emit('join_user_room'); } catch (_) {}
-      });
-      socket.on('joined', function (data) {
-        if (data && data.roomId) state.roomId = data.roomId;
-      });
-      socket.on('message', function (data) {
+      // 같은 방(=내 방)에 새 메시지가 오면 즉시 목록 갱신 + 읽음 처리(상대 메시지일 때).
+      socket.on('message:new', function (data) {
+        var rid = data && data.roomId;
+        if (state.roomId && rid && rid !== state.roomId) return;
         var msg = data && data.message;
-        if (!msg) return;
-        if (state.roomId && msg.roomId && msg.roomId !== state.roomId) return;
         loadMessages(true);
-        if (!isMine(msg) && state.roomId) { try { socket.emit('mark_read', { roomId: state.roomId }); } catch (_) {} }
+        if (msg && !isMine(msg)) { try { socket.emit('message:read', {}); } catch (_) {} }
       });
       socket.on('connect_error', function () { /* 폴링으로 충분 — 표시 안 함 */ });
 

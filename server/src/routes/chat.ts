@@ -72,6 +72,8 @@ export function createChatRouter(
       }
       const room = await chatRepo.findOrCreateRoom(req.userId!);
       const msg = await chatRepo.createMessage(room.id, req.userId!, 'USER', message.trim());
+      // 실시간 전달(best-effort) — 같은 방(관리자 admin:join 포함)에 새 메시지 브로드캐스트. 소켓 연결 시 즉시 수신.
+      try { (req.app as { io?: { to: (r: string) => { emit: (e: string, p: unknown) => void } } }).io?.to(`room:${room.id}`).emit('message:new', { roomId: room.id, message: msg }); } catch { /* 폴링이 받쳐줌 */ }
       res.status(201).json(msg);
     } catch (err) {
       logger.error({ err }, '채팅 메시지 전송 실패');
@@ -141,6 +143,8 @@ export function createChatRouter(
       }
       const text = message.trim();
       const msg = await chatRepo.createMessage(roomId, req.userId!, 'ADMIN', text);
+      // 실시간 전달(best-effort) — 방 주인(유저)에게 새 메시지 즉시 브로드캐스트. 소켓 연결 시 즉시 수신.
+      try { (req.app as { io?: { to: (r: string) => { emit: (e: string, p: unknown) => void } } }).io?.to(`room:${roomId}`).emit('message:new', { roomId, message: msg }); } catch { /* 폴링이 받쳐줌 */ }
 
       // 문의 답변 알림(best-effort) — 관리자가 보낸 메시지이므로 방 주인(일반 사용자)에게.
       //   메인 응답에 영향 없도록 try/catch 흡수. (사용자가 보낸 메시지엔 알림 없음 — 관리자는 배지로 처리.)
