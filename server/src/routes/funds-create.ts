@@ -198,6 +198,18 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     return null;
   }
 
+  // 안전장치(서버 강제) — 리워드 가격 합계가 목표 금액보다 적으면 생성 거부(클라 우회 방지).
+  const rewardSum = (rewardTiers ?? []).reduce((s, t) => s + (Number(t.price) || 0), 0);
+  if (targetAmount !== null && rewardSum < (targetAmount as number)) {
+    res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '리워드 가격 합계가 목표 금액보다 적습니다. 목표 금액 이상이 되도록 리워드를 구성해 주세요.')));
+    return null;
+  }
+  // 공개 예정(openAt)이 있으면 마감일보다 앞서야 함(모집 일정이 더 길어야 함).
+  if (openAt && new Date(openAt).getTime() >= parseDeadline(deadline).getTime()) {
+    res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '공개 예정 일시는 마감일보다 앞서야 합니다.')));
+    return null;
+  }
+
   const tiers = rewardTiers ?? [];
   // 대표가격 = 최저 리워드가(목록/결제 호환).
   const finalPrice = tiers.length > 0 ? Math.min(...tiers.map((t) => t.price)) : 0;

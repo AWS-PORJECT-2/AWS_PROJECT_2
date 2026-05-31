@@ -197,6 +197,9 @@
 .wc-fld__label { display: block; font-size: 14px; font-weight: 700; color: var(--c-text); margin-bottom: 7px; }
 .wc-fld__req { color: var(--c-primary-600); margin-left: 3px; }
 .wc-fld__help { font-size: 12px; color: var(--c-text-faint); margin: 6px 0 0; line-height: 1.5; }
+/* 금액 입력 실시간 힌트(천단위 콤마 + 한글 금액). 값이 없으면 숨김. */
+.wc-amt-hint { font-size: 13px; font-weight: 700; color: var(--c-primary-600); margin: 6px 0 0; }
+.wc-amt-hint:empty { display: none; }
 .wc-input, .wc-textarea, .wc-select { width: 100%; box-sizing: border-box; padding: 12px 14px; font-family: inherit; font-size: 15px; color: var(--c-text); background: #fff; border: 1px solid var(--c-border); border-radius: var(--r-sm); outline: none; transition: border-color .15s, box-shadow .15s; }
 .wc-input:focus, .wc-textarea:focus, .wc-select:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); }
 .wc-textarea { min-height: 110px; resize: vertical; line-height: 1.6; }

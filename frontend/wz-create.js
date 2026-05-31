@@ -566,6 +566,38 @@
   // 공개 예정일: 마감일과 동일하게 오늘 이후 날짜만 허용(미래 검증).
   function validOpenAt(s) { return validDeadline(s); }
 
+  // ── 금액/날짜 공통 유틸 ──
+  // 로컬(국민대 사용자는 KST) 기준 'YYYY-MM-DD' — date 입력 min/검증을 UTC 가 아닌 현지 날짜로(하루 어긋남 방지).
+  function localDateStr(d) {
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function todayStr() { return localDateStr(new Date()); }
+  // 숫자 → 한글 금액 표기. 예) 100012 → "10만 12원", 1000000 → "100만원", 123456789 → "1억 2,345만 6,789원".
+  function koreanAmount(v) {
+    var n = Math.floor(Number(v));
+    if (!Number.isFinite(n) || n <= 0) return '';
+    var parts = [], rem = n;
+    [[100000000, '억'], [10000, '만']].forEach(function (u) {
+      var q = Math.floor(rem / u[0]);
+      if (q > 0) { parts.push(q.toLocaleString() + u[1]); rem = rem % u[0]; }
+    });
+    if (rem > 0) parts.push(rem.toLocaleString());
+    return parts.join(' ') + '원';
+  }
+  // 금액 input 에 실시간 힌트(천단위 콤마 + 한글)를 만들어 반환. 입력할 때마다 갱신.
+  function attachAmountHint(inputEl) {
+    var hint = W.el('p', { class: 'wc-amt-hint' });
+    function upd() {
+      var raw = String(inputEl.value || '').replace(/[^\d]/g, '');
+      var n = Number(raw);
+      if (!raw || !Number.isFinite(n) || n <= 0) { hint.textContent = ''; return; }
+      hint.textContent = n.toLocaleString() + '원  (' + koreanAmount(n) + ')';
+    }
+    inputEl.addEventListener('input', upd);
+    upd();
+    return hint;
+  }
+
   /* =====================================================================
    * 스토리 블록 enum — 스키마(content_blocks)·서버 normalizeContentBlocks 와 동일.
    *   image: { type:'image', value, width(sm|md|lg|full), align(left|center|right) }
@@ -892,7 +924,12 @@
       ? window.api.post('/me/drafts/' + encodeURIComponent(draftId), body, { method: 'PUT' })
       : window.api.post('/me/drafts', body);
     return p.then(function (res) {
-      if (res && res.id) draftId = res.id;
+      if (res && res.id) {
+        var wasNew = !draftId;
+        draftId = res.id;
+        // 새로고침해도 작성 중이던 내용이 자동 복원되도록 URL 에 draft id 를 반영(서버 저장본 기준).
+        if (wasNew) { try { history.replaceState(null, '', '?draft=' + encodeURIComponent(draftId)); } catch (_) {} }
+      }
       lastSavedJson = json;
       draftSaving = false; updateDraftStatus();
       if (manual) toast('임시저장되었습니다');
@@ -1140,14 +1177,16 @@
   /* ---- 목표 금액 · 일정 ---- */
   function openGoalForm() {
     var amountIn, dlIn;
-    var tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-    var minDate = tomorrow.toISOString().slice(0, 10);
+    var minDate = todayStr();   // 오늘(KST 로컬) 이후만 — 그 이전 날짜는 선택 불가.
     openOver('목표 금액 · 일정', function (body) {
       amountIn = input({ type: 'number', value: nstate.targetAmount, min: '1000', max: '10000000000', step: '1000', placeholder: '예: 1000000' });
-      body.appendChild(field('목표 금액(원)', true, amountIn, '펀딩 성공에 필요한 총 모금 목표 금액입니다. 마감일까지 이 금액을 달성하면 결제·제작이 진행됩니다.'));
+      var goalField = field('목표 금액(원)', true, amountIn);
+      goalField.appendChild(attachAmountHint(amountIn));   // 입력칸 아래 실시간 콤마+한글 표기
+      goalField.appendChild(W.el('p', { class: 'wc-fld__help' }, '펀딩 성공에 필요한 총 모금 목표 금액입니다. 마감일까지 이 금액을 달성하면 결제·제작이 진행됩니다.'));
+      body.appendChild(goalField);
 
       dlIn = input({ type: 'date', value: nstate.deadline, min: minDate });
-      body.appendChild(field('마감일', true, dlIn, '이 날짜까지 목표 금액을 달성해야 펀딩이 성사됩니다. 오늘 이후 날짜만 가능합니다.'));
+      body.appendChild(field('마감일', true, dlIn, '이 날짜까지 목표 금액을 달성해야 펀딩이 성사됩니다. 오늘(한국 기준) 이후 날짜만 가능합니다.'));
 
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
         '목표 금액 달성 시 후원자 결제와 제작이 진행됩니다. 실제 결제 금액은 후원자가 선택한 리워드 가격이며, 목표 금액과 리워드 가격은 별개입니다. 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)와 최종 금액은 서버에서 계산됩니다.'));
@@ -1156,9 +1195,12 @@
     }, function () {
       if (!validTargetAmount(amountIn.value)) { toast('목표 금액은 1,000원 이상으로 입력해 주세요'); return false; }
       if (!validDeadline(dlIn.value)) { toast('마감일은 오늘 이후 날짜로 선택해 주세요'); return false; }
-      // 마감일이 공개 예정일보다 앞이면(이미 공개예정 설정된 경우) 정합성 경고.
-      if (nstate.openScheduled && nstate.openAt && nstate.openAt >= dlIn.value) {
-        toast('마감일은 공개 예정일 이후여야 해요. 공개 예정 단계에서 날짜를 조정해 주세요'); return false;
+      // 공개 예정이 설정돼 있으면, 마감일은 공개 예정일보다 '늦은 날짜'여야 한다(모집 일정이 공개예정보다 길어야 함).
+      if (nstate.openScheduled && nstate.openAt) {
+        var openDate = localDateStr(new Date(nstate.openAt));
+        if (dlIn.value <= openDate) {
+          toast('마감일은 공개 예정일보다 늦은 날짜여야 해요(모집 일정이 더 길어야 함). 공개 예정 단계에서 일정을 확인해 주세요'); return false;
+        }
       }
       nstate.targetAmount = amountIn.value; nstate.deadline = dlIn.value;
       return true;
@@ -1213,8 +1255,11 @@
       if (scheduled) {
         var v = openIn.value;
         var t = v ? new Date(v).getTime() : NaN;
-        if (!v || isNaN(t) || t <= Date.now()) { toast('예상 공개 일시는 현재 이후로 선택해 주세요'); return false; }
-        if (nstate.deadline && t >= new Date(nstate.deadline).getTime()) { toast('공개 일시는 마감일보다 앞서야 해요'); return false; }
+        if (!v || isNaN(t) || t <= Date.now()) { toast('예상 공개 일시는 현재(한국 기준) 이후로 선택해 주세요'); return false; }
+        // 마감일(날짜)은 공개 예정일보다 늦은 날짜여야 함 — 모집 일정이 공개예정보다 길어야 한다.
+        if (nstate.deadline && nstate.deadline <= localDateStr(new Date(v))) {
+          toast('공개 일시는 마감일보다 앞서야 해요. 마감일이 공개 예정일보다 늦은 날짜여야 합니다'); return false;
+        }
         nstate.openAt = new Date(v).toISOString();
       } else {
         nstate.openAt = '';
@@ -1257,6 +1302,8 @@
           titleIn.addEventListener('input', function () { t.title = titleIn.value; });
           var priceIn = input({ type: 'number', value: t.price, min: '0', placeholder: '가격(원)' });
           priceIn.addEventListener('input', function () { t.price = priceIn.value; });
+          var priceField = field('가격(원)', true, priceIn);
+          priceField.appendChild(attachAmountHint(priceIn));   // 가격칸 아래 실시간 콤마+한글 표기
           var stockIn = input({ type: 'number', value: t.stock, min: '1', placeholder: '한정 수량(선택)' });
           stockIn.addEventListener('input', function () { t.stock = stockIn.value; });
           var descIn = textarea({ maxlength: '500', placeholder: '리워드 설명(구성품 등)' });
@@ -1265,7 +1312,7 @@
 
           g.append(
             field('제목', true, titleIn),
-            field('가격(원)', true, priceIn),
+            priceField,
             field('한정 수량', false, stockIn),
             W.el('div', { class: 'wc-tier__full' }, field('설명', false, descIn)),
           );
@@ -1288,6 +1335,14 @@
         });
       }
       if (cleaned.length === 0) { toast('직접 개설은 리워드가 최소 1개 필요합니다'); return false; }
+      // 안전장치 — 목표 금액이 설정돼 있으면 리워드 가격 합계가 목표 금액 이상이어야 저장 가능.
+      if (validTargetAmount(nstate.targetAmount)) {
+        var sumPrice = cleaned.reduce(function (s, t) { return s + (Number(t.price) || 0); }, 0);
+        var goal = Math.floor(Number(nstate.targetAmount));
+        if (sumPrice < goal) {
+          toast('리워드 가격 합계(' + koreanAmount(sumPrice) + ')가 목표 금액(' + koreanAmount(goal) + ')보다 적어요. 목표 금액 이상이 되도록 리워드를 구성해 주세요.'); return false;
+        }
+      }
       nstate.rewardTiers = cleaned;
       return true;
     });
