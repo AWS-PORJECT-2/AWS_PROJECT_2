@@ -282,7 +282,7 @@
     root.replaceChildren(W.el('div', { class: 'wz-d-state wz-d-state--deleted' },
       W.el('div', { class: 'wz-d-state__ic', html: SVG.box }),
       W.el('h2', {}, '삭제되었거나 존재하지 않는 프로젝트입니다'),
-      W.el('a', { class: 'wz-btn wz-btn--primary', href: '/' }, '홈으로 가기')));
+      W.el('a', { class: 'wz-btn wz-btn--primary', href: '/main.html' }, '홈으로 가기')));
   }
 
   /* ===================================================================

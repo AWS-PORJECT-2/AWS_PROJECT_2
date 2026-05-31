@@ -63,8 +63,19 @@
 .wz-mp-sec__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 16px; gap: 12px; }
 .wz-mp-sec__title { font-size: 19px; font-weight: 800; color: var(--c-text); margin: 0; }
 .wz-mp-sec__title b { color: var(--c-primary-700); }
-.wz-mp-sec__more { font-size: 13px; color: var(--c-text-faint); font-weight: 700; }
-.wz-mp-sec__more:hover { color: var(--c-primary-600); }
+.wz-mp-sec__more {
+  appearance: none; -webkit-appearance: none;
+  font-family: inherit; font-size: 13px; font-weight: 700; line-height: 1;
+  color: var(--c-primary-600);
+  background: #fff;
+  border: 1px solid var(--c-primary-200);
+  border-radius: 999px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.wz-mp-sec__more:hover { background: var(--c-primary-50); border-color: var(--c-primary-400); color: var(--c-primary-700); }
+.wz-mp-sec__more:active { background: var(--c-primary-100); }
 
 /* 카드 그리드 (최근 본/후원/개설 공통) */
 .wz-mp-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; }
