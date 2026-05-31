@@ -1122,7 +1122,13 @@
     if (!list.length) return Promise.resolve(list);
     return Promise.all(list.map(function (it) {
       return window.api.get('/groupbuys/' + encodeURIComponent(it.id), { silentAuthFail: true })
-        .then(function (f) { return (f && f.id != null) ? { keep: true, it: it } : { keep: false, it: it }; })
+        .then(function (f) {
+          // 조회 성공: 저장된 stub 대신 실제 펀드 데이터로 렌더(커버 이미지 포함 — stub 은 data:URL 을 못 담아 비어있음).
+          if (f && f.id != null) {
+            return { keep: true, it: { id: f.id, title: f.title || it.title || '', imageUrl: f.coverImageUrl || f.designImageUrl || '', category: f.category || it.category || '' } };
+          }
+          return { keep: false, it: it };
+        })
         .catch(function (e) {
           // 삭제/없음만 제거. 그 외(네트워크 등)는 보존(keep).
           if (e && (e.status === 404 || e.code === 'GROUPBUY_NOT_FOUND')) return { keep: false, it: it };

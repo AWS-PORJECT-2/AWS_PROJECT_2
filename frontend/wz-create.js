@@ -507,14 +507,17 @@
         open: openPlanForm,
       },
       {
+        key: 'schedule', name: '공개 예정', required: false,
+        // Basic(start) 요금제면 잠금(회색 비활성). Plus/Professional 만 작성 가능.
+        locked: function () { return nstate.plan !== 'run' && nstate.plan !== 'boost'; },
+        lockedLabel: 'Plus 또는 Professional 시 활성화',
+        done: function () { return !nstate.openScheduled || !!nstate.openAt; },
+        open: openScheduleForm,
+      },
+      {
         key: 'goal', name: '목표 금액 · 일정', required: true,
         done: function () { return validTargetAmount(nstate.targetAmount) && validDeadline(nstate.deadline); },
         open: openGoalForm,
-      },
-      {
-        key: 'schedule', name: '공개 예정', required: false,
-        done: function () { return !nstate.openScheduled || !!nstate.openAt; },
-        open: openScheduleForm,
       },
       {
         key: 'story', name: '스토리', required: true,
@@ -663,15 +666,22 @@
     side.appendChild(W.el('p', { class: 'wc-side__title' }, '프로젝트 작성 단계'));
     var ul = W.el('ul', { class: 'wc-side__nav' });
     sections().forEach(function (sec) {
-      var done = sec.done();
-      var li = W.el('li', { class: 'wc-side__item is-active' + (done ? ' is-done' : '') });
+      var locked = !!(sec.locked && sec.locked());
+      var done = !locked && sec.done();
+      var li = W.el('li', { class: 'wc-side__item ' + (locked ? 'is-locked' : 'is-active') + (done ? ' is-done' : '') });
       var sp = W.el('span', { html: SECTION_ICON[sec.key] || IC.doc, class: 'wc-side__ic' });
       sp.style.display = 'inline-flex'; sp.style.width = '18px'; sp.style.height = '18px';
       li.appendChild(sp);
       li.appendChild(W.el('span', {}, sec.name));
-      if (done) li.appendChild(W.el('span', { class: 'wc-side__tick', html: IC.check }));
-      else if (sec.required) li.appendChild(W.el('span', { class: 'wc-side__req' }, '필수'));
-      li.addEventListener('click', function () { sec.open(); });
+      if (locked) {
+        // 회색 비활성 — 클릭 불가, 활성 조건 안내.
+        li.appendChild(W.el('span', { class: 'wc-side__lock' }, sec.lockedLabel || '잠김'));
+        li.setAttribute('aria-disabled', 'true');
+      } else {
+        if (done) li.appendChild(W.el('span', { class: 'wc-side__tick', html: IC.check }));
+        else if (sec.required) li.appendChild(W.el('span', { class: 'wc-side__req' }, '필수'));
+        li.addEventListener('click', function () { sec.open(); });
+      }
       ul.appendChild(li);
     });
     side.appendChild(ul);

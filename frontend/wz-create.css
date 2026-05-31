@@ -109,6 +109,10 @@
 .wc-side__tick { margin-left: auto; width: 18px; height: 18px; border-radius: 50%; background: var(--c-primary-500); color: #fff; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0; }
 .wc-side__tick svg { width: 11px; height: 11px; }
 .wc-side__req { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--c-primary-600); background: var(--c-primary-50); padding: 2px 7px; border-radius: var(--r-full); flex-shrink: 0; }
+/* 잠긴 단계(공개 예정 — Basic 요금제) — 회색 비활성, 클릭 불가 */
+.wc-side__item.is-locked { color: var(--c-text-faint); cursor: not-allowed; opacity: .6; }
+.wc-side__item.is-locked:hover { background: none; }
+.wc-side__lock { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--c-text-muted); background: var(--c-bg); border: 1px solid var(--c-divider); padding: 2px 8px; border-radius: var(--r-full); flex-shrink: 0; white-space: nowrap; }
 .wc-side__change { width: 100%; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-sub); border-radius: var(--r-sm); padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s; }
 .wc-side__change:hover { border-color: var(--c-primary-400); color: var(--c-primary-600); }
 
