@@ -650,23 +650,50 @@
       W.el('span', { html: SVG.share }), W.el('span', { class: 'wz-d-act__label' }, '공유'));
     shareBtn.addEventListener('click', () => doShare(f));
 
-    const likedNow = (typeof window.isLiked === 'function') && window.isLiked(f.id);
-    const likeCount0 = Number(localStorage.getItem('liked_delta_' + f.id)) || 0;
+    // 좋아요: 서버값(f.isLiked/f.likeCount)을 신뢰. window.isLiked 로 한 번 더 보정(찜 동기화 이후).
+    const likedNow = (typeof window.isLiked === 'function') ? window.isLiked(f.id) : !!f.isLiked;
     const likeBtn = W.el('button', { class: 'wz-d-act' + (likedNow ? ' is-on' : ''), type: 'button' });
-    const likeLabel = W.el('span', { class: 'wz-d-act__label' }, '찜 ' + Math.max(0, likeCount0));
+    const likeLabel = W.el('span', { class: 'wz-d-act__label' });
+    function paintLike() {
+      const on = (typeof window.isLiked === 'function') ? window.isLiked(f.id) : !!f.isLiked;
+      likeBtn.classList.toggle('is-on', on);
+      likeLabel.textContent = '찜 ' + Math.max(0, Number(f.likeCount) || 0);
+    }
     likeBtn.append(W.el('span', { html: SVG.heart }), likeLabel);
+    paintLike();
     likeBtn.addEventListener('click', () => {
       if (typeof window.toggleLike !== 'function') return;
+      // 상세는 MOCK_PRODUCTS 에 없을 수 있으므로 f.likeCount 를 낙관적으로 직접 보정.
+      const wasOn = (typeof window.isLiked === 'function') ? window.isLiked(f.id) : !!f.isLiked;
       const on = window.toggleLike(f.id);
-      likeBtn.classList.toggle('is-on', on);
-      if (on) popHeart(likeBtn);
-      likeLabel.textContent = '찜 ' + Math.max(0, Number(localStorage.getItem('liked_delta_' + f.id)) || 0);
+      f.isLiked = on;
+      f.likeCount = Math.max(0, (Number(f.likeCount) || 0) + (on ? 1 : -1));
+      paintLike();
+      if (on && !wasOn) popHeart(likeBtn);
       syncMobileLike(on);
     });
 
     actions.append(shareBtn, likeBtn);
     sideCol.appendChild(actions);
     _mobileLikeSync = (on) => likeBtn.classList.toggle('is-on', on);
+    _sidePaintLike = paintLike; // 모바일 바 토글 시 측면 찜(상태+숫자) 재렌더
+
+    // 서버 동기화 시 정확한 likeCount/상태 반영(POST/DELETE 응답 또는 /me/likes 보정).
+    // 재렌더로 버튼이 DOM 에서 빠지면 리스너 자기 제거.
+    function onDetailLikes(ev) {
+      if (!likeBtn.isConnected) { window.removeEventListener('likes:updated', onDetailLikes); return; }
+      const d = ev.detail || {};
+      if (d.id != null && !d.synced && String(d.id) !== String(f.id)) return;
+      if (d.id != null && String(d.id) === String(f.id)) {
+        if (typeof d.likeCount === 'number') f.likeCount = d.likeCount;
+        if (typeof d.liked === 'boolean') f.isLiked = d.liked;
+      } else if (d.synced && typeof window.isLiked === 'function') {
+        f.isLiked = window.isLiked(f.id);
+      }
+      paintLike();
+      syncMobileLike((typeof window.isLiked === 'function') ? window.isLiked(f.id) : !!f.isLiked);
+    }
+    window.addEventListener('likes:updated', onDetailLikes);
 
     if (owner) {
       /* 본인 소유: 펀딩 대신 [기본정보·스토리 수정] 버튼 (자기 후원 불가) */
@@ -1030,6 +1057,8 @@
 
   /* ---------- 모바일 하단 고정 바 ---------- */
   let _mobileLikeSync = null;
+  /* 측면 패널 찜 버튼(상태+숫자)을 다시 그리도록 위임. 없으면 클래스만 토글. */
+  let _sidePaintLike = null;
   function syncMobileLike(on) { const b = document.querySelector('.wz-d-mbar__like'); if (b) b.classList.toggle('is-on', on); }
   function MobileBar(f, tiers) {
     const bar = W.el('div', { class: 'wz-d-mbar' });
@@ -1038,10 +1067,14 @@
     const like = W.el('button', { class: 'wz-d-mbar__like' + (likedNow ? ' is-on' : ''), type: 'button', 'aria-label': '찜', html: SVG.heart });
     like.addEventListener('click', () => {
       if (typeof window.toggleLike !== 'function') return;
+      const wasOn = (typeof window.isLiked === 'function') ? window.isLiked(f.id) : !!f.isLiked;
       const on = window.toggleLike(f.id);
+      // 상세 f.likeCount 낙관적 보정(측면 패널과 동일 기준) — 서버 응답으로 likes:updated 가 재동기화.
+      f.isLiked = on;
+      f.likeCount = Math.max(0, (Number(f.likeCount) || 0) + (on ? 1 : -1));
       like.classList.toggle('is-on', on);
-      if (on) popHeart(like);
-      if (_mobileLikeSync) _mobileLikeSync(on);
+      if (on && !wasOn) popHeart(like);
+      if (_sidePaintLike) _sidePaintLike(); else if (_mobileLikeSync) _mobileLikeSync(on);
     });
     if (owner) {
       /* 본인 소유: 펀딩 대신 수정 버튼 */

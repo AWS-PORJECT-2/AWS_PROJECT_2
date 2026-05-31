@@ -75,7 +75,7 @@
           err.status = 401;
           throw err;
         }
-        window.location.href = '/login.html';
+        redirectToLogin();
         throw new Error('NOT_AUTHENTICATED');
       }
 
@@ -94,7 +94,7 @@
         err2.status = 401;
         throw err2;
       }
-      window.location.href = '/login.html';
+      redirectToLogin();
       throw new Error('NOT_AUTHENTICATED');
     }
 
@@ -106,7 +106,7 @@
         err3.status = 401;
         throw err3;
       }
-      window.location.href = '/login.html';
+      redirectToLogin();
       throw new Error('NOT_AUTHENTICATED');
     }
 
@@ -125,6 +125,13 @@
 
   function safeJson(text) {
     try { return JSON.parse(text); } catch { return null; }
+  }
+
+  // 미로그인/세션만료 시 에러 토스트 대신 로그인 페이지로 바로 보낸다.
+  // 돌아올 경로를 ?return= 으로 넘겨 로그인 후 복귀를 돕는다(login.html 이 sessionStorage 에 보관).
+  function redirectToLogin() {
+    var ret = window.location.pathname + window.location.search;
+    window.location.href = '/login.html?return=' + encodeURIComponent(ret);
   }
 
   /**

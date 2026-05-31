@@ -490,3 +490,19 @@
   .wc-split__text .wc-textarea { min-height: 110px; }
   .wc-blockadd .wz-btn { flex: 1 1 100%; }
 }
+
+/* =================== 보라 채움 버튼 글자·아이콘 흰색 확정 ===================
+   "이어서 만들기"(.wc-draft__actions / .wc-draftbar), 완료 화면의 "홈으로"·"로그인하기"
+   등 <a> 채움 버튼이 방문(visited) 상태에서 어두워지지 않게 흰색으로 고정.
+   .wz-btn--outline(흰 배경+보라 글자)은 대상 아님. */
+.wc-draft__actions .wz-btn--primary,
+.wc-draftbar .wz-btn--primary,
+.wc-done__actions .wz-btn--primary,
+.wc-done__actions a.wz-btn--primary:link,
+.wc-done__actions a.wz-btn--primary:visited,
+.wc-done__actions a.wz-btn--primary:hover,
+.wc-done__actions a.wz-btn--primary:active { color: #fff; }
+.wc-draft__actions .wz-btn--primary svg,
+.wc-draftbar .wz-btn--primary svg,
+.wc-done__actions .wz-btn--primary svg,
+.wc-done__actions .wz-btn--primary svg path { color: #fff; stroke: #fff; }

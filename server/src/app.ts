@@ -44,6 +44,9 @@ import {
   createScheduledListHandler, createBoostBannersHandler,
   createSubscribeHandler, createUnsubscribeHandler,
 } from './routes/groupbuys-plan-routes.js';
+import {
+  createLikeHandler, createUnlikeHandler, createMyLikesHandler,
+} from './routes/likes-routes.js';
 import { PgCommentRepository } from './repositories/pg-comment-repository.js';
 import {
   createBackingHandler, createMyBackingsHandler, createReportDepositorHandler,
@@ -296,8 +299,8 @@ export function createApp(
   app.delete('/api/groupbuys/:id/participate', authRequired, createGroupBuyCancelParticipationHandler(paymentService));
   app.get('/api/groupbuys/:id/participation', authRequired, createGroupBuyGetParticipationHandler(paymentService));
 
-  // 공용: 공동구매 목록 + 단일 상세 (공개; 상세는 soft-auth 로 maker.isFollowing 채움)
-  app.get('/api/groupbuys', createGroupBuysListV2Handler(groupBuyRepository));
+  // 공용: 공동구매 목록 + 단일 상세 (공개; soft-auth 로 viewer 의 isLiked/maker.isFollowing 채움)
+  app.get('/api/groupbuys', optionalAuth, createGroupBuysListV2Handler(groupBuyRepository));
   // 요금제 기능 — 고정 경로(/scheduled, /boost-banners)는 '/:id' 보다 먼저 등록(라우트 섀도잉 방지).
   app.get('/api/groupbuys/scheduled', createScheduledListHandler(groupBuyRepository));   // 공개예정 목록
   app.get('/api/groupbuys/boost-banners', createBoostBannersHandler(groupBuyRepository)); // Boost 배너(홈 히어로)
@@ -358,6 +361,10 @@ export function createApp(
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
   app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository, notificationRepository));
+  // --- 찜(좋아요, 026_project_likes) — 서버 저장으로 모든 사용자에게 반영 + 기기간 유지 ---
+  // /:id/like 는 고정 하위 세그먼트라 /api/funds(POST) · /api/funds/:id/back 과 충돌 없음.
+  app.post('/api/funds/:id/like', authRequired, createLikeHandler(groupBuyRepository));
+  app.delete('/api/funds/:id/like', authRequired, createUnlikeHandler(groupBuyRepository));
   // --- 내 프로필/계정 (소셜 계약) ---
   app.patch('/api/me', authRequired, createUpdateMeHandler(userRepository));
   app.patch('/api/me/notifications', authRequired, createUpdateNotificationsHandler(userRepository));
@@ -369,6 +376,8 @@ export function createApp(
   // 본인 펀드 분석(요금제 분석 기능) — 본인 소유 아니면 404.
   app.get('/api/me/funds/:id/analytics', authRequired, createMeFundAnalyticsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
+  // 내가 찜한 펀드 id 목록 — 기기간 유지(서버 저장).
+  app.get('/api/me/likes', authRequired, createMyLikesHandler(groupBuyRepository));
 
   // --- 서버 기반 알림(024_notifications) — 본인 알림 조회/읽음 처리 ---
   app.get('/api/me/notifications', authRequired, createMyNotificationsHandler(notificationRepository));

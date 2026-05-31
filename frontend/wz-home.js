@@ -332,13 +332,32 @@
     if (badge) th.appendChild(badge);
     const liked = (typeof window.isLiked === 'function') && window.isLiked(p.id);
     const heart = W.el('button', { class: 'wz-pcard__heart' + (liked ? ' is-on' : ''), type: 'button', 'aria-label': '찜', html: W.ICON.heart });
+    // 하트 옆 좋아요 수(전역 집계). 0이면 숨김.
+    const likeNum = W.el('span', { class: 'wz-pcard__likecount' });
+    function paintLikeNum() {
+      const n = (typeof window.getLikeCount === 'function') ? window.getLikeCount(p.id) : (Number(p.likeCount) || 0);
+      likeNum.textContent = n > 0 ? String(n) : '';
+      likeNum.style.display = n > 0 ? '' : 'none';
+    }
+    paintLikeNum();
+    heart.appendChild(likeNum);
     heart.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       if (typeof window.toggleLike !== 'function') return;
       const on = window.toggleLike(p.id);
       heart.classList.toggle('is-on', on);
+      paintLikeNum();
       if (on) { heart.classList.remove('is-pop'); void heart.offsetWidth; heart.classList.add('is-pop'); }
     });
+    // 서버 동기화/외부 토글 시 하트·수 갱신(전역 반영). 카드가 DOM 에서 빠지면 리스너 자기 제거.
+    function onLikesUpdated(ev) {
+      if (!card.isConnected) { window.removeEventListener('likes:updated', onLikesUpdated); return; }
+      const d = ev.detail || {};
+      if (d.id != null && !d.synced && String(d.id) !== String(p.id)) return;
+      heart.classList.toggle('is-on', (typeof window.isLiked === 'function') && window.isLiked(p.id));
+      paintLikeNum();
+    }
+    window.addEventListener('likes:updated', onLikesUpdated);
     th.appendChild(heart);
     card.appendChild(th);
     card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, W.rate(p) + '% 달성'));

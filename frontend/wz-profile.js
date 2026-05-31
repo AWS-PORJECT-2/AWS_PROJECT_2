@@ -118,39 +118,32 @@
     window.api.get('/me/drafts', { silentAuthFail: true })
       .then(function (r) { state.drafts = (r && r.items) || []; afterStats(); })
       .catch(function () { state.drafts = state.drafts || null; });
-    // 관심 수: localStorage liked_ 플래그를 공개 목록과 교차해 "실제 존재하는" 개수로 정확화
+    // 관심 수: 서버 찜(GET /api/me/likes)을 공개 목록과 교차해 "실제 존재하는" 개수로 정확화
     refreshLikedCount();
   }
 
   /* 관심 프로젝트 수 정확화 — panelLiked 와 동일한 교차필터.
-   * readLikedIds()(localStorage liked_<id>='1') ∩ GET /api/groupbuys 결과 개수.
-   * 공개 목록에 없는(삭제/종료된) stale liked_ 플래그는 카운트에서 제외하고 정리한다. */
+   * GET /api/me/likes(로그인 시) ∩ GET /api/groupbuys 결과 개수.
+   * 미로그인이면 0. 공개 목록에 없는(삭제/종료된) id 는 카운트에서 제외. */
   function refreshLikedCount() {
-    var likedIds = readLikedIds();
-    if (!likedIds.length) { state.likedCount = 0; afterStats(); return; }
-    window.api.get('/groupbuys?sort=latest&limit=200', { silentAuthFail: true })
+    window.api.get('/me/likes', { silentAuthFail: true })
       .then(function (r) {
-        var items = (r && r.items) || [];
-        var present = {};
-        items.forEach(function (it) { if (it && it.id != null) present[String(it.id)] = true; });
-        var matched = likedIds.filter(function (id) { return present[String(id)]; });
-        state.likedCount = matched.length;
-        pruneStaleLiked(likedIds, present);
-        afterStats();
+        var likedIds = (r && Array.isArray(r.ids)) ? r.ids : [];
+        if (!likedIds.length) { state.likedCount = 0; afterStats(); return; }
+        window.api.get('/groupbuys?sort=latest&limit=200', { silentAuthFail: true })
+          .then(function (r2) {
+            var items = (r2 && r2.items) || [];
+            var present = {};
+            items.forEach(function (it) { if (it && it.id != null) present[String(it.id)] = true; });
+            var matched = likedIds.filter(function (id) { return present[String(id)]; });
+            state.likedCount = matched.length;
+            afterStats();
+          })
+          .catch(function () { /* 목록 조회 실패 시 보수적으로 기존 추정 유지 */ });
       })
-      .catch(function () { /* 목록 조회 실패 시 보수적으로 기존 추정 유지 */ });
+      .catch(function () { state.likedCount = 0; afterStats(); }); // 미로그인/실패 → 0
   }
 
-  /* 공개 목록에 더 이상 없는 liked_<id> 플래그 정리(관심 수가 다시 부풀지 않도록). */
-  function pruneStaleLiked(likedIds, present) {
-    try {
-      likedIds.forEach(function (id) {
-        if (present[String(id)]) return;
-        localStorage.removeItem('liked_' + id);
-        localStorage.removeItem('liked_delta_' + id);
-      });
-    } catch (_) {}
-  }
   function afterStats() {
     if (refs.curView === 'home' || !refs.curView) refreshStats();
   }
@@ -268,8 +261,8 @@
     if (!refs.statsRow) return;
     var fundsN = Array.isArray(state.funds) ? state.funds.length : 0;
     var backN = Array.isArray(state.backings) ? state.backings.length : 0;
-    // 교차필터로 확정된 값(state.likedCount)이 있으면 그것을, 로드 전엔 보수적 추정(countLiked)
-    var likedN = (typeof state.likedCount === 'number') ? state.likedCount : countLiked();
+    // 교차필터로 확정된 값(state.likedCount)이 있으면 그것을, 로드 전엔 0(서버 기준)
+    var likedN = (typeof state.likedCount === 'number') ? state.likedCount : 0;
     var draftsN = Array.isArray(state.drafts) ? state.drafts.length : 0;
     var cards = [
       statCard('개설한 프로젝트', String(fundsN), function () { selectView('funds'); }),
@@ -284,15 +277,6 @@
       walletItem('coin', '포인트', '0P'),
       walletItem('ticket', '쿠폰', '0장')
     );
-  }
-
-  // localStorage 의 liked_<id> 플래그 중 '1' 인 개수(클라 fallback 좋아요 수)
-  function countLiked() {
-    try {
-      return Object.keys(localStorage).filter(function (k) {
-        return k.indexOf('liked_') === 0 && k.indexOf('liked_delta_') !== 0 && localStorage.getItem(k) === '1';
-      }).length;
-    } catch (_) { return 0; }
   }
 
   function statCard(label, value, onClick) {
@@ -420,29 +404,30 @@
     recent.forEach(function (it) { grid.appendChild(recentCard(it)); });
   }
 
-  /* 패널: 관심 프로젝트 (좋아요/찜) — 서버 likes API 없음.
-   *  localStorage liked_<id> 플래그(window.isLiked) ∩ GET /api/groupbuys 목록 교차필터.
-   *  실제 공개 목록에 존재하는 관심 프로젝트만 노출(없으면 빈 상태). */
+  /* 패널: 관심 프로젝트 (좋아요/찜) — 서버 찜 기준.
+   *  GET /api/me/likes(로그인 시) ∩ GET /api/groupbuys 목록 교차필터.
+   *  실제 공개 목록에 존재하는 관심 프로젝트만 노출(없으면 빈 상태). 미로그인은 로그인 유도. */
   function panelLiked() {
     refs.curView = 'liked';
     var grid = panelShell('관심 프로젝트', 'liked');
-    var likedIds = readLikedIds();
-    if (!likedIds.length) {
-      grid.appendChild(emptyState('heart', '아직 관심(찜)한 프로젝트가 없어요', '프로젝트 둘러보기', '/feed.html', '/assets/empty-likes.png'));
-      return;
-    }
     grid.appendChild(loading());
-    // 공개 목록을 넉넉히 받아 교차필터. (공개 GET, 미로그인도 허용)
-    window.api.get('/groupbuys?sort=latest&limit=200', { silentAuthFail: true })
+    // 내 찜 id 조회. 미로그인(401)이면 로그인 유도. (state.me 가 아직 미확정인 직접 진입도 안전하게 처리)
+    window.api.get('/me/likes', { silentAuthFail: true })
       .then(function (r) {
-        var items = (r && r.items) || [];
-        var byId = {};
-        items.forEach(function (it) { if (it && it.id != null) byId[String(it.id)] = it; });
-        var matched = likedIds.map(function (id) { return byId[String(id)]; }).filter(Boolean);
-        fillLiked(grid, matched);
+        var likedIds = (r && Array.isArray(r.ids)) ? r.ids : [];
+        if (!likedIds.length) { fillLiked(grid, []); return; }
+        // 공개 목록과 교차필터(실제 존재하는 관심 프로젝트만).
+        return window.api.get('/groupbuys?sort=latest&limit=200', { silentAuthFail: true })
+          .then(function (r2) {
+            var items = (r2 && r2.items) || [];
+            var byId = {};
+            items.forEach(function (it) { if (it && it.id != null) byId[String(it.id)] = it; });
+            var matched = likedIds.map(function (id) { return byId[String(id)]; }).filter(Boolean);
+            fillLiked(grid, matched);
+          });
       })
-      .catch(function () {
-        // 목록 조회 실패 시 빈 상태
+      .catch(function (e) {
+        if (e && e.status === 401) { grid.replaceChildren(loginEmpty('관심(찜)한 프로젝트를 보려면 로그인하세요')); return; }
         fillLiked(grid, []);
       });
   }
@@ -1037,22 +1022,6 @@
     var d = new Date(t);
     var p = function (x) { return (x < 10 ? '0' : '') + x; };
     return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
-  }
-
-  /* 찜한 펀드 id 목록 — localStorage liked_<id>='1'. window.isLiked 가 있으면 그것으로 한 번 더 확인. */
-  function readLikedIds() {
-    var ids = [];
-    try {
-      Object.keys(localStorage).forEach(function (k) {
-        if (k.indexOf('liked_') !== 0 || k.indexOf('liked_delta_') === 0) return;
-        if (localStorage.getItem(k) !== '1') return;
-        var id = k.slice('liked_'.length);
-        if (!id) return;
-        if (typeof window.isLiked === 'function') { try { if (!window.isLiked(id)) return; } catch (_) {} }
-        ids.push(id);
-      });
-    } catch (_) { return []; }
-    return ids;
   }
 
   /* recentFunds — detail.js가 { id, title, imageUrl } 로 저장. */

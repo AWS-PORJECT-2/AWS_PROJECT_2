@@ -63,6 +63,8 @@ export interface GroupBuyCardItem {
   deadline: string;          // ISO
   status: GroupBuyStatus;
   createdAt: string;         // ISO
+  likeCount: number;         // 찜(좋아요) 수 — 모든 사용자 공통(026_project_likes)
+  isLiked: boolean;          // viewer 의 찜 여부 — 비로그인/미찜이면 false
 }
 
 export interface GroupBuyDetail extends GroupBuyCardItem {
@@ -117,11 +119,24 @@ export interface GroupBuyRepository {
   updateFields(id: string, fields: GroupBuyUpdateFields): Promise<GroupBuy | null>;
 
   // ─── 공개 목록/상세 (006_social_features 계약) ───
-  findMany(options: GroupBuyFindManyOptions): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
+  // viewerId 가 있으면 각 카드의 isLiked 를 한 번의 IN 조회로 채운다(목록 N+1 방지). likeCount 는 서브쿼리.
+  findMany(options: GroupBuyFindManyOptions, viewerId?: string): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
   findByCreator(creatorId: string): Promise<GroupBuyCardItem[]>;
   // 여러 창작자의 공개(open) 펀드를 최신순으로 — 팔로잉 피드용. creatorIds 가 비면 빈 결과.
-  findOpenByCreators(creatorIds: string[], limit?: number, offset?: number): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
+  findOpenByCreators(creatorIds: string[], limit?: number, offset?: number, viewerId?: string): Promise<{ total: number; rows: GroupBuyCardItem[] }>;
   getDetail(id: string, viewerId?: string): Promise<GroupBuyDetail | null>;
+
+  // ─── 찜(좋아요) — 026_project_likes ───
+  // 찜 추가(UPSERT, ON CONFLICT DO NOTHING) → 펀드 존재 시 좋아요 수, 없으면 null(404).
+  like(userId: string, fundId: string): Promise<number | null>;
+  // 찜 취소(DELETE) → 펀드 존재 시 좋아요 수, 없으면 null(404).
+  unlike(userId: string, fundId: string): Promise<number | null>;
+  // 펀드의 좋아요 수.
+  countLikes(fundId: string): Promise<number>;
+  // 사용자가 찜한 펀드 id 목록(최신 찜 순).
+  likedIdsByUser(userId: string): Promise<string[]>;
+  // 사용자가 특정 펀드를 찜했는지.
+  isLiked(userId: string, fundId: string): Promise<boolean>;
 
   // ─── 요금제 기능 3종 (023_plan_features) ───
   // 공개예정 목록 — status=scheduled AND open_at>now, open_at 오름차순.

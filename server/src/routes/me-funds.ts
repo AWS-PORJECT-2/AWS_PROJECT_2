@@ -184,7 +184,8 @@ export function createFollowingFeedHandler(followRepo: FollowRepository, groupBu
       // 팔로우가 비면 DB 추가 조회 없이 즉시 빈 결과.
       if (creatorIds.length === 0) { res.json({ items: [], total: 0 }); return; }
 
-      const { total, rows } = await groupBuyRepo.findOpenByCreators(creatorIds, limit, offset);
+      // following-feed 는 authRequired 라 userId 는 항상 존재 — viewer 로 isLiked 채움.
+      const { total, rows } = await groupBuyRepo.findOpenByCreators(creatorIds, limit, offset, userId);
       res.json({ items: rows, total });
     } catch (err) {
       logger.error({ err, userId }, '팔로잉 피드 조회 실패');

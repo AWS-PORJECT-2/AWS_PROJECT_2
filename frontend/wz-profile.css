@@ -171,6 +171,14 @@
 .wz-mp-draft__dot { color: var(--c-text-faint); }
 .wz-mp-draft__actions { flex-shrink: 0; display: flex; align-items: center; gap: 8px; }
 .wz-mp-draft__go { height: 38px; padding: 0 16px; font-size: 13px; white-space: nowrap; }
+/* "이어서 만들기" 는 <a> 링크 채움 버튼 — 방문(visited) 시 글자가 어두워지지 않게 흰색 확정 */
+.wz-mp-draft__go.wz-btn--primary,
+.wz-mp-draft__go.wz-btn--primary:link,
+.wz-mp-draft__go.wz-btn--primary:visited,
+.wz-mp-draft__go.wz-btn--primary:hover,
+.wz-mp-draft__go.wz-btn--primary:active { color: #fff; }
+.wz-mp-draft__go.wz-btn--primary svg,
+.wz-mp-draft__go.wz-btn--primary svg path { color: #fff; stroke: #fff; }
 .wz-mp-draft__del { flex-shrink: 0; width: 38px; height: 38px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--c-border); border-radius: 8px; background: #fff; color: var(--c-text-faint); cursor: pointer; transition: background .14s, color .14s, border-color .14s; }
 .wz-mp-draft__del svg { width: 17px; height: 17px; }
 .wz-mp-draft__del:hover { background: #FEE2E2; color: #B91C1C; border-color: #FCA5A5; }
@@ -197,9 +205,14 @@
 .wz-mp-banner__title { font-size: 15px; font-weight: 800; color: var(--c-text); margin: 0 0 3px; }
 .wz-mp-banner__desc { font-size: 13px; color: var(--c-text-sub); margin: 0; }
 .wz-mp-banner__cta { flex-shrink: 0; }
-/* "프로젝트 만들기" 버튼: 보라 채움 + 글자·아이콘 흰색 확실히 */
-.wz-mp-banner__cta .wz-btn--primary { color: #fff; }
-.wz-mp-banner__cta .wz-btn--primary svg { color: #fff; }
+/* "프로젝트 만들기" 버튼: 보라 채움 + 글자·아이콘 흰색 확실히 (<a> visited 포함) */
+.wz-mp-banner__cta .wz-btn--primary,
+.wz-mp-banner__cta .wz-btn--primary:link,
+.wz-mp-banner__cta .wz-btn--primary:visited,
+.wz-mp-banner__cta .wz-btn--primary:hover,
+.wz-mp-banner__cta .wz-btn--primary:active { color: #fff; }
+.wz-mp-banner__cta .wz-btn--primary svg,
+.wz-mp-banner__cta .wz-btn--primary svg path { color: #fff; stroke: #fff; }
 
 /* 패널 진입 시 상단 뒤로 영역 */
 .wz-mp-panelhead { display: flex; align-items: center; gap: 8px; margin-bottom: 18px; }

@@ -99,9 +99,16 @@
 .wz-mk-hero__actions { flex-shrink: 0; display: flex; align-items: center; gap: 10px; margin-top: 56px; padding-bottom: 2px; }
 .wz-mk-share, .wz-mk-editbtn, .wz-mk-follow { gap: 6px; }
 .wz-mk-share svg, .wz-mk-editbtn svg, .wz-mk-follow__ic svg { width: 16px; height: 16px; }
-/* 프로필 편집: 보라 배경(primary) 위 글자·아이콘 흰색 강제 */
-.wz-mk-editbtn, .wz-mk-editbtn:hover, .wz-mk-editbtn:visited { color: #fff; }
-.wz-mk-editbtn svg { color: #fff; }
+/* 프로필 편집: 보라 배경(primary) 위 글자·아이콘 흰색 강제 (<a> link/visited 포함) */
+.wz-mk-editbtn, .wz-mk-editbtn:link, .wz-mk-editbtn:hover,
+.wz-mk-editbtn:visited, .wz-mk-editbtn:active { color: #fff; }
+.wz-mk-editbtn svg, .wz-mk-editbtn svg path { color: #fff; stroke: #fff; }
+/* fallback("홈으로"·"로그인하기") <a> 채움 버튼도 흰 글자 확정 */
+.wz-mk-fallback a.wz-btn--primary,
+.wz-mk-fallback a.wz-btn--primary:link,
+.wz-mk-fallback a.wz-btn--primary:visited,
+.wz-mk-fallback a.wz-btn--primary:hover,
+.wz-mk-fallback a.wz-btn--primary:active { color: #fff; }
 .wz-mk-follow { min-width: 116px; }
 .wz-mk-follow.is-following { color: var(--c-text-sub); }
 .wz-mk-follow__ic { display: inline-flex; }

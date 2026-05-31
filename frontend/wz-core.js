@@ -189,18 +189,10 @@
   }
 
   /* ============ 헤더 하트 → 관심 목록 팝오버 ============
-   * localStorage 의 liked_<id>="1" 플래그 ∩ GET /api/groupbuys 교차 = 실제 존재하는 관심 프로젝트만.
-   * 헤더 바깥 클릭 / Esc 로 닫힘. */
-  function likedIds() {
-    const out = [];
-    try {
-      Object.keys(localStorage).forEach((k) => {
-        if (k.indexOf('liked_') === 0 && k.indexOf('liked_delta_') !== 0 && localStorage.getItem(k) === '1') {
-          out.push(k.slice('liked_'.length));
-        }
-      });
-    } catch (_) {}
-    return out;
+   * 서버 찜(GET /api/me/likes) ∩ GET /api/groupbuys 교차 = 실제 존재하는 관심 프로젝트만.
+   * 미로그인이면 로그인 유도. 헤더 바깥 클릭 / Esc 로 닫힘. */
+  function currentReturn() {
+    return encodeURIComponent(location.pathname + location.search + location.hash);
   }
   function openLikedPop(anchor) {
     if (document.querySelector('.wz-likedpop')) { closeAllPops(); return; }
@@ -225,26 +217,41 @@
     function detach() { document.removeEventListener('click', close); document.removeEventListener('keydown', onKey); }
     setTimeout(() => { document.addEventListener('click', close); document.addEventListener('keydown', onKey); }, 0);
 
-    const ids = likedIds();
-    if (!ids.length) { renderLikedEmpty(body); return; }
-    window.api.get('/groupbuys?limit=100', { silentAuthFail: true })
-      .then((data) => {
-        const items = (data && Array.isArray(data.items)) ? data.items : [];
-        const idSet = {}; ids.forEach((id) => { idSet[id] = true; });
-        const liked = items.filter((p) => idSet[p.id]);
+    // 로그인 확인 → 내 찜 id(GET /api/me/likes) ∩ 공개 목록(GET /api/groupbuys)
+    fetchMe().then((me) => {
+      if (!me) { renderLikedLogin(body); return; }
+      Promise.all([
+        window.api.get('/me/likes', { silentAuthFail: true }).catch(() => null),
+        window.api.get('/groupbuys?limit=100', { silentAuthFail: true }).catch(() => null),
+      ]).then(([likesData, listData]) => {
+        const ids = (likesData && Array.isArray(likesData.ids)) ? likesData.ids : [];
+        if (!ids.length) { renderLikedEmpty(body); return; }
+        const items = (listData && Array.isArray(listData.items)) ? listData.items : [];
+        const idSet = {}; ids.forEach((id) => { idSet[String(id)] = true; });
+        const liked = items.filter((p) => idSet[String(p.id)]);
         if (!liked.length) { renderLikedEmpty(body); return; }
         body.innerHTML = '';
         const list = el('div', { class: 'wz-likedpop__list' });
         liked.slice(0, 12).forEach((p) => list.appendChild(LikedRow(p)));
         body.appendChild(list);
-      })
-      .catch(() => renderLikedEmpty(body));
+      }).catch(() => renderLikedEmpty(body));
+    }).catch(() => renderLikedEmpty(body));
   }
   function renderLikedEmpty(body) {
     body.innerHTML = '';
     const empty = el('div', { class: 'wz-likedpop__empty' });
     empty.append(el('p', {}, '관심 목록이 비어 있어요'));
     body.appendChild(empty);
+  }
+  /* 미로그인 — 로그인 유도(현재 페이지로 복귀). */
+  function renderLikedLogin(body) {
+    body.innerHTML = '';
+    const box = el('div', { class: 'wz-likedpop__empty' });
+    box.append(
+      el('p', {}, '로그인하고 관심 프로젝트를 모아보세요'),
+      el('a', { class: 'wz-btn wz-btn--primary', href: '/login.html?return=' + currentReturn() }, '로그인하기')
+    );
+    body.appendChild(box);
   }
   function LikedRow(p) {
     const a = el('a', { class: 'wz-likedpop__row', href: '/detail.html?id=' + encodeURIComponent(p.id) });

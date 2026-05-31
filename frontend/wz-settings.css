@@ -247,6 +247,12 @@ textarea.wzs-input { height: auto; min-height: 80px; padding: 10px 12px; resize:
 .wzs-loading { text-align: center; color: var(--c-text-muted); padding: 60px 0; font-size: 14px; }
 .wzs-guest { text-align: center; padding: 64px 16px; }
 .wzs-guest p { color: var(--c-text-muted); font-size: 15px; margin: 0 0 18px; }
+/* "로그인하기" <a> 채움 버튼 — visited 에도 글자 흰색 확정 */
+.wzs-guest a.wz-btn--primary,
+.wzs-guest a.wz-btn--primary:link,
+.wzs-guest a.wz-btn--primary:visited,
+.wzs-guest a.wz-btn--primary:hover,
+.wzs-guest a.wz-btn--primary:active { color: #fff; }
 
 @media (max-width: 767px) {
   #wz-settings { padding: 24px 16px 80px; }

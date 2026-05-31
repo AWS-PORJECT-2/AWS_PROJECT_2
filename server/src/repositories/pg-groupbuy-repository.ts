@@ -86,6 +86,9 @@ function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
     deadline: new Date(row.deadline as string).toISOString(),
     status: row.status as GroupBuyStatus,
     createdAt: new Date(row.created_at as string).toISOString(),
+    // 찜(좋아요) — like_count 서브쿼리/집계, is_liked 는 viewer IN/조인 결과(없으면 0/false).
+    likeCount: Number(row.like_count) || 0,
+    isLiked: Boolean(row.is_liked),
   };
 }
 
@@ -351,7 +354,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   // ─── 공개 목록/상세 (계약 형태) ───
 
-  async findMany(options: GroupBuyFindManyOptions): Promise<{ total: number; rows: GroupBuyCardItem[] }> {
+  async findMany(options: GroupBuyFindManyOptions, viewerId?: string): Promise<{ total: number; rows: GroupBuyCardItem[] }> {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const offset = Math.max(options.offset ?? 0, 0);
 
@@ -377,6 +380,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     else if (options.sort === 'ending') orderSql = 'ORDER BY g.deadline ASC';
     else orderSql = 'ORDER BY g.current_quantity DESC, g.created_at DESC'; // popular
 
+    // viewer 의 isLiked — 로그인 시 LEFT JOIN 한 번으로 채움(목록 N+1 방지). 비로그인이면 NULL → false.
+    params.push(viewerId ?? null);
+    const viewerParam = params.length;
+
     params.push(limit);
     params.push(offset);
 
@@ -384,15 +391,19 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
              g.deadline, g.status, g.created_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
-             u.name AS creator_name, u.slug AS creator_slug
+             u.name AS creator_name, u.slug AS creator_slug,
+             (SELECT COUNT(*)::int FROM project_likes pl WHERE pl.groupbuy_id = g.id) AS like_count,
+             (vl.user_id IS NOT NULL) AS is_liked
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
+        LEFT JOIN project_likes vl ON vl.groupbuy_id = g.id AND vl.user_id = $${viewerParam}::uuid
         ${whereSql}
         ${orderSql}
         LIMIT $${params.length - 1} OFFSET $${params.length}
     `;
+    // count 는 whereSql 의 필터 파라미터만 사용 — viewer/limit/offset 3개는 제외(불일치 시 pg 오류).
     const countQuery = `SELECT COUNT(*)::int AS cnt FROM groupbuys g ${whereSql}`;
-    const countParams = params.slice(0, params.length - 2);
+    const countParams = params.slice(0, params.length - 3);
 
     const [listRes, countRes] = await Promise.all([
       this.pool.query(listQuery, params),
@@ -415,19 +426,24 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     creatorIds: string[],
     limit = 50,
     offset = 0,
+    viewerId?: string,
   ): Promise<{ total: number; rows: GroupBuyCardItem[] }> {
     if (creatorIds.length === 0) return { total: 0, rows: [] };
     const lim = Math.min(Math.max(limit, 1), 100);
     const off = Math.max(offset, 0);
 
     // creator_id = ANY($1) — 파라미터화로 SQL 인젝션 차단. 공개(open)만, 최신순.
+    // 찜: like_count 서브쿼리 + viewer($4) LEFT JOIN 으로 isLiked(목록 N+1 방지). 비로그인이면 false.
     const listQuery = `
       SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
              g.deadline, g.status, g.created_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
-             u.name AS creator_name, u.slug AS creator_slug
+             u.name AS creator_name, u.slug AS creator_slug,
+             (SELECT COUNT(*)::int FROM project_likes pl WHERE pl.groupbuy_id = g.id) AS like_count,
+             (vl.user_id IS NOT NULL) AS is_liked
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
+        LEFT JOIN project_likes vl ON vl.groupbuy_id = g.id AND vl.user_id = $4::uuid
        WHERE g.status = 'open' AND g.creator_id = ANY($1::uuid[])
        ORDER BY g.created_at DESC
        LIMIT $2 OFFSET $3
@@ -438,7 +454,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     `;
 
     const [listRes, countRes] = await Promise.all([
-      this.pool.query(listQuery, [creatorIds, lim, off]),
+      this.pool.query(listQuery, [creatorIds, lim, off, viewerId ?? null]),
       this.pool.query(countQuery, [creatorIds]),
     ]);
 
@@ -460,7 +476,11 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               (SELECT COUNT(*)::int FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id) AS subscriber_count,
               CASE WHEN $2::uuid IS NULL THEN FALSE
                    ELSE EXISTS (SELECT 1 FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id AND ps.user_id = $2::uuid)
-              END AS is_subscribed
+              END AS is_subscribed,
+              (SELECT COUNT(*)::int FROM project_likes pl WHERE pl.groupbuy_id = g.id) AS like_count,
+              CASE WHEN $2::uuid IS NULL THEN FALSE
+                   ELSE EXISTS (SELECT 1 FROM project_likes pl WHERE pl.groupbuy_id = g.id AND pl.user_id = $2::uuid)
+              END AS is_liked
          FROM groupbuys g
          LEFT JOIN "user" u ON u.id = g.creator_id
         WHERE g.id = $1`,
@@ -488,6 +508,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       cover_image_url: r.cover_image_url_resolved,
       creator_name: r.maker_name,
       creator_slug: r.maker_slug,
+      like_count: r.like_count,
+      is_liked: r.is_liked,
     });
 
     return {
@@ -603,6 +625,55 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       [groupbuyId],
     );
     return r.rows[0]?.c ?? 0;
+  }
+
+  // ─── 찜(좋아요) — 026_project_likes ───
+
+  // 찜 추가(UPSERT). 펀드가 없으면 null(404). 있으면 추가 후 최신 좋아요 수.
+  async like(userId: string, fundId: string): Promise<number | null> {
+    const exists = await this.pool.query('SELECT 1 FROM groupbuys WHERE id = $1', [fundId]);
+    if (exists.rows.length === 0) return null;
+    await this.pool.query(
+      `INSERT INTO project_likes (user_id, groupbuy_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [userId, fundId],
+    );
+    return this.countLikes(fundId);
+  }
+
+  // 찜 취소(DELETE). 펀드가 없으면 null(404). 있으면 삭제 후 최신 좋아요 수.
+  async unlike(userId: string, fundId: string): Promise<number | null> {
+    const exists = await this.pool.query('SELECT 1 FROM groupbuys WHERE id = $1', [fundId]);
+    if (exists.rows.length === 0) return null;
+    await this.pool.query(
+      `DELETE FROM project_likes WHERE user_id = $1 AND groupbuy_id = $2`,
+      [userId, fundId],
+    );
+    return this.countLikes(fundId);
+  }
+
+  async countLikes(fundId: string): Promise<number> {
+    const r = await this.pool.query(
+      'SELECT COUNT(*)::int AS c FROM project_likes WHERE groupbuy_id = $1',
+      [fundId],
+    );
+    return r.rows[0]?.c ?? 0;
+  }
+
+  // 사용자가 찜한 펀드 id 목록 — 최신 찜 순.
+  async likedIdsByUser(userId: string): Promise<string[]> {
+    const r = await this.pool.query(
+      'SELECT groupbuy_id FROM project_likes WHERE user_id = $1 ORDER BY created_at DESC',
+      [userId],
+    );
+    return r.rows.map((row) => row.groupbuy_id as string);
+  }
+
+  async isLiked(userId: string, fundId: string): Promise<boolean> {
+    const r = await this.pool.query(
+      'SELECT 1 FROM project_likes WHERE user_id = $1 AND groupbuy_id = $2',
+      [userId, fundId],
+    );
+    return r.rows.length > 0;
   }
 
   // 상세 조회수 += 1 (best-effort, 비차단). 실패해도 throw 하지 않음.

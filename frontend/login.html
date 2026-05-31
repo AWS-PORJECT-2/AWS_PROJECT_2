@@ -4,118 +4,215 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>로그인 - 두띵(Doothing)</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="tokens.css">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", sans-serif;
+      font-family: var(--font-sans);
       min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      background: linear-gradient(160deg, rgba(218,178,255,0.3) 0%, rgba(116,212,255,0.3) 50%, rgba(94,233,181,0.3) 100%);
-      color: #1a1a1a;
+      padding: 24px;
+      background:
+        radial-gradient(1100px 520px at 50% -8%, var(--c-primary-100) 0%, rgba(237,233,254,0) 60%),
+        var(--c-bg);
+      color: var(--c-text);
     }
-    .login-card {
+    .wz-login {
       width: 100%;
-      max-width: 380px;
-      background: #fff;
-      border-radius: 24px;
-      padding: 40px 32px;
-      box-shadow: 0 20px 50px rgba(0,0,0,0.08);
+      max-width: 420px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    /* 상단 두띵 로고 — 와디즈처럼 크게 */
+    .wz-login__brand {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 28px;
+    }
+    .wz-login__logo {
+      height: 56px;
+      width: auto;
+      display: block;
+    }
+    .wz-login__brandtext {
+      font-size: 40px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      color: var(--c-primary-600);
+    }
+    .wz-login__card {
+      width: 100%;
+      background: var(--c-surface);
+      border: 1px solid var(--c-border);
+      border-radius: var(--r-lg);
+      padding: 40px 32px 32px;
+      box-shadow: var(--sh-3);
       text-align: center;
     }
-    .brand { font-size: 28px; font-weight: 800; color: #2B5F9E; letter-spacing: -0.5px; }
-    .tagline { font-size: 14px; color: #6b7280; margin-top: 8px; }
-    .divider { height: 1px; background: #f0f0f0; margin: 32px 0 28px; }
-    .login-btn {
+    .wz-login__title {
+      font-size: 22px;
+      font-weight: 800;
+      color: var(--c-text);
+      letter-spacing: -0.4px;
+    }
+    .wz-login__sub {
+      font-size: 14px;
+      color: var(--c-text-muted);
+      margin-top: 10px;
+      line-height: 1.6;
+    }
+    .wz-login__divider {
+      height: 1px;
+      background: var(--c-divider);
+      margin: 26px 0 22px;
+    }
+    .wz-login__google {
       width: 100%;
       height: 54px;
-      border: 1px solid #e5e7eb;
-      background: #fff;
-      border-radius: 16px;
+      border: 1.5px solid var(--c-border);
+      background: var(--c-surface);
+      border-radius: var(--r-md);
       font-size: 15px;
-      font-weight: 500;
-      color: #374151;
+      font-weight: 700;
+      color: var(--c-text-sub);
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
-      transition: opacity 0.15s;
+      font-family: inherit;
+      transition: border-color .15s, box-shadow .15s, background .15s;
     }
-    .login-btn:active { opacity: 0.85; }
-    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .dev-hint {
-      margin-top: 24px;
-      font-size: 12px;
-      color: #9ca3af;
-      line-height: 1.6;
+    .wz-login__google:hover { border-color: var(--c-primary-300); box-shadow: var(--sh-1); }
+    .wz-login__google:active { background: var(--c-primary-50); }
+    .wz-login__google:disabled { opacity: 0.55; cursor: not-allowed; }
+    .wz-login__google svg { width: 20px; height: 20px; flex-shrink: 0; }
+    /* @kookmin 안내 (보라 톤 정보 박스) */
+    .wz-login__notice {
+      margin-top: 18px;
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      text-align: left;
+      background: var(--c-primary-50);
+      border: 1px solid var(--c-primary-200);
+      border-radius: var(--r-md);
+      padding: 12px 14px;
     }
-    .error {
+    .wz-login__notice svg { width: 18px; height: 18px; flex-shrink: 0; color: var(--c-primary-600); margin-top: 1px; }
+    .wz-login__notice p { font-size: 13px; color: var(--c-primary-700); line-height: 1.55; margin: 0; }
+    .wz-login__notice b { font-weight: 800; }
+    .wz-login__error {
       margin-top: 16px;
       font-size: 13px;
-      color: #ef4444;
+      color: var(--c-danger);
+      display: none;
+    }
+    .wz-login__foot {
+      margin-top: 22px;
+      font-size: 12px;
+      color: var(--c-text-faint);
+      text-align: center;
+      line-height: 1.6;
+    }
+    @media (max-width: 480px) {
+      .wz-login__card { padding: 32px 22px 26px; }
+      .wz-login__logo { height: 46px; }
+      .wz-login__brandtext { font-size: 34px; }
     }
   </style>
 </head>
 <body>
-  <div class="login-card">
-    <div class="brand">doothing</div>
-    <p class="tagline">학교 계정으로 로그인하세요</p>
-    <div class="divider"></div>
-    <button id="loginBtn" class="login-btn" type="button">
-      <svg width="20" height="20" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
-      <span id="loginBtnText">학교 계정으로 로그인</span>
-    </button>
-    <p id="errorMsg" class="error" style="display:none;"></p>
-    <p class="dev-hint">국민대 Google Workspace 이메일(@kookmin.ac.kr)로<br>로그인할 수 있습니다</p>
+  <div class="wz-login">
+    <div class="wz-login__brand">
+      <img class="wz-login__logo" src="/assets/%EB%91%90%EB%9D%B5.png" alt="두띵"
+           onerror="this.outerHTML='<span class=&quot;wz-login__brandtext&quot;>doothing</span>'">
+    </div>
+
+    <div class="wz-login__card">
+      <h1 class="wz-login__title">국민대 공동구매, 두띵</h1>
+      <p class="wz-login__sub">학교 계정으로 로그인하고<br>우리 학교 굿즈 펀딩을 시작하세요</p>
+
+      <div class="wz-login__divider"></div>
+
+      <button id="loginBtn" class="wz-login__google" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        <span id="loginBtnText">Google로 시작하기</span>
+      </button>
+
+      <div class="wz-login__notice">
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1.1" fill="currentColor"/></svg>
+        <p><b>@kookmin.ac.kr</b> 이메일로 로그인할 수 있어요. 국민대 Google Workspace 계정만 허용됩니다.</p>
+      </div>
+
+      <p id="errorMsg" class="wz-login__error"></p>
+    </div>
+
+    <p class="wz-login__foot">로그인 시 두띵의 이용약관과 개인정보 처리방침에 동의하게 됩니다</p>
   </div>
 
   <script>
     (function () {
-      const btn = document.getElementById('loginBtn');
-      const btnText = document.getElementById('loginBtnText');
-      const errorEl = document.getElementById('errorMsg');
+      var btn = document.getElementById('loginBtn');
+      var btnText = document.getElementById('loginBtnText');
+      var errorEl = document.getElementById('errorMsg');
 
-      const params = new URLSearchParams(window.location.search);
-      const errorParam = params.get('error');
+      var params = new URLSearchParams(window.location.search);
+
+      // 보호된 동작 → 401 → api.js 가 ?return= 을 붙여 보낸다. 로그인 후 복귀를 위해 보관.
+      var ret = params.get('return');
+      if (ret && ret.charAt(0) === '/' && ret.charAt(1) !== '/') {
+        try { sessionStorage.setItem('wz_login_return', ret); } catch (e) {}
+      }
+
+      // 콜백 에러 안내
+      var errorParam = params.get('error');
       if (errorParam) {
-        const messages = {
-          INVALID_EMAIL_DOMAIN: '허용된 학교 이메일 계정으로만 로그인 가능합니다',
-          AUTH_FAILED: '인증에 실패했습니다',
+        var messages = {
+          INVALID_EMAIL_DOMAIN: '허용된 학교 이메일(@kookmin.ac.kr) 계정으로만 로그인할 수 있어요',
+          AUTH_FAILED: '인증에 실패했습니다. 다시 시도해주세요',
+          login_failed: '인증에 실패했습니다. 다시 시도해주세요',
           INVALID_STATE: '로그인 세션이 만료되었습니다. 다시 시도해주세요',
           missing_params: '인증 정보가 누락되었습니다',
           GOOGLE_UNAVAILABLE: '인증 서버에 연결할 수 없습니다',
         };
         errorEl.textContent = messages[errorParam] || '로그인에 실패했습니다';
         errorEl.style.display = 'block';
-        history.replaceState({}, '', window.location.pathname);
+        // error 만 주소에서 지우고, return 이 있으면 유지(새로고침해도 복귀 경로 보존).
+        var keep = ret ? ('?return=' + encodeURIComponent(ret)) : '';
+        history.replaceState({}, '', window.location.pathname + keep);
       }
 
-      btn.addEventListener('click', async () => {
+      btn.addEventListener('click', function () {
         btn.disabled = true;
         btnText.textContent = '이동 중...';
         errorEl.style.display = 'none';
 
-        try {
-          const res = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ rememberMe: false }),
+        fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ rememberMe: false }),
+        })
+          .then(function (res) { return res.json(); })
+          .then(function (data) {
+            if (data && data.authUrl) {
+              window.location.href = data.authUrl;
+            } else {
+              throw new Error((data && data.message) || '로그인 요청 실패');
+            }
+          })
+          .catch(function () {
+            errorEl.textContent = '서버에 연결할 수 없습니다';
+            errorEl.style.display = 'block';
+            btn.disabled = false;
+            btnText.textContent = 'Google로 시작하기';
           });
-          const data = await res.json();
-          if (data.authUrl) {
-            window.location.href = data.authUrl;
-          } else {
-            throw new Error(data.message || '로그인 요청 실패');
-          }
-        } catch (e) {
-          errorEl.textContent = '서버에 연결할 수 없습니다';
-          errorEl.style.display = 'block';
-          btn.disabled = false;
-          btnText.textContent = '학교 계정으로 로그인';
-        }
       });
     })();
   </script>

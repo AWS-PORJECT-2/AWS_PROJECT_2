@@ -22,7 +22,8 @@ export function createGroupBuysListHandler(repo: GroupBuyRepository) {
     const offset = Number(req.query.offset) || undefined;
 
     try {
-      const { total, rows } = await repo.findMany({ sort, category, creatorId, limit, offset });
+      // soft-auth(optionalAuth): viewer 가 있으면 각 카드의 isLiked 를 한 번에 채움(목록 N+1 방지).
+      const { total, rows } = await repo.findMany({ sort, category, creatorId, limit, offset }, req.userId);
       res.json({ total, items: rows });
     } catch (err) {
       logger.error({ err }, '공구 목록 조회 실패');
