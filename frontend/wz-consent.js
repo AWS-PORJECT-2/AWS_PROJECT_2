@@ -373,13 +373,9 @@
     });
   }
 
-  /* 신규 회원이면 온보딩 모달. (약관 게이트 직후 호출) */
+  /* 온보딩 모달 비활성화 — 깨진 레이아웃 + 매 세션 스크롤 잠금 문제로 제거(사용자 요청).
+   * 프로필(이름/닉네임/사진)은 설정 > 프로필에서 직접 수정 가능. 추후 비차단 방식으로 재도입 검토. */
   async function ensureOnboarding(me) {
-    if (!me || me.onboarded !== false) return me;
-    var skip = false;
-    try { skip = sessionStorage.getItem('wz_onboard_skip') === '1'; } catch (_) {}
-    if (skip) return me;
-    try { await openOnboarding(me); } catch (_) {}
     return me;
   }
 
