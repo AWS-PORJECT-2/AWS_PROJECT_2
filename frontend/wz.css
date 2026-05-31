@@ -484,6 +484,29 @@ a.wz-btn--primary:active { color: #fff; }
 a.wz-btn--primary svg,
 a.wz-btn--primary svg path { color: #fff; stroke: #fff; }
 
+/* =================== [8] 맨 위로(scroll-to-top) 버튼 ===================
+ * 모든 wz 페이지 공통(wz-core 가 mount 에서 1회 주입). 우하단 고정 원형 버튼.
+ * z-index 는 헤더(200)·메뉴(1000)·모달(1200)보다 낮게(150) → 어떤 패널도 가리지 않음.
+ * 평소 숨김(투명+아래로 살짝 + pointer-events 차단), 400px 이상 스크롤 시 .is-shown 으로 노출.
+ * 채움형 보라 → 아이콘 흰색. */
+.wz-totop {
+  position: fixed; right: 24px; bottom: 24px; z-index: 150;
+  width: 48px; height: 48px; padding: 0; border: 0; border-radius: 50%;
+  background: var(--c-primary-500); color: #fff; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 18px rgba(139,92,246,.4);
+  opacity: 0; visibility: hidden; transform: translateY(12px);
+  transition: opacity .2s ease, transform .2s ease, background .15s, visibility .2s;
+}
+.wz-totop svg { width: 24px; height: 24px; color: #fff; }
+.wz-totop:hover { background: var(--c-primary-600); }
+.wz-totop.is-shown { opacity: 1; visibility: visible; transform: none; }
+@media (max-width: 767px) {
+  .wz-totop { right: 16px; bottom: 16px; width: 44px; height: 44px; }
+  .wz-totop svg { width: 22px; height: 22px; }
+}
+@media (prefers-reduced-motion: reduce) { .wz-totop { transition: opacity .2s ease, visibility .2s; } }
+
 /* =================== [7-8] 스토리 HTML 블록 (리치 에디터 산출물) ===================
  * detail.html 의 {type:'html'} 스토리 블록. 내부 HTML 은 wzSanitize(DOMPurify) 거친
  * allowlist 태그만 들어온다(p/h1~h4/ul/ol/blockquote/a/img/figure/iframe/table/mark 등).

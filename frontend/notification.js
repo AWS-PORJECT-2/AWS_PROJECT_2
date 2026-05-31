@@ -35,6 +35,8 @@
     project_comment: ['M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z'],
     // 내 댓글에 답글 — 답글 화살표
     comment_reply: ['M9 17l-5-5 5-5', 'M4 12h11a5 5 0 0 1 5 5v2'],
+    // 펀딩 삭제됨 — 휴지통(이동 불가, '삭제됨' 느낌)
+    fund_deleted: ['M3 6h18', 'M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2', 'M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6'],
   };
   // CTA 라벨(이동 가능한 타입만) — fundId/link 가 있을 때 표시.
   var TYPE_CTA = {
@@ -130,6 +132,16 @@
         + 'font-size:var(--fs-body-sm,14px);font-weight:700;text-decoration:none;transition:background .16s;}'
       + '.wz-notif__cta:hover{background:var(--c-primary-600,#7C3AED);}'
       + '.wz-notif__cta svg{width:16px;height:16px;}'
+      // 삭제된 펀딩 알림 — 흐리게(비활성) + CTA 대신 '삭제됨' 태그
+      + '.wz-notif__item.is-deleted{cursor:default;}'
+      + '.wz-notif__item.is-deleted:hover{box-shadow:var(--sh-1,0 1px 2px rgba(16,24,40,.06));border-color:var(--c-border,#E5E7EB);}'
+      + '.wz-notif__item.is-deleted .wz-notif__name,'
+      + '.wz-notif__item.is-deleted .wz-notif__msg{text-decoration:line-through;color:var(--c-text-faint,#9CA3AF);}'
+      + '.wz-notif__item.is-deleted .wz-notif__ic{background:var(--c-divider,#F3F4F6);color:var(--c-text-faint,#9CA3AF);}'
+      + '.wz-notif__gone{display:inline-flex;align-items:center;margin-top:10px;'
+        + 'height:28px;padding:0 10px;border-radius:var(--r-sm,8px);'
+        + 'background:var(--c-divider,#F3F4F6);color:var(--c-text-muted,#6B7280);'
+        + 'font-size:var(--fs-caption,12px);font-weight:600;}'
       + '.wz-notif__empty{display:flex;flex-direction:column;align-items:center;text-align:center;'
         + 'padding:72px 24px;color:var(--c-text-faint,#9CA3AF);}'
       + '.wz-notif__empty svg{width:48px;height:48px;color:var(--c-primary-200,#DDD6FE);margin-bottom:14px;}'
@@ -277,6 +289,7 @@
 
   /* ===== 이동 경로 해석 =====
    * 항목의 type/link/fundId 로 이동 경로를 결정한다. 이동 불가면 '' 반환(읽음만).
+   *  - fund_deleted → 항상 '' (펀딩이 삭제돼 상세가 404 — CTA·이동 모두 없음)
    *  - project_comment·comment_reply → /detail.html?id=fundId
    *  - inquiry_reply → item.link(문의/채팅 화면). 없으면 미이동.
    *  - report_received → 이동 없음(없으면 무이동)
@@ -287,6 +300,10 @@
     var type = item.type || '';
     var link = (item.link != null && String(item.link).trim() !== '') ? String(item.link) : '';
     var fundId = (item.fundId != null && String(item.fundId) !== '') ? String(item.fundId) : '';
+
+    // 삭제된 펀딩(관리자 삭제 등): 상세 페이지가 404 로 사라졌으므로 절대 이동시키지 않는다.
+    // fundId/link 가 남아 있어도 무이동 — CTA·항목 클릭 모두 읽음 처리만.
+    if (type === 'fund_deleted') return '';
 
     if (type === 'project_comment' || type === 'comment_reply') {
       if (fundId) return '/detail.html?id=' + encodeURIComponent(fundId);
@@ -393,9 +410,11 @@
       var unread = item.isRead === false;
 
       // 항목 컨테이너 — 클릭 시 읽음 + (이동 경로 있으면)이동
+      var deleted = type === 'fund_deleted'; // 삭제된 펀딩: 이동 없음 + 비활성 표시
+
       var el = document.createElement('button');
       el.type = 'button';
-      el.className = 'wz-notif__item' + (unread ? ' is-unread' : '');
+      el.className = 'wz-notif__item' + (unread ? ' is-unread' : '') + (deleted ? ' is-deleted' : '');
       el.setAttribute('data-notif-id', id);
 
       var row = document.createElement('div');
@@ -433,8 +452,14 @@
       time.textContent = relTime(item.createdAt);
       body.appendChild(time);
 
-      // 이동 경로가 있으면 CTA 버튼(타입별 문구, 기본 "펀딩 보러가기")
-      if (href) {
+      // 삭제된 펀딩: CTA 대신 비활성 '삭제됨' 표시(이동 경로 없음 — 페이지가 404).
+      if (deleted) {
+        var gone = document.createElement('span');
+        gone.className = 'wz-notif__gone';
+        gone.textContent = '삭제된 프로젝트입니다';
+        body.appendChild(gone);
+      } else if (href) {
+        // 이동 경로가 있으면 CTA 버튼(타입별 문구, 기본 "펀딩 보러가기")
         var cta = document.createElement('span');
         cta.className = 'wz-notif__cta';
         cta.appendChild(document.createTextNode(TYPE_CTA[type] || '펀딩 보러가기'));

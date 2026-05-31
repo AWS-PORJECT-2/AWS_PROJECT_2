@@ -579,6 +579,55 @@
     return !!String(b.value || '').trim();
   }
 
+  /* ---- split 순수 헬퍼(드래그→나란히 합치기·분리). 단위 점검 대상. ----
+   * split.text 는 평문 모델이므로, 글 블록의 리치 HTML 에서 평문을 추출해 쓴다. */
+
+  // 리치 HTML → 평문(블록 경계는 줄바꿈으로). 빈 입력/태그만 있으면 ''.
+  function htmlToPlainText(html) {
+    var s = String(html || '');
+    if (!s) return '';
+    // 블록 경계 태그를 줄바꿈으로 치환 후 태그 제거.
+    s = s.replace(/<\s*br\s*\/?\s*>/gi, '\n');
+    s = s.replace(/<\/(p|div|h[1-6]|li|blockquote|tr)\s*>/gi, '\n');
+    s = s.replace(/<[^>]*>/g, '');
+    // 엔티티 일부 복원.
+    s = s.replace(/&nbsp;/gi, ' ').replace(/&amp;/gi, '&').replace(/&lt;/gi, '<').replace(/&gt;/gi, '>').replace(/&quot;/gi, '"').replace(/&#39;/gi, "'");
+    // 줄바꿈 정리(3+ → 2), 양끝 공백 제거.
+    s = s.replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n');
+    return s.replace(/^\s+|\s+$/g, '');
+  }
+
+  // 에디터 글 블록 → 평문(html/text 양쪽 모델 대응).
+  function editorTextToPlain(block) {
+    if (!block) return '';
+    if (typeof block.html === 'string' && block.html) return htmlToPlainText(block.html);
+    return String(block.value || '').trim();
+  }
+
+  // 에디터 글 블록 + 이미지 블록 → split 에디터 블록 생성(평문 텍스트 + 이미지 + 좌우).
+  function makeSplitBlock(textBlock, imageBlock, side) {
+    return {
+      type: 'split',
+      text: editorTextToPlain(textBlock),
+      image: (imageBlock && (imageBlock.value || imageBlock.image)) || '',
+      imageSide: storyEnum(side, STORY_IMG_SIDES, 'right'),
+      align: storyEnum(imageBlock && imageBlock.align, STORY_ALIGNS, 'left'),
+    };
+  }
+
+  // split 에디터 블록 → [글 블록, 이미지 블록](분리). imageSide 순서대로 배열 반환.
+  function splitToBlocks(block) {
+    var textBlock = { type: 'text', html: '' };
+    var t = String(block && block.text || '').trim();
+    if (t) {
+      var esc = (W && W.esc) ? W.esc(t) : String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+      textBlock.html = '<p>' + esc.replace(/\n/g, '<br>') + '</p>';
+    }
+    var imageBlock = { type: 'image', value: (block && block.image) || '', width: 'full', align: storyEnum(block && block.align, STORY_ALIGNS, 'center') };
+    // 보던 좌우 순서 유지: imageSide=left 면 [이미지, 글], 아니면 [글, 이미지].
+    return (block && block.imageSide === 'left') ? [imageBlock, textBlock] : [textBlock, imageBlock];
+  }
+
   function progressPct() {
     var reqs = sections().filter(function (s) { return s.required; });
     if (!reqs.length) return 100;
@@ -1263,7 +1312,7 @@
 
     openOver('스토리', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
-        '글·이미지·글과 이미지(좌우) 블록을 추가해 자유롭게 구성하세요. 블록 왼쪽 손잡이를 끌어 순서를 바꿀 수 있어요. 글 블록은 굵게·형광펜·링크 등 서식을 넣을 수 있고, 링크는 글 블록 안에서 바로 연결됩니다.'));
+        '글·이미지 블록을 추가해 자유롭게 구성하세요. 블록 왼쪽 손잡이를 끌어 순서를 바꿀 수 있고, 이미지 블록을 끌어 글 블록의 왼쪽/오른쪽 가장자리에 놓으면 "글 | 이미지"처럼 나란히 합쳐집니다. 나란히 블록의 글은 평문으로 저장되니, 서식이 필요하면 전체폭 글 블록을 쓰세요. 글 블록은 굵게·형광펜·링크 등 서식을 넣을 수 있습니다.'));
 
       // ---- AI 스토리 초안 ----
       var aiCard = W.el('div', { class: 'wc-aidraft' });
@@ -1322,7 +1371,6 @@
       addRowEl.append(
         addBtn(RT_IC.text || IC.pen, '글 추가', function () { addBlock({ type: 'text', html: '' }); }),
         addBtn(RT_IC.image, '이미지 추가', function () { addImageBlock(); }),
-        addBtn(IC.swap, '글·이미지(좌우) 추가', function () { addBlock({ type: 'split', text: '', image: '', imageSide: 'right', align: 'left' }); }),
       );
       body.appendChild(addRowEl);
 
@@ -1538,7 +1586,7 @@
         if (!editorBlocks.length) {
           listEl.appendChild(W.el('div', { class: 'wc-bl__empty' },
             W.el('p', {}, '아직 블록이 없어요.'),
-            W.el('p', { class: 'wc-bl__empty-sub' }, '아래 버튼으로 글·이미지·글과 이미지(좌우) 블록을 추가해 스토리를 구성하세요.')));
+            W.el('p', { class: 'wc-bl__empty-sub' }, '아래 버튼으로 글·이미지 블록을 추가해 스토리를 구성하세요. 이미지를 글 블록 옆으로 끌어다 놓으면 나란히 배치됩니다.')));
           return;
         }
         editorBlocks.forEach(function (block, i) { listEl.appendChild(buildRow(block, i)); });
@@ -1558,8 +1606,9 @@
           row.classList.add('is-dragging');
           try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(index)); } catch (_) {}
           _dragIdx = index;
+          _dragType = (editorBlocks[index] && editorBlocks[index].type) || '';
         });
-        row.addEventListener('dragend', function () { row.classList.remove('is-dragging'); row.setAttribute('draggable', 'false'); clearDropMark(); _dragIdx = -1; });
+        row.addEventListener('dragend', function () { row.classList.remove('is-dragging'); row.setAttribute('draggable', 'false'); clearDropMark(); _dragIdx = -1; _dragType = ''; });
 
         var main = W.el('div', { class: 'wc-bl__main' });
         if (block.type === 'text') main.appendChild(buildTextBody(block, index));
@@ -1641,7 +1690,7 @@
       function buildSplitBody(block, index) {
         var wrap = W.el('div', { class: 'wc-bl__split' });
 
-        // 좌우 토글 헤더
+        // 좌우 토글 + 분리 헤더
         var head = W.el('div', { class: 'wc-bl__splithead' });
         var sideBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wc-bl__sidebtn', type: 'button' });
         sideBtn.innerHTML = IC.swap + '<span></span>';
@@ -1652,8 +1701,20 @@
           sideBtn.querySelector('span').textContent = sideLabel();
           grid.className = 'wc-bl__splitgrid wc-bl__splitgrid--' + storyEnum(block.imageSide, STORY_IMG_SIDES, 'right');
         });
-        head.appendChild(sideBtn);
+        // 분리: split → 글/이미지 두 블록으로 되돌림.
+        var apartBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wc-bl__sidebtn', type: 'button' });
+        apartBtn.innerHTML = IC.swap + '<span>글·이미지 분리</span>';
+        apartBtn.addEventListener('click', function () {
+          var two = splitToBlocks(block);
+          editorBlocks.splice(index, 1, two[0], two[1]);
+          if (activeEditor && Number(activeEditor.getAttribute('data-bi')) === index) activeEditor = null;
+          renderList();
+          toast('글과 이미지를 분리했습니다');
+        });
+        head.append(sideBtn, apartBtn);
         wrap.appendChild(head);
+        wrap.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 10px' },
+          '나란히(글·이미지) 블록의 글은 평문으로 저장됩니다. 서식이 필요하면 분리 후 전체폭 글 블록을 쓰세요.'));
 
         var grid = W.el('div', { class: 'wc-bl__splitgrid wc-bl__splitgrid--' + storyEnum(block.imageSide, STORY_IMG_SIDES, 'right') });
 
@@ -1729,17 +1790,63 @@
         renderList();
       }
 
-      /* ===== 드래그앤드랍 재배치(행 단위) ===== */
-      var _dragIdx = -1, _dropMark = null;
+      /* ===== 드래그앤드랍 재배치(행 단위) + 이미지→글 옆 나란히(split) =====
+       * 두 동작 구분:
+       *   (a) 순서 변경 — 행 위/아래 경계에 가로 드롭선(_dropMark) 표시 후 재배치.
+       *   (b) 나란히(split) — 이미지 블록을 끌어 글 블록의 좌/우 절반(가장자리 영역)에
+       *       놓으면 글+이미지를 split 블록으로 합침. _splitTarget 에 {index, side} 저장. */
+      var _dragIdx = -1, _dragType = '', _dropMark = null, _splitTarget = null, _splitMarkedRow = null;
+      // 가장자리 판정 임계값(행 폭의 40%). 중앙 20% 는 순서변경(가로 드롭선)으로 폴백.
+      var SPLIT_EDGE_RATIO = 0.4;
+
       function clearDropMark() {
         if (_dropMark && _dropMark.parentNode) _dropMark.parentNode.removeChild(_dropMark);
         _dropMark = null;
+        clearSplitMark();
       }
+      function clearSplitMark() {
+        if (_splitMarkedRow) {
+          _splitMarkedRow.classList.remove('is-splitleft', 'is-splitright');
+          _splitMarkedRow = null;
+        }
+        _splitTarget = null;
+      }
+
+      // 드래그 중인 이미지가 글 블록의 좌/우 가장자리 위에 있으면 split 모드 판정. 아니면 null.
+      function detectSplitTarget(overRow, clientX) {
+        if (_dragType !== 'image' || !overRow || overRow.parentNode !== listEl) return null;
+        var oi = Number(overRow.getAttribute('data-bi'));
+        if (!Number.isFinite(oi) || oi === _dragIdx) return null;            // 자기 자신엔 합치지 않음
+        var ob = editorBlocks[oi];
+        if (!ob || ob.type !== 'text') return null;                          // 글 블록에만 합침
+        var r = overRow.getBoundingClientRect();
+        if (!r.width) return null;
+        var rel = (clientX - r.left) / r.width;
+        if (rel <= SPLIT_EDGE_RATIO) return { index: oi, side: 'left' };     // 왼쪽 절반 → 이미지|글
+        if (rel >= 1 - SPLIT_EDGE_RATIO) return { index: oi, side: 'right' };// 오른쪽 절반 → 글|이미지
+        return null;                                                          // 중앙 → 순서변경
+      }
+
       listEl.addEventListener('dragover', function (e) {
         if (_dragIdx < 0) return;
         e.preventDefault();
         try { e.dataTransfer.dropEffect = 'move'; } catch (_) {}
         var over = e.target && e.target.closest ? e.target.closest('.wc-bl__row') : null;
+
+        // (b) 이미지→글 가장자리: split 인디케이터.
+        var st = detectSplitTarget(over, e.clientX);
+        if (st) {
+          clearDropMark();   // 가로 드롭선 제거(상호 배타)
+          if (_splitMarkedRow && _splitMarkedRow !== over) clearSplitMark();
+          _splitMarkedRow = over;
+          over.classList.toggle('is-splitleft', st.side === 'left');
+          over.classList.toggle('is-splitright', st.side === 'right');
+          _splitTarget = st;
+          return;
+        }
+        clearSplitMark();
+
+        // (a) 순서 변경: 가로 드롭선.
         clearDropMark();
         _dropMark = W.el('div', { class: 'wc-bl__dropline' });
         if (over && over.parentNode === listEl) {
@@ -1753,7 +1860,17 @@
       listEl.addEventListener('drop', function (e) {
         if (_dragIdx < 0) return;
         e.preventDefault();
-        // 드롭 위치 = _dropMark 의 리스트 내 인덱스(행 기준).
+
+        // (b) split 합치기 우선.
+        if (_splitTarget && _dragType === 'image') {
+          var ti = _splitTarget.index, side = _splitTarget.side, imgIdx = _dragIdx;
+          clearDropMark();
+          _dragIdx = -1; _dragType = '';
+          mergeImageIntoText(imgIdx, ti, side);
+          return;
+        }
+
+        // (a) 순서 변경 — 드롭 위치 = _dropMark 의 리스트 내 인덱스(행 기준).
         var target = editorBlocks.length;
         if (_dropMark && _dropMark.parentNode === listEl) {
           var kids = Array.prototype.slice.call(listEl.children);
@@ -1763,7 +1880,7 @@
         }
         var from = _dragIdx;
         clearDropMark();
-        _dragIdx = -1;
+        _dragIdx = -1; _dragType = '';
         if (from < 0 || from >= editorBlocks.length) return;
         var moved = editorBlocks.splice(from, 1)[0];
         if (target > from) target--;   // 제거로 인한 인덱스 보정
@@ -1774,6 +1891,19 @@
       listEl.addEventListener('dragleave', function (e) {
         if (e.target === listEl) clearDropMark();
       });
+
+      // 이미지 블록(imgIdx)을 글 블록(textIdx) 자리로 합쳐 split 블록 생성. 이미지 블록은 제거.
+      function mergeImageIntoText(imgIdx, textIdx, side) {
+        var imgBlock = editorBlocks[imgIdx], textBlock = editorBlocks[textIdx];
+        if (!imgBlock || imgBlock.type !== 'image' || !textBlock || textBlock.type !== 'text') { renderList(); return; }
+        var split = makeSplitBlock(textBlock, imgBlock, side);
+        // 글 자리(textIdx)에 split 을 놓고, 이미지 블록은 제거. 인덱스 보정: 이미지가 글보다 앞이면 textIdx 1 감소.
+        editorBlocks[textIdx] = split;
+        editorBlocks.splice(imgIdx, 1);
+        if (activeEditor && Number(activeEditor.getAttribute('data-bi')) === textIdx) activeEditor = null;
+        renderList();
+        toast('글과 이미지를 나란히 배치했습니다');
+      }
 
       /* ---- 템플릿 모달(블록으로 삽입) ---- */
       function openTemplateModal() {

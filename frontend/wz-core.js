@@ -61,6 +61,7 @@
     grid: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
     chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>',
     close: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg>',
+    arrowUp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>',
   };
 
   /* 로그인 상태 — 직전 로그인 여부를 localStorage 플래그(dt_authed)로 캐싱해
@@ -455,10 +456,42 @@
     window.addEventListener('focus', releaseStuckScroll);
   }
 
+  /* ===== 맨 위로(scroll-to-top) 버튼 =====
+   * 모든 wz 페이지 공통. mount() 에서 1회 주입(중복 방지 플래그).
+   * 우하단 고정. 헤더/모달보다 낮은 z-index(아래 wz.css 의 .wz-totop).
+   * 스크롤이 400px 이상 내려가면 노출, 클릭 시 부드럽게 최상단으로. */
+  var SCROLL_TOP_THRESHOLD = 400;
+  function injectScrollTop() {
+    if (window.__wzTopBtn) return;
+    window.__wzTopBtn = true;
+    var btn = el('button', {
+      class: 'wz-totop', type: 'button', 'aria-label': '맨 위로', title: '맨 위로',
+      'aria-hidden': 'true', html: ICON.arrowUp,
+    });
+    btn.addEventListener('click', function () {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+    document.body.appendChild(btn);
+
+    var shown = false;
+    function sync() {
+      var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+      var next = y > SCROLL_TOP_THRESHOLD;
+      if (next === shown) return; // 상태 바뀔 때만 클래스 토글(불필요 reflow 방지)
+      shown = next;
+      btn.classList.toggle('is-shown', shown);
+      btn.setAttribute('aria-hidden', shown ? 'false' : 'true');
+    }
+    window.addEventListener('scroll', sync, { passive: true });
+    window.addEventListener('resize', sync, { passive: true });
+    sync(); // 초기(이미 내려가 있는 상태 대비)
+  }
+
   function mount() {
     document.body.classList.add('wz-body');
     injectFavicon();
     installScrollGuard();
+    injectScrollTop();
     const h = document.getElementById('wz-header'); if (h && !h.dataset.done) { h.dataset.done = '1'; h.appendChild(Header()); }
     // 2줄 헤더의 실제 높이를 CSS 변수로 노출 — 상세 등 sticky 오프셋 계산에 사용(겹침 방지)
     function setHeaderH() { const hh = document.getElementById('wz-header'); if (hh) document.documentElement.style.setProperty('--wz-hd-h', hh.offsetHeight + 'px'); }

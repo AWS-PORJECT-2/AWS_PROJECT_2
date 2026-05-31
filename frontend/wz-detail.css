@@ -12,6 +12,8 @@
 .wz-d-state__ic svg { width: 100%; height: 100%; }
 .wz-d-state h2 { font-size: 20px; font-weight: 800; color: var(--c-text); margin: 0 0 8px; }
 .wz-d-state p { font-size: 14px; margin: 0 0 18px; }
+/* 삭제/없음 안내: 본문 단락 없이 제목+홈 버튼만 → 제목 아래 여백 확보. */
+.wz-d-state--deleted h2 { margin-bottom: 20px; }
 
 /* ---------- 상단 탭바 (메인/스토리/댓글) — 2줄 헤더 높이만큼 아래에 sticky 고정 ---------- */
 .wz-d-tabs { position: sticky; top: 0; z-index: 210; background: #fff; border-bottom: 1px solid var(--c-border); margin: 0 -24px 28px; }
@@ -191,6 +193,8 @@ a.wz-d-makerinfo__head:hover .wz-d-makerinfo__name { color: var(--c-primary-700)
 .wz-d-amount { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 14px; flex-wrap: wrap; }
 .wz-d-amount__money { font-size: 26px; font-weight: 800; color: var(--c-text); }
 .wz-d-amount__rate { font-size: 20px; font-weight: 800; color: var(--c-primary-700); }
+/* 목표금액(보조 텍스트): 달성금액 옆에 작은 톤으로. 줄바꿈 시 전체 폭 차지. */
+.wz-d-amount__target { flex-basis: 100%; font-size: 13px; font-weight: 600; color: var(--c-text-muted); }
 
 .wz-d-progress { height: 8px; border-radius: 999px; background: var(--c-primary-100); overflow: hidden; margin-bottom: 22px; }
 .wz-d-progress__fill { height: 100%; background: var(--c-primary-500); border-radius: 999px; transition: width .4s; }

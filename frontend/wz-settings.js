@@ -1064,7 +1064,7 @@
     /* 검색 */
     var searchIn = input({ type: 'search', placeholder: '이름 또는 닉네임으로 검색', autocomplete: 'off' });
     var resultWrap = el('div', { class: 'wzs-friend-list' });
-    var searchFld = field({ label: '친구 찾기', control: searchIn });
+    var searchFld = field({ label: '사용자 검색', control: searchIn });
     searchFld.classList.add('wzs-friend-search');
     panel.appendChild(searchFld);
     panel.appendChild(resultWrap);

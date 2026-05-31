@@ -269,10 +269,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return this.mapRow(result.rows[0]);
   }
 
-  // 펀드 취소(삭제 처리) — status cancelled + 삭제요청 플래그 해제
+  // 관리자 펀드 삭제(soft delete) — status cancelled + deleted_at 타임스탬프 + 삭제요청 플래그 해제.
+  // deleted_at 을 찍어 상세/목록/검색/피드/추천 등 모든 사용자 조회에서 제외한다(404).
+  // status='cancelled' 는 목표 미달 종료 등에도 쓰일 수 있으나, 이 메서드는 관리자 삭제 전용 경로이므로
+  // deleted_at 을 함께 기록해 "정상 종료된 펀드"와 "관리자가 삭제한 펀드"를 구분한다.
   async cancelFund(id: string): Promise<void> {
     await this.pool.query(
-      `UPDATE groupbuys SET status = 'cancelled', delete_requested = FALSE, updated_at = NOW() WHERE id = $1`,
+      `UPDATE groupbuys SET status = 'cancelled', deleted_at = NOW(), delete_requested = FALSE, updated_at = NOW() WHERE id = $1`,
       [id],
     );
   }
@@ -297,7 +300,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const offset = Math.max(options.offset ?? 0, 0);
 
-    const where: string[] = [];
+    // 삭제(soft delete)된 펀드는 모든 목록에서 제외.
+    const where: string[] = ['g.deleted_at IS NULL'];
     const params: unknown[] = [];
 
     if (options.category && options.category !== 'all') {
@@ -375,7 +379,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const offset = Math.max(options.offset ?? 0, 0);
 
-    const where: string[] = [];
+    // 삭제(soft delete)된 펀드는 목록/검색/메이커 페이지에서 모두 제외.
+    const where: string[] = ['g.deleted_at IS NULL'];
     const params: unknown[] = [];
 
     // 특정 메이커 페이지(creatorId)면 그 사람 전체(rejected 제외), 아니면 공개(open)만.
@@ -461,13 +466,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
         LEFT JOIN project_likes vl ON vl.groupbuy_id = g.id AND vl.user_id = $4::uuid
-       WHERE g.status = 'open' AND g.creator_id = ANY($1::uuid[])
+       WHERE g.status = 'open' AND g.deleted_at IS NULL AND g.creator_id = ANY($1::uuid[])
        ORDER BY g.created_at DESC
        LIMIT $2 OFFSET $3
     `;
     const countQuery = `
       SELECT COUNT(*)::int AS cnt FROM groupbuys g
-       WHERE g.status = 'open' AND g.creator_id = ANY($1::uuid[])
+       WHERE g.status = 'open' AND g.deleted_at IS NULL AND g.creator_id = ANY($1::uuid[])
     `;
 
     const [listRes, countRes] = await Promise.all([
@@ -500,7 +505,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               END AS is_liked
          FROM groupbuys g
          LEFT JOIN "user" u ON u.id = g.creator_id
-        WHERE g.id = $1`,
+        WHERE g.id = $1 AND g.deleted_at IS NULL`,
       [id, viewerId ?? null],
     );
     if (res.rows.length === 0) return null;
@@ -572,13 +577,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
              u.name AS creator_name, u.slug AS creator_slug
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
-       WHERE g.status = 'scheduled' AND g.open_at IS NOT NULL AND g.open_at > NOW()
+       WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.open_at IS NOT NULL AND g.open_at > NOW()
        ORDER BY g.open_at ASC
        LIMIT $1 OFFSET $2
     `;
     const countQuery = `
       SELECT COUNT(*)::int AS cnt FROM groupbuys g
-       WHERE g.status = 'scheduled' AND g.open_at IS NOT NULL AND g.open_at > NOW()
+       WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.open_at IS NOT NULL AND g.open_at > NOW()
     `;
     const [listRes, countRes] = await Promise.all([
       this.pool.query(listQuery, [lim, off]),
@@ -596,7 +601,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               u.name AS creator_name
          FROM groupbuys g
          LEFT JOIN "user" u ON u.id = g.creator_id
-        WHERE g.plan = 'boost' AND g.status = 'open'
+        WHERE g.plan = 'boost' AND g.status = 'open' AND g.deleted_at IS NULL
         ORDER BY g.current_quantity DESC, g.created_at DESC
         LIMIT $1`,
       [lim],
@@ -646,9 +651,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   // ─── 찜(좋아요) — 026_project_likes ───
 
-  // 찜 추가(UPSERT). 펀드가 없으면 null(404). 있으면 추가 후 최신 좋아요 수.
+  // 찜 추가(UPSERT). 펀드가 없거나 삭제됐으면 null(404). 있으면 추가 후 최신 좋아요 수.
   async like(userId: string, fundId: string): Promise<number | null> {
-    const exists = await this.pool.query('SELECT 1 FROM groupbuys WHERE id = $1', [fundId]);
+    const exists = await this.pool.query('SELECT 1 FROM groupbuys WHERE id = $1 AND deleted_at IS NULL', [fundId]);
     if (exists.rows.length === 0) return null;
     await this.pool.query(
       `INSERT INTO project_likes (user_id, groupbuy_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
@@ -657,9 +662,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return this.countLikes(fundId);
   }
 
-  // 찜 취소(DELETE). 펀드가 없으면 null(404). 있으면 삭제 후 최신 좋아요 수.
+  // 찜 취소(DELETE). 펀드가 없거나 삭제됐으면 null(404). 있으면 삭제 후 최신 좋아요 수.
   async unlike(userId: string, fundId: string): Promise<number | null> {
-    const exists = await this.pool.query('SELECT 1 FROM groupbuys WHERE id = $1', [fundId]);
+    const exists = await this.pool.query('SELECT 1 FROM groupbuys WHERE id = $1 AND deleted_at IS NULL', [fundId]);
     if (exists.rows.length === 0) return null;
     await this.pool.query(
       `DELETE FROM project_likes WHERE user_id = $1 AND groupbuy_id = $2`,
@@ -676,10 +681,12 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return r.rows[0]?.c ?? 0;
   }
 
-  // 사용자가 찜한 펀드 id 목록 — 최신 찜 순.
+  // 사용자가 찜한 펀드 id 목록 — 최신 찜 순. 삭제(soft delete)된 펀드는 제외.
   async likedIdsByUser(userId: string): Promise<string[]> {
     const r = await this.pool.query(
-      'SELECT groupbuy_id FROM project_likes WHERE user_id = $1 ORDER BY created_at DESC',
+      `SELECT pl.groupbuy_id FROM project_likes pl
+         JOIN groupbuys g ON g.id = pl.groupbuy_id AND g.deleted_at IS NULL
+        WHERE pl.user_id = $1 ORDER BY pl.created_at DESC`,
       [userId],
     );
     return r.rows.map((row) => row.groupbuy_id as string);

@@ -276,6 +276,15 @@
       W.el('a', { class: 'wz-btn wz-btn--outline', href: '/feed.html' }, '다른 프로젝트 둘러보기')));
   }
 
+  /* 삭제/없음 안내 — 관리자 삭제 펀드(404/GROUPBUY_NOT_FOUND)나 로드 실패 시.
+   * 펀드 내용은 렌더하지 않고(recordRecent 등도 호출 안 함) 안내 + 홈으로 가기 버튼만 표시. */
+  function showDeleted() {
+    root.replaceChildren(W.el('div', { class: 'wz-d-state wz-d-state--deleted' },
+      W.el('div', { class: 'wz-d-state__ic', html: SVG.box }),
+      W.el('h2', {}, '삭제되었거나 존재하지 않는 프로젝트입니다'),
+      W.el('a', { class: 'wz-btn wz-btn--primary', href: '/' }, '홈으로 가기')));
+  }
+
   /* ===================================================================
    * 메인 렌더
    * =================================================================== */
@@ -698,11 +707,21 @@
       sideCol.appendChild(vc);
     }
 
-    /* 모인 금액 · 달성률 */
+    /* 모인 금액 · 목표금액 · 달성률
+     * 달성금액(X원 달성)과 함께 목표금액(목표 Y원)을 보조 텍스트로 표시 → 목표를 한눈에.
+     * targetAmount(목표수량×단가)가 없거나 0이면 금액 목표는 생략하고,
+     * 수량 기반 목표(targetQuantity)만 있으면 "목표 수량 N개"로 보조 표기. */
+    const targetAmt = Number(f.targetAmount) || 0;
+    const targetQty = Number(f.targetQuantity) || 0;
     const amount = W.el('div', { class: 'wz-d-amount' });
     amount.append(
       W.el('span', { class: 'wz-d-amount__money' }, W.money(moneyRaised(f)) + ' 달성'),
       W.el('span', { class: 'wz-d-amount__rate' }, rate + '% 달성'));
+    if (targetAmt > 0) {
+      amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 ' + W.money(targetAmt)));
+    } else if (targetQty > 0) {
+      amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 수량 ' + targetQty.toLocaleString() + '개'));
+    }
     sideCol.appendChild(amount);
 
     /* 진행바 */
@@ -1686,10 +1705,12 @@
     try {
       f = await window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true });
     } catch (e) {
-      if (e && e.status === 404) { showState('프로젝트를 찾을 수 없어요', '이미 종료되었거나 존재하지 않는 프로젝트예요.'); return; }
-      showState('프로젝트를 불러오지 못했어요', '잠시 후 다시 시도해 주세요.'); return;
+      // 관리자 삭제/없음(404 또는 GROUPBUY_NOT_FOUND) → 삭제 안내. 그 외 로드 실패도 안내로 처리(빈/깨진 페이지 방지).
+      if (e && (e.status === 404 || e.code === 'GROUPBUY_NOT_FOUND')) { showDeleted(); return; }
+      showDeleted(); return;
     }
-    if (!f || !f.id) { showState('프로젝트를 찾을 수 없어요', '이미 종료되었거나 존재하지 않는 프로젝트예요.'); return; }
+    // 응답이 비었거나 id 가 없으면(삭제/이상 응답) 펀드 렌더 없이 안내만.
+    if (!f || !f.id) { showDeleted(); return; }
     // 로그인 사용자 조회(실패/비로그인 시 null) → 작성자 본인 여부 판단
     _me = await W.fetchMe();
     render(f);

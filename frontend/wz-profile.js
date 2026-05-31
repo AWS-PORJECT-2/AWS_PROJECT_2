@@ -49,7 +49,7 @@
       { key: 'backings',   label: '후원한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
       { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds',     hash: 'funds' },
       { key: 'drafts',     label: '개설 중인 프로젝트', icon: 'edit',  view: 'drafts',    hash: 'drafts' },
-      { key: 'friends',    label: '친구 찾기',         icon: 'users',  view: 'friends',   hash: 'friends' },
+      { key: 'friends',    label: '사용자 검색',       icon: 'users',  view: 'friends',   hash: 'friends' },
       { key: 'maker',      label: '내 메이커 페이지로 가기', icon: 'crown', href: '/maker.html?me=1' },
       { key: 'create',     label: '프로젝트 만들기',   icon: 'plus',   href: '/fund-create.html' },
       { key: 'settings',   label: '설정',             icon: 'gear',   href: '/settings.html' },
@@ -286,7 +286,7 @@
     ];
     // 작성 중인 초안이 있을 때만 노출(빈 0개 카드 노이즈 방지)
     if (draftsN > 0) cards.push(statCard('작성 중', String(draftsN), function () { selectView('drafts'); }));
-    cards.push(statCardMore('친구 찾기', '검색', function () { selectView('friends'); }));
+    cards.push(statCardMore('사용자 검색', '검색', function () { selectView('friends'); }));
     refs.statsRow.replaceChildren.apply(refs.statsRow, cards);
     refs.walletRow.replaceChildren(
       walletItem('coin', '포인트', '0P'),
@@ -345,21 +345,27 @@
     if (me) title.append(W.el('b', {}, name), document.createTextNode('님이 최근에 봤어요'));
     else title.append(document.createTextNode('최근에 본 프로젝트'));
     head.appendChild(title);
-    var recent = readRecent();
-    if (recent.length) {
-      var more = W.el('button', { class: 'wz-mp-sec__more', type: 'button' }, '더보기');
-      more.addEventListener('click', function () { selectView('recent'); });
-      head.appendChild(more);
-    }
     sec.appendChild(head);
 
     var grid = W.el('div', { class: 'wz-mp-grid' });
-    if (!recent.length) {
-      grid.appendChild(emptyState('clock', '아직 둘러본 프로젝트가 없어요', '프로젝트 구경하기', '/feed.html'));
-    } else {
-      recent.slice(0, 4).forEach(function (it) { grid.appendChild(recentCard(it)); });
-    }
+    grid.appendChild(loading());
     sec.appendChild(grid);
+
+    // 삭제된 프로젝트는 조회 후 정리 → 살아있는 것만 렌더.
+    pruneRecent().then(function (recent) {
+      if (refs.recentSec !== sec) return; // 그 사이 재렌더됐으면 무시
+      if (recent.length) {
+        var more = W.el('button', { class: 'wz-mp-sec__more', type: 'button' }, '더보기');
+        more.addEventListener('click', function () { selectView('recent'); });
+        head.appendChild(more);
+      }
+      grid.replaceChildren();
+      if (!recent.length) {
+        grid.appendChild(emptyState('clock', '아직 둘러본 프로젝트가 없어요', '프로젝트 구경하기', '/feed.html'));
+      } else {
+        recent.slice(0, 4).forEach(function (it) { grid.appendChild(recentCard(it)); });
+      }
+    });
   }
 
   /* =================== 패널 전환 =================== */
@@ -411,12 +417,17 @@
   function panelRecent() {
     refs.curView = 'recent';
     var grid = panelShell('최근 본 프로젝트', 'recent');
-    var recent = readRecent();
-    if (!recent.length) {
-      grid.appendChild(emptyState('clock', '아직 둘러본 프로젝트가 없어요', '프로젝트 구경하기', '/feed.html'));
-      return;
-    }
-    recent.forEach(function (it) { grid.appendChild(recentCard(it)); });
+    grid.appendChild(loading());
+    // 삭제된 프로젝트는 조회 후 정리 → 살아있는 것만 렌더.
+    pruneRecent().then(function (recent) {
+      if (refs.curView !== 'recent') return; // 그 사이 다른 패널로 이동했으면 무시
+      grid.replaceChildren();
+      if (!recent.length) {
+        grid.appendChild(emptyState('clock', '아직 둘러본 프로젝트가 없어요', '프로젝트 구경하기', '/feed.html'));
+        return;
+      }
+      recent.forEach(function (it) { grid.appendChild(recentCard(it)); });
+    });
   }
 
   /* 패널: 관심 프로젝트 (좋아요/찜) — 서버 찜 기준.
@@ -599,7 +610,7 @@
     // 탭 바
     var tabs = W.el('div', { class: 'wz-mp-ftabs', role: 'tablist' });
     var tabDefs = [
-      { key: 'search',    label: '친구 찾기' },
+      { key: 'search',    label: '사용자 검색' },
       { key: 'following', label: '팔로잉' },
       { key: 'followers', label: '팔로워' },
     ];
@@ -618,7 +629,7 @@
     var sform = W.el('div', { class: 'wz-mp-search' });
     var inp = W.el('input', {
       class: 'wz-mp-search__input', type: 'search', autocomplete: 'off',
-      placeholder: '이름 또는 아이디(닉네임)로 친구 찾기', 'aria-label': '친구 검색',
+      placeholder: '이름 또는 닉네임으로 사용자 검색', 'aria-label': '사용자 검색',
     });
     sform.appendChild(W.el('span', { class: 'wz-mp-search__ic', html: IC.search2 }));
     sform.appendChild(inp);
@@ -632,7 +643,7 @@
     inp.addEventListener('input', function () {
       var q = inp.value.trim();
       if (timer) clearTimeout(timer);
-      if (!q) { friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요'); return; }
+      if (!q) { friendsHint(list, '이름이나 닉네임을 입력해 사용자를 검색해 보세요'); return; }
       timer = setTimeout(function () { doFriendSearch(q, list, ++seq, function () { return seq; }); }, 300);
     });
 
@@ -642,7 +653,7 @@
       if (key === 'search') {
         var q = inp.value.trim();
         if (q) doFriendSearch(q, list, ++seq, function () { return seq; });
-        else friendsHint(list, '이름이나 아이디를 입력해 친구를 찾아보세요');
+        else friendsHint(list, '이름이나 닉네임을 입력해 사용자를 검색해 보세요');
         try { inp.focus(); } catch (_) {}
       } else {
         loadFollowList(list, key);
@@ -958,6 +969,30 @@
       var l = JSON.parse(localStorage.getItem('recentFunds') || '[]');
       return Array.isArray(l) ? l.filter(function (x) { return x && x.id != null; }) : [];
     } catch (_) { return []; }
+  }
+  function writeRecent(list) {
+    try { localStorage.setItem('recentFunds', JSON.stringify(list.slice(0, 20))); } catch (_) { /* 무시 */ }
+  }
+
+  /* 최근 본 프로젝트 정리 — 각 펀드를 조회해 404/GROUPBUY_NOT_FOUND(관리자 삭제·없음)면
+   * localStorage(recentFunds)에서 제거하고, 살아있는 것만(저장 순서 유지) 반환한다.
+   * 네트워크/기타 일시 오류는 삭제로 보지 않고 그대로 유지(오프라인 시 목록 보존). */
+  function pruneRecent() {
+    var list = readRecent();
+    if (!list.length) return Promise.resolve(list);
+    return Promise.all(list.map(function (it) {
+      return window.api.get('/groupbuys/' + encodeURIComponent(it.id), { silentAuthFail: true })
+        .then(function (f) { return (f && f.id != null) ? { keep: true, it: it } : { keep: false, it: it }; })
+        .catch(function (e) {
+          // 삭제/없음만 제거. 그 외(네트워크 등)는 보존(keep).
+          if (e && (e.status === 404 || e.code === 'GROUPBUY_NOT_FOUND')) return { keep: false, it: it };
+          return { keep: true, it: it };
+        });
+    })).then(function (results) {
+      var alive = results.filter(function (r) { return r.keep; }).map(function (r) { return r.it; });
+      if (alive.length !== list.length) writeRecent(alive); // 죽은 항목이 있었으면 정리 저장
+      return alive;
+    });
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run);
