@@ -175,45 +175,59 @@ a.wz-d-makerinfo__head:hover .wz-d-makerinfo__name { color: var(--c-primary-700)
 .wz-d-notice dt { font-size: 13px; font-weight: 700; color: var(--c-text); margin-bottom: 3px; }
 .wz-d-notice dd { font-size: 13px; line-height: 1.6; color: var(--c-text-muted); margin: 0; }
 
-/* ---------- 우측 sticky 후원 패널 ---------- */
-.wz-d-rankpill { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: var(--c-primary-700); background: var(--c-primary-50); border: 1px solid var(--c-primary-200); border-radius: 999px; padding: 5px 12px; margin-bottom: 16px; }
-.wz-d-rankpill svg { width: 14px; height: 14px; }
+/* ---------- 우측 sticky 후원 패널 ----------
+ * 레퍼런스(와디즈/텀블벅) 정리 순서: 메이커명 → 제목 → 모인금액/후원자 2칸 →
+ *   요약 박스(달성률|남은기간|유형) → 진행바 → 상세 dl → 찜·공유 + 후원하기 →
+ *   안심후원 한 줄 → 메이커 카드 → 리워드. */
 
-.wz-d-maker-row { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 12px; text-decoration: none; max-width: 100%; }
-.wz-d-maker-row:hover .wz-d-maker-row__name { color: var(--c-primary-700); text-decoration: underline; }
-.wz-d-avatar { width: 30px; height: 30px; border-radius: 50%; background: var(--c-divider); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; color: var(--c-text-faint); }
-.wz-d-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.wz-d-avatar svg { width: 56%; height: 56%; }
-.wz-d-maker-row__name { font-size: 14px; font-weight: 700; color: var(--c-text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 1) 메이커명 링크 (작은 회색 + › 아이콘) */
+.wz-d-makerlink { display: inline-flex; align-items: center; gap: 3px; margin-bottom: 10px; max-width: 100%; text-decoration: none; color: var(--c-text-muted); }
+.wz-d-makerlink__name { font-size: 13px; font-weight: 700; color: var(--c-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wz-d-makerlink__ic { display: inline-flex; width: 14px; height: 14px; flex-shrink: 0; color: var(--c-text-faint); }
+.wz-d-makerlink__ic svg { width: 100%; height: 100%; }
+a.wz-d-makerlink:hover .wz-d-makerlink__name { color: var(--c-primary-700); text-decoration: underline; }
+a.wz-d-makerlink:hover .wz-d-makerlink__ic { color: var(--c-primary-600); }
 
-.wz-d-title { font-size: 26px; font-weight: 800; line-height: 1.35; color: var(--c-text); margin: 0 0 18px; word-break: break-word; }
+/* 2) 제목 (굵게) */
+.wz-d-title { font-size: 24px; font-weight: 800; line-height: 1.35; color: var(--c-text); margin: 0 0 20px; word-break: break-word; }
 
-.wz-d-stats { font-size: 14px; color: var(--c-text-muted); margin: 0 0 6px; }
-.wz-d-stats b { color: var(--c-text); font-weight: 700; }
-/* 금액 기준 달성: "{모인금액}원 달성 / {달성률}% 달성" 한 줄 + 그 아래 "목표 {목표금액}원". */
-.wz-d-amount { display: flex; align-items: baseline; gap: 10px; margin: 4px 0 14px; flex-wrap: wrap; }
-.wz-d-amount__money { font-size: 26px; font-weight: 800; color: var(--c-text); }
-.wz-d-amount__rate { font-size: 20px; font-weight: 800; color: var(--c-primary-700); }
-/* 목표금액(보조 텍스트): 모인 금액/달성률 아래 작은 톤으로 한 줄 차지. */
-.wz-d-amount__target { flex-basis: 100%; font-size: 13px; font-weight: 600; color: var(--c-text-muted); }
+/* 3) 모인금액 / 후원자 — 2칸 큰 숫자 */
+.wz-d-statgrid { display: grid; grid-template-columns: 1fr auto; gap: 12px 20px; align-items: end; margin: 0 0 16px; }
+.wz-d-stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.wz-d-stat__num { font-size: 26px; font-weight: 800; line-height: 1.1; color: var(--c-text); word-break: break-word; }
+.wz-d-stat--money .wz-d-stat__num { color: var(--c-primary-700); }
+.wz-d-stat__lbl { font-size: 12px; font-weight: 600; color: var(--c-text-muted); }
+.wz-d-statgrid .wz-d-stat:last-child { text-align: right; }
 
-.wz-d-progress { height: 8px; border-radius: 999px; background: var(--c-primary-100); overflow: hidden; margin-bottom: 22px; }
+/* 4) 요약 박스 — 달성률 | 남은 기간 | 유형 (3칸, 세로 구분선) */
+.wz-d-summary { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--c-border); border-radius: 12px; padding: 14px 4px; margin: 0 0 16px; }
+.wz-d-summary__cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 8px; border-left: 1px solid var(--c-divider); text-align: center; min-width: 0; }
+.wz-d-summary__cell:first-child { border-left: 0; }
+.wz-d-summary__v { font-size: 17px; font-weight: 800; color: var(--c-text); line-height: 1.2; word-break: keep-all; }
+.wz-d-summary__v.is-accent { color: var(--c-primary-700); }
+.wz-d-summary__l { font-size: 12px; font-weight: 600; color: var(--c-text-muted); }
+
+.wz-d-progress { height: 8px; border-radius: 999px; background: var(--c-primary-100); overflow: hidden; margin-bottom: 20px; }
 .wz-d-progress__fill { height: 100%; background: var(--c-primary-500); border-radius: 999px; transition: width .4s; }
 
-/* 혜택 박스 (안심 후원) */
-.wz-d-safe { border: 1px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
-.wz-d-safe__row { display: flex; gap: 9px; align-items: flex-start; }
-.wz-d-safe__ic { width: 18px; height: 18px; flex-shrink: 0; color: var(--c-primary-600); margin-top: 1px; }
-.wz-d-safe__ic svg { width: 100%; height: 100%; }
-.wz-d-safe__row span { font-size: 13px; line-height: 1.5; color: var(--c-text-sub); }
-.wz-d-safe__row b { color: var(--c-text); font-weight: 700; }
+/* 6) 상세 정보 목록 (dl, 라벨/값 정렬) */
+.wz-d-info { margin: 0 0 18px; display: flex; flex-direction: column; gap: 12px; }
+.wz-d-info dt { font-size: 13px; font-weight: 700; color: var(--c-text-muted); margin: 0 0 3px; }
+.wz-d-info dd { font-size: 14px; font-weight: 600; color: var(--c-text); margin: 0; line-height: 1.5; word-break: break-word; }
+.wz-d-info__period { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.wz-d-info__period .wz-d-dday { font-size: 12px; padding: 4px 10px; }
 
-/* 액션 아이콘 행 (공유 / 찜 / 응원) */
-.wz-d-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; }
-.wz-d-act { flex: 1; appearance: none; background: #fff; border: 1px solid var(--c-border); border-radius: 10px; height: 52px; cursor: pointer; font-family: inherit; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: var(--c-text-sub); }
+/* 8) 안심후원 안내 (짧게, 한 줄) */
+.wz-d-safenote { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--c-primary-200); background: var(--c-primary-50); border-radius: 10px; padding: 12px 14px; margin: 0 0 18px; font-size: 12px; line-height: 1.55; color: var(--c-text-sub); }
+.wz-d-safenote__ic { width: 16px; height: 16px; flex-shrink: 0; color: var(--c-primary-600); margin-top: 1px; }
+.wz-d-safenote__ic svg { width: 100%; height: 100%; }
+
+/* 액션 아이콘 행 (공유 / 찜 / 신고) */
+.wz-d-actions { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.wz-d-act { flex: 1; appearance: none; background: #fff; border: 1px solid var(--c-border); border-radius: 10px; height: 46px; cursor: pointer; font-family: inherit; display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px; color: var(--c-text-sub); }
 .wz-d-act:hover { border-color: var(--c-primary-300); color: var(--c-primary-600); }
-.wz-d-act svg { width: 20px; height: 20px; }
-.wz-d-act__label { font-size: 11px; font-weight: 700; }
+.wz-d-act svg { width: 18px; height: 18px; }
+.wz-d-act__label { font-size: 13px; font-weight: 700; }
 .wz-d-act.is-on { color: #ef4444; border-color: #fca5a5; }
 .wz-d-act.is-on svg { fill: #ef4444; }
 /* 하트 팝 애니메이션 — 찜 ON 시 하트 아이콘이 통통 튀는 효과 */

@@ -85,6 +85,21 @@
     if (isNaN(d.getTime())) return null;
     return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0') + ' 마감';
   }
+  /* YYYY.MM.DD 한 줄 날짜 — 펀딩 기간/결제일 등 상세 dl 표기용. 파싱 불가면 null. */
+  function fmtDate(v) {
+    if (!v) return null;
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+  }
+  /* 마감 다음날(N일 차) 날짜 — 텀블벅식 "목표 달성 시 마감 다음날 결제". 마감 없으면 null. */
+  function fmtDatePlusDays(v, plus) {
+    if (!v) return null;
+    const d = new Date(v);
+    if (isNaN(d.getTime())) return null;
+    d.setDate(d.getDate() + (Number(plus) || 0));
+    return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
+  }
   /* D-day 라벨/상태 산출. null 이면 기간 정보 없음(배지 미노출).
    *  - 지난 건 '마감'(is-ended), 오늘은 '오늘 마감'(is-urgent), D-3 이하 임박(is-urgent), 그 외 D-n. */
   function ddayInfo(deadline) {
@@ -684,35 +699,24 @@
     const owner = isOwner(f);
     const scheduled = isScheduled(f);
 
-    /* 상단 메타 행: 카테고리 + D-day 강조 배지.
-     * 공개예정이면 "공개 D-N"(보라 강조), 그 외엔 마감 기준 D-day(임박 강조 / 지난 건 '마감'). */
-    const cat = window.dtCategory && window.dtCategory(f.category);
-    const dday = scheduled
-      ? W.el('span', { class: 'wz-d-dday is-scheduled' }, openDdayLabel(f))
-      : DdayBadge(f.deadline);
-    if (cat || dday) {
-      const metaRow = W.el('div', { class: 'wz-d-metarow' });
-      if (cat) metaRow.appendChild(W.el('span', { class: 'wz-d-cat' }, cat.label));
-      if (dday) metaRow.appendChild(dday);
-      sideCol.appendChild(metaRow);
-    }
+    /* ===== 1) 메이커명 링크(작은 회색 + › 아이콘) — 메이커 페이지로 ===== */
+    const sideMaker = makerOf(f);
+    const sideMakerHref = makerHref(sideMaker);
+    const makerLink = sideMakerHref
+      ? W.el('a', { class: 'wz-d-makerlink', href: sideMakerHref })
+      : W.el('div', { class: 'wz-d-makerlink' });
+    makerLink.append(
+      W.el('span', { class: 'wz-d-makerlink__name' }, makerName(sideMaker)),
+      W.el('span', { class: 'wz-d-makerlink__ic', html: SVG.chevR }));
+    sideCol.appendChild(makerLink);
 
     /* 본인 소유 프로젝트면 "내 프로젝트" 배지 노출 */
     if (owner) {
       sideCol.appendChild(W.el('span', { class: 'wz-d-ownerbadge', html: SVG.shield + '<span>내 프로젝트</span>' }));
     }
 
-    /* (상단 메이커 행은 제거 — 하단 메이커 카드와 중복) */
-
-    /* 제목 */
+    /* ===== 2) 제목 (굵게) — 패널 외 다른 곳엔 제목이 없으므로 여기서만 노출 ===== */
     sideCol.appendChild(W.el('h1', { class: 'wz-d-title' }, f.title || '제목 없음'));
-
-    /* 참여 · 남은 일수 */
-    const dtext = dleft == null ? '' : (dleft > 0 ? dleft + '일 남음' : (dleft === 0 ? '오늘 마감' : '마감'));
-    const statsLine = W.el('p', { class: 'wz-d-stats' });
-    statsLine.append(W.el('b', {}, backers.toLocaleString() + '명'), document.createTextNode(' 참여'));
-    if (dtext) statsLine.append(document.createTextNode(' · '), W.el('b', {}, dtext));
-    sideCol.appendChild(statsLine);
 
     /* 조회수: 서버가 상세 GET 시 자동 집계(view_count++)하므로 프론트 추가 호출 불필요.
      * detail.viewCount 가 오면 소유자/관리자에게만 작게 표시(운영 참고용). */
@@ -722,48 +726,79 @@
       sideCol.appendChild(vc);
     }
 
-    /* 모인 금액 · 목표금액 · 달성률 (금액 기준 — 백엔드 계약)
-     *  표기: "{achievedAmount}원 달성 / 목표 {targetAmount}원 / {achievementRate}% 달성"
-     *  - achievedAmount: 모인 금액(서버 계약, 폴백: 단가×참여수)
-     *  - targetAmount:  목표금액(서버 계약). 있으면 "목표 N원"으로 노출.
-     *  - achievementRate: 금액 기준 달성률(폴백: 수량 기준 W.rate).
-     *  목표금액이 없는 구펀드는 금액 목표를 생략하고, 수량 목표(targetQuantity)만 있으면
-     *  "목표 수량 N개"로 보조 표기(기존 폴백 유지). "N명 참여"(currentQuantity)는 위 statsLine 그대로. */
+    /* ===== 3) 모인금액 / 후원자 — 2칸 큰 숫자 (금액 기준, 백엔드 계약) =====
+     *  - 모인금액: achievedAmount(폴백: 단가×참여수) — 보라 강조 큰 글씨.
+     *  - 후원자:   currentQuantity 명 — 큰 글씨.
+     *  목표/달성률은 아래 요약 박스·상세 dl 에서 다룬다(중복 제거). */
     const amt = detailAmounts(f);
     const targetQty = Number(f.targetQuantity) || 0;
-    const amount = W.el('div', { class: 'wz-d-amount' });
-    amount.append(
-      W.el('span', { class: 'wz-d-amount__money' }, W.money(amt.achieved) + ' 달성'),
-      W.el('span', { class: 'wz-d-amount__rate' }, amt.rate + '% 달성'));
-    if (amt.isAmount) {
-      amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 ' + W.money(amt.target)));
-    } else if (targetQty > 0) {
-      amount.appendChild(W.el('span', { class: 'wz-d-amount__target' }, '목표 수량 ' + targetQty.toLocaleString() + '개'));
-    }
-    sideCol.appendChild(amount);
+    const stats = W.el('div', { class: 'wz-d-statgrid' });
+    stats.append(
+      W.el('div', { class: 'wz-d-stat wz-d-stat--money' },
+        W.el('span', { class: 'wz-d-stat__num' }, W.money(amt.achieved)),
+        W.el('span', { class: 'wz-d-stat__lbl' }, '모인 금액')),
+      W.el('div', { class: 'wz-d-stat' },
+        W.el('span', { class: 'wz-d-stat__num' }, backers.toLocaleString() + '명'),
+        W.el('span', { class: 'wz-d-stat__lbl' }, '후원자')));
+    sideCol.appendChild(stats);
 
-    /* 진행바 — 금액 기준 달성률(amt.rate) */
+    /* ===== 4) 요약 박스 — 달성률 | 남은 기간 | 유형 (3칸, 세로 구분선) ===== */
+    const dtext = dleft == null ? '-' : (dleft > 0 ? dleft + '일' : (dleft === 0 ? '오늘 마감' : '마감'));
+    const typeText = scheduled ? '공개예정' : '펀딩';
+    const summary = W.el('div', { class: 'wz-d-summary' });
+    [
+      [amt.rate + '%', '달성률', 'is-accent'],
+      [dtext, '남은 기간', ''],
+      [typeText, '유형', ''],
+    ].forEach(([v, lbl, extra]) => {
+      summary.appendChild(W.el('div', { class: 'wz-d-summary__cell' },
+        W.el('span', { class: 'wz-d-summary__v' + (extra ? ' ' + extra : '') }, v),
+        W.el('span', { class: 'wz-d-summary__l' }, lbl)));
+    });
+    sideCol.appendChild(summary);
+
+    /* ===== 5) 진행바 — 금액 기준 달성률(amt.rate), 0~100 클램프 ===== */
     const bar = W.el('div', { class: 'wz-d-progress' });
     const fill = W.el('div', { class: 'wz-d-progress__fill' });
     fill.style.width = Math.min(100, Math.max(0, amt.rate)) + '%';
     bar.appendChild(fill);
     sideCol.appendChild(bar);
 
-    /* 혜택 박스 (안심 후원) */
-    const safe = W.el('div', { class: 'wz-d-safe' });
-    [
-      ['안심 후원', '후원은 예약만 되고, 목표 수량을 달성한 프로젝트만 결제·제작·발송됩니다.'],
-      ['목표 미달 시', '결제가 진행되지 않으니 부담 없이 후원하세요.'],
-    ].forEach(([b, t]) => {
-      const row = W.el('div', { class: 'wz-d-safe__row' });
-      row.append(
-        W.el('span', { class: 'wz-d-safe__ic', html: SVG.shield }),
-        W.el('span', {}, W.el('b', {}, b), document.createTextNode(' ' + t)));
-      safe.appendChild(row);
-    });
-    sideCol.appendChild(safe);
+    /* ===== 6) 상세 정보 목록 (dl, 라벨/값 정렬) ===== */
+    const info = W.el('dl', { class: 'wz-d-info' });
+    function infoRow(label, valueNode) {
+      info.append(W.el('dt', {}, label), W.el('dd', {}, valueNode));
+    }
+    // 목표금액 — 금액 목표가 있으면 표기, 없고 수량 목표만 있으면 "수량 N개"로 폴백.
+    if (amt.isAmount) {
+      infoRow('목표 금액', W.money(amt.target));
+    } else if (targetQty > 0) {
+      infoRow('목표 수량', targetQty.toLocaleString() + '개');
+    }
+    // 펀딩 기간 — 시작(openAt 우선, 없으면 createdAt) ~ 마감 + D-day 배지.
+    const startDate = fmtDate(f.openAt) || fmtDate(f.createdAt);
+    const endDate = fmtDate(f.deadline);
+    if (startDate || endDate) {
+      const periodDd = W.el('dd', { class: 'wz-d-info__period' });
+      periodDd.appendChild(W.el('span', {}, (startDate || '') + (startDate && endDate ? ' ~ ' : '') + (endDate || '')));
+      const dd = scheduled
+        ? W.el('span', { class: 'wz-d-dday is-scheduled' }, openDdayLabel(f))
+        : DdayBadge(f.deadline);
+      if (dd) periodDd.appendChild(dd);
+      info.append(W.el('dt', {}, '펀딩 기간'), periodDd);
+    }
+    // 결제 — 목표 달성 시 마감 다음날 순차 결제(텀블벅식, 배치18 마감 다음날 결제).
+    const payDate = fmtDatePlusDays(f.deadline, 1);
+    if (payDate) {
+      infoRow('결제', '목표 달성 시 ' + payDate + '부터 순차 결제');
+    } else {
+      infoRow('결제', '목표 달성 시 마감일 다음 날부터 순차 결제');
+    }
+    // 예상 발송 — 구조화 필드 없음 → 무리한 가짜 날짜 대신 일반 안내.
+    infoRow('예상 발송 시작일', '펀딩 종료 후 약 2~3주 내 순차 발송');
+    if (info.childNodes.length) sideCol.appendChild(info);
 
-    /* 액션 아이콘 행 (공유 / 찜) */
+    /* ===== 7) 찜 · 공유 행 (작게) + 후원하기 큰 버튼 ===== */
     const actions = W.el('div', { class: 'wz-d-actions' });
     const shareBtn = W.el('button', { class: 'wz-d-act', type: 'button' },
       W.el('span', { html: SVG.share }), W.el('span', { class: 'wz-d-act__label' }, '공유'));
@@ -851,7 +886,12 @@
       sideCol.appendChild(fundBtn);
     }
 
-    /* 메이커 카드 (본인 소유면 팔로우/문의 버튼 숨김) */
+    /* ===== 8) 안심후원 안내 (짧게, 한 줄) — CTA 아래 단정하게 ===== */
+    sideCol.appendChild(W.el('p', { class: 'wz-d-safenote' },
+      W.el('span', { class: 'wz-d-safenote__ic', html: SVG.shield }),
+      W.el('span', {}, '후원은 예약만 되고, 목표를 달성한 프로젝트만 결제·제작됩니다. 미달 시 결제되지 않아요.')));
+
+    /* 메이커 카드 (본인 소유면 팔로우/문의 버튼 숨김) — 패널 하단에 정리 */
     sideCol.appendChild(MakerCard(f, owner));
 
     /* 리워드 선택 */
