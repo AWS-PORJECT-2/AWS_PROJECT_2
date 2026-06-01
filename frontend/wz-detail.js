@@ -290,7 +290,8 @@
   }
   function makerName(m) { return m.name || '두띵 창작자'; }
   function makerHref(m) {
-    if (m.slug) return '/u/' + encodeURIComponent(m.slug);
+    // 메이커 페이지 실제 경로는 /maker.html?slug= (또는 ?id=). '/u/{slug}' 는 라우팅이 없어 404 → 사용 금지.
+    if (m.slug) return '/maker.html?slug=' + encodeURIComponent(m.slug);
     if (m.userId) return '/maker.html?id=' + encodeURIComponent(m.userId);
     return null;
   }
