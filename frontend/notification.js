@@ -87,7 +87,7 @@
         + 'font-family:var(--font-sans);}'
       + '.wz-notif.is-open .wz-notif__panel{transform:translateX(0);}'
       + '.wz-notif__head{display:flex;align-items:center;justify-content:space-between;gap:8px;'
-        + 'padding:var(--sp-4,16px) var(--sp-5,20px);border-bottom:1px solid var(--c-divider,#F3F4F6);}'
+        + 'padding:calc(var(--sp-4,16px) + env(safe-area-inset-top,0px)) var(--sp-5,20px) var(--sp-4,16px);border-bottom:1px solid var(--c-divider,#F3F4F6);}'
       + '.wz-notif__title{display:flex;align-items:center;gap:8px;font-size:var(--fs-h3,18px);'
         + 'font-weight:700;color:var(--c-text,#1A1A1A);}'
       + '.wz-notif__title svg{width:20px;height:20px;color:var(--c-primary-500,#8B5CF6);}'

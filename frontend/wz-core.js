@@ -5,6 +5,30 @@
  * 이모지 금지 — 아이콘은 인라인 SVG(stroke=currentColor).
  * ===================================================================== */
 (function () {
+  /* 앱(Capacitor) 전용: 같은-origin <a> 클릭을 WebView 안에서 이동시킨다.
+   * Capacitor 는 .linkActivated(앵커 클릭) 같은-origin 도 일부 환경에서 외부 브라우저로 내보내는데,
+   * location.assign 은 navigationType 이 .other 라 항상 WebView 안에서 열린다.
+   * target=_blank / 크로스-origin / 이미 처리된(preventDefault) 클릭은 건드리지 않는다(외부 열기 유지).
+   * 웹(브라우저)에선 비활성 → 데스크톱 cmd+클릭 새탭 등 기본 동작 보존. */
+  (function inAppLinkRouter() {
+    var isApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+    if (!isApp) return;
+    document.addEventListener('click', function (e) {
+      if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      var a = e.target && e.target.closest && e.target.closest('a[href]');
+      if (!a) return;
+      var t = (a.getAttribute('target') || '').toLowerCase();
+      if (t === '_blank' || t === '_system') return; // 의도적 외부 열기 유지
+      var href = a.getAttribute('href');
+      if (!href || href.charAt(0) === '#' || /^(javascript|mailto|tel):/i.test(href)) return;
+      var url;
+      try { url = new URL(a.href, location.href); } catch (_) { return; }
+      if (url.origin !== location.origin) return; // 크로스-origin 은 Capacitor 가 외부로
+      e.preventDefault();
+      location.assign(url.href); // 같은-origin → WebView 내 이동 강제
+    }, false);
+  })();
+
   function el(tag, props, ...kids) {
     const n = document.createElement(tag);
     for (const [k, v] of Object.entries(props || {})) {
