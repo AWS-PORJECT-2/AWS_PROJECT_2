@@ -2,32 +2,43 @@ import type { Request, Response } from 'express';
 import type { AuthService } from '../interfaces/auth-service.js';
 import { AppError } from '../errors/app-error.js';
 import { logger } from '../logger.js';
+import { setAuthCookies } from '../utils/auth-cookies.js';
+import { issueMobileAuthCode } from '../services/mobile-auth-code.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
-const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export function createCallbackHandler(authService: AuthService) {
   return async (req: Request, res: Response): Promise<void> => {
     const code = typeof req.query.code === 'string' ? req.query.code : undefined;
     const state = typeof req.query.state === 'string' ? req.query.state : undefined;
+    // 'm_' 접두사 = 앱(WebView) 로그인. 시스템 브라우저에서 도는 흐름이라 쿠키 대신 딥링크로 복귀시킨다.
+    const isMobile = typeof state === 'string' && state.startsWith('m_');
     // S3 정적 호스팅은 / 동적 라우팅을 못 하므로 명시적 .html 파일로 보낸다.
-    if (!code || !state) { res.redirect(`${FRONTEND_URL}/login.html?error=missing_params`); return; }
+    if (!code || !state) {
+      res.redirect(`${FRONTEND_URL}/${isMobile ? 'auth-return.html?error=missing_params' : 'login.html?error=missing_params'}`);
+      return;
+    }
     try {
       const result = await authService.handleCallback(code, state);
-      const refreshMaxAge = result.rememberMe ? 30 * 24 * 60 * 60 * 1000 : 24 * 60 * 60 * 1000;
-      res.cookie('accessToken', result.accessToken, {
-        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/', maxAge: 15 * 60 * 1000,
-      });
-      res.cookie('refreshToken', result.refreshToken, {
-        httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth', maxAge: refreshMaxAge,
-      });
+      if (isMobile) {
+        // 앱: 토큰을 일회용 코드 뒤에 보관하고, 브릿지 페이지 → 딥링크로 앱에 코드만 전달.
+        const exchangeCode = issueMobileAuthCode({
+          accessToken: result.accessToken,
+          refreshToken: result.refreshToken,
+          rememberMe: result.rememberMe,
+        });
+        logger.info({ email: result.user.email }, '인증 성공(앱)');
+        res.redirect(`${FRONTEND_URL}/auth-return.html?code=${encodeURIComponent(exchangeCode)}`);
+        return;
+      }
+      // 웹: 기존대로 쿠키 심고 홈으로.
+      setAuthCookies(res, result);
       logger.info({ email: result.user.email }, '인증 성공');
-      // 로그인 성공 후 메인 홈 (새 wz 홈 main.html) 으로 보냄.
       res.redirect(`${FRONTEND_URL}/main.html?login=success`);
     } catch (error) {
       const errorCode = error instanceof AppError ? error.code : 'INTERNAL_ERROR';
       logger.warn({ errorCode, ip: req.ip }, '인증 실패');
-      res.redirect(`${FRONTEND_URL}/login.html?error=login_failed`);
+      res.redirect(`${FRONTEND_URL}/${isMobile ? 'auth-return.html?error=login_failed' : 'login.html?error=login_failed'}`);
     }
   };
 }

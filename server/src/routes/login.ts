@@ -5,8 +5,8 @@ import { createErrorResponse } from '../errors/error-response.js';
 
 export function createLoginHandler(authService: AuthService) {
   return async (req: Request, res: Response): Promise<void> => {
-    const { rememberMe } = req.body;
-    try { res.json(await authService.initiateLogin(rememberMe === true)); }
+    const { rememberMe, mobile } = req.body;
+    try { res.json(await authService.initiateLogin(rememberMe === true, mobile === true)); }
     catch (error) {
       if (error instanceof AppError) res.status(error.httpStatus).json(createErrorResponse(error));
       else res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));

@@ -188,6 +188,46 @@
         history.replaceState({}, '', window.location.pathname + keep);
       }
 
+      // 앱(Capacitor WebView) 여부. 구글은 내장 WebView OAuth 를 막으므로 앱에선
+      // 시스템 브라우저(Custom Tab)에서 로그인하고 딥링크로 세션을 받아온다.
+      var isApp = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+
+      function resetBtn() {
+        btn.disabled = false;
+        btnText.textContent = 'Google로 시작하기';
+      }
+      function fail(text) {
+        errorEl.textContent = text || '로그인에 실패했습니다';
+        errorEl.style.display = 'block';
+        resetBtn();
+      }
+
+      if (isApp) {
+        var P = window.Capacitor.Plugins;
+        // 딥링크 복귀(doothing://auth?code=... | ?error=...) 처리.
+        P.App.addListener('appUrlOpen', function (event) {
+          var url = (event && event.url) || '';
+          if (url.indexOf('doothing://auth') !== 0) return;
+          if (P.Browser && P.Browser.close) { try { P.Browser.close(); } catch (e) {} }
+          var qs = url.indexOf('?') >= 0 ? url.slice(url.indexOf('?') + 1) : '';
+          var rp = new URLSearchParams(qs);
+          var rcode = rp.get('code');
+          if (rcode) {
+            // WebView 가 직접 호출 → 서버가 이 컨텍스트에 쿠키를 심고 홈으로 리다이렉트.
+            window.location.href = '/api/auth/mobile-exchange?code=' + encodeURIComponent(rcode);
+          } else {
+            fail('로그인에 실패했습니다. 다시 시도해주세요');
+          }
+        });
+        // 사용자가 로그인 창을 그냥 닫은 경우 버튼 복구.
+        if (P.Browser && P.Browser.addListener) {
+          P.Browser.addListener('browserFinished', function () {
+            if (btn.disabled && !errorEl.style.display) { /* 복귀 진행 중일 수 있어 약간 대기 */ }
+            setTimeout(function () { if (btn.disabled) resetBtn(); }, 400);
+          });
+        }
+      }
+
       btn.addEventListener('click', function () {
         btn.disabled = true;
         btnText.textContent = '이동 중...';
@@ -197,22 +237,19 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
-          body: JSON.stringify({ rememberMe: false }),
+          body: JSON.stringify({ rememberMe: false, mobile: isApp }),
         })
           .then(function (res) { return res.json(); })
           .then(function (data) {
-            if (data && data.authUrl) {
-              window.location.href = data.authUrl;
+            if (!data || !data.authUrl) throw new Error((data && data.message) || '로그인 요청 실패');
+            if (isApp) {
+              // 시스템 브라우저(진짜 크롬)에서 구글 로그인 → WebView 차단 회피.
+              window.Capacitor.Plugins.Browser.open({ url: data.authUrl });
             } else {
-              throw new Error((data && data.message) || '로그인 요청 실패');
+              window.location.href = data.authUrl;
             }
           })
-          .catch(function () {
-            errorEl.textContent = '서버에 연결할 수 없습니다';
-            errorEl.style.display = 'block';
-            btn.disabled = false;
-            btnText.textContent = 'Google로 시작하기';
-          });
+          .catch(function () { fail('서버에 연결할 수 없습니다'); });
       });
     })();
   </script>

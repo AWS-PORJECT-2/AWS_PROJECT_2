@@ -45,8 +45,9 @@ export class AuthServiceImpl implements AuthService {
     this.notificationRepo = deps.notificationRepository;
   }
 
-  async initiateLogin(rememberMe: boolean): Promise<{ authUrl: string; state: string }> {
-    const state = randomUUID();
+  async initiateLogin(rememberMe: boolean, mobile = false): Promise<{ authUrl: string; state: string }> {
+    // 모바일(앱) 로그인은 state 앞에 'm_' 를 붙여 콜백에서 구분한다(별도 redirect_uri/마이그레이션 불필요).
+    const state = (mobile ? 'm_' : '') + randomUUID();
     const now = new Date();
     await this.oauthStateRepo.save({ state, rememberMe, createdAt: now, expiresAt: new Date(now.getTime() + OAUTH_STATE_TTL_MS) });
     return { authUrl: this.oauthClient.buildAuthorizationUrl(state), state };

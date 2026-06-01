@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>두띵 로그인 처리 중…</title>
+  <link rel="stylesheet" href="tokens.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans, system-ui, sans-serif);
+      min-height: 100vh; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 22px; padding: 32px;
+      background: var(--c-bg, #faf9ff); color: var(--c-text, #1f2937); text-align: center;
+    }
+    .spin {
+      width: 44px; height: 44px; border-radius: 50%;
+      border: 4px solid var(--c-primary-100, #ede9fe);
+      border-top-color: var(--c-primary-600, #7c3aed);
+      animation: r 0.8s linear infinite;
+    }
+    @keyframes r { to { transform: rotate(360deg); } }
+    .msg { font-size: 15px; color: var(--c-text-muted, #6b7280); line-height: 1.6; }
+    .btn {
+      display: none; margin-top: 4px; padding: 13px 22px; border: none; cursor: pointer;
+      background: var(--c-primary-600, #7c3aed); color: #fff; font-weight: 800; font-size: 15px;
+      border-radius: var(--r-md, 12px); font-family: inherit; text-decoration: none;
+    }
+    .err { color: var(--c-danger, #dc2626); font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div class="spin" id="spin"></div>
+  <p class="msg" id="msg">로그인을 마무리하는 중이에요…<br>두띵 앱으로 돌아갑니다.</p>
+  <a class="btn" id="backBtn" href="#">두띵 앱으로 돌아가기</a>
+
+  <script>
+    (function () {
+      var p = new URLSearchParams(location.search);
+      var code = p.get('code');
+      var error = p.get('error');
+      // 앱이 인텐트 필터로 받는 커스텀 스킴. code 또는 error 를 그대로 앱에 전달.
+      var deep = 'doothing://auth?' + (code ? ('code=' + encodeURIComponent(code)) : ('error=' + encodeURIComponent(error || 'login_failed')));
+
+      var msg = document.getElementById('msg');
+      var btn = document.getElementById('backBtn');
+      var spin = document.getElementById('spin');
+
+      if (error) {
+        spin.style.display = 'none';
+        msg.className = 'msg err';
+        msg.textContent = '로그인에 실패했습니다. 앱으로 돌아가 다시 시도해주세요.';
+      }
+
+      btn.href = deep;
+      btn.addEventListener('click', function () { location.href = deep; });
+
+      // 자동 복귀 시도. 브라우저가 커스텀 스킴 자동 이동을 막으면 버튼으로 폴백.
+      try { location.replace(deep); } catch (e) {}
+      setTimeout(function () {
+        spin.style.display = 'none';
+        btn.style.display = 'inline-block';
+        if (!error) msg.textContent = '자동으로 돌아가지 않으면 아래 버튼을 눌러주세요.';
+      }, 1500);
+    })();
+  </script>
+</body>
+</html>
