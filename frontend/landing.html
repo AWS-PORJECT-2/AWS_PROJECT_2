@@ -2,6 +2,17 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <script>
+    /* 앱(Capacitor)에서 루트로 열리면 마케팅 랜딩 대신 메인으로 즉시 이동.
+       웹 브라우저(비-Capacitor)는 그대로 랜딩 유지. 스플래시가 이 전환을 덮어줌. */
+    (function () {
+      try {
+        if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
+          location.replace('/main.html');
+        }
+      } catch (e) {}
+    })();
+  </script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>doothing — 우리의 상상을 현실로</title>
   <meta name="description" content="과잠·키링·에코백·폰케이스까지, 학생 굿즈를 한곳에 모아 공동구매로 함께 만드는 크라우드펀딩 플랫폼.">
