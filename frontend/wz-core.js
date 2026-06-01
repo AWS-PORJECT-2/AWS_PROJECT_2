@@ -529,5 +529,31 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
 
-  window.WZ = { el, esc, money, rate, dday, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome };
+  // ── 공용 로딩 스켈레톤 — 데이터 도착 전 '틀 + shimmer' 노출(빈 화면/팝인 체감 완화). CSS 클래스는 wz.css 전역(.wz-skel 등). ──
+  function skelLines(n) {
+    const box = el('div', { class: 'wz-skel-lines' });
+    for (let i = 0; i < (n || 2); i++) box.appendChild(el('div', { class: 'wz-skel wz-skel-line' + (i === 0 ? ' wz-skel-line--sm' : '') }));
+    return box;
+  }
+  function skelCard() {
+    const c = el('div', { class: 'wz-pcard wz-pcard--skel', 'aria-hidden': 'true' });
+    c.appendChild(el('div', { class: 'wz-pcard__thumb wz-skel' }));
+    c.appendChild(skelLines(3));
+    return c;
+  }
+  function skelGrid(n) {
+    const g = el('div', { class: 'wz-grid' });
+    for (let i = 0; i < (n || 8); i++) g.appendChild(skelCard());
+    return g;
+  }
+  // 기존 그리드(예: .wz-mp-grid) 의 직접 자식으로 흘려보낼 스켈레톤 카드들(프래그먼트).
+  function skelCardsFrag(n) {
+    const f = document.createDocumentFragment();
+    for (let i = 0; i < (n || 6); i++) f.appendChild(skelCard());
+    return f;
+  }
+  // 가로/세로 박스 한 개(임의 크기) — 상세 커버, 측면 패널 등.
+  function skelBox(cls) { return el('div', { class: 'wz-skel ' + (cls || '') }); }
+
+  window.WZ = { el, esc, money, rate, dday, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome, skelLines, skelCard, skelGrid, skelCardsFrag, skelBox };
 })();

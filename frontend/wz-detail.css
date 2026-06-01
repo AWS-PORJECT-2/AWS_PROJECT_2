@@ -37,6 +37,14 @@ body.wz-detail-page .wz-hd { position: static; }
 
 /* ---------- 본문 2단 레이아웃 ---------- */
 .wz-d-grid { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 40px; align-items: start; }
+/* 상세 로딩 스켈레톤(커버/본문/패널) — .wz-skel(전역) 가 shimmer 제공, 아래는 치수만 */
+.wz-d-skel-cover { width: 100%; aspect-ratio: 16/10; border-radius: 12px; }
+.wz-d-skel-lines { margin-top: 22px; display: flex; flex-direction: column; gap: 14px; }
+.wz-d-skel-line { height: 16px; border-radius: 6px; }
+.wz-d-skel-line--title { height: 30px; width: 70%; }
+.wz-d-skel-line--sm { width: 45%; }
+.wz-d-skel-panel { width: 100%; height: 420px; border-radius: 12px; }
+@media (max-width: 900px) { .wz-d-skel-panel { height: 220px; } }
 .wz-d-main { min-width: 0; }
 /* 우측 후원/리워드 패널: 뷰포트에 고정된 독립 스크롤 컨테이너.
  * 상세 페이지는 전역 헤더가 비고정(static)이라 스크롤하면 탭바(.wz-d-tabs, top:0)만 맨 위에 남는다.

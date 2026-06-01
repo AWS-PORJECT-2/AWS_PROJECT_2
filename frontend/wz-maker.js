@@ -78,7 +78,7 @@
     var root = document.getElementById('wz-maker');
     if (!root || !W) return;
     refs.root = root;
-    root.appendChild(W.el('div', { class: 'wz-mk-loading' }, '불러오는 중...'));
+    root.appendChild(W.el('div', { class: 'wz-skel-page' }, W.skelGrid(8)));   // 텍스트 로딩 대신 스켈레톤 카드
     load();
   }
 

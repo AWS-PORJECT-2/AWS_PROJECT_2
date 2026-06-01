@@ -348,7 +348,7 @@
     sec.appendChild(head);
 
     var grid = W.el('div', { class: 'wz-mp-grid' });
-    grid.appendChild(loading());
+    grid.appendChild(W.skelCardsFrag(6));
     sec.appendChild(grid);
 
     // 삭제된 프로젝트는 조회 후 정리 → 살아있는 것만 렌더.
@@ -417,7 +417,7 @@
   function panelRecent() {
     refs.curView = 'recent';
     var grid = panelShell('최근 본 프로젝트', 'recent');
-    grid.appendChild(loading());
+    grid.appendChild(W.skelCardsFrag(6));
     // 삭제된 프로젝트는 조회 후 정리 → 살아있는 것만 렌더.
     pruneRecent().then(function (recent) {
       if (refs.curView !== 'recent') return; // 그 사이 다른 패널로 이동했으면 무시
@@ -436,7 +436,7 @@
   function panelLiked() {
     refs.curView = 'liked';
     var grid = panelShell('관심 프로젝트', 'liked');
-    grid.appendChild(loading());
+    grid.appendChild(W.skelCardsFrag(6));
     // 내 찜 id 조회. 미로그인(401)이면 로그인 유도. (state.me 가 아직 미확정인 직접 진입도 안전하게 처리)
     window.api.get('/me/likes', { silentAuthFail: true })
       .then(function (r) {
@@ -480,7 +480,7 @@
       if (refs.curView !== 'backings') return; // 그 사이 다른 패널로 이동했으면 무시
       if (!me) { grid.replaceChildren(loginEmpty('후원 내역을 보려면 로그인하세요')); return; }
       if (Array.isArray(state.orders)) return fillBackings(grid, state.orders);
-      grid.replaceChildren(loading());
+      grid.replaceChildren(W.skelCardsFrag(6));
       window.api.get('/me/orders')
         .then(function (r) {
           if (refs.curView !== 'backings') return;

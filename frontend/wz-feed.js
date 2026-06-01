@@ -144,7 +144,7 @@
     }
 
     function load() {
-      body.replaceChildren(W.el('p', { class: 'wz-feedpage__loading' }, '불러오는 중…'));
+      body.replaceChildren(W.skelGrid(12));   // 텍스트 로딩 대신 스켈레톤 카드(틀+shimmer)
       const onItems = (items) => { state.lastItems = items || []; render(body, state.lastItems, isFollowing); };
       const onError = () => { state.lastItems = []; render(body, [], isFollowing); };
       if (isScheduled) {

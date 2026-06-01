@@ -313,6 +313,25 @@
       W.el('a', { class: 'wz-btn wz-btn--primary', href: '/main.html' }, '홈으로 가기')));
   }
 
+  /* 로딩 스켈레톤 — 상세 2단 레이아웃(좌: 커버+본문 / 우: 펀딩 패널) 틀+shimmer 를 먼저 보여준다. */
+  function detailSkeleton() {
+    const grid = W.el('div', { class: 'wz-d-grid', 'aria-hidden': 'true' });
+    const left = W.el('div', {});
+    left.appendChild(W.skelBox('wz-d-skel-cover'));
+    const lines = W.el('div', { class: 'wz-d-skel-lines' });
+    lines.append(
+      W.skelBox('wz-d-skel-line wz-d-skel-line--title'),
+      W.skelBox('wz-d-skel-line'),
+      W.skelBox('wz-d-skel-line'),
+      W.skelBox('wz-d-skel-line wz-d-skel-line--sm'),
+    );
+    left.appendChild(lines);
+    const right = W.el('div', {});
+    right.appendChild(W.skelBox('wz-d-skel-panel'));
+    grid.append(left, right);
+    return grid;
+  }
+
   /* ===================================================================
    * 메인 렌더
    * =================================================================== */
@@ -2126,7 +2145,7 @@
     const id = getId();
     if (!id) { showState('프로젝트를 찾을 수 없어요', '잘못된 접근이에요. 목록에서 다시 선택해 주세요.'); return; }
 
-    root.replaceChildren(W.el('div', { class: 'wz-d-state' }, W.el('p', {}, '불러오는 중...')));
+    root.replaceChildren(detailSkeleton());   // 텍스트 로딩 대신 상세 레이아웃 스켈레톤
     let f;
     try {
       f = await window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true });
