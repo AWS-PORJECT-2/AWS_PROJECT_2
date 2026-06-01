@@ -281,8 +281,8 @@
     /* 닉네임 (프로필 주소 = slug). 한글 허용. */
     list.appendChild(editableRow({
       label: '닉네임', field: 'slug',
-      value: me.slug || '', displayValue: me.slug ? ('두띵/u/' + me.slug) : '미설정',
-      placeholder: '예: 김국민', prefix: '두띵/u/', lower: true,
+      value: me.slug || '', displayValue: me.slug ? ('@' + me.slug) : '미설정',
+      placeholder: '예: 김국민', prefix: '@', lower: true,
       validate: function (v) {
         if (!v) return '닉네임을 입력해 주세요';
         if (!/^[가-힣a-z0-9](?:[가-힣a-z0-9-]{0,48}[가-힣a-z0-9])?$/.test(v)) return '한글/영문/숫자/하이픈, 2~50자 (양끝은 한글·영문·숫자)';
@@ -1108,7 +1108,7 @@
       else av.appendChild(el('span', { class: 'wzs-friend__avic', html: SVG.user }));
       var meta = el('a', { class: 'wzs-friend__meta', href: href });
       meta.appendChild(el('p', { class: 'wzs-friend__name' }, u.name || u.nickname || '사용자'));
-      if (u.slug) meta.appendChild(el('p', { class: 'wzs-friend__sub' }, '두띵/u/' + u.slug));
+      if (u.slug) meta.appendChild(el('p', { class: 'wzs-friend__sub' }, '@' + u.slug));
       return el('div', { class: 'wzs-friend' }, av, meta, followBtn(u));
     }
 

@@ -217,7 +217,7 @@
       authSlot.innerHTML = '';
       if (!me) {
         // 확정 비로그인 → 로그인/회원가입 링크 (캐시 없을 땐 슬롯이 비어 있었으므로 깜빡임 없음)
-        authSlot.appendChild(el('a', { class: 'wz-hd__login', href: '/login.html' }, '로그인/회원가입'));
+        authSlot.appendChild(el('a', { class: 'wz-hd__login', href: '/login.html?return=' + currentReturn() }, '로그인'));
         return;
       }
       const name = me.nickname || me.name || '회원';
@@ -481,7 +481,9 @@
    * 모달은 열릴 때 html/body 의 overflow 를 hidden 으로 만들어 배경 스크롤을 잠근다.
    * 닫힘 경로에서 복원이 누락되면 페이지 스크롤이 영구히 막힌다(scrollIntoView 같은 프로그램 스크롤만 동작, 휠/터치 불가).
    * → 스크롤 잠금 모달이 하나도 없는데 overflow 가 hidden 이면 해제. 모달이 떠 있으면 절대 건드리지 않는다(정상 잠금 보존). */
-  var SCROLL_LOCK_OVERLAYS = '.wzc-over, .wz-d-modal, .wz-d-edit, .wc-modal.is-open, .wz-mp-amodal, .wz-mk-modal, .wza-modal-back, .wc-rte.is-fullscreen';
+  // 실제로 body/html inline overflow 를 잠그는 백드롭만 화이트리스트 — 비-잠금 오버레이/죽은 셀렉터를 넣으면
+  // 워치독이 정상 잠금을 잘못 풀거나(스크롤 새어나옴) 누수를 못 풀어(영구 스크롤락) 양방향 오작동함.
+  var SCROLL_LOCK_OVERLAYS = '.wzc-over, .adr-modal-back, .wzs-modal-back, .wz-mp-modal-back, .wz-rp';
   function releaseStuckScroll() {
     try {
       if (document.querySelector(SCROLL_LOCK_OVERLAYS)) return; // 모달 떠 있음 → 정상 잠금, 유지

@@ -161,7 +161,8 @@ img { max-width: 100%; }
 @media (max-width: 767px) {
   /* 헤더는 한 줄 유지(nowrap). 로고·아이콘·아바타·간격·만들기버튼을 줄여 좁은 화면(~320px)에서도 한 줄에 들어가게. */
   .wz-hd__top { gap: 8px; padding: 10px 14px; flex-wrap: nowrap; }
-  .wz-hd__makerhome, .wz-hd__login { display: none; }
+  .wz-hd__makerhome { display: none; }
+  .wz-hd__login { flex-shrink: 0; white-space: nowrap; font-size: 13px; }  /* 모바일에서도 로그인 진입 노출(게스트) */
   .wz-hd__divider { display: none; }  /* 모바일에선 구분선 숨겨 가로 공간 확보 */
   .wz-hd__logo { height: 26px; flex-shrink: 0; }
   .wz-hd__logo img { height: 24px; }     /* 로고 축소(32→24) */

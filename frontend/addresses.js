@@ -331,7 +331,9 @@
         var detail = detailInput.value.trim();
         var memo = memoInput.value.trim();
         // 서버 스키마에 메모 필드 없음 -> detailAddress 에 "상세주소 / 메모" 형태로 합쳐 저장
+        // DB detail_address VARCHAR(200) 초과 시 저장 실패(22001) → 200자로 잘라 안전 저장.
         var mergedDetail = memo ? (detail ? detail + ' / ' + memo : '/ ' + memo) : detail;
+        if (mergedDetail && mergedDetail.length > 200) mergedDetail = mergedDetail.slice(0, 200);
 
         var payload = {
           label: '기본', // 화면엔 안 보이되 API 필수 — "기본" 으로 채움

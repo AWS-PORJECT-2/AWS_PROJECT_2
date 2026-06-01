@@ -395,8 +395,8 @@ textarea.wza-input { height: auto; padding: 10px 14px; line-height: 1.6; resize:
    가로스크롤/넘침을 유발하므로 단일 컬럼으로 스택하고 사이드 탭은 가로로 흐르게 한다. ── */
 @media (max-width: 767px) {
   .wza { grid-template-columns: 1fr; gap: 18px; padding: 20px 14px 72px; }
-  .wza-side { position: static; top: auto; flex-direction: row; flex-wrap: nowrap; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
-  .wza-side::-webkit-scrollbar { display: none; }
+  /* 모바일: 가로 스크롤 스트립(뒤쪽 탭 잘림+스크롤 단서 없음) 대신 여러 줄로 wrap → 10개 탭 전부 노출 */
+  .wza-side { position: static; top: auto; flex-direction: row; flex-wrap: wrap; gap: 6px; padding-bottom: 4px; }
   .wza-tab { white-space: nowrap; flex: 0 0 auto; }
   .wza-kpis { grid-template-columns: repeat(2, 1fr); }
   .wza-charts { grid-template-columns: 1fr; }

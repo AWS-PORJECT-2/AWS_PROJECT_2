@@ -64,7 +64,29 @@
     };
     if (options.body !== undefined) init.body = JSON.stringify(options.body);
 
-    var res = await fetch(API_BASE + path, init);
+    // 응답 무한대기 방지 — 서버 stall/네트워크 끊김 시 UI 가 '처리 중…' 에서 영구 멈추는 것 차단.
+    //  · /ai/* : 서버 AI_TIMEOUT(기본 60s) 동안 정상 대기 → 90s
+    //  · 대용량 바디(커버/영상 data URL 업로드 등 >100KB) : 120s
+    //  · 일반 요청 : 30s   (options.timeoutMs 로 개별 재정의 가능)
+    var _big = init.body && init.body.length > 100000;
+    var timeoutMs = (typeof options.timeoutMs === 'number') ? options.timeoutMs
+      : (path.indexOf('/ai/') === 0 ? 90000 : (_big ? 120000 : 30000));
+    var _ctrl = new AbortController();
+    init.signal = _ctrl.signal;
+    var _to = setTimeout(function () { _ctrl.abort(); }, timeoutMs);
+    var res;
+    try {
+      res = await fetch(API_BASE + path, init);
+    } catch (e) {
+      if (e && e.name === 'AbortError') {
+        var te = new Error('요청 시간이 초과되었습니다. 다시 시도해 주세요');
+        te.code = 'TIMEOUT'; te.status = 0;
+        throw te;
+      }
+      throw e;
+    } finally {
+      clearTimeout(_to);
+    }
 
     if (res.status === 401 && !options._isRetry) {
       // refresh 엔드포인트 자체가 401이면 재시도 안 함
