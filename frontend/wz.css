@@ -403,6 +403,20 @@ button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; f
 .wz-skcard__line--rate { width: 40%; margin-top: 12px; }
 .wz-skcard__line--short { width: 60%; }
 @media (prefers-reduced-motion: reduce) { .wz-skel::after { animation: none; } }
+/* 홈 콘텐츠 로딩 스켈레톤(랭킹·선반·그리드 카드) — 데이터 도착 전 틀+shimmer */
+.wz-skel-lines { padding: 10px 2px 2px; }
+.wz-skel-line { height: 13px; border-radius: 6px; margin-top: 9px; }
+.wz-skel-line:first-child { margin-top: 0; }
+.wz-skel-line--sm { width: 55%; height: 11px; }
+.wz-skel-title { width: 160px; height: 20px; }
+.wz-pcard--skel { pointer-events: none; }
+.wz-rank__item--skel { display: flex; align-items: center; gap: 12px; padding: 10px 0; pointer-events: none; }
+.wz-rank__item--skel .wz-skel-lines { flex: 1; padding: 0; }
+.wz-skel-rankno { width: 18px; height: 20px; border-radius: 4px; flex-shrink: 0; }
+/* 히어로(배너) 로딩 — 이미지 페이드인 전까지 은은한 shimmer 배경 */
+.wz-hero { background: linear-gradient(100deg, #f3f0fe 30%, #faf8ff 50%, #ede9fe 70%); background-size: 200% 100%; animation: wz-hero-shimmer 1.6s ease-in-out infinite; }
+@keyframes wz-hero-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .wz-hero { animation: none; } }
 
 @media (max-width: 767px) {
   .wz-follsec { margin-top: 36px; }

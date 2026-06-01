@@ -55,15 +55,19 @@
     if (q.get('sort')) state.sort = q.get('sort');
     if (q.get('category')) state.category = q.get('category');
 
+    let dataLoaded = false;
     function build() {
       const products = Array.isArray(window.MOCK_PRODUCTS) ? window.MOCK_PRODUCTS : [];
-      rankCol.replaceChildren(RankList(products));
-      shelves.replaceChildren.apply(shelves, buildShelves(products));
+      // 데이터 도착 전(아직 빈 배열)에는 빈 상태 대신 스켈레톤을 그려 '빈 화면 → 한꺼번에 팝인' 체감을 줄인다.
+      const loading = !dataLoaded && products.length === 0;
+      rankCol.replaceChildren(loading ? SkelRankSection() : RankList(products));
+      if (loading) shelves.replaceChildren(SkelShelf(), SkelShelf());
+      else shelves.replaceChildren.apply(shelves, buildShelves(products));
+      browse.render(products, loading);
       buildRecent(recentWrap, products);
-      browse.render(products);
     }
     build();
-    window.addEventListener('mockproducts:updated', build);
+    window.addEventListener('mockproducts:updated', function () { dataLoaded = true; build(); });
 
     // 비-홈 페이지에서 인기/신규/마감임박·카테고리를 누르면 go() 가 /main.html?sort= 로 이동시킨다.
     // 그 결과 URL 에 ?sort/?category 가 있으면(=둘러보기 의도) 한 번의 클릭으로 정렬 적용 + 둘러보기 섹션으로 스크롤.
@@ -282,7 +286,7 @@
     node.append(sortRow, chipRow, gridWrap);
 
     const SORTS = [['popular', '인기순'], ['latest', '신규순'], ['ending', '마감임박순']];
-    function render(products) {
+    function render(products, loading) {
       sortRow.replaceChildren(...SORTS.map(([k, label]) => {
         const b = W.el('button', { class: 'wz-rank__tab' + (state.sort === k ? ' is-active' : ''), type: 'button' }, label);
         b.addEventListener('click', () => W.go({ sort: k, category: state.category }));
@@ -294,6 +298,8 @@
         b.addEventListener('click', () => W.go({ sort: state.sort, category: c.slug }));
         return b;
       }));
+      // 로딩 중이면 탭/칩(정적)만 먼저 보이고 그리드는 스켈레톤 카드로 채운다.
+      if (loading) { gridWrap.replaceChildren(SkelGrid(12)); return; }
       let arr = (products || []).filter((p) => state.category === 'all' || p.category === state.category);
       if (state.sort === 'latest') arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       else if (state.sort === 'ending') arr.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
@@ -324,6 +330,48 @@
       gridWrap.replaceChildren(frag);
     }
     return { node, render };
+  }
+
+  /* ── 로딩 스켈레톤 — 데이터 도착 전 '틀 + shimmer' 를 먼저 보여 빈 화면/팝인 체감을 줄인다. ── */
+  function SkelLines(n) {
+    const box = W.el('div', { class: 'wz-skel-lines' });
+    for (let i = 0; i < (n || 2); i++) {
+      box.appendChild(W.el('div', { class: 'wz-skel wz-skel-line' + (i === 0 ? ' wz-skel-line--sm' : '') }));
+    }
+    return box;
+  }
+  function SkelCard() {
+    const c = W.el('div', { class: 'wz-pcard wz-pcard--skel', 'aria-hidden': 'true' });
+    c.appendChild(W.el('div', { class: 'wz-pcard__thumb wz-skel' }));
+    c.appendChild(SkelLines(3));
+    return c;
+  }
+  function SkelGrid(n) {
+    const g = W.el('div', { class: 'wz-grid' });
+    for (let i = 0; i < (n || 8); i++) g.appendChild(SkelCard());
+    return g;
+  }
+  function SkelRankSection() {
+    const sec = W.el('section', { class: 'wz-rank' });
+    sec.appendChild(W.el('div', { class: 'wz-rank__head' }, W.el('h2', { class: 'wz-rank__title' }, '실시간 베스트')));
+    const wrap = W.el('div', {});
+    for (let i = 0; i < 5; i++) {
+      const row = W.el('div', { class: 'wz-rank__item wz-rank__item--skel', 'aria-hidden': 'true' });
+      row.append(W.el('span', { class: 'wz-skel wz-skel-rankno' }), W.el('div', { class: 'wz-rank__thumb wz-skel' }), SkelLines(2));
+      wrap.appendChild(row);
+    }
+    sec.appendChild(wrap);
+    return sec;
+  }
+  function SkelShelf() {
+    const sec = W.el('section', { class: 'wz-shelf', 'aria-hidden': 'true' });
+    const head = W.el('div', { class: 'wz-shelf__head' });
+    head.appendChild(W.el('div', { class: 'wz-skel wz-skel-line wz-skel-title' }));
+    sec.appendChild(head);
+    const scroll = W.el('div', { class: 'wz-shelf__scroll' });
+    for (let i = 0; i < 4; i++) scroll.appendChild(SkelCard());
+    sec.appendChild(scroll);
+    return sec;
   }
 
   /* 남은 기간 배지 — deadline → D-7 / D-1 / 오늘 마감 / 마감. 마감 임박은 강조색. */
