@@ -159,23 +159,23 @@ img { max-width: 100%; }
   .wz-hd__nav { display: none; }
 }
 @media (max-width: 767px) {
-  /* flex-wrap: 우측 액션 클러스터(아이콘+아바타+만들기 버튼)가 360px 에서 가로로 넘치면 다음 줄로 내려가게 해
-     가로 스크롤/로고 압착을 원천 차단(헤더에 '만들기' 버튼이 후행 규칙으로 노출되므로 가로 예산이 빠듯함). */
-  .wz-hd__top { gap: 14px; padding: 12px 16px; flex-wrap: wrap; row-gap: 8px; }
+  /* 헤더는 한 줄 유지(nowrap). 로고·아이콘·아바타·간격·만들기버튼을 줄여 좁은 화면(~320px)에서도 한 줄에 들어가게. */
+  .wz-hd__top { gap: 8px; padding: 10px 14px; flex-wrap: nowrap; }
   .wz-hd__makerhome, .wz-hd__login { display: none; }
   .wz-hd__divider { display: none; }  /* 모바일에선 구분선 숨겨 가로 공간 확보 */
+  .wz-hd__logo { height: 26px; flex-shrink: 0; }
+  .wz-hd__logo img { height: 24px; }     /* 로고 축소(32→24) */
   .wz-searchrow, .wz-cats { padding-left: 16px; padding-right: 16px; }
   .wz-search { height: 48px; }
   .wz-home { padding: 16px; }
   .wz-hero__cap h2 { font-size: 21px; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
   .wz-catmenu__inner { gap: 20px; }
-  /* 모바일 탭타깃 확대 — 아이콘 시각 크기(svg 24px)는 유지하고 클릭영역만 40px 로(손가락 오탭 방지). gap 6px. */
-  .wz-hd__right { gap: 6px; }
-  .wz-hd__icon { width: 40px; height: 40px; }
-  .wz-hd__avatar { width: 40px; height: 40px; }
-  /* 40px 박스 기준으로 배지를 24px 글리프에 가깝게 재배치(모서리에 떠 보이지 않게). */
-  .wz-hd__icon .wz-dot { top: 4px; right: 4px; }
+  /* 우측 클러스터 — 아이콘 36, 아바타 28(축소), 간격 8. */
+  .wz-hd__right { gap: 8px; flex-shrink: 0; }
+  .wz-hd__icon { width: 36px; height: 36px; }
+  .wz-hd__avatar { width: 28px; height: 28px; flex-shrink: 0; }
+  .wz-hd__icon .wz-dot { top: 3px; right: 3px; }
 }
 
 /* 큐레이션 선반(가로 캐러셀) + 프로모션 밴드 — 홈을 풍성하게 */
@@ -325,7 +325,9 @@ button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; f
   .wz-hd__menubtn span { display: none; }
   .wz-hd__nav2-inner { gap: 16px; padding: 9px 16px; overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .wz-hd__catbtn { padding-right: 14px; margin-right: 2px; }
-  .wz-hd__create { display: inline-flex; padding: 8px 12px; font-size: 13px; }
+  /* 만들기 버튼: 폭 큰 '프로젝트 만들기'(아이콘 없는 텍스트) → 모바일은 '만들기'로 축약(한 줄 유지). */
+  .wz-hd__create { display: inline-flex; padding: 7px 11px; font-size: 0; flex-shrink: 0; white-space: nowrap; }
+  .wz-hd__create::after { content: '만들기'; font-size: 13px; font-weight: 800; }
   .wz-mega__grid { grid-template-columns: repeat(4, 1fr); }
   .wz-mega__inner { padding: 14px 16px 20px; }
   .wz-mega__ic { width: 50px; height: 50px; }
