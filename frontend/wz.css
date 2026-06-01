@@ -22,7 +22,7 @@ img { max-width: 100%; }
 .wz-btn:disabled { background: var(--c-divider); color: var(--c-text-faint); border-color: transparent; cursor: not-allowed; }
 
 /* =================== 헤더 (와디즈) =================== */
-.wz-hd { position: sticky; top: 0; z-index: 200; background: #fff; border-bottom: 1px solid var(--c-divider); }
+.wz-hd { position: sticky; top: 0; z-index: 200; background: #fff; border-bottom: 1px solid var(--c-divider); padding-top: env(safe-area-inset-top, 0px); }
 .wz-hd__top { display: flex; align-items: center; gap: 30px; max-width: 1200px; margin: 0 auto; padding: 16px 24px; }
 .wz-hd__logo { display: flex; align-items: center; height: 38px; flex-shrink: 0; }
 .wz-hd__logo img { height: 32px; max-height: 36px; width: auto; display: block; }
