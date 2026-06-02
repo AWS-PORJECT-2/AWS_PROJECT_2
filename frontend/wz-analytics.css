@@ -85,7 +85,7 @@
 
 /* ---- 추이 토글 ---- */
 .wz-an__toggle { display: inline-flex; gap: 4px; padding: 4px; background: var(--c-divider); border-radius: 10px; margin-bottom: 16px; }
-.wz-an__toggle-btn { padding: 7px 16px; border: 0; border-radius: 7px; background: transparent; color: var(--c-text-sub); font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .14s, color .14s; }
+.wz-an__toggle-btn { padding: 7px 14px; border: 0; border-radius: 7px; background: transparent; color: var(--c-text-sub); font-family: inherit; font-size: 13px; font-weight: 700; white-space: nowrap; cursor: pointer; transition: background .14s, color .14s; }
 .wz-an__toggle-btn.is-active { background: #fff; color: var(--c-primary-700); box-shadow: var(--sh-1); }
 
 /* ---- SVG 막대 차트 ---- */

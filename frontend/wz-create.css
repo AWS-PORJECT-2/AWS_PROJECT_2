@@ -112,7 +112,7 @@
 /* 잠긴 단계(공개 예정 — Basic 요금제) — 회색 비활성, 클릭 불가 */
 .wc-side__item.is-locked { color: var(--c-text-faint); cursor: not-allowed; opacity: .6; }
 .wc-side__item.is-locked:hover { background: none; }
-.wc-side__lock { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--c-text-muted); background: var(--c-bg); border: 1px solid var(--c-divider); padding: 2px 8px; border-radius: var(--r-full); flex-shrink: 0; white-space: nowrap; }
+.wc-side__lock { margin-left: auto; font-size: 10px; font-weight: 700; color: var(--c-text-muted); background: var(--c-bg); border: 1px solid var(--c-divider); padding: 2px 8px; border-radius: var(--r-full); flex-shrink: 0; white-space: normal; text-align: right; line-height: 1.25; max-width: 120px; }
 .wc-side__change { width: 100%; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-sub); border-radius: var(--r-sm); padding: 10px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; transition: border-color .15s, color .15s; }
 .wc-side__change:hover { border-color: var(--c-primary-400); color: var(--c-primary-600); }
 
@@ -149,7 +149,7 @@
 .wc-card.is-locked .wc-card__check { border-color: var(--c-divider); background: var(--c-divider); color: transparent; }
 .wc-card.is-locked .wc-card__name,
 .wc-card.is-locked .wc-card__state { color: var(--c-text-faint); }
-.wc-card__lockbtn { font-size: 12px; font-weight: 700; color: var(--c-text-muted); background: #fff; border: 1px solid var(--c-divider); border-radius: var(--r-full); padding: 8px 14px; white-space: nowrap; cursor: not-allowed; }
+.wc-card__lockbtn { font-size: 12px; font-weight: 700; color: var(--c-text-muted); background: #fff; border: 1px solid var(--c-divider); border-radius: var(--r-full); padding: 8px 14px; white-space: normal; line-height: 1.3; text-align: center; max-width: 170px; cursor: not-allowed; }
 .wc-card__btn { flex-shrink: 0; }
 
 /* AI 가상피팅 별도 버튼 카드 */
@@ -341,7 +341,7 @@
 .wc-bl__chiplbl { font-size: 12px; font-weight: 700; color: var(--c-text-sub); }
 
 /* 칩셋(이미지 크기/정렬) */
-.wc-chipset { display: inline-flex; gap: 4px; background: var(--c-divider); border-radius: var(--r-full); padding: 3px; }
+.wc-chipset { display: inline-flex; flex-wrap: wrap; gap: 4px; background: var(--c-divider); border-radius: 14px; padding: 3px; }
 .wc-chip { border: 0; background: none; cursor: pointer; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--c-text-sub); border-radius: var(--r-full); padding: 6px 12px; line-height: 1; transition: background .12s, color .12s; }
 .wc-chip:hover { color: var(--c-primary-700); }
 .wc-chip.is-on { background: #fff; color: var(--c-primary-700); box-shadow: var(--sh-1); }

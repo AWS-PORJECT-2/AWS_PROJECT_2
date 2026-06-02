@@ -204,14 +204,14 @@ a.wz-d-makerlink:hover .wz-d-makerlink__ic { color: var(--c-primary-600); }
 .wz-d-stat { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .wz-d-stat__num { font-size: 26px; font-weight: 800; line-height: 1.1; color: var(--c-text); word-break: break-word; }
 .wz-d-stat--money .wz-d-stat__num { color: var(--c-primary-700); }
-.wz-d-stat__lbl { font-size: 12px; font-weight: 600; color: var(--c-text-muted); }
+.wz-d-stat__lbl { font-size: 12px; font-weight: 600; color: var(--c-text-muted); white-space: nowrap; }
 .wz-d-statgrid .wz-d-stat:last-child { text-align: right; }
 
 /* 4) 요약 박스 — 달성률 | 남은 기간 | 유형 (3칸, 세로 구분선) */
 .wz-d-summary { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid var(--c-border); border-radius: 12px; padding: 14px 4px; margin: 0 0 16px; }
 .wz-d-summary__cell { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 0 8px; border-left: 1px solid var(--c-divider); text-align: center; min-width: 0; }
 .wz-d-summary__cell:first-child { border-left: 0; }
-.wz-d-summary__v { font-size: 17px; font-weight: 800; color: var(--c-text); line-height: 1.2; word-break: keep-all; }
+.wz-d-summary__v { font-size: 15.5px; font-weight: 800; color: var(--c-text); line-height: 1.25; overflow-wrap: break-word; }
 .wz-d-summary__v.is-accent { color: var(--c-primary-700); }
 .wz-d-summary__l { font-size: 12px; font-weight: 600; color: var(--c-text-muted); }
 

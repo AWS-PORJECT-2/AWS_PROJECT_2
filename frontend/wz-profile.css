@@ -48,7 +48,7 @@
 .wz-mp-stat__label { font-size: 13px; color: var(--c-text-muted); font-weight: 600; }
 .wz-mp-stat__value { font-size: 24px; font-weight: 800; color: var(--c-primary-700); line-height: 1.1; }
 .wz-mp-stat__value--plain { color: var(--c-text); }
-.wz-mp-stat__more { font-size: 13px; color: var(--c-text-sub); font-weight: 700; display: inline-flex; align-items: center; gap: 3px; }
+.wz-mp-stat__more { font-size: 13px; color: var(--c-text-sub); font-weight: 700; display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
 .wz-mp-stat__more svg { width: 14px; height: 14px; }
 
 /* 포인트/쿠폰 한 줄 */
@@ -251,7 +251,7 @@
   .wz-mp-side__gtitle { display: none; }
   .wz-mp-side__list { flex-direction: row; flex-wrap: nowrap; gap: 8px; overflow-x: auto; padding-bottom: 4px; scrollbar-width: none; }
   .wz-mp-side__list::-webkit-scrollbar { display: none; }
-  .wz-mp-side__btn { flex-direction: column; gap: 6px; white-space: nowrap; text-align: center; flex: 0 0 auto; min-width: 78px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 12px; font-size: 12px; }
+  .wz-mp-side__btn { flex-direction: column; gap: 6px; white-space: normal; line-height: 1.2; text-align: center; flex: 0 0 auto; min-width: 78px; max-width: 116px; padding: 10px 12px; border: 1px solid var(--c-border); border-radius: 12px; font-size: 12px; }
   .wz-mp-side__btn.is-active { border-color: var(--c-primary-300); }
   .wz-mp-side__soon { position: absolute; }
   .wz-mp-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }

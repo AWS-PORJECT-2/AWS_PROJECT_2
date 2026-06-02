@@ -101,7 +101,7 @@ img { max-width: 100%; }
 .wz-rank__title { font-size: 22px; font-weight: 800; margin: 0; }
 .wz-rank__more { font-size: 13px; color: var(--c-text-faint); }
 .wz-rank__tabs { display: flex; gap: 8px; margin: 14px 0 18px; }
-.wz-rank__tab { font-size: 13px; font-weight: 700; color: var(--c-text-sub); background: var(--c-divider); border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: inherit; }
+.wz-rank__tab { font-size: 13px; font-weight: 700; color: var(--c-text-sub); background: var(--c-divider); border: 0; border-radius: 999px; padding: 7px 14px; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .wz-rank__tab.is-active { background: var(--c-text); color: #fff; }
 .wz-rank__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 18px; }
 .wz-rank__item { display: flex; align-items: center; gap: 12px; }
@@ -207,7 +207,7 @@ img { max-width: 100%; }
 /* 둘러보기(홈 단일 허브) — 정렬 탭 + 카테고리 칩 + 그리드 */
 .wz-browse { margin-top: 48px; }
 .wz-browse .wz-sec__title { margin: 0 0 18px; }
-.wz-browse__sorts { display: flex; gap: 8px; margin-bottom: 14px; }
+.wz-browse__sorts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .wz-browse__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 22px; }
 .wz-chip { font-size: 13px; font-weight: 600; color: var(--c-text-sub); background: #fff; border: 1px solid var(--c-border); border-radius: 999px; padding: 8px 14px; cursor: pointer; font-family: inherit; white-space: nowrap; }
 .wz-chip:hover { border-color: var(--c-primary-400); color: var(--c-primary-600); }
@@ -260,7 +260,7 @@ html { color-scheme: light; }
 .wz-mega__ic img, .wz-mega__ic svg { width: 100%; height: 100%; object-fit: contain; }
 /* 메가패널 아이콘도 투명 PNG — blend 불필요 */
 .wz-mega__ic > svg { color: var(--c-primary-600); }
-.wz-mega__label { font-size: 12.5px; font-weight: 600; color: var(--c-text-sub); text-align: center; line-height: 1.3; }
+.wz-mega__label { font-size: 12.5px; font-weight: 600; color: var(--c-text-sub); text-align: center; line-height: 1.3; word-break: keep-all; overflow-wrap: anywhere; }
 /* 메가 셀 파스텔 다색(보조 색감) */
 .wz-mega__cell:nth-child(8n+1) .wz-mega__ic { background: var(--c-primary-100); }
 .wz-mega__cell:nth-child(8n+2) .wz-mega__ic { background: var(--c-accent-coral-50); }
@@ -330,6 +330,7 @@ button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; f
   /* 만들기 버튼: 폭 큰 '프로젝트 만들기'(아이콘 없는 텍스트) → 모바일은 '만들기'로 축약(한 줄 유지). */
   .wz-hd__create { display: inline-flex; padding: 7px 11px; font-size: 0; flex-shrink: 0; white-space: nowrap; }
   .wz-hd__create::after { content: '만들기'; font-size: 13px; font-weight: 800; }
+  html[lang="en"] .wz-hd__create::after { content: 'Create'; } /* CSS content 는 i18n 엔진이 못 바꿔 EN 수동 대응 */
   .wz-mega__grid { grid-template-columns: repeat(4, 1fr); }
   .wz-mega__inner { padding: 14px 16px 20px; }
   .wz-mega__ic { width: 50px; height: 50px; }
@@ -378,8 +379,8 @@ button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; f
 /* 썸네일 좌상단 — "N일 후 공개" 배지(보라 채움, D-day 와 구분). */
 .wz-soon {
   position: absolute; top: 10px; left: 10px; z-index: 2;
-  display: inline-flex; align-items: center; height: 26px; padding: 0 11px;
-  border-radius: 999px; font-size: 13px; font-weight: 800; line-height: 1;
+  display: inline-flex; align-items: center; min-height: 26px; padding: 0 11px;
+  border-radius: 999px; font-size: 13px; font-weight: 800; line-height: 1; white-space: nowrap;
   background: var(--c-primary-600); color: #fff; letter-spacing: -.2px;
   box-shadow: 0 2px 8px rgba(124,58,237,.34);
 }
@@ -436,8 +437,8 @@ button.wz-hd__icon { background: none; border: 0; padding: 0; cursor: pointer; f
 /* 썸네일 좌상단 — 남은 기간을 한눈에 크고 진하게. 보라 톤, 마감임박(D-3↓)은 강한 코랄/빨강. */
 .wz-dday {
   position: absolute; top: 12px; left: 12px; z-index: 2;
-  display: inline-flex; align-items: center; height: 30px; padding: 0 13px;
-  border-radius: 999px; font-size: 15px; font-weight: 800; line-height: 1;
+  display: inline-flex; align-items: center; min-height: 30px; padding: 0 13px;
+  border-radius: 999px; font-size: 15px; font-weight: 800; line-height: 1; white-space: nowrap;
   background: var(--c-primary-600); color: #fff;
   box-shadow: 0 3px 10px rgba(124,58,237,.4); letter-spacing: -.2px;
 }
