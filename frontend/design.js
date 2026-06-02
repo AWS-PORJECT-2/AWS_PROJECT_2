@@ -104,6 +104,14 @@
     var it = curItem();
     return it.img ? '/assets/mockups/' + it.img + '_' + view + '_mask.png' : null;
   }
+  function applyMaskCss(node, src) {
+    if (!src) return;
+    var c = 'url("' + src + '")';
+    node.style.webkitMaskImage = c; node.style.maskImage = c;
+    node.style.webkitMaskSize = '100% 100%'; node.style.maskSize = '100% 100%';
+    node.style.webkitMaskRepeat = 'no-repeat'; node.style.maskRepeat = 'no-repeat';
+  }
+  function isWhite(c) { return !c || String(c).toLowerCase() === '#ffffff' || String(c).toLowerCase() === '#fff'; }
 
   // ---- 목업 SVG 폴백(이미지 없는 webapp/etc, 또는 로드 실패 시) -----------------
   function goodsSvg() {
@@ -133,7 +141,7 @@
   var imgCache = {}; // layerId -> HTMLImageElement (합성용)
 
   // ---- DOM refs ---------------------------------------------------------------
-  var root, canvasEl, layersWrap, selWrap, viewsWrap, propsBox, layerListBox, titleInput;
+  var root, canvasEl, layersWrap, selWrap, tintEl, viewsWrap, propsBox, layerListBox, titleInput;
 
   function toast(msg) {
     var t = el('div', { class: 'dz-toast' }, msg);
@@ -173,15 +181,25 @@
 
     canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
     canvasEl.appendChild(buildMockNode());
+    var mk = maskSrc(S.view);
+    // 옷 색(실시간) — 의류만: 마스크로 옷 영역만 색칠 + multiply 로 음영 유지.
+    tintEl = null;
+    if (isApparel() && mk) {
+      tintEl = el('div', { class: 'dz-canvas__tint' });
+      tintEl.style.background = S.color;
+      applyMaskCss(tintEl, mk);
+      canvasEl.appendChild(tintEl);
+    }
+    // 인쇄 영역(인쇄 위치) 가이드 — 상품·면별로 권장 배치 영역 표시.
+    var prc = printRect();
+    if (prc) {
+      var guide = el('div', { class: 'dz-print', style: 'left:' + prc.l + '%;top:' + prc.t + '%;width:' + prc.w + '%;height:' + prc.h + '%' });
+      guide.appendChild(el('div', { class: 'dz-print__tag' }, '인쇄 영역'));
+      canvasEl.appendChild(guide);
+    }
     // 레이어 컨테이너 — 제품 실루엣 마스크로 클리핑(제품 밖으로 나간 부분은 잘림).
     layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0' });
-    var mk = maskSrc(S.view);
-    if (mk) {
-      var mkCss = 'url("' + mk + '")';
-      layersWrap.style.webkitMaskImage = mkCss; layersWrap.style.maskImage = mkCss;
-      layersWrap.style.webkitMaskSize = '100% 100%'; layersWrap.style.maskSize = '100% 100%';
-      layersWrap.style.webkitMaskRepeat = 'no-repeat'; layersWrap.style.maskRepeat = 'no-repeat';
-    }
+    applyMaskCss(layersWrap, mk);
     canvasEl.appendChild(layersWrap);
     // 선택 UI(선택박스+핸들)는 마스크 밖 별도 오버레이 — 제품 가장자리에서도 안 잘리고 잡을 수 있게.
     selWrap = el('div', { class: 'dz-canvas__sel', style: 'position:absolute;inset:0;pointer-events:none' });
@@ -303,7 +321,7 @@
     });
     if (prodItems.length > 1) card.appendChild(field('상품', prodSel));
 
-    // 색상(주문 옵션 메타 — 사진 목업은 색을 시각적으로 바꾸진 않음)
+    // 색상 — 의류는 실시간으로 옷 색이 바뀜(마스크+multiply). 굿즈는 주문 옵션 메타.
     var sw = el('div', { class: 'dz-swatches' });
     COLORS.forEach(function (c) {
       var d = el('div', { class: 'dz-sw' + (c.hex === S.color ? ' is-on' : ''), title: c.name, style: 'background:' + c.hex });
@@ -311,7 +329,8 @@
         S.color = c.hex;
         sw.querySelectorAll('.dz-sw').forEach(function (n) { n.classList.remove('is-on'); });
         d.classList.add('is-on');
-        if (!curItem().img) render(); // SVG 폴백 상품만 색이 시각 반영됨 → 그때만 다시 그림
+        if (tintEl) tintEl.style.background = S.color;       // 의류: 실시간 색 변경
+        else if (!curItem().img) render();                   // SVG 폴백 상품: 다시 그림
       });
       sw.appendChild(d);
     });
@@ -582,73 +601,87 @@
     layerListBox.appendChild(list);
   }
 
-  // ---- 합성(목업 + 레이어 → canvas) ------------------------------------------
-  // view 지정, px 가로 크기. 이미지 로드 대기 후 dataURL 반환.
+  // ---- 합성(목업 + 옷색 + 레이어 → canvas) -----------------------------------
+  // view 지정, px 가로 크기. 화면(목업+tint+클리핑)과 동일하게 그려 dataURL 반환.
   function composite(view, pxW) {
-    var prevView = S.view;
     return new Promise(function (resolve) {
-      var ar = canvasAspect(); // w/h
-      var CW = pxW || 1000, CH = Math.round(CW / ar);
+      var CW = pxW || 1000, CH = Math.round(CW / canvasAspect()); // 1:1
       var canvas = document.createElement('canvas'); canvas.width = CW; canvas.height = CH;
       var ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CW, CH);
-      // 베이스 목업: 사용자 PNG 우선(같은 출처라 canvas taint 없음), 실패 시 SVG 실루엣.
-      var pngImg = new Image();
-      pngImg.onload = function () { ctx.drawImage(pngImg, 0, 0, CW, CH); drawLayers(); };
-      pngImg.onerror = function () {
-        var svgStr = (function () { var keep = S.view; S.view = view; var s = mockSvg(); S.view = keep; return s; })();
-        var svgUrl = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
-        var mockImg = new Image();
-        mockImg.onload = function () { ctx.drawImage(mockImg, 0, 0, CW, CH); drawLayers(); };
-        mockImg.onerror = function () { drawLayers(); };
-        mockImg.src = svgUrl;
-      };
-      pngImg.src = mockupSrc(view);
+      var msrc = maskSrc(view);
+      var tinted = isApparel() && !isWhite(S.color);
 
-      function drawLayers() {
+      drawBase(function () { loadMask(function (maskImg) { tintThenLayers(maskImg); }); });
+
+      // 베이스 목업(PNG 우선, 없으면 SVG 폴백)
+      function drawBase(cb) {
+        var base = mockupSrc(view);
+        if (!base) { drawSvg(cb); return; }
+        var png = new Image();
+        png.onload = function () { ctx.drawImage(png, 0, 0, CW, CH); cb(); };
+        png.onerror = function () { drawSvg(cb); };
+        png.src = base;
+      }
+      function drawSvg(cb) {
+        var svgStr = (function () { var keep = S.view; S.view = view; var s = mockSvg(); S.view = keep; return s; })();
+        var m = new Image();
+        m.onload = function () { ctx.drawImage(m, 0, 0, CW, CH); cb(); };
+        m.onerror = function () { cb(); };
+        m.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgStr);
+      }
+      function loadMask(cb) {
+        if (!msrc) { cb(null); return; }
+        var mi = new Image(); mi.onload = function () { cb(mi); }; mi.onerror = function () { cb(null); }; mi.src = msrc;
+      }
+      // 옷 색(의류·흰색 아님): 색 채운 뒤 마스크로 옷 영역만 남기고 multiply 로 베이스에 입힘.
+      function tintThenLayers(maskImg) {
+        if (tinted && maskImg) {
+          var tc = document.createElement('canvas'); tc.width = CW; tc.height = CH;
+          var tx = tc.getContext('2d');
+          tx.fillStyle = S.color; tx.fillRect(0, 0, CW, CH);
+          tx.globalCompositeOperation = 'destination-in'; tx.drawImage(maskImg, 0, 0, CW, CH);
+          ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(tc, 0, 0); ctx.globalCompositeOperation = 'source-over';
+        }
         var ls = S.views[view] || [];
         var imgs = ls.filter(function (L) { return L.type === 'image'; });
         var pending = imgs.length;
-        if (!pending) { paint(); return; }
+        if (!pending) { paint(maskImg, ls); return; }
         imgs.forEach(function (L) {
           var im = imgCache[L.id];
-          if (im && im.complete && im.naturalWidth) { if (--pending === 0) paint(); return; }
+          if (im && im.complete && im.naturalWidth) { if (--pending === 0) paint(maskImg, ls); return; }
           var n = new Image();
-          n.onload = function () { imgCache[L.id] = n; if (--pending === 0) paint(); };
-          n.onerror = function () { if (--pending === 0) paint(); };
+          n.onload = function () { imgCache[L.id] = n; if (--pending === 0) paint(maskImg, ls); };
+          n.onerror = function () { if (--pending === 0) paint(maskImg, ls); };
           n.src = L.src;
         });
-        function paint() {
-          // 레이어는 별도 캔버스에 그린 뒤 제품 마스크로 클리핑(destination-in) → 베이스에 합성.
-          var lc = document.createElement('canvas'); lc.width = CW; lc.height = CH;
-          var lx = lc.getContext('2d');
-          ls.forEach(function (L) {
-            if (L.type === 'image') {
-              var im2 = imgCache[L.id];
-              if (!im2 || !im2.naturalWidth) return;
-              var w = L.w / 100 * CW, h = L.h / 100 * CH;
-              var x = (L.x / 100 * CW) - w / 2, y = (L.y / 100 * CH) - h / 2;
-              try { lx.drawImage(im2, x, y, w, h); } catch (_) {}
-            } else {
-              var fs = L.font / 100 * CH;
-              lx.font = (L.bold ? '800 ' : '500 ') + fs + 'px Pretendard, -apple-system, sans-serif';
-              lx.fillStyle = L.color || '#222';
-              lx.textAlign = 'center'; lx.textBaseline = 'middle';
-              var lines = String(L.text || '').split('\n');
-              var cx = L.x / 100 * CW, cy = L.y / 100 * CH;
-              var lh = fs * 1.2;
-              var startY = cy - (lines.length - 1) * lh / 2;
-              lines.forEach(function (ln, idx) { lx.fillText(ln, cx, startY + idx * lh); });
-            }
-          });
-          function finish() { ctx.drawImage(lc, 0, 0); S.view = prevView; resolve(canvas.toDataURL('image/png')); }
-          var msrc = (function () { var keep = S.view; S.view = view; var m = maskSrc(view); S.view = keep; return m; })();
-          if (!msrc) { finish(); return; }
-          var mimg = new Image();
-          mimg.onload = function () { lx.globalCompositeOperation = 'destination-in'; lx.drawImage(mimg, 0, 0, CW, CH); finish(); };
-          mimg.onerror = function () { finish(); }; // 마스크 없으면 클리핑 생략
-          mimg.src = msrc;
-        }
+      }
+      // 레이어는 별도 캔버스에 그린 뒤 마스크로 클리핑 → 베이스에 합성.
+      function paint(maskImg, ls) {
+        var lc = document.createElement('canvas'); lc.width = CW; lc.height = CH;
+        var lx = lc.getContext('2d');
+        ls.forEach(function (L) {
+          if (L.type === 'image') {
+            var im2 = imgCache[L.id];
+            if (!im2 || !im2.naturalWidth) return;
+            var w = L.w / 100 * CW, h = L.h / 100 * CH;
+            var x = (L.x / 100 * CW) - w / 2, y = (L.y / 100 * CH) - h / 2;
+            try { lx.drawImage(im2, x, y, w, h); } catch (_) {}
+          } else {
+            var fs = L.font / 100 * CH;
+            lx.font = (L.bold ? '800 ' : '500 ') + fs + 'px Pretendard, -apple-system, sans-serif';
+            lx.fillStyle = L.color || '#222';
+            lx.textAlign = 'center'; lx.textBaseline = 'middle';
+            var lines = String(L.text || '').split('\n');
+            var cx = L.x / 100 * CW, cy = L.y / 100 * CH;
+            var lh = fs * 1.2;
+            var startY = cy - (lines.length - 1) * lh / 2;
+            lines.forEach(function (ln, idx) { lx.fillText(ln, cx, startY + idx * lh); });
+          }
+        });
+        if (maskImg) { lx.globalCompositeOperation = 'destination-in'; lx.drawImage(maskImg, 0, 0, CW, CH); }
+        ctx.drawImage(lc, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
       }
     });
   }
