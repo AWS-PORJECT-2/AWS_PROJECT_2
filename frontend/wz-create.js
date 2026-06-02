@@ -2839,12 +2839,35 @@
 
   function readImage(file, cb) {
     if (!file) return;
-    if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) { toast('PNG·JPG·WEBP 이미지만 업로드할 수 있어요'); return; }
+    // 타입 검증 완화 — 일부 안드로이드 파일선택기는 type 이 비거나 'image/jpg' 등으로 와서 엄격 매칭에 실패함.
+    if (file.type && !/^image\//.test(file.type)) { toast('이미지 파일(PNG·JPG·WEBP)만 업로드할 수 있어요'); return; }
     if (file.size > 8 * 1024 * 1024) { toast('이미지는 최대 8MB까지 가능합니다'); return; }
+    // 1차: createObjectURL+canvas 로 디코드(+필요시 축소). 모바일에서 FileReader 보다 안정적이고 용량도 줄인다.
+    //  PNG 는 PNG 로(투명 보존), 그 외는 JPEG 로 출력. 실패하면 FileReader 폴백.
+    var url;
+    try { url = URL.createObjectURL(file); } catch (e) { return readImageViaFileReader(file, cb); }
+    var img = new Image();
+    img.onload = function () {
+      try {
+        var max = 2000, w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h) throw new Error('no-dim');
+        var scale = (w > max || h > max) ? Math.min(max / w, max / h) : 1;
+        var cw = Math.round(w * scale), ch = Math.round(h * scale);
+        var c = document.createElement('canvas'); c.width = cw; c.height = ch;
+        c.getContext('2d').drawImage(img, 0, 0, cw, ch);
+        try { URL.revokeObjectURL(url); } catch (e2) {}
+        var isPng = /png$/i.test(file.type || '') || /\.png$/i.test(file.name || '');
+        cb(isPng ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.9));
+      } catch (e3) { try { URL.revokeObjectURL(url); } catch (e4) {} readImageViaFileReader(file, cb); }
+    };
+    img.onerror = function () { try { URL.revokeObjectURL(url); } catch (e5) {} readImageViaFileReader(file, cb); };
+    img.src = url;
+  }
+  function readImageViaFileReader(file, cb) {
     var r = new FileReader();
     r.onload = function () { cb(String(r.result)); };
-    r.onerror = function () { toast('이미지를 읽지 못했습니다'); };
-    r.readAsDataURL(file);
+    r.onerror = function () { toast('이미지를 읽지 못했어요. 다른 이미지로 다시 시도해 주세요.'); };
+    try { r.readAsDataURL(file); } catch (e) { toast('이미지를 읽지 못했어요. 다른 이미지로 다시 시도해 주세요.'); }
   }
 
   // 대표 영상 파일 → data URL. mp4/webm/quicktime, 최대 30MB.

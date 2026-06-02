@@ -189,7 +189,7 @@
 .wc-over__close:hover { background: var(--c-border); }
 .wc-over__close svg { width: 18px; height: 18px; }
 .wc-over__body { flex: 1; overflow-y: auto; padding: 24px; }
-.wc-over__foot { flex-shrink: 0; padding: 16px 24px; border-top: 1px solid var(--c-divider); display: flex; gap: 10px; }
+.wc-over__foot { flex-shrink: 0; padding: 16px 24px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--c-divider); display: flex; gap: 10px; }
 .wc-over__foot .wz-btn { flex: 1; }
 
 /* 폼 필드 */

@@ -177,24 +177,22 @@
 
     input.value = '';
 
-    var sentViaSocket = false;
-    if (state.socket && state.socket.connected && state.roomId) {
-      try { state.socket.emit('message:send', { message: text }); sentViaSocket = true; } catch (_) {} // 서버 핸들러명은 'message:send'(유저는 자기 방으로 라우팅)
+    // 전송은 항상 REST(동기 저장 + 서버가 message:new 브로드캐스트). 소켓 emit 은 비동기라 저장 전에
+    //  아래 loadMessages 가 먼저 돌아 방금 보낸 메시지가 안 보이는 경쟁이 있어 사용하지 않는다.
+    //  소켓은 수신(관리자 답변·실시간) 전용. → POST 가 확정 저장 후 loadMessages 가 즉시 표시.
+    setInputEnabled(false);
+    var ok = false;
+    try {
+      await window.api.post('/chat/me/messages', { message: text });
+      ok = true;
+    } catch (err) {
+      input.value = text; // 실패 시 입력 복원
+      showErrorToast((err && err.message) || '메시지를 보내지 못했습니다.');
+    } finally {
+      setInputEnabled(true);
     }
 
-    if (!sentViaSocket) {
-      setInputEnabled(false);
-      try {
-        await window.api.post('/chat/me/messages', { message: text });
-      } catch (err) {
-        input.value = text; // 실패 시 입력 복원
-        showErrorToast((err && err.message) || '메시지를 보내지 못했습니다.');
-      } finally {
-        setInputEnabled(true);
-      }
-    }
-
-    await loadMessages(true);
+    if (ok) await loadMessages(true);
     input.focus();
   }
 
