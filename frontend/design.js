@@ -39,7 +39,7 @@
       { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
         print: { front: pr(29, 18, 42, 66), back: pr(29, 17, 42, 68), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
     ] },
-    ecobag: { type: 'goods', tint: true, items: [
+    ecobag: { type: 'goods', items: [
       { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
     ] },
     keyring: { type: 'goods', items: [
@@ -57,11 +57,11 @@
     badge: { type: 'goods', items: [
       { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 32, 48, 36) } },
     ] },
-    tumbler: { type: 'goods', tint: true, items: [
+    tumbler: { type: 'goods', items: [
       { name: '텀블러', img: 'tumbler', views: ['front'], print: { front: pr(37, 20, 24, 54) } },
       { name: '머그컵', img: 'mug', views: ['front'], print: { front: pr(34, 34, 28, 30) } },
     ] },
-    fabric: { type: 'goods', tint: true, items: [
+    fabric: { type: 'goods', items: [
       { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
     // 인형·액세서리는 레이어 에디터 대신 "말로 설명 → AI 디자인 뽑기" 모드.
@@ -196,10 +196,11 @@
 
     canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
     canvasEl.appendChild(buildMockNode()); // 목업+옷색(canvas)
-    var mk = maskSrc(S.view);
-    // 레이어 컨테이너 — 제품 실루엣 마스크로 클리핑(제품 밖으로 나간 부분은 잘림).
-    layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0' });
-    applyMaskCss(layersWrap, mk);
+    // 인쇄 범위 가이드(점선) — 이 범위를 벗어난 디자인은 잘려서 인쇄되지 않음.
+    var prc = printRect();
+    canvasEl.appendChild(el('div', { class: 'dz-print', style: 'left:' + prc.l + '%;top:' + prc.t + '%;width:' + prc.w + '%;height:' + prc.h + '%' }));
+    // 레이어 컨테이너 — 인쇄 범위(사각형)로 클리핑(범위 밖은 안 보임).
+    layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0;clip-path:inset(' + prc.t + '% ' + (100 - prc.l - prc.w) + '% ' + (100 - prc.t - prc.h) + '% ' + prc.l + '%)' });
     canvasEl.appendChild(layersWrap);
     // 선택 UI(선택박스+핸들)는 마스크 밖 별도 오버레이 — 제품 가장자리에서도 안 잘리고 잡을 수 있게.
     selWrap = el('div', { class: 'dz-canvas__sel', style: 'position:absolute;inset:0;pointer-events:none' });
@@ -280,6 +281,7 @@
         var room = 5 - S.descPhotos.length;
         if (files.length > room) toast('사진은 최대 5장까지예요');
         files.slice(0, room).forEach(function (f) {
+          var uerr = validateUpload(f); if (uerr) { toast(uerr); return; }
           readImageFile(f).then(function (res) { if (S.descPhotos.length < 5) { S.descPhotos.push(res.url); renderPhotos(); } })
             .catch(function () { toast('이미지를 읽지 못했습니다'); });
         });
@@ -459,18 +461,13 @@
       card.appendChild(field('색상', sw));
     }
 
-    // 사이즈(의류만) + 수량
-    var row = el('div', { class: 'dz-row' });
+    // 사이즈(의류만). 수량은 제거(주문 단계에서 정함).
     if (isApparel()) {
       var sizeSel = el('select', { class: 'dz-select' });
       SIZES.forEach(function (s) { var o = el('option', { value: s }, s); if (s === S.size) o.selected = true; sizeSel.appendChild(o); });
       sizeSel.addEventListener('change', function () { S.size = sizeSel.value; });
-      row.appendChild(fieldInline('사이즈', sizeSel));
+      card.appendChild(field('사이즈', sizeSel));
     }
-    var qtyIn = el('input', { class: 'dz-input', type: 'number', min: '1', max: '999', value: String(S.qty) });
-    qtyIn.addEventListener('change', function () { S.qty = Math.max(1, Math.min(999, parseInt(qtyIn.value, 10) || 1)); qtyIn.value = String(S.qty); });
-    row.appendChild(fieldInline('수량', qtyIn));
-    card.appendChild(row);
 
     return card;
   }
@@ -583,6 +580,7 @@
     input.addEventListener('change', function () {
       var f = input.files && input.files[0];
       if (!f) return;
+      var uerr = validateUpload(f); if (uerr) { toast(uerr); return; }
       readImageFile(f).then(function (res) {
         var pr = printRect();
         var natAR = res.h / res.w; // height/width
@@ -596,6 +594,15 @@
     });
     document.body.appendChild(input); input.click();
     setTimeout(function () { input.remove(); }, 1000);
+  }
+  // 업로드 제한(실제 적용): JPEG/PNG 만, 10MB 미만. 위반 시 메시지 반환(null=통과).
+  var MAX_UPLOAD = 10 * 1024 * 1024;
+  function validateUpload(file) {
+    if (!file) return '파일을 선택해 주세요.';
+    var okType = /^image\/(jpeg|jpg|png)$/i.test(file.type || '') || /\.(jpe?g|png)$/i.test(file.name || '');
+    if (!okType) return '업로드 가능한 이미지는 JPEG·PNG 형식이에요.';
+    if (file.size > MAX_UPLOAD) return '이미지는 10MB 미만만 업로드할 수 있어요 (현재 ' + (file.size / 1024 / 1024).toFixed(1) + 'MB).';
+    return null;
   }
   // 모바일 호환 이미지 디코드(createObjectURL+canvas, 최대 1600px) → dataURL
   function readImageFile(file) {
@@ -715,7 +722,7 @@
       up.addEventListener('click', function (e) { e.stopPropagation(); moveLayer(L.id, 1); });
       var down = el('button', { class: 'dz-litem__b', title: '뒤로', type: 'button' }, '▼');
       down.addEventListener('click', function (e) { e.stopPropagation(); moveLayer(L.id, -1); });
-      var del = el('button', { class: 'dz-litem__b', title: '삭제', type: 'button' }, '🗑');
+      var del = el('button', { class: 'dz-litem__b', title: '삭제', type: 'button' }, '✕');
       del.addEventListener('click', function (e) { e.stopPropagation(); removeLayer(L.id); });
       item.addEventListener('click', function () { S.sel = L.id; renderLayers(); renderProps(); renderLayerList(); });
       item.append(th, name, up, down, del);
@@ -779,10 +786,16 @@
           n.src = L.src;
         });
       }
-      // 레이어는 별도 캔버스에 그린 뒤 마스크로 클리핑 → 베이스에 합성.
+      // 레이어는 별도 캔버스에 그린 뒤 인쇄 범위(사각형)로 클리핑 → 베이스에 합성.
       function paint(maskImg, ls) {
         var lc = document.createElement('canvas'); lc.width = CW; lc.height = CH;
         var lx = lc.getContext('2d');
+        var pp = curItem().print || {};
+        var box = pp[view] || pp[views()[0]] || pr(0, 0, 100, 100);
+        lx.save();
+        lx.beginPath();
+        lx.rect(box.l / 100 * CW, box.t / 100 * CH, box.w / 100 * CW, box.h / 100 * CH);
+        lx.clip();
         ls.forEach(function (L) {
           if (L.type === 'image') {
             var im2 = imgCache[L.id];
@@ -1080,7 +1093,7 @@
       }),
     );
     box.replaceChildren(
-      el('div', { class: 'dz-modal__t' }, (label || 'AI') + ' 완성! 🎉'),
+      el('div', { class: 'dz-modal__t' }, (label || 'AI') + ' 완성'),
       el('div', { class: 'dz-modal__s' }, 'AI가 생성한 결과예요. 다운로드하거나 펀딩 대표 이미지로 사용할 수 있어요.'),
       el('img', { class: 'dz-result__img', src: url, alt: label || 'AI 결과' }),
       foot,
