@@ -1,13 +1,13 @@
 /**
  * 디자인하기 에디터 — 마플 스타일 상품 커스터마이즈.
  *
- *  - 카테고리(쿼리 ?category=slug)별 상품 목업(의류=과잠/후드/반팔 실루엣, 굿즈=제품 카드).
+ *  - 카테고리·상품별 사진 목업(/assets/mockups/<img>_<view>.png, 1248² 1:1). 없으면 SVG 폴백.
+ *  - 카테고리 내 상품 변형(후드↔맨투맨, 텀블러↔머그, 키링 모양 등) + 다면(앞/뒤/좌/우/넥/전개도).
  *  - 레이어: 이미지 업로드 + 텍스트. 캔버스 위에서 드래그/리사이즈/삭제, 레이어 패널로 순서/선택.
- *  - 옵션: 상품 종류 · 색상 · 사이즈 · 수량.
- *  - 면 전환: 의류는 앞면/뒷면(각 면 독립 레이어).
+ *  - 옵션: 상품 종류 · 색상(주문 메타) · 사이즈 · 수량. 면별 독립 레이어.
  *  - 저장/불러오기: /api/me/designs (개인 프로필) — 언제든 이어서 편집.
  *  - 다운로드: 목업+레이어 합성 PNG.
- *  - 완성: 합성 이미지를 /api/ai/try-on 으로 보내 의상 사진/가상피팅 생성(AI 미연결 시 안내).
+ *  - 완성 영역: [완성하기-저장] + [AI 디자인 보기](/ai/blueprint) | [가상피팅 보기](/ai/try-on, AI디자인 전 잠금).
  *
  *  좌표계: 모든 레이어 위치/크기는 캔버스 대비 % (반응형). 폰트 크기는 캔버스 높이 대비 %.
  *  XSS: 사용자 텍스트는 textContent 로만 출력.
@@ -17,25 +17,71 @@
   var el = W.el || function (t) { return document.createElement(t); };
 
   // ---- 카테고리별 상품 정의 ---------------------------------------------------
-  // family: 목업 실루엣 종류. 의류는 tee/hoodie/jacket, 그 외는 goods 카드.
+  // 각 카테고리 → { type, items:[{ name, img, views, print:{view:{l,t,w,h}} }] }
+  //   type: 'apparel'(가상피팅) | 'goods'(전시) | 'none'
+  //   img : /assets/mockups/<img>_<view>.png 베이스 이름. null 이면 SVG 폴백.
+  //   views: 제공되는 면(front/back/left/right/neck/wrap). print: 면별 인쇄영역(캔버스 대비 %).
+  var AP = ['front', 'back', 'left', 'right'];
+  function pr(l, t, w, h) { return { l: l, t: t, w: w, h: h }; }
+  // 의류 공통 인쇄영역(앞/뒤/좌/우) — 가슴/등/소매 중심.
+  function apparelPrint(extra) {
+    var base = { front: pr(34, 31, 32, 34), back: pr(31, 26, 38, 46), left: pr(20, 36, 22, 22), right: pr(58, 36, 22, 22) };
+    if (extra) Object.keys(extra).forEach(function (k) { base[k] = extra[k]; });
+    return base;
+  }
   var PRODUCTS = {
-    jacket:    { family: 'jacket', items: ['스타디움 과잠', '바시티 과잠'] },
-    hoodie:    { family: 'hoodie', items: ['후드티', '맨투맨'] },
-    tshirt:    { family: 'tee',    items: ['반팔 라운드티', '오버핏 반팔티'] },
-    ecobag:    { family: 'goods',  items: ['코튼 에코백', '캔버스 에코백'] },
-    keyring:   { family: 'goods',  items: ['아크릴 키링', '메탈 키링'] },
-    phonecase: { family: 'goods',  items: ['하드 케이스', '젤리 케이스'] },
-    sticker:   { family: 'goods',  items: ['다꾸 스티커', '홀로그램 스티커'] },
-    badge:     { family: 'goods',  items: ['원형 뱃지', '자석 뱃지'] },
-    tumbler:   { family: 'goods',  items: ['보온 텀블러', '세라믹 머그'] },
-    fabric:    { family: 'goods',  items: ['미니 담요', '쿠션 커버'] },
-    doll:      { family: 'goods',  items: ['봉제 인형', '키링 인형'] },
-    accessory: { family: 'goods',  items: ['목걸이', '팔찌'] },
-    webapp:    { family: 'goods',  items: ['커스텀 굿즈'] },
-    etc:       { family: 'goods',  items: ['커스텀 굿즈'] },
+    jacket: { type: 'apparel', items: [
+      { name: '바시티 자켓', img: 'varsity_jacket', views: AP, print: apparelPrint({ front: pr(33, 30, 34, 30) }) },
+    ] },
+    hoodie: { type: 'apparel', items: [
+      { name: '후드티', img: 'hoodie', views: AP, print: apparelPrint({ front: pr(35, 32, 30, 24) }) },
+      { name: '맨투맨', img: 'sweatshirt', views: AP, print: apparelPrint({ front: pr(34, 33, 32, 30) }) },
+    ] },
+    tshirt: { type: 'apparel', items: [
+      { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
+        print: apparelPrint({ front: pr(33, 33, 34, 36), neck: pr(42, 20, 16, 10) }) },
+    ] },
+    ecobag: { type: 'goods', items: [
+      { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(32, 36, 36, 34), back: pr(32, 36, 36, 34) } },
+    ] },
+    keyring: { type: 'goods', items: [
+      { name: '아크릴 키링', img: 'keyring', views: ['front'], print: { front: pr(35, 34, 30, 38) } },
+      { name: '원형 키링', img: 'keyring_round', views: ['front'], print: { front: pr(34, 36, 32, 32) } },
+      { name: '사각 키링', img: 'keyring_square', views: ['front'], print: { front: pr(34, 35, 32, 32) } },
+      { name: '스트랩 키링', img: 'keyring_strap', views: ['front'], print: { front: pr(40, 30, 20, 44) } },
+    ] },
+    phonecase: { type: 'goods', items: [
+      { name: '폰케이스', img: 'phonecase', views: ['back'], print: { back: pr(36, 20, 28, 58) } },
+    ] },
+    sticker: { type: 'goods', items: [
+      { name: '스티커', img: 'sticker_sheet', views: ['front'], print: { front: pr(28, 22, 44, 56) } },
+    ] },
+    badge: { type: 'goods', items: [
+      { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(33, 33, 34, 34) } },
+    ] },
+    tumbler: { type: 'goods', items: [
+      { name: '텀블러', img: 'tumbler', views: ['front', 'left', 'right', 'wrap'],
+        print: { front: pr(39, 26, 22, 48), left: pr(30, 26, 24, 48), right: pr(46, 26, 24, 48), wrap: pr(18, 30, 64, 40) } },
+      { name: '머그컵', img: 'mug', views: ['front', 'left', 'right'],
+        print: { front: pr(35, 38, 24, 28), left: pr(28, 38, 24, 28), right: pr(46, 38, 24, 28) } },
+    ] },
+    fabric: { type: 'goods', items: [
+      { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(30, 34, 40, 36) } },
+    ] },
+    doll: { type: 'goods', items: [
+      { name: '마스코트 인형', img: 'mascot', views: AP, print: { front: pr(38, 42, 24, 22), back: pr(38, 42, 24, 22), left: pr(34, 42, 24, 22), right: pr(42, 42, 24, 22) } },
+    ] },
+    accessory: { type: 'goods', items: [
+      { name: '액세서리', img: 'accessory', views: ['front'], print: { front: pr(34, 40, 32, 22) } },
+    ] },
+    webapp: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
+    etc: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
   };
+  function catDef(slug) { return PRODUCTS[slug] || PRODUCTS.etc; }
+  function curItem() { return catDef(S.slug).items[S.itemIdx] || catDef(S.slug).items[0]; }
+  function isApparel() { return catDef(S.slug).type === 'apparel'; }
 
-  // 색상 팔레트(상품 본체 색)
+  // 색상 팔레트(주문 옵션용 메타데이터 — 사진 목업은 흰색 기준이라 색을 시각적으로 바꾸진 않음)
   var COLORS = [
     { name: '화이트', hex: '#ffffff' }, { name: '블랙', hex: '#2b2b2e' },
     { name: '그레이', hex: '#b8bcc4' }, { name: '네이비', hex: '#23304f' },
@@ -44,96 +90,30 @@
   ];
   var SIZES = ['S', 'M', 'L', 'XL', '2XL'];
 
-  // 면별 인쇄 영역(캔버스 대비 %: left/top/width/height)
-  var PRINT = {
-    tee:    { front: { l: 34, t: 33, w: 32, h: 36 }, back: { l: 31, t: 25, w: 38, h: 48 } },
-    hoodie: { front: { l: 35, t: 30, w: 30, h: 30 }, back: { l: 31, t: 24, w: 38, h: 48 } },
-    jacket: { front: { l: 34, t: 32, w: 32, h: 32 }, back: { l: 31, t: 24, w: 38, h: 48 } },
-    goods:  { front: { l: 22, t: 22, w: 56, h: 56 } },
-  };
+  var VIEW_LABEL = { front: '앞면', back: '뒷면', left: '왼쪽', right: '오른쪽', neck: '넥(목)', wrap: '전개도' };
+  function views() { return curItem().views; }
+  function primaryView() { return views()[0]; } // 대표 면(폰케이스처럼 front 가 없는 상품 대비)
+  function viewLabel(v) { return VIEW_LABEL[v] || v; }
 
-  function views(family) { return family === 'goods' ? ['front'] : ['front', 'back']; }
-  function viewLabel(v) { return v === 'back' ? '뒷면' : '앞면'; }
-
-  // 카테고리별 기본 목업 이미지(사용자가 제공). 파일이 있으면 사진 목업을 쓰고, 없으면 아래 SVG 실루엣으로 자동 폴백.
-  //   경로 규칙: /assets/mockups/<slug>-<view>.png   (의류=front+back, 굿즈=front)
-  function mockupSrc(view) { return '/assets/mockups/' + S.slug + '-' + view + '.png'; }
-  // 카테고리별 인쇄 영역 미세조정(기본은 family 기준 PRINT). 사용자가 이미지 주면 좌표만 여기서 맞추면 됨.
-  var PRINT_OVERRIDE = {
-    // 예) phonecase: { front: { l: 30, t: 16, w: 40, h: 66 } },
-  };
-
-  // ---- 목업 SVG ---------------------------------------------------------------
-  // 공통 상의 실루엣(viewBox 0 0 500 600). 색상 채움 + 옅은 외곽선(흰 상품도 보이게).
-  function topBodyPath() {
-    return 'M250,72 C214,72 198,60 190,54 L122,98 L72,172 C70,178 72,184 78,188 '
-      + 'L134,226 C140,230 148,228 152,222 L170,198 L170,538 C170,546 176,552 184,552 '
-      + 'L316,552 C324,552 330,546 330,538 L330,198 L348,222 C352,228 360,230 366,226 '
-      + 'L422,188 C428,184 430,178 428,172 L378,98 L310,54 C302,60 286,72 250,72 Z';
+  // 베이스 목업 이미지 경로(/assets/mockups/<img>_<view>.png). img 없으면 null → SVG 폴백.
+  function mockupSrc(view) {
+    var it = curItem();
+    return it.img ? '/assets/mockups/' + it.img + '_' + view + '.png' : null;
   }
-  function svgWrap(inner) {
-    return '<svg viewBox="0 0 500 600" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">'
-      + inner + '</svg>';
-  }
-  function teeSvg(color, view, family) {
+
+  // ---- 목업 SVG 폴백(이미지 없는 webapp/etc, 또는 로드 실패 시) -----------------
+  function goodsSvg() {
     var stroke = '#cfcfd6';
-    var body = '<path d="' + topBodyPath() + '" fill="' + color + '" stroke="' + stroke + '" stroke-width="2.5" stroke-linejoin="round"/>';
-    var extras = '';
-    // 넥라인(앞면만 둥근 칼라 표현)
-    if (view === 'front') {
-      extras += '<path d="M210,74 C224,104 238,116 250,116 C262,116 276,104 290,74" fill="none" stroke="' + stroke + '" stroke-width="2.5"/>';
-    } else {
-      extras += '<path d="M206,72 C224,86 238,90 250,90 C262,90 276,86 294,72" fill="none" stroke="' + stroke + '" stroke-width="2.5"/>';
-    }
-    if (family === 'hoodie') {
-      // 후드(목 뒤 칼라) + 캥거루 포켓 + 끈
-      var hood = view === 'front'
-        ? '<path d="M198,64 C214,40 286,40 302,64 C292,92 270,108 250,108 C230,108 208,92 198,64 Z" fill="' + shade(color, -0.06) + '" stroke="' + stroke + '" stroke-width="2.5"/>'
-        : '<path d="M196,60 C214,30 286,30 304,60 C304,96 280,118 250,118 C220,118 196,96 196,60 Z" fill="' + shade(color, -0.06) + '" stroke="' + stroke + '" stroke-width="2.5"/>';
-      extras = hood + (view === 'front'
-        ? '<line x1="232" y1="108" x2="228" y2="168" stroke="' + stroke + '" stroke-width="3"/>'
-          + '<line x1="268" y1="108" x2="272" y2="168" stroke="' + stroke + '" stroke-width="3"/>'
-          + '<path d="M196,430 L304,430 L296,500 L204,500 Z" fill="none" stroke="' + stroke + '" stroke-width="2.5"/>'
-        : '');
-      body = '<path d="' + topBodyPath() + '" fill="' + color + '" stroke="' + stroke + '" stroke-width="2.5" stroke-linejoin="round"/>';
-      return svgWrap(body + extras);
-    }
-    if (family === 'jacket') {
-      // 과잠: 칼라 + 중앙 지퍼 + 소매/밑단 리브
-      extras += '<line x1="250" y1="120" x2="250" y2="540" stroke="' + stroke + '" stroke-width="2.5"/>';
-      extras += '<rect x="170" y="524" width="160" height="14" fill="' + shade(color, -0.05) + '" stroke="' + stroke + '" stroke-width="1.5"/>';
-      if (view === 'front') {
-        extras += '<path d="M214,80 L250,116 L286,80" fill="none" stroke="' + stroke + '" stroke-width="2.5"/>';
-      }
-    }
-    return svgWrap(body + extras);
-  }
-  function goodsSvg(color, slug) {
-    var stroke = '#cfcfd6';
-    var inner = '<rect x="40" y="40" width="420" height="420" rx="44" fill="' + color + '" stroke="' + stroke + '" stroke-width="3"/>';
-    // 카테고리 아이콘을 옅게 backdrop 으로(있으면). 없으면 무시.
-    inner += '<image href="/assets/' + slug + '.png" x="150" y="150" width="200" height="200" opacity="0.10" preserveAspectRatio="xMidYMid meet"/>';
+    var inner = '<rect x="40" y="40" width="420" height="420" rx="44" fill="' + S.color + '" stroke="' + stroke + '" stroke-width="3"/>'
+      + '<image href="/assets/' + S.slug + '.png" x="150" y="150" width="200" height="200" opacity="0.10" preserveAspectRatio="xMidYMid meet"/>';
     return '<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">' + inner + '</svg>';
   }
-  // 색 명도 조절(후드/리브 음영)
-  function shade(hex, amt) {
-    var c = hex.replace('#', '');
-    if (c.length === 3) c = c[0] + c[0] + c[1] + c[1] + c[2] + c[2];
-    var r = parseInt(c.slice(0, 2), 16), g = parseInt(c.slice(2, 4), 16), b = parseInt(c.slice(4, 6), 16);
-    r = Math.max(0, Math.min(255, Math.round(r + r * amt)));
-    g = Math.max(0, Math.min(255, Math.round(g + g * amt)));
-    b = Math.max(0, Math.min(255, Math.round(b + b * amt)));
-    return '#' + [r, g, b].map(function (x) { return ('0' + x.toString(16)).slice(-2); }).join('');
-  }
-  function mockSvg() {
-    if (S.family === 'goods') return goodsSvg(S.color, S.slug);
-    return teeSvg(S.color, S.view, S.family);
-  }
-  function canvasAspect() { return S.family === 'goods' ? 1 : (500 / 600); } // w/h
+  function mockSvg() { return goodsSvg(); }
+  function canvasAspect() { return 1; } // 모든 목업 1:1(1248²)
 
   // ---- 상태 -------------------------------------------------------------------
   var S = {
-    slug: '', catObj: null, family: 'goods',
+    slug: '', catObj: null, itemIdx: 0,
     product: '', color: '#ffffff', size: 'M', qty: 1,
     view: 'front',
     views: {},          // { front: [layer...], back: [layer...] }
@@ -187,7 +167,7 @@
     renderViews();
     stage.appendChild(viewsWrap);
 
-    canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio:' + (S.family === 'goods' ? '1/1' : '5/6') });
+    canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
     canvasEl.appendChild(buildMockNode());
     // 인쇄 영역 가이드
     var pr = printRect();
@@ -201,9 +181,9 @@
     if (!cvLayers().length) {
       canvasEl.appendChild(el('div', { class: 'dz-empty' }, '오른쪽에서 이미지나 텍스트를 추가해\n나만의 ' + (S.product || '굿즈') + '을(를) 디자인해 보세요'));
     }
-    // 빈 곳 클릭 → 선택 해제
+    // 빈 곳(레이어/핸들이 아닌 곳) 클릭 → 선택 해제
     canvasEl.addEventListener('pointerdown', function (e) {
-      if (e.target === canvasEl || e.target.classList.contains('dz-canvas__mock') || e.target.classList.contains('dz-empty')) {
+      if (!e.target.closest('.dz-layer')) {
         S.sel = null; renderLayers(); renderProps(); renderLayerList();
       }
     });
@@ -238,7 +218,9 @@
 
   function renderViews() {
     viewsWrap.replaceChildren();
-    views(S.family).forEach(function (v) {
+    var vs = views();
+    viewsWrap.style.display = vs.length > 1 ? '' : 'none'; // 면이 하나면 탭 숨김
+    vs.forEach(function (v) {
       var b = el('button', { class: 'dz-view' + (v === S.view ? ' is-on' : ''), type: 'button' }, viewLabel(v));
       b.addEventListener('click', function () { if (S.view === v) return; S.view = v; S.sel = null; render(); });
       viewsWrap.appendChild(b);
@@ -246,22 +228,32 @@
   }
 
   function printRect() {
-    var ov = PRINT_OVERRIDE[S.slug];
-    if (ov && (ov[S.view] || ov.front)) return ov[S.view] || ov.front;
-    var fam = PRINT[S.family] ? S.family : 'goods';
-    var p = PRINT[fam];
-    return p[S.view] || p.front;
+    var p = curItem().print || {};
+    return p[S.view] || p[views()[0]] || pr(22, 22, 56, 56);
   }
 
-  // 목업 노드: 기본은 SVG 실루엣, 사용자가 올린 PNG 가 있으면 로드 성공 시 그걸로 교체.
+  // 카테고리 내 상품 변형 전환 — 목업/면이 달라지므로 레이어 초기화 + 면 리셋.
+  function switchItem(idx) {
+    S.itemIdx = idx;
+    S.product = curItem().name;
+    S.views = {}; views().forEach(function (v) { S.views[v] = []; });
+    S.view = views()[0];
+    S.sel = null;
+    imgCache = {};
+    render();
+  }
+
+  // 목업 노드: PNG 가 있으면 사진 목업, 없으면(또는 로드 실패) SVG 폴백.
   function buildMockNode() {
-    var mock = el('div', { class: 'dz-canvas__mock', html: mockSvg() });
+    var mock = el('div', { class: 'dz-canvas__mock' });
+    var src = mockupSrc(S.view);
+    if (!src) { mock.innerHTML = mockSvg(); return mock; }
     var img = new Image();
     img.alt = '';
     img.style.cssText = 'width:100%;height:100%;display:block;object-fit:contain';
-    img.onload = function () { mock.replaceChildren(img); };
-    img.onerror = function () { /* PNG 없음 → SVG 유지 */ };
-    img.src = mockupSrc(S.view);
+    img.onerror = function () { mock.innerHTML = mockSvg(); };
+    mock.appendChild(img);
+    img.src = src;
     return mock;
   }
 
@@ -289,27 +281,37 @@
     var card = el('div', { class: 'dz-card' });
     card.appendChild(el('div', { class: 'dz-card__t' }, '상품 옵션'));
 
-    // 상품 종류
+    // 상품 종류(카테고리 내 변형: 후드↔맨투맨, 텀블러↔머그, 키링 모양 등) — 바꾸면 목업/면이 달라짐.
+    var prodItems = catDef(S.slug).items;
     var prodSel = el('select', { class: 'dz-select' });
-    var items = (PRODUCTS[S.slug] && PRODUCTS[S.slug].items) || ['커스텀 굿즈'];
-    items.forEach(function (it) {
-      var o = el('option', { value: it }, it); if (it === S.product) o.selected = true; prodSel.appendChild(o);
+    prodItems.forEach(function (it, idx) {
+      var o = el('option', { value: String(idx) }, it.name); if (idx === S.itemIdx) o.selected = true; prodSel.appendChild(o);
     });
-    prodSel.addEventListener('change', function () { S.product = prodSel.value; });
-    card.appendChild(field('상품', prodSel));
+    prodSel.addEventListener('change', function () {
+      var idx = parseInt(prodSel.value, 10) || 0;
+      if (idx === S.itemIdx) return;
+      if (hasArt() && !window.confirm('상품을 바꾸면 현재 디자인이 초기화됩니다. 계속할까요?')) { prodSel.value = String(S.itemIdx); return; }
+      switchItem(idx);
+    });
+    if (prodItems.length > 1) card.appendChild(field('상품', prodSel));
 
-    // 색상
+    // 색상(주문 옵션 메타 — 사진 목업은 색을 시각적으로 바꾸진 않음)
     var sw = el('div', { class: 'dz-swatches' });
     COLORS.forEach(function (c) {
       var d = el('div', { class: 'dz-sw' + (c.hex === S.color ? ' is-on' : ''), title: c.name, style: 'background:' + c.hex });
-      d.addEventListener('click', function () { S.color = c.hex; render(); });
+      d.addEventListener('click', function () {
+        S.color = c.hex;
+        sw.querySelectorAll('.dz-sw').forEach(function (n) { n.classList.remove('is-on'); });
+        d.classList.add('is-on');
+        if (!curItem().img) render(); // SVG 폴백 상품만 색이 시각 반영됨 → 그때만 다시 그림
+      });
       sw.appendChild(d);
     });
     card.appendChild(field('색상', sw));
 
     // 사이즈(의류만) + 수량
     var row = el('div', { class: 'dz-row' });
-    if (S.family !== 'goods') {
+    if (isApparel()) {
       var sizeSel = el('select', { class: 'dz-select' });
       SIZES.forEach(function (s) { var o = el('option', { value: s }, s); if (s === S.size) o.selected = true; sizeSel.appendChild(o); });
       sizeSel.addEventListener('change', function () { S.size = sizeSel.value; });
@@ -621,10 +623,13 @@
     });
   }
 
+  // 파일명 안전화(괄호·슬래시 등 파일시스템 위험문자 제거)
+  function safeName(s) { return (String(s == null ? '' : s).replace(/[\\/:*?"<>|()]+/g, '').trim().slice(0, 60)) || 'design'; }
+
   // ---- 다운로드 ---------------------------------------------------------------
   function downloadDesign() {
     composite(S.view, 1200).then(function (url) {
-      var a = el('a', { href: url, download: '두띵-디자인-' + (S.title || 'design') + '-' + viewLabel(S.view) + '.png' });
+      var a = el('a', { href: url, download: '두띵-디자인-' + safeName(S.title) + '-' + safeName(viewLabel(S.view)) + '.png' });
       document.body.appendChild(a); a.click(); a.remove();
       toast('이미지를 다운로드했어요');
     });
@@ -632,12 +637,12 @@
 
   // ---- 저장 / 불러오기 --------------------------------------------------------
   function serialize() {
-    return { product: S.product, color: S.color, size: S.size, qty: S.qty, family: S.family, views: S.views, version: 1 };
+    return { product: S.product, itemIdx: S.itemIdx, color: S.color, size: S.size, qty: S.qty, views: S.views, version: 2 };
   }
   function saveDesign() {
     var btnEl = document.querySelector('.dz-top .wz-btn--primary');
     if (btnEl) btnEl.disabled = true;
-    composite('front', 480).then(function (preview) {
+    composite(primaryView(), 480).then(function (preview) {
       var body = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: preview };
       var p = S.designId
         ? window.api.patch('/me/designs/' + S.designId, body)
@@ -703,13 +708,17 @@
       var dz = d.design || {};
       S.designId = d.id;
       S.title = d.title || '내 디자인';
-      S.slug = d.category || S.slug;
+      S.slug = (d.category && PRODUCTS[d.category]) ? d.category : (S.slug && PRODUCTS[S.slug] ? S.slug : 'etc');
       S.catObj = window.dtCategory(S.slug);
-      S.family = (PRODUCTS[S.slug] && PRODUCTS[S.slug].family) || dz.family || 'goods';
-      S.product = d.product || (PRODUCTS[S.slug] && PRODUCTS[S.slug].items[0]) || '커스텀 굿즈';
+      var defItems = catDef(S.slug).items;
+      // itemIdx 복원(없으면 상품명 매칭, 그래도 없으면 0)
+      S.itemIdx = (typeof dz.itemIdx === 'number' && dz.itemIdx >= 0 && dz.itemIdx < defItems.length)
+        ? dz.itemIdx
+        : Math.max(0, defItems.findIndex(function (it) { return it.name === d.product; }));
+      S.product = curItem().name;
       S.color = dz.color || '#ffffff'; S.size = dz.size || 'M'; S.qty = dz.qty || 1;
-      S.views = dz.views || { front: [] };
-      S.view = views(S.family)[0];
+      S.views = dz.views || {};
+      S.view = views()[0];
       S.sel = null;
       S.aiDesign = d.aiImage || null; // 이전에 AI 디자인을 만들었으면 가상피팅 잠금 해제 상태로 복원
       S.aiFitting = null;
@@ -725,7 +734,13 @@
       render();
       toast('디자인을 불러왔어요');
     }).catch(function (err) {
-      toast('불러오지 못했어요: ' + ((err && err.message) || '오류'));
+      if (err && err.status === 401) { location.href = '/login.html'; return; }
+      // 로딩 중 화면에서 실패 → 에러 안내(무한 스피너 방지)
+      if (root) root.replaceChildren(el('div', { class: 'dz-wrap' },
+        el('div', { class: 'dz-status' }, '디자인을 불러오지 못했어요: ' + ((err && err.message) || '오류')),
+        el('div', { class: 'dz-modal__foot', style: 'justify-content:center' },
+          btn('새 디자인 시작', 'primary', function () { location.href = '/design.html'; }))));
+      toast('불러오지 못했어요');
     });
   }
   function fmtDate(iso) {
@@ -745,7 +760,7 @@
   var FIT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="6" r="3"/><path d="M6 21v-3a6 6 0 0 1 12 0v3"/></svg>';
   var DESIGN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 19l7-7a2.5 2.5 0 0 0-3.5-3.5L8 16l-1 4 4-1z"/><path d="M5 21h6"/></svg>';
   function completeBlock() {
-    var apparel = S.family !== 'goods';
+    var apparel = isApparel();
     var wrap = el('div', { class: 'dz-finishwrap' });
     wrap.appendChild(btn('완성하기 — 디자인 저장', 'primary', finishDesign, 'dz-complete'));
 
@@ -767,7 +782,7 @@
   function setFitLock() {
     if (!dzFitBtn) return;
     var locked = !S.aiDesign;
-    var apparel = S.family !== 'goods';
+    var apparel = isApparel();
     dzFitBtn.disabled = locked;
     dzFitBtn.classList.toggle('is-locked', locked);
     dzFitBtn.title = locked ? '먼저 ‘AI 디자인 보기’를 해주세요' : '';
@@ -782,7 +797,7 @@
   function finishDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
     var b = document.querySelector('.dz-complete'); if (b) b.disabled = true;
-    composite('front', 520).then(function (preview) {
+    composite(primaryView(), 520).then(function (preview) {
       var body = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: preview };
       var p = S.designId ? window.api.patch('/me/designs/' + S.designId, body) : window.api.post('/me/designs', body);
       return p.then(function (r) { if (r && r.id) S.designId = r.id; toast('완성! 프로필에 저장했어요. 마이페이지 > 내 디자인에서 이어서 편집할 수 있어요.'); });
@@ -822,9 +837,9 @@
   // 왼쪽: AI 디자인 보기 — 합성 디자인 → /ai/blueprint(AI 의상/제품 이미지). 성공 시 가상피팅 잠금 해제.
   function runAiDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
-    var apparel = S.family !== 'goods';
+    var apparel = isApparel();
     var m = aiModal('AI 디자인 생성', '디자인을 실제 ' + (apparel ? '의상' : (S.product || '굿즈')) + ' 이미지로 만들어요.');
-    composite('front', 1000).then(function (designUrl) {
+    composite(primaryView(), 1000).then(function (designUrl) {
       // 저장도 겸함(완성본 보존)
       var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: designUrl };
       (S.designId ? window.api.patch('/me/designs/' + S.designId, saveBody) : window.api.post('/me/designs', saveBody))
@@ -842,7 +857,7 @@
   // 오른쪽: 가상피팅 보기 — AI 디자인 결과를 /ai/try-on(모델 착용/제품 전시). AI 디자인 전엔 잠금.
   function runAiFitting() {
     if (!S.aiDesign) { toast('먼저 ‘AI 디자인 보기’를 해주세요'); return; }
-    var apparel = S.family !== 'goods';
+    var apparel = isApparel();
     var m = aiModal(apparel ? '가상피팅 생성' : '전시 이미지 생성',
       apparel ? 'AI 디자인을 모델이 착용한 모습을 생성해요.' : 'AI 디자인을 ' + (S.product || '굿즈') + ' 전시 사진으로 생성해요.');
     var aiBody = { imageDataUrls: [S.aiDesign], background: 'studio', category: S.slug };
@@ -858,7 +873,7 @@
   function showResult(box, overlay, url, label) {
     var foot = el('div', { class: 'dz-modal__foot' },
       btn('이미지 다운로드', 'outline', function () {
-        var a = el('a', { href: url, download: '두띵-' + (S.title || 'design') + '-' + (label || 'AI') + '.png' });
+        var a = el('a', { href: url, download: '두띵-' + safeName(S.title) + '-' + safeName(label || 'AI') + '.png' });
         document.body.appendChild(a); a.click(); a.remove();
       }),
       btn('이 디자인으로 펀딩 만들기', 'primary', function () {
@@ -886,23 +901,24 @@
     root = document.getElementById('design-root');
 
     var loadId = qs('id');
-    if (loadId) { // 프로필에서 이어서 편집
-      // 기본 셸 먼저 그린 뒤 로드
-      S.slug = 'etc'; S.catObj = window.dtCategory('etc'); S.family = 'goods';
-      S.product = '커스텀 굿즈'; S.views = { front: [] };
-      render();
+    if (loadId) { // 프로필에서 이어서 편집 — 로딩 표시 후, loadDesign 성공 시 전체 렌더(중간 셸 깜빡임 방지)
+      S.slug = 'etc'; // loadDesign 폴백용 안전 기본값(d.category 가 유효하면 덮어씀)
+      root.replaceChildren(el('div', { class: 'dz-wrap' },
+        el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), '디자인을 불러오는 중…')));
       loadDesign(loadId);
       return;
     }
 
-    S.slug = qs('category') || 'tshirt';
-    S.catObj = window.dtCategory(S.slug) || window.dtCategory('tshirt');
-    if (!PRODUCTS[S.slug]) S.slug = S.catObj ? S.catObj.slug : 'tshirt';
-    S.family = (PRODUCTS[S.slug] && PRODUCTS[S.slug].family) || 'goods';
-    S.product = (PRODUCTS[S.slug] && PRODUCTS[S.slug].items[0]) || '커스텀 굿즈';
-    S.color = S.family === 'goods' ? '#ffffff' : '#ffffff';
-    S.view = views(S.family)[0];
-    S.views = {}; views(S.family).forEach(function (v) { S.views[v] = []; });
+    // ?category= 는 slug(jacket..) 또는 라벨(반팔티..) 둘 다 허용 → slug 로 정규화.
+    var q = qs('category') || 'tshirt';
+    var norm = window.dtCategory(q) ? window.dtCategory(q).slug : q;
+    S.slug = PRODUCTS[norm] ? norm : 'tshirt';
+    S.catObj = window.dtCategory(S.slug);
+    S.itemIdx = 0;
+    S.product = curItem().name;
+    S.color = '#ffffff';
+    S.view = views()[0];
+    S.views = {}; views().forEach(function (v) { S.views[v] = []; });
     S.title = (S.catObj ? S.catObj.label : '내') + ' 디자인';
     render();
   }
