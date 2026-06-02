@@ -27,51 +27,51 @@
   var PRODUCTS = {
     jacket: { type: 'apparel', items: [
       { name: '바시티 자켓', img: 'varsity_jacket', views: AP,
-        print: { front: pr(33, 25, 34, 34), back: pr(30, 17, 40, 44), left: pr(40, 24, 19, 23), right: pr(40, 24, 18, 22) } },
+        print: { front: pr(33, 26, 34, 30), back: pr(28, 17, 44, 44), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
     hoodie: { type: 'apparel', items: [
       { name: '후드티', img: 'hoodie', views: AP,
-        print: { front: pr(33, 47, 34, 26), back: pr(30, 17, 40, 45), left: pr(41, 24, 18, 22), right: pr(42, 24, 19, 22) } },
+        print: { front: pr(32, 43, 36, 25), back: pr(30, 18, 40, 44), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
       { name: '맨투맨', img: 'sweatshirt', views: AP,
-        print: { front: pr(32, 26, 36, 33), back: pr(27, 18, 45, 43), left: pr(42, 24, 17, 22), right: pr(42, 24, 17, 22) } },
+        print: { front: pr(31, 26, 38, 38), back: pr(28, 18, 44, 44), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
     tshirt: { type: 'apparel', items: [
       { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
-        print: { front: pr(31, 27, 37, 33), back: pr(28, 16, 44, 44), left: pr(43, 24, 17, 22), right: pr(41, 24, 17, 22), neck: pr(36, 40, 28, 15) } },
+        print: { front: pr(30, 25, 40, 40), back: pr(28, 17, 44, 45), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
     ] },
     ecobag: { type: 'goods', items: [
-      { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(33, 32, 38, 42), back: pr(30, 32, 40, 41) } },
+      { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
     ] },
     keyring: { type: 'goods', items: [
-      { name: '아크릴 키링', img: 'keyring', views: ['front'], print: { front: pr(32, 22, 36, 48) } },
-      { name: '원형 키링', img: 'keyring_round', views: ['front'], print: { front: pr(28, 23, 42, 48) } },
-      { name: '사각 키링', img: 'keyring_square', views: ['front'], print: { front: pr(28, 22, 44, 52) } },
-      { name: '스트랩 키링', img: 'keyring_strap', views: ['front'], print: { front: pr(44, 14, 13, 46) } },
+      { name: '아크릴 키링', img: 'keyring', views: ['front'], print: { front: pr(32, 26, 36, 44) } },
+      { name: '원형 키링', img: 'keyring_round', views: ['front'], print: { front: pr(26, 28, 44, 44) } },
+      { name: '사각 키링', img: 'keyring_square', views: ['front'], print: { front: pr(26, 26, 46, 46) } },
+      { name: '스트랩 키링', img: 'keyring_strap', views: ['front'], print: { front: pr(44, 16, 14, 50) } },
     ] },
     phonecase: { type: 'goods', items: [
-      { name: '폰케이스', img: 'phonecase', views: ['back'], print: { back: pr(34, 18, 32, 60) } },
+      { name: '폰케이스', img: 'phonecase', views: ['back'], print: { back: pr(33, 15, 34, 66) } },
     ] },
     sticker: { type: 'goods', items: [
-      { name: '스티커', img: 'sticker_sheet', views: ['front'], print: { front: pr(24, 15, 54, 71) } },
+      { name: '스티커', img: 'sticker_sheet', views: ['front'], print: { front: pr(18, 14, 64, 74) } },
     ] },
     badge: { type: 'goods', items: [
-      { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 24, 48, 48) } },
+      { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 32, 48, 36) } },
     ] },
     tumbler: { type: 'goods', items: [
       { name: '텀블러', img: 'tumbler', views: ['front', 'left', 'right', 'wrap'],
-        print: { front: pr(47, 21, 32, 53), left: pr(45, 22, 31, 51), right: pr(38, 22, 31, 51), wrap: pr(9, 34, 82, 32) } },
+        print: { front: pr(37, 20, 24, 54), left: pr(36, 20, 24, 55), right: pr(38, 20, 24, 54), wrap: pr(10, 34, 80, 32) } },
       { name: '머그컵', img: 'mug', views: ['front', 'left', 'right'],
-        print: { front: pr(33, 33, 30, 32), left: pr(30, 31, 40, 33), right: pr(31, 31, 40, 33) } },
+        print: { front: pr(34, 34, 28, 30), left: pr(33, 33, 32, 32), right: pr(33, 33, 32, 32) } },
     ] },
     fabric: { type: 'goods', items: [
-      { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(26, 16, 46, 64) } },
+      { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
     doll: { type: 'goods', items: [
       { name: '마스코트 인형', img: 'mascot', views: AP,
-        print: { front: pr(39, 42, 22, 20), back: pr(38, 42, 24, 21), left: pr(36, 42, 24, 21), right: pr(40, 40, 24, 21) } },
+        print: { front: pr(36, 40, 28, 24), back: pr(36, 40, 28, 24), left: pr(36, 40, 28, 24), right: pr(36, 40, 28, 24) } },
     ] },
     accessory: { type: 'goods', items: [
-      { name: '액세서리', img: 'accessory', views: ['front'], print: { front: pr(37, 31, 26, 32) } },
+      { name: '액세서리', img: 'accessory', views: ['front'], print: { front: pr(32, 26, 36, 40) } },
     ] },
     webapp: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
     etc: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
