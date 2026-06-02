@@ -440,7 +440,7 @@
 
   /* ============ 원형 카테고리 ============ */
   function CategoryCircles() {
-    const sec = el('div', { class: 'wz-cats' });
+    const sec = el('div', { class: 'wz-cats is-start' });
     const row = el('div', { class: 'wz-cats__row' });
     (window.DT_CATEGORIES || []).forEach((c) => {
       const a = el('a', { class: 'wz-cat', href: '/main.html?category=' + encodeURIComponent(c.slug) });
@@ -450,7 +450,44 @@
       a.append(ic, el('span', { class: 'wz-cat__label' }, c.label));
       row.appendChild(a);
     });
-    sec.appendChild(row);
+
+    // 좌우 화살표 버튼(데스크톱) — 한 번에 약 한 화면씩 부드럽게 스크롤.
+    const CHEV_L = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg>';
+    const CHEV_R = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>';
+    const prev = el('button', { class: 'wz-cats__arrow wz-cats__arrow--prev', type: 'button', 'aria-label': '이전 카테고리', 'data-no-i18n': '', html: CHEV_L });
+    const next = el('button', { class: 'wz-cats__arrow wz-cats__arrow--next', type: 'button', 'aria-label': '다음 카테고리', 'data-no-i18n': '', html: CHEV_R });
+    const step = () => Math.max(row.clientWidth * 0.8, 200);
+    prev.addEventListener('click', () => row.scrollBy({ left: -step(), behavior: 'smooth' }));
+    next.addEventListener('click', () => row.scrollBy({ left: step(), behavior: 'smooth' }));
+
+    // 스크롤 위치에 따라 화살표 표시/숨김(시작/끝/넘침없음).
+    function update() {
+      const max = row.scrollWidth - row.clientWidth;
+      sec.classList.toggle('is-noscroll', max <= 2);
+      sec.classList.toggle('is-start', row.scrollLeft <= 1);
+      sec.classList.toggle('is-end', row.scrollLeft >= max - 1);
+    }
+    row.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    setTimeout(update, 0); setTimeout(update, 300);
+
+    // 마우스 드래그 스크롤(데스크톱). 터치 기기는 네이티브 스크롤을 그대로 사용.
+    let down = false, moved = false, sx = 0, sl = 0;
+    row.addEventListener('pointerdown', (e) => {
+      if (e.pointerType && e.pointerType !== 'mouse') return;
+      down = true; moved = false; sx = e.clientX; sl = row.scrollLeft; row.classList.add('is-grabbing');
+    });
+    row.addEventListener('pointermove', (e) => {
+      if (!down) return; const dx = e.clientX - sx; if (Math.abs(dx) > 4) moved = true; row.scrollLeft = sl - dx;
+    });
+    const endDrag = () => { if (down) { down = false; row.classList.remove('is-grabbing'); } };
+    row.addEventListener('pointerup', endDrag);
+    row.addEventListener('pointerleave', endDrag);
+    row.addEventListener('pointercancel', endDrag);
+    // 드래그 직후의 클릭은 카테고리 이동으로 처리하지 않음(드래그=스크롤만).
+    row.addEventListener('click', (e) => { if (moved) { e.preventDefault(); e.stopPropagation(); moved = false; } }, true);
+
+    sec.append(row, prev, next);
     return sec;
   }
 
