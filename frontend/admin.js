@@ -1285,22 +1285,35 @@
   /* ============================================================
    * 6) 사용자 관리
    * ============================================================ */
+  var USER_STATUS = { ACTIVE: ['정상', 'wza-st--active'], SUSPENDED: ['정지', 'wza-st--susp'], BANNED: ['차단', 'wza-st--ban'], WITHDRAWN: ['탈퇴', 'wza-st--wd'] };
+  function statusBadge(u) {
+    var m = USER_STATUS[u.status || 'ACTIVE'] || USER_STATUS.ACTIVE;
+    return el('span', { class: 'wza-st ' + m[1] }, m[0]);
+  }
+  var STATUS_TABS = [['', '전체'], ['ACTIVE', '정상'], ['SUSPENDED', '정지'], ['BANNED', '차단'], ['WITHDRAWN', '탈퇴']];
+
   function renderUsers(panel) {
-    panel.appendChild(panelHead('사용자 관리', '가입한 사용자 목록과 권한을 관리합니다.'));
-    var search = el('input', { class: 'wza-search', type: 'text', placeholder: '이름·이메일 검색', 'aria-label': '사용자 검색' });
+    panel.appendChild(panelHead('사용자 관리', '가입한 사용자의 상태·권한을 관리하고, 정지/차단/탈퇴·알림 등 제재를 적용합니다.'));
+    var search = el('input', { class: 'wza-search', type: 'text', placeholder: '이름·이메일·닉네임 검색', 'aria-label': '사용자 검색' });
     panel.appendChild(search);
+    var tabs = el('div', { class: 'wza-subtabs' }); panel.appendChild(tabs);
+    var curStatus = '';
+    STATUS_TABS.forEach(function (t) {
+      var b = el('button', { class: 'wza-subtab' + (t[0] === curStatus ? ' is-on' : ''), type: 'button' }, t[1]);
+      b.addEventListener('click', function () { curStatus = t[0]; Array.prototype.forEach.call(tabs.children, function (c) { c.classList.remove('is-on'); }); b.classList.add('is-on'); filter(); });
+      tabs.appendChild(b);
+    });
     var slot = el('div', {}); panel.appendChild(slot);
     var all = [];
 
     function render(rows) {
       slot.textContent = '';
-      if (!rows.length) { slot.appendChild(emptyNode('사용자가 없습니다.')); return; }
+      if (!rows.length) { slot.appendChild(emptyNode('해당하는 사용자가 없습니다.')); return; }
       var wrap = el('div', { class: 'wza-tablewrap' });
       var table = el('table', { class: 'wza-table' });
-      var thead = el('thead', {}, el('tr', {},
-        el('th', {}, '이름'), el('th', {}, '이메일'), el('th', {}, '권한'),
-        el('th', {}, '가입일'), el('th', {}, '최근 로그인'), el('th', { class: 'wza-table__right' }, '관리')));
-      table.appendChild(thead);
+      table.appendChild(el('thead', {}, el('tr', {},
+        el('th', {}, '이름'), el('th', {}, '이메일'), el('th', {}, '권한'), el('th', {}, '상태'),
+        el('th', {}, '가입일'), el('th', { class: 'wza-table__right' }, '관리'))));
       var tbody = el('tbody', {});
       rows.forEach(function (u) { tbody.appendChild(userRow(u)); });
       table.appendChild(tbody);
@@ -1309,52 +1322,127 @@
 
     function filter() {
       var q = (search.value || '').trim().toLowerCase();
-      if (!q) { render(all); return; }
-      render(all.filter(function (u) {
-        return (u.email || '').toLowerCase().indexOf(q) !== -1 || (u.name || '').toLowerCase().indexOf(q) !== -1;
-      }));
+      var rows = all;
+      if (curStatus) rows = rows.filter(function (u) { return (u.status || 'ACTIVE') === curStatus; });
+      if (q) rows = rows.filter(function (u) { return (u.email || '').toLowerCase().indexOf(q) !== -1 || (u.name || '').toLowerCase().indexOf(q) !== -1 || (u.nickname || '').toLowerCase().indexOf(q) !== -1; });
+      render(rows);
     }
     search.addEventListener('input', filter);
 
     async function reload() {
       slot.textContent = ''; slot.appendChild(loadingNode());
-      try {
-        var res = await window.api.get('/admin/users');
-        all = (res && res.items) || [];
-        filter();
-      } catch (e) { slot.textContent = ''; slot.appendChild(errorNode(e)); }
+      try { var res = await window.api.get('/admin/users'); all = (res && res.items) || []; filter(); }
+      catch (e) { slot.textContent = ''; slot.appendChild(errorNode(e)); }
     }
     renderUsers._reload = reload;
     reload();
 
     function userRow(u) {
       var tr = el('tr', {});
-      tr.appendChild(el('td', { class: 'wza-table__name' }, u.name || '(이름없음)'));
+      var nameTd = el('td', { class: 'wza-table__name' }, u.name || '(이름없음)');
+      if (u.nickname) nameTd.appendChild(el('span', { class: 'wza-table__muted' }, ' @' + u.nickname));
+      tr.appendChild(nameTd);
       tr.appendChild(el('td', {}, u.email || '-'));
       var roleTd = el('td', {});
       if ((u.role || 'USER') === 'ADMIN') roleTd.appendChild(el('span', { class: 'wza-badge wza-badge--admin' }, '관리자'));
       else roleTd.appendChild(el('span', { class: 'wza-table__muted' }, '일반'));
       tr.appendChild(roleTd);
+      tr.appendChild(el('td', {}, statusBadge(u)));
       tr.appendChild(el('td', { class: 'wza-table__muted' }, fmtDate(u.createdAt)));
-      tr.appendChild(el('td', { class: 'wza-table__muted' }, u.lastLoginAt ? fmtDate(u.lastLoginAt) : '-'));
-
       var actTd = el('td', { class: 'wza-table__right' });
-      var makeAdmin = (u.role || 'USER') !== 'ADMIN';
-      var btn = el('button', { class: 'wza-btn ' + (makeAdmin ? 'wza-btn--primary' : 'wza-btn--outline'), type: 'button' }, makeAdmin ? '관리자 지정' : '관리자 해제');
-      btn.addEventListener('click', function () {
-        confirmModal({
-          title: makeAdmin ? '관리자 지정' : '관리자 해제',
-          desc: '“' + (u.name || u.email || '사용자') + '”의 권한을 ' + (makeAdmin ? '관리자(ADMIN)' : '일반(USER)') + '(으)로 변경하시겠습니까?',
-          okLabel: '변경', okClass: 'wza-modal__btn--primary',
-          onOk: async function () {
-            await window.api.post('/admin/users/' + encodeURIComponent(u.id) + '/role', { role: makeAdmin ? 'ADMIN' : 'USER' });
-            renderUsers._reload();
-          },
-        });
-      });
-      actTd.appendChild(btn);
+      var manage = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '관리');
+      manage.addEventListener('click', function () { openUserPanel(u, reload); });
+      actTd.appendChild(manage);
       tr.appendChild(actTd);
       return tr;
+    }
+  }
+
+  // 사용자 1명 관리 패널 — 상세(상태·활동·이력) + 모든 제재 액션. 액션 후 패널/목록 갱신.
+  function openUserPanel(u, reloadList) {
+    var back = modalBack();
+    var modal = el('div', { class: 'wza-modal wza-umodal' });
+    modal.appendChild(loadingNode());
+    back.appendChild(modal); document.body.appendChild(back);
+    var uid = u.id;
+    function fetchDetail() { return window.api.get('/admin/users/' + encodeURIComponent(uid)); }
+    function refresh() { fetchDetail().then(renderPanel).catch(function () {}); }
+    fetchDetail().then(renderPanel).catch(function (e) { modal.textContent = ''; modal.appendChild(errorNode(e)); });
+
+    function statCell(n, label) { return el('div', { class: 'wza-um__stat' }, el('strong', {}, String(n)), el('span', {}, label)); }
+    function actName(a) {
+      return ({ suspend: '기간정지', ban: '영구정지', unban: '정지해제', withdraw: '강제탈퇴', restore: '복구', rename: '이름변경', role: '권한변경', warn: '경고', note: '메모', notify: '알림발송', force_logout: '강제로그아웃' })[a] || a;
+    }
+
+    function renderPanel(d) {
+      var user = d.user || {}, act = d.activity || {}, hist = d.history || [];
+      var st = user.status || 'ACTIVE';
+      modal.textContent = '';
+      // 헤더
+      var head = el('div', { class: 'wza-um__head' });
+      if (user.picture) head.appendChild(el('img', { class: 'wza-um__avatar', src: user.picture, alt: '' }));
+      var hcol = el('div', { class: 'wza-um__hcol' });
+      var line1 = el('div', { class: 'wza-um__name' }, user.name || '(이름없음)');
+      line1.appendChild(statusBadge(user));
+      if ((user.role || 'USER') === 'ADMIN') line1.appendChild(el('span', { class: 'wza-badge wza-badge--admin' }, '관리자'));
+      hcol.appendChild(line1);
+      hcol.appendChild(el('div', { class: 'wza-um__email' }, (user.email || '') + (user.nickname ? ' · @' + user.nickname : '')));
+      head.appendChild(hcol);
+      modal.appendChild(head);
+      // 상태 안내
+      if (st === 'SUSPENDED' && user.suspendedUntil) modal.appendChild(el('p', { class: 'wza-um__susp' }, '⏳ ' + fmtDateTime(user.suspendedUntil) + ' 까지 정지' + (user.suspensionReason ? ' · ' + user.suspensionReason : '')));
+      else if (st === 'BANNED') modal.appendChild(el('p', { class: 'wza-um__susp wza-um__susp--ban' }, '⛔ 영구 정지' + (user.suspensionReason ? ' · ' + user.suspensionReason : '')));
+      else if (st === 'WITHDRAWN') modal.appendChild(el('p', { class: 'wza-um__susp' }, '🚪 탈퇴 처리됨' + (user.suspensionReason ? ' · ' + user.suspensionReason : '')));
+      // 활동 집계
+      var stats = el('div', { class: 'wza-um__stats' });
+      stats.append(statCell(act.funds || 0, '프로젝트'), statCell(act.backings || 0, '후원'), statCell(act.posts || 0, '게시글'), statCell(act.comments || 0, '댓글'), statCell(act.reportsAgainst || 0, '받은신고'));
+      modal.appendChild(stats);
+      // 액션 그리드
+      var actions = el('div', { class: 'wza-um__actions' });
+      function abtn(label, cls, fn) { var b = el('button', { class: 'wza-btn ' + (cls || 'wza-btn--outline'), type: 'button' }, label); b.addEventListener('click', fn); actions.appendChild(b); }
+      function done() { reloadList && reloadList(); refresh(); }
+      if (st === 'ACTIVE' || st === 'SUSPENDED') abtn('기간 정지', 'wza-btn--warn', actSuspend);
+      if (st !== 'BANNED' && st !== 'WITHDRAWN') abtn('영구 정지', 'wza-btn--danger', actBan);
+      if (st === 'SUSPENDED' || st === 'BANNED') abtn('정지 해제', 'wza-btn--primary', actUnban);
+      if (st !== 'WITHDRAWN') abtn('회원 탈퇴', 'wza-btn--danger', actWithdraw);
+      if (st === 'WITHDRAWN') abtn('탈퇴 복구', 'wza-btn--primary', actRestore);
+      abtn('이름·닉네임 변경', null, actRename);
+      abtn('알림 보내기', null, actNotify);
+      abtn('경고', null, actWarn);
+      abtn('메모', null, actNote);
+      abtn('강제 로그아웃', null, actForceLogout);
+      abtn((user.role === 'ADMIN' ? '관리자 해제' : '관리자 지정'), null, actRole);
+      modal.appendChild(actions);
+      // 제재 이력
+      modal.appendChild(el('h4', { class: 'wza-um__h' }, '제재·관리 이력'));
+      var hl = el('div', { class: 'wza-um__hist' });
+      if (!hist.length) hl.appendChild(el('p', { class: 'wza-table__muted' }, '이력이 없습니다.'));
+      else hist.forEach(function (h) {
+        var row = el('div', { class: 'wza-um__hrow' });
+        row.appendChild(el('span', { class: 'wza-um__haction' }, actName(h.action)));
+        if (h.reason) row.appendChild(el('span', { class: 'wza-um__hreason' }, h.reason));
+        row.appendChild(el('span', { class: 'wza-um__htime' }, (h.adminName ? h.adminName + ' · ' : '') + fmtDateTime(h.createdAt)));
+        hl.appendChild(row);
+      });
+      modal.appendChild(hl);
+      // 닫기
+      var foot = el('div', { class: 'wza-modal__actions' });
+      var closeb = el('button', { class: 'wza-modal__btn wza-modal__btn--ghost', type: 'button' }, '닫기');
+      closeb.addEventListener('click', function () { back.remove(); });
+      foot.appendChild(closeb); modal.appendChild(foot);
+
+      var P = '/admin/users/' + encodeURIComponent(uid);
+      function actSuspend() { formModal({ title: '기간 정지', desc: '지정한 기간 동안 로그인·이용을 막고 즉시 로그아웃시킵니다.', fields: [{ key: 'days', label: '정지 일수', type: 'number', value: '7' }, { key: 'reason', label: '사유(선택)', type: 'textarea' }], okLabel: '정지', okClass: 'wza-modal__btn--primary', onOk: function (v) { return window.api.post(P + '/status', { status: 'SUSPENDED', days: Number(v.days) || 0, reason: v.reason }).then(done); } }); }
+      function actBan() { reasonModal({ title: '영구 정지', desc: '계정을 영구 차단하고 즉시 로그아웃시킵니다.', placeholder: '사유(선택)', okLabel: '영구 정지', okClass: 'wza-modal__btn--danger', onOk: function (reason) { return window.api.post(P + '/status', { status: 'BANNED', reason: reason }).then(done); } }); }
+      function actUnban() { confirmModal({ title: '정지 해제', desc: '“' + (user.name || user.email) + '”의 정지/차단을 해제하시겠습니까?', okLabel: '해제', okClass: 'wza-modal__btn--primary', onOk: function () { return window.api.post(P + '/status', { status: 'ACTIVE' }).then(done); } }); }
+      function actWithdraw() { reasonModal({ title: '회원 탈퇴 처리', desc: '계정을 탈퇴 처리합니다(데이터는 보존, 로그인 차단). 복구 가능합니다.', placeholder: '사유(선택)', okLabel: '탈퇴 처리', okClass: 'wza-modal__btn--danger', onOk: function (reason) { return window.api.post(P + '/withdraw', { reason: reason }).then(done); } }); }
+      function actRestore() { confirmModal({ title: '탈퇴 복구', desc: '탈퇴 처리를 취소하고 계정을 복구하시겠습니까?', okLabel: '복구', okClass: 'wza-modal__btn--primary', onOk: function () { return window.api.post(P + '/restore', {}).then(done); } }); }
+      function actRename() { formModal({ title: '이름·닉네임 변경', desc: '변경 시 사용자에게 알림이 전송됩니다.', fields: [{ key: 'name', label: '이름', value: user.name || '' }, { key: 'nickname', label: '닉네임', value: user.nickname || '' }], okLabel: '변경', okClass: 'wza-modal__btn--primary', onOk: function (v) { return window.api.patch(P + '/name', { name: v.name, nickname: v.nickname }).then(done); } }); }
+      function actNotify() { formModal({ title: '알림 보내기', desc: '대상 사용자에게 직접 알림을 전송합니다.', fields: [{ key: 'title', label: '제목' }, { key: 'body', label: '내용', type: 'textarea' }], okLabel: '전송', okClass: 'wza-modal__btn--primary', onOk: function (v) { return window.api.post(P + '/notify', { title: v.title, body: v.body }).then(done); } }); }
+      function actWarn() { reasonModal({ title: '경고', desc: '경고 알림을 보내고 이력에 남깁니다(이용 제한 없음).', placeholder: '경고 사유', okLabel: '경고', okClass: 'wza-modal__btn--primary', onOk: function (reason) { if (!reason) throw new Error('경고 사유를 입력해 주세요'); return window.api.post(P + '/warn', { reason: reason }).then(done); } }); }
+      function actNote() { reasonModal({ title: '관리자 메모', desc: '대상에게 보이지 않는 내부 메모입니다(이력에만 기록).', placeholder: '메모', okLabel: '저장', okClass: 'wza-modal__btn--primary', onOk: function (note) { if (!note) throw new Error('메모를 입력해 주세요'); return window.api.post(P + '/note', { note: note }).then(done); } }); }
+      function actForceLogout() { confirmModal({ title: '강제 로그아웃', desc: '모든 기기에서 로그아웃시킵니다(세션 폐기).', okLabel: '로그아웃', okClass: 'wza-modal__btn--primary', onOk: function () { return window.api.post(P + '/force-logout', {}).then(done); } }); }
+      function actRole() { var makeAdmin = (user.role || 'USER') !== 'ADMIN'; confirmModal({ title: makeAdmin ? '관리자 지정' : '관리자 해제', desc: '권한을 ' + (makeAdmin ? '관리자' : '일반') + '(으)로 변경하시겠습니까?', okLabel: '변경', okClass: 'wza-modal__btn--primary', onOk: function () { return window.api.post(P + '/role', { role: makeAdmin ? 'ADMIN' : 'USER' }).then(done); } }); }
     }
   }
 
@@ -1819,6 +1907,37 @@
     act.appendChild(cancel); act.appendChild(ok); modal.appendChild(act);
     back.appendChild(modal); document.body.appendChild(back);
     setTimeout(function () { ta.focus(); }, 0);
+  }
+
+  // 다중 필드 입력 모달. fields: [{key,label,type:'text'|'number'|'textarea',value,placeholder}]. onOk(values)→Promise.
+  function formModal(opts) {
+    var back = modalBack();
+    var modal = el('div', { class: 'wza-modal' });
+    modal.appendChild(el('div', { class: 'wza-modal__title' }, opts.title));
+    if (opts.desc) modal.appendChild(el('p', { class: 'wza-modal__desc' }, opts.desc));
+    var inputs = {};
+    (opts.fields || []).forEach(function (f) {
+      modal.appendChild(el('label', { class: 'wza-flabel' }, f.label));
+      var inp;
+      if (f.type === 'textarea') inp = el('textarea', { placeholder: f.placeholder || '', maxlength: String(f.maxlength || 1000) });
+      else inp = el('input', { class: 'wza-finput', type: f.type === 'number' ? 'number' : 'text', placeholder: f.placeholder || '', maxlength: String(f.maxlength || 100) });
+      if (f.value != null) inp.value = f.value;
+      inputs[f.key] = inp;
+      modal.appendChild(inp);
+    });
+    var act = el('div', { class: 'wza-modal__actions' });
+    var cancel = el('button', { class: 'wza-modal__btn wza-modal__btn--ghost', type: 'button' }, '취소');
+    cancel.addEventListener('click', function () { back.remove(); });
+    var ok = el('button', { class: 'wza-modal__btn ' + (opts.okClass || 'wza-modal__btn--primary'), type: 'button' }, opts.okLabel || '확인');
+    ok.addEventListener('click', async function () {
+      var values = {}; Object.keys(inputs).forEach(function (k) { values[k] = (inputs[k].value || '').trim(); });
+      ok.disabled = true; cancel.disabled = true; ok.textContent = '처리 중…';
+      try { await opts.onOk(values); back.remove(); }
+      catch (e) { ok.disabled = false; cancel.disabled = false; ok.textContent = opts.okLabel || '확인'; alertModal('실패', (e && e.message) || '처리에 실패했습니다.'); }
+    });
+    act.appendChild(cancel); act.appendChild(ok); modal.appendChild(act);
+    back.appendChild(modal); document.body.appendChild(back);
+    setTimeout(function () { var first = inputs[Object.keys(inputs)[0]]; if (first) first.focus(); }, 0);
   }
 
   function alertModal(title, msg) {

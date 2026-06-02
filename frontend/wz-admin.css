@@ -412,3 +412,51 @@ textarea.wza-input { height: auto; padding: 10px 14px; line-height: 1.6; resize:
   /* 데이터 표: 데스크탑은 모서리 라운드 위해 overflow:hidden 이지만, 모바일은 가로 스크롤 허용(우측 컬럼 잘림 방지). */
   .wza-tablewrap { overflow-x: auto; }
 }
+
+/* ===== 사용자 관리 — 상태배지/서브탭/관리패널 ===== */
+.wza-btn--warn { background: #fff; border-color: #FCD34D; color: #B45309; }
+.wza-btn--warn:hover { background: #FEF3C7; }
+
+.wza-st { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: var(--r-full); font-size: 12px; font-weight: 700; }
+.wza-st--active { background: #DCFCE7; color: var(--c-success); }
+.wza-st--susp   { background: #FEF3C7; color: #B45309; }
+.wza-st--ban    { background: #FEE2E2; color: var(--c-danger); }
+.wza-st--wd     { background: var(--c-divider); color: var(--c-text-faint); }
+
+.wza-subtabs { display: flex; gap: 6px; flex-wrap: wrap; margin: -6px 0 16px; }
+.wza-subtab { appearance: none; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-sub);
+  border-radius: var(--r-full); padding: 6px 14px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
+.wza-subtab:hover { border-color: var(--c-primary-300); color: var(--c-primary-700); }
+.wza-subtab.is-on { background: var(--c-primary-500); border-color: var(--c-primary-500); color: #fff; }
+
+/* 관리 패널(상세 모달) */
+.wza-umodal { max-width: 560px; width: 100%; text-align: left; }
+.wza-um__head { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.wza-um__avatar { width: 48px; height: 48px; border-radius: 50%; object-fit: cover; flex: 0 0 48px; }
+.wza-um__hcol { min-width: 0; }
+.wza-um__name { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 17px; font-weight: 800; color: var(--c-text); }
+.wza-um__email { font-size: 13px; color: var(--c-text-muted); margin-top: 2px; word-break: break-all; }
+.wza-um__susp { font-size: 13px; color: #B45309; background: #FEF3C7; border-radius: 8px; padding: 8px 12px; margin: 0 0 12px; }
+.wza-um__susp--ban { color: var(--c-danger); background: #FEE2E2; }
+.wza-um__stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 16px; }
+.wza-um__stat { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; background: var(--c-bg-soft, #F8F7FB); border-radius: 10px; }
+.wza-um__stat strong { font-size: 17px; font-weight: 800; color: var(--c-text); }
+.wza-um__stat span { font-size: 11px; color: var(--c-text-muted); }
+.wza-um__actions { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 18px; }
+.wza-um__actions .wza-btn { width: 100%; justify-content: center; }
+.wza-um__h { font-size: 13px; font-weight: 700; color: var(--c-text-sub); margin: 0 0 8px; }
+.wza-um__hist { display: flex; flex-direction: column; gap: 8px; max-height: 220px; overflow-y: auto; }
+.wza-um__hrow { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: 12.5px; padding-bottom: 8px; border-bottom: 1px solid var(--c-divider); }
+.wza-um__haction { font-weight: 700; color: var(--c-primary-700); flex: 0 0 auto; }
+.wza-um__hreason { color: var(--c-text-sub); flex: 1 1 auto; min-width: 0; word-break: break-word; }
+.wza-um__htime { color: var(--c-text-faint); flex: 0 0 auto; margin-left: auto; }
+
+/* formModal 입력 */
+.wza-flabel { display: block; font-size: 12.5px; font-weight: 700; color: var(--c-text-sub); margin: 12px 0 6px; }
+.wza-finput { width: 100%; box-sizing: border-box; height: 42px; padding: 0 14px; border: 1px solid var(--c-border);
+  border-radius: 10px; font-size: 14px; font-family: inherit; color: var(--c-text); }
+.wza-finput:focus { border-color: var(--c-primary-500); box-shadow: 0 0 0 3px var(--c-primary-100); outline: none; }
+@media (max-width: 520px) {
+  .wza-um__stats { grid-template-columns: repeat(3, 1fr); }
+  .wza-um__actions { grid-template-columns: 1fr; }
+}

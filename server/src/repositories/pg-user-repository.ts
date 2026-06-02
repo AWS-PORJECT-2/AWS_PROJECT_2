@@ -1,6 +1,6 @@
 import type pg from 'pg';
-import type { User, UserRole, NotificationPrefs, PublicProfile, ProfileBadge, UserSearchItem } from '../types/index.js';
-import type { UserRepository, ProfilePatch } from './user-repository.js';
+import type { User, UserRole, UserStatus, NotificationPrefs, PublicProfile, ProfileBadge, UserSearchItem } from '../types/index.js';
+import type { UserRepository, ProfilePatch, StatusPatch } from './user-repository.js';
 
 // notification_prefs (JSONB/문자열) → NotificationPrefs 안전 파싱
 function parsePrefs(raw: unknown): NotificationPrefs {
@@ -217,6 +217,29 @@ export class PgUserRepository implements UserRepository {
     await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
   }
 
+  async setStatus(userId: string, patch: StatusPatch): Promise<User | null> {
+    const until = patch.status === 'SUSPENDED' ? (patch.suspendedUntil ?? null) : null;
+    const reason = patch.status === 'ACTIVE' ? null : (patch.reason ?? null);
+    const result = await this.pool.query(
+      `UPDATE "user"
+          SET status = $1, suspended_until = $2, suspension_reason = $3,
+              status_updated_at = NOW(), status_updated_by = $4
+        WHERE id = $5 RETURNING *`,
+      [patch.status, until, reason, patch.adminId ?? null, userId],
+    );
+    if (result.rows.length === 0) return null;
+    return this.mapRow(result.rows[0]);
+  }
+
+  async clearExpiredSuspension(userId: string): Promise<void> {
+    await this.pool.query(
+      `UPDATE "user"
+          SET status = 'ACTIVE', suspended_until = NULL, suspension_reason = NULL, status_updated_at = NOW()
+        WHERE id = $1 AND status = 'SUSPENDED' AND suspended_until IS NOT NULL AND suspended_until <= NOW()`,
+      [userId],
+    );
+  }
+
   async delete(userId: string): Promise<void> {
     // 회원 탈퇴 시 연관 데이터를 빠짐없이 정리해 고아행을 남기지 않는다. FK 동작별로 처리:
     //  - CASCADE(자동): refresh_token, addresses, payment_methods, chat_rooms/messages, follows,
@@ -305,6 +328,9 @@ export class PgUserRepository implements UserRepository {
       notificationPrefs: parsePrefs(row.notification_prefs),
       termsAgreedAt: row.terms_agreed_at ? new Date(row.terms_agreed_at as string) : null,
       marketingOptIn: Boolean(row.marketing_opt_in),
+      status: ((row.status as UserStatus | undefined) ?? 'ACTIVE'),
+      suspendedUntil: row.suspended_until ? new Date(row.suspended_until as string) : null,
+      suspensionReason: (row.suspension_reason as string | null) ?? null,
       createdAt: new Date(row.created_at as string),
       lastLoginAt: new Date(row.last_login_at as string),
     };

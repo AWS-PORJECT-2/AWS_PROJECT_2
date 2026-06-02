@@ -1,4 +1,12 @@
-import type { User, NotificationPrefs, PublicProfile, UserSearchItem } from '../types/index.js';
+import type { User, UserStatus, NotificationPrefs, PublicProfile, UserSearchItem } from '../types/index.js';
+
+/** 관리자 계정 상태 변경 입력. status=SUSPENDED 면 until 필수(기간정지). */
+export interface StatusPatch {
+  status: UserStatus;
+  suspendedUntil?: Date | null;
+  reason?: string | null;
+  adminId?: string | null;
+}
 /**
  * User repository interface.
  * IMPORTANT: All email lookups and storage MUST use lowercase-normalized values.
@@ -28,6 +36,12 @@ export interface UserRepository {
   setRole(userId: string, role: User['role']): Promise<void>;
   listAll(limit?: number): Promise<User[]>;
   delete(userId: string): Promise<void>;
+
+  // ─── 관리자 제재(037_user_moderation) ───
+  /** 계정 상태 변경(정지/차단/탈퇴/복구). 반환 = 갱신된 사용자. */
+  setStatus(userId: string, patch: StatusPatch): Promise<User | null>;
+  /** 기간정지가 만료됐으면 ACTIVE 로 자동 복구(best-effort, 멱등). */
+  clearExpiredSuspension(userId: string): Promise<void>;
 
   // ─── 소셜/공개 프로필 (006_social_features) ───
   findBySlug(slug: string): Promise<User | null>;

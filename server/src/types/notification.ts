@@ -23,7 +23,15 @@ export type NotificationType =
   | 'report_received'  // 신고 접수 — 신고자 본인
   | 'inquiry_reply'    // 문의(1:1 채팅)에 관리자 답변 도착 — 문의한 사용자
   | 'project_comment'  // 내 프로젝트에 댓글 달림 — 프로젝트 창작자
-  | 'comment_reply';   // 내 댓글에 답글 달림 — 원댓글 작성자
+  | 'comment_reply'    // 내 댓글에 답글 달림 — 원댓글 작성자
+  // 관리자 사용자 관리(037) — 대상 사용자에게 발송
+  | 'account_suspended' // 계정 기간정지 — 대상
+  | 'account_banned'    // 계정 영구정지 — 대상
+  | 'account_unbanned'  // 정지/차단 해제 — 대상
+  | 'account_warning'   // 관리자 경고 — 대상
+  | 'profile_renamed'   // 관리자가 이름/닉네임 변경 — 대상
+  | 'role_changed'      // 권한(역할) 변경 — 대상
+  | 'admin_message';    // 관리자 직접 알림(임의 메시지) — 대상
 
 export interface Notification {
   id: string;

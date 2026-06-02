@@ -4,6 +4,7 @@ import type { UserRepository } from '../repositories/user-repository.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
+import { accessBlock, isSuspensionExpired } from '../utils/account-status.js';
 
 declare module 'express-serve-static-core' {
   interface Request {
@@ -52,6 +53,16 @@ export function createAuthRequired(tokenService: TokenService, userRepo: UserRep
       res.status(410).json({ error: 'USER_NOT_FOUND', message: '계정을 찾을 수 없습니다. 다시 로그인해주세요' });
       return;
     }
+
+    // 제재 게이트 — 정지/차단/탈퇴 계정은 즉시 차단(로그인 게이트와 동일 규칙). 만료된 기간정지는 lazy 복구 후 통과.
+    const block = accessBlock(user);
+    if (block) {
+      const err = new AppError(block.code);
+      const msg = block.code === 'USER_SUSPENDED' && block.until ? `${err.message} (해제 예정: ${block.until.toISOString()})` : err.message;
+      res.status(err.httpStatus).json(createErrorResponse(new AppError(block.code, msg)));
+      return;
+    }
+    if (isSuspensionExpired(user)) { void userRepo.clearExpiredSuspension(user.id); } // 만료된 정지 자동 복구(best-effort)
 
     req.userId = payload.userId;
     req.userEmail = payload.email;

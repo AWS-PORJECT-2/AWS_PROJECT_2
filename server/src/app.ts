@@ -21,7 +21,7 @@ import { createAiRouter } from './routes/ai.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
-import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
+import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminLogAckHandler, createAdminLogAckAllHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
 import { PgReportRepository } from './repositories/pg-report-repository.js';
 import { createReportCreateHandler, createAdminReportsListHandler, createAdminReportResolveHandler } from './routes/reports-routes.js';
@@ -430,8 +430,8 @@ export function createApp(
   app.post('/api/admin/funds/:id/delete', authRequired, requireAdmin, createAdminFundDeleteHandler(groupBuyRepository, rewardOrderRepository, notificationRepository));
 
   // --- 사용자 관리 (항목 10) ---
-  app.get('/api/admin/users', authRequired, requireAdmin, createAdminUsersListHandler(userRepository));
-  app.post('/api/admin/users/:id/role', authRequired, requireAdmin, createAdminSetUserRoleHandler(userRepository));
+  // 관리자 사용자 관리(목록/상세/정지·차단·해제/탈퇴·복구/이름변경/알림·경고/메모/강제로그아웃/권한).
+  app.use('/api/admin/users', authRequired, requireAdmin, createAdminUsersRouter(userRepository, refreshTokenRepository, notificationRepository, pool));
 
   // --- 관리자 통계 + 로그/오류 (콘솔 진입 가드 포함) ---
   app.get('/api/admin/me', authRequired, requireAdmin, createAdminMeHandler(userRepository));

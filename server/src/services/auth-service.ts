@@ -9,6 +9,7 @@ import type { RefreshTokenRepository } from '../repositories/refresh-token-repos
 import type { AuthResult, User } from '../types/index.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import { AppError } from '../errors/app-error.js';
+import { accessBlock, isSuspensionExpired } from '../utils/account-status.js';
 import { TokenServiceImpl } from './token-service.js';
 import { notify } from './notify.js';
 import { logger } from '../logger.js';
@@ -128,6 +129,13 @@ export class AuthServiceImpl implements AuthService {
     const isAdminEmail = ADMIN_EMAILS.has(lower);
     const existing = await this.userRepo.findByEmail(email);
     if (existing) {
+      // 제재 게이트(로그인 시점) — 차단 계정은 로그인 거부. 만료된 기간정지는 자동 복구 후 진행.
+      const block = accessBlock(existing);
+      if (block) {
+        logger.warn({ userId: existing.id, status: existing.status }, '제재 계정 로그인 차단');
+        throw new AppError(block.code);
+      }
+      if (isSuspensionExpired(existing)) await this.userRepo.clearExpiredSuspension(existing.id);
       await this.userRepo.updateLastLogin(existing.id);
       // ADMIN_EMAILS 에 포함되면 로그인 시 ADMIN 으로 승격(멱등). 자동 강등은 하지 않음.
       if (isAdminEmail && existing.role !== 'ADMIN') {

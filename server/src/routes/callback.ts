@@ -48,7 +48,10 @@ export function createCallbackHandler(authService: AuthService) {
     } catch (error) {
       const errorCode = error instanceof AppError ? error.code : 'INTERNAL_ERROR';
       logger.warn({ errorCode, ip: req.ip }, '인증 실패');
-      res.redirect(`${FRONTEND_URL}/${isMobile ? 'auth-return.html?error=login_failed' : 'login.html?error=login_failed'}`);
+      // 제재 계정은 일반 실패와 구분해 명확한 사유를 보여준다.
+      const accountBlock = errorCode === 'USER_SUSPENDED' || errorCode === 'USER_BANNED' || errorCode === 'ACCOUNT_WITHDRAWN';
+      const errParam = accountBlock ? errorCode.toLowerCase() : 'login_failed';
+      res.redirect(`${FRONTEND_URL}/${isMobile ? 'auth-return.html' : 'login.html'}?error=${errParam}`);
     }
   };
 }
