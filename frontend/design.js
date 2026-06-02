@@ -58,19 +58,17 @@
       { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 32, 48, 36) } },
     ] },
     tumbler: { type: 'goods', tint: true, items: [
-      { name: '텀블러', img: 'tumbler', views: ['front', 'left', 'right', 'wrap'],
-        print: { front: pr(37, 20, 24, 54), left: pr(36, 20, 24, 55), right: pr(38, 20, 24, 54), wrap: pr(10, 34, 80, 32) } },
-      { name: '머그컵', img: 'mug', views: ['front', 'left', 'right'],
-        print: { front: pr(34, 34, 28, 30), left: pr(33, 33, 32, 32), right: pr(33, 33, 32, 32) } },
+      { name: '텀블러', img: 'tumbler', views: ['front'], print: { front: pr(37, 20, 24, 54) } },
+      { name: '머그컵', img: 'mug', views: ['front'], print: { front: pr(34, 34, 28, 30) } },
     ] },
     fabric: { type: 'goods', tint: true, items: [
       { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
-    doll: { type: 'goods', items: [
-      { name: '마스코트 인형', img: 'mascot', views: AP,
-        print: { front: pr(36, 40, 28, 24), back: pr(36, 40, 28, 24), left: pr(36, 40, 28, 24), right: pr(36, 40, 28, 24) } },
+    // 인형·액세서리는 레이어 에디터 대신 "말로 설명 → AI 디자인 뽑기" 모드.
+    doll: { type: 'goods', mode: 'describe', items: [
+      { name: '마스코트 인형', img: 'mascot', views: ['front'], print: { front: pr(36, 40, 28, 24) } },
     ] },
-    accessory: { type: 'goods', items: [
+    accessory: { type: 'goods', mode: 'describe', items: [
       { name: '액세서리', img: 'accessory', views: ['front'], print: { front: pr(32, 26, 36, 40) } },
     ] },
     webapp: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
@@ -136,6 +134,7 @@
     seq: 0,
     aiDesign: null,     // AI 디자인 보기 결과(blueprintDataUrl) — 가상피팅 잠금 해제 키
     aiFitting: null,    // 가상피팅/전시 결과(tryOnDataUrl)
+    description: '',    // 설명 모드(인형·액세서리) 텍스트
   };
   function cvLayers() { return S.views[S.view] || (S.views[S.view] = []); }
   function selLayer() { var ls = cvLayers(); for (var i = 0; i < ls.length; i++) if (ls[i].id === S.sel) return ls[i]; return null; }
@@ -167,6 +166,7 @@
   // ---- 렌더: 전체 ------------------------------------------------------------
   function render() {
     root.replaceChildren();
+    if (catDef(S.slug).mode === 'describe') { renderDescribe(); return; } // 인형·액세서리: 설명 모드
     var wrap = el('div', { class: 'dz-wrap' });
 
     // 상단 바
@@ -233,6 +233,64 @@
 
     renderLayers(); renderProps(); renderLayerList();
     if (window.WZI18N && window.WZI18N.apply) try { window.WZI18N.apply(root); } catch (_) {}
+  }
+
+  // 설명 모드(인형·액세서리) — 레이어 에디터 대신 설명칸 + 디자인 뽑기.
+  function renderDescribe() {
+    var wrap = el('div', { class: 'dz-wrap' });
+    titleInput = el('input', { class: 'dz-titlein', type: 'text', maxlength: '40', value: S.title, 'aria-label': '디자인 이름' });
+    titleInput.addEventListener('change', function () { S.title = titleInput.value.trim() || '내 디자인'; });
+    wrap.appendChild(el('div', { class: 'dz-top' },
+      el('div', { class: 'dz-top__l' }, el('div', { class: 'dz-title' }, '디자인하기'), titleInput),
+      el('div', { class: 'dz-top__r' }, btn('불러오기', 'outline', openLoadModal), btn('저장', 'primary', saveDescribe)),
+    ));
+    var card = el('div', { class: 'dz-describe' });
+    card.appendChild(el('div', { class: 'dz-describe__t' }, (curItem().name || '굿즈') + ' 디자인 설명'));
+    card.appendChild(el('div', { class: 'dz-describe__s' }, '원하는 디자인을 말로 자세히 적어주세요. AI가 설명을 보고 디자인을 만들어 드립니다.'));
+    var ta = el('textarea', { class: 'dz-describe__ta', rows: '7',
+      placeholder: '예) 국민대 호랑이 마스코트 인형 — 파란 유니폼에 등번호 23, 둥글둥글 귀여운 느낌, 손에 작은 깃발' });
+    ta.value = S.description || '';
+    ta.addEventListener('input', function () { S.description = ta.value; });
+    card.appendChild(ta);
+    card.appendChild(btn('디자인 뽑기', 'primary', runDescribeAi, 'dz-describe__go'));
+    wrap.appendChild(card);
+    root.appendChild(wrap);
+    if (window.WZI18N && window.WZI18N.apply) try { window.WZI18N.apply(root); } catch (_) {}
+  }
+  function describeBody(preview) {
+    return { category: S.slug, product: S.product, title: S.title,
+      design: { describe: true, description: S.description, product: S.product, version: 2 }, preview: preview || null };
+  }
+  function saveDescribe() {
+    if (!S.description.trim()) { toast('디자인 설명을 입력해 주세요'); return; }
+    var b = document.querySelector('.dz-top .wz-btn--primary'); if (b) b.disabled = true;
+    var p = S.designId ? window.api.patch('/me/designs/' + S.designId, describeBody()) : window.api.post('/me/designs', describeBody());
+    p.then(function (r) { if (r && r.id) S.designId = r.id; toast('저장했어요. 마이페이지 > 내 디자인에서 이어서 편집할 수 있어요.'); })
+      .catch(function (err) { if (err && err.status === 401) { location.href = '/login.html'; return; } toast('저장 실패: ' + ((err && err.message) || '오류')); })
+      .finally(function () { if (b) b.disabled = false; });
+  }
+  // 디자인 뽑기 — 설명을 AI 에게 보내 디자인 생성(prod GEMINI 미연결 시 안내). 설명은 함께 저장.
+  function runDescribeAi() {
+    if (!S.description.trim()) { toast('디자인 설명을 입력해 주세요'); return; }
+    var m = aiModal('AI 디자인 생성', '설명을 바탕으로 ' + (curItem().name || '굿즈') + ' 디자인을 만들어요.');
+    // 설명 저장(완성본 보존)
+    (S.designId ? window.api.patch('/me/designs/' + S.designId, describeBody()) : window.api.post('/me/designs', describeBody()))
+      .then(function (r) { if (r && r.id) S.designId = r.id; }).catch(function () {});
+    window.api.post('/ai/blueprint', { prompt: S.description, description: S.description, category: S.slug })
+      .then(function (res) {
+        var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
+        if (!url) throw new Error('NO_RESULT');
+        if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
+        showResult(m.box, m.overlay, url, 'AI 디자인');
+      })
+      .catch(function (err) {
+        if (err && err.status === 401) { location.href = '/login.html'; return; }
+        m.box.replaceChildren(
+          el('div', { class: 'dz-modal__t' }, '안내'),
+          el('div', { class: 'dz-status' }, 'AI 디자인 생성이 아직 연결되지 않았어요. 설명은 저장됐어요. (관리자가 AI를 켜면 바로 생성됩니다.)'),
+          el('div', { class: 'dz-modal__foot' }, btn('닫기', 'primary', function () { m.overlay.remove(); })),
+        );
+      });
   }
 
   function btn(label, kind, on, cls) {
@@ -812,6 +870,7 @@
       S.sel = null;
       S.aiDesign = d.aiImage || null; // 이전에 AI 디자인을 만들었으면 가상피팅 잠금 해제 상태로 복원
       S.aiFitting = null;
+      S.description = dz.description || ''; // 설명 모드 복원
       // 이미지 캐시 재생성 + seq 보정
       imgCache = {}; var maxSeq = 0;
       Object.keys(S.views).forEach(function (v) {

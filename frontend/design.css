@@ -103,6 +103,14 @@
 
 .dz-hint { font-size: 12px; color: #9a9aa2; margin-top: 8px; text-align: center; line-height: 1.5; }
 
+/* 설명 모드(인형·액세서리) */
+.dz-describe { max-width: 640px; margin: 24px auto 0; background: #fff; border: 1px solid #ececf1; border-radius: 16px; padding: 24px; }
+.dz-describe__t { font-size: 18px; font-weight: 800; color: #1a1a1a; margin-bottom: 6px; }
+.dz-describe__s { font-size: 14px; color: #777; margin-bottom: 16px; line-height: 1.6; }
+.dz-describe__ta { width: 100%; box-sizing: border-box; border: 1.5px solid #e5e5ea; border-radius: 12px; padding: 14px; font-size: 15px; font-family: inherit; line-height: 1.6; resize: vertical; min-height: 150px; color: #1a1a1a; }
+.dz-describe__ta:focus { outline: none; border-color: #8B5CF6; }
+.dz-describe__go { width: 100%; margin-top: 16px; }
+
 /* 완성 영역 — 완성하기(전체폭) + 아래 좌/우 AI 디자인 보기 | 가상피팅 보기 */
 .dz-finishwrap { display: flex; flex-direction: column; gap: 8px; }
 .dz-finishwrap .dz-complete { width: 100%; }
