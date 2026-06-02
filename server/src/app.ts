@@ -197,7 +197,24 @@ export function createApp(
   // CloudFront / ALB 같은 프록시가 X-Forwarded-For 를 보내므로 한 단계 신뢰.
   // 안 하면 express-rate-limit 가 ERR_ERL_UNEXPECTED_X_FORWARDED_FOR 던지며 거절.
   app.set('trust proxy', 1);
-  app.use(helmet({ contentSecurityPolicy: false, crossOriginOpenerPolicy: false, crossOriginEmbedderPolicy: false, originAgentCluster: false }));
+  // CSP: 무중단 하드닝만 적용(스크립트/스타일 미제한 → 인라인 스크립트 깨짐 없음).
+  //  · base-uri 'self'   : <base> 주입 차단(상대경로 탈취형 XSS 차단)
+  //  · object-src 'none' : 플러그인(object/embed) 차단
+  //  · frame-ancestors   : 클릭재킹 방지
+  //  · frame-src         : iframe 을 youtube/vimeo embed 로 제한(주입 iframe 차단). 사용자 HTML 렌더 경로 심층방어.
+  //  (전체 script-src 'self' 적용은 인라인 스크립트 외부화 + 브라우저 클릭테스트 후 별도 진행.)
+  app.use(helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        'base-uri': ["'self'"],
+        'object-src': ["'none'"],
+        'frame-ancestors': ["'self'"],
+        'frame-src': ["'self'", 'https://www.youtube.com', 'https://www.youtube-nocookie.com', 'https://player.vimeo.com'],
+      },
+    },
+    crossOriginOpenerPolicy: false, crossOriginEmbedderPolicy: false, originAgentCluster: false,
+  }));
   app.use(compression());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 

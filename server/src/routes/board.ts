@@ -58,6 +58,7 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
       // 평문 스니펫(body)은 목록/검색용으로 파생. contentBlocks 없으면 레거시 평문 body 수용.
       let contentBlocks: unknown[] = [];
       let text = '';
+      let htmlHasMedia = false;
       if (Array.isArray(body.contentBlocks)) {
         // 게시판은 본문 html 단일 블록 — 서버에서 sanitizeStoryHtml(=태그 화이트리스트+iframe 검증)로 재새니타이즈.
         const rawBlock = body.contentBlocks.find((b) => b && (b as { type?: string }).type === 'html') as { html?: unknown } | undefined;
@@ -65,11 +66,13 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
         const html = sanitizeStoryHtml(rawHtml, BOARD_HTML_MAX);
         contentBlocks = html ? [{ type: 'html', html }] : [];
         text = htmlToText(html);
+        htmlHasMedia = /<(img|iframe)\b/i.test(html); // 텍스트는 없어도 사진/영상만 있는 글 허용
       } else {
         text = sanitizeBody(body.body);
       }
       if (!title) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '제목을 입력해 주세요'))); return; }
-      if (contentBlocks.length === 0 && !text.trim() && media.length === 0) {
+      // 빈 글 차단 — 텍스트도 미디어(img/iframe)도 첨부도 없으면 거절(빈 html 블록 우회 방지).
+      if (!text.trim() && !htmlHasMedia && media.length === 0) {
         res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '내용을 입력해 주세요'))); return;
       }
       const post = await repo.createPost({ authorId: req.userId as string, category, title, body: text, contentBlocks, media });
@@ -101,6 +104,7 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
       if (!text) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '댓글을 입력해 주세요'))); return; }
       if (!(await repo.getPostAuthorId(req.params.id))) { notFound(res, '게시글을 찾을 수 없습니다'); return; }
       const c = await repo.createComment({ postId: req.params.id, authorId: req.userId as string, body: text });
+      if (!c) { res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR'))); return; }
       res.status(201).json(c);
     } catch (e) { fail(res, e, '댓글 작성 실패'); }
   });
