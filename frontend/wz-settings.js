@@ -508,7 +508,7 @@
         m.primaryBtn.disabled = true; m.primaryBtn.textContent = '처리 중...';
         api.del('/me').then(function () {
           m.close(); toast('탈퇴가 완료되었습니다');
-          setTimeout(function () { location.href = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? '/main.html' : '/landing.html'; }, 1000);
+          setTimeout(function () { location.href = '/main.html'; }, 1000);
         }).catch(function (e) {
           m.primaryBtn.disabled = false; m.primaryBtn.textContent = '탈퇴하기';
           var code = e && e.code;

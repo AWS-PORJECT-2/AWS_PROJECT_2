@@ -253,7 +253,7 @@ export function createApp(
   const authRequired = createAuthRequired(tokenService, userRepository);
 
   // 커뮤니티 게시판 — 목록/상세/댓글 목록은 공개, 작성/삭제는 로그인(삭제는 본인 또는 관리자).
-  app.use('/api/board', createBoardRouter(boardRepository, authRequired, userRepository));
+  app.use('/api/board', createBoardRouter(boardRepository, authRequired, userRepository, writeRateLimit));
   // soft-auth: 토큰 있으면 req.userId 채우고, 없거나 무효여도 통과(공개 GET 의 viewer 플래그용).
   const optionalAuth = createOptionalAuth(tokenService);
 

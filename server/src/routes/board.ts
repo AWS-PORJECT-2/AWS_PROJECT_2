@@ -6,7 +6,8 @@ import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { uuidParamGuard } from '../middleware/uuid-param.js';
-import { isValidBoardCategory, sanitizeTitle, sanitizeBody, sanitizeComment, normalizeMedia } from '../utils/board-content.js';
+import { isValidBoardCategory, sanitizeTitle, sanitizeBody, sanitizeComment, normalizeMedia, htmlToText } from '../utils/board-content.js';
+import { normalizeContentBlocks } from '../utils/content-blocks.js';
 
 function fail(res: Response, e: unknown, msg: string): void {
   if (e instanceof AppError) { res.status(e.httpStatus).json(createErrorResponse(e)); return; }
@@ -23,7 +24,7 @@ async function canModify(req: Request, authorId: string, userRepo: UserRepositor
   return !!u && String(u.role).toUpperCase() === 'ADMIN';
 }
 
-export function createBoardRouter(repo: BoardRepository, authRequired: RequestHandler, userRepo: UserRepository): Router {
+export function createBoardRouter(repo: BoardRepository, authRequired: RequestHandler, userRepo: UserRepository, writeRateLimit: RequestHandler): Router {
   const router = Router();
   router.param('id', uuidParamGuard); // 서브라우터 자체 UUID 가드(전역 app.param 미적용 대비)
 
@@ -47,16 +48,29 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
   });
 
   // 작성(로그인)
-  router.post('/posts', authRequired, async (req: Request, res: Response) => {
+  router.post('/posts', authRequired, writeRateLimit, async (req: Request, res: Response) => {
     try {
       const body = (req.body ?? {}) as Record<string, unknown>;
       const category = isValidBoardCategory(body.category) ? body.category : 'general';
       const title = sanitizeTitle(body.title);
-      const text = sanitizeBody(body.body);
       const media = normalizeMedia(body.media);
+      // 리치 본문(contentBlocks: html) 우선 — 서버에서 normalizeContentBlocks(=sanitizeStoryHtml)로 재새니타이즈.
+      // 평문 스니펫(body)은 목록/검색용으로 파생. contentBlocks 없으면 레거시 평문 body 수용.
+      let contentBlocks: unknown[] = [];
+      let text = '';
+      if (Array.isArray(body.contentBlocks)) {
+        contentBlocks = normalizeContentBlocks(body.contentBlocks);
+        text = contentBlocks
+          .map((b) => (b && (b as { type?: string }).type === 'html') ? htmlToText((b as { html?: string }).html) : '')
+          .filter(Boolean).join(' ').slice(0, 500);
+      } else {
+        text = sanitizeBody(body.body);
+      }
       if (!title) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '제목을 입력해 주세요'))); return; }
-      if (!text.trim() && media.length === 0) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '내용 또는 사진·영상·링크를 추가해 주세요'))); return; }
-      const post = await repo.createPost({ authorId: req.userId as string, category, title, body: text, media });
+      if (contentBlocks.length === 0 && !text.trim() && media.length === 0) {
+        res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '내용을 입력해 주세요'))); return;
+      }
+      const post = await repo.createPost({ authorId: req.userId as string, category, title, body: text, contentBlocks, media });
       res.status(201).json(post);
     } catch (e) { fail(res, e, '게시글 작성 실패'); }
   });
@@ -79,7 +93,7 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
   });
 
   // 댓글 작성(로그인)
-  router.post('/posts/:id/comments', authRequired, async (req: Request, res: Response) => {
+  router.post('/posts/:id/comments', authRequired, writeRateLimit, async (req: Request, res: Response) => {
     try {
       const text = sanitizeComment((req.body as Record<string, unknown> | undefined)?.body);
       if (!text) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '댓글을 입력해 주세요'))); return; }

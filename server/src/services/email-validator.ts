@@ -3,10 +3,9 @@ import type { AllowedDomain } from '../types/allowed-domain.js';
 import { AppError } from '../errors/app-error.js';
 
 // 학교 도메인 제한과 무관하게 로그인 허용하는 개별 이메일 화이트리스트(소문자).
-// 운영진/테스트 계정 등. ALLOWED_EMAILS env(쉼표구분)로도 추가 가능.
+// 운영진/테스트 계정 등은 소스 하드코딩 대신 ALLOWED_EMAILS env(쉼표구분)로만 구성한다.
 const ALLOWED_EMAILS = new Set<string>(
-  ['leesangjin128@gmail.com', ...(process.env.ALLOWED_EMAILS ?? '').split(',')]
-    .map((e) => e.trim().toLowerCase()).filter(Boolean),
+  (process.env.ALLOWED_EMAILS ?? '').split(',').map((e) => e.trim().toLowerCase()).filter(Boolean),
 );
 
 export class EmailValidatorImpl implements EmailValidator {

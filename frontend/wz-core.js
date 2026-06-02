@@ -121,9 +121,8 @@
     });
     try { localStorage.removeItem('recentFunds'); } catch (_) {}
     setAuthed(false);
-    // 앱(WebView)은 마케팅 랜딩 대신 메인(게스트 홈)으로, 웹은 기존대로 랜딩으로.
-    const after = (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) ? '/main.html' : '/landing.html';
-    (window.api.post('/auth/logout', {}).catch(() => {})).finally(() => { location.href = after; });
+    // 로그아웃 후엔 운영사이트 홈(main)으로 — 랜딩은 별개 페이지라 로그인/로그아웃 흐름과 섞지 않는다.
+    (window.api.post('/auth/logout', {}).catch(() => {})).finally(() => { location.href = '/main.html'; });
   }
 
   /* 썸네일 채우기 — 이미지 or 카테고리 아이콘 */

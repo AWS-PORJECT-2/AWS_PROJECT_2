@@ -82,6 +82,23 @@
 .bd-mchip__x { border: 0; background: none; cursor: pointer; font-size: 18px; color: var(--c-text-faint, #9CA3AF); }
 .bd-modal__msg { color: var(--c-danger, #DC2626); font-size: 13px; min-height: 18px; margin: 12px 0 0; }
 .bd-modal__submit { width: 100%; margin-top: 8px; }
+.bd-modal__panel--lg { max-width: 760px; }
+
+/* 리치 에디터 */
+.bd-rte { border: 1px solid var(--c-border, #E5E7EB); border-radius: 12px; overflow: hidden; }
+.bd-rte__bar { display: flex; gap: 2px; flex-wrap: wrap; padding: 8px; border-bottom: 1px solid var(--c-divider, #F3F4F6); background: var(--c-bg, #FAFAFB); position: sticky; top: 0; z-index: 1; }
+.bd-rte__b { border: 0; background: none; cursor: pointer; padding: 6px 9px; border-radius: 7px; font-size: 13px; font-weight: 700; color: var(--c-text-sub, #4B5563); font-family: inherit; line-height: 1; white-space: nowrap; }
+.bd-rte__b:hover { background: var(--c-primary-50, #F5F3FF); color: var(--c-primary-700, #6D28D9); }
+.bd-rte__area { min-height: 280px; max-height: 56vh; overflow-y: auto; padding: 16px; font-size: 15.5px; line-height: 1.75; outline: none; color: var(--c-text, #1A1A1A); }
+.bd-rte__area:empty:before { content: attr(data-ph); color: var(--c-text-faint, #9CA3AF); }
+.bd-rte__area img, .bd-post__body img { max-width: 100%; height: auto; border-radius: 10px; display: block; margin: 10px 0; }
+.bd-rte__area h3, .bd-post__body h3 { font-size: 19px; font-weight: 800; margin: 18px 0 8px; }
+.bd-rte__area blockquote, .bd-post__body blockquote { border-left: 3px solid var(--c-primary-300, #C4B5FD); margin: 12px 0; padding: 6px 0 6px 14px; color: var(--c-text-sub, #4B5563); }
+.bd-rte__area ul, .bd-rte__area ol, .bd-post__body ul, .bd-post__body ol { padding-left: 24px; margin: 10px 0; }
+.bd-rte__area a, .bd-post__body a { color: var(--c-primary-600, #7C3AED); }
+.bd-post__body p { margin: 10px 0; }
+.bd-embed { position: relative; padding-top: 56.25%; border-radius: 12px; overflow: hidden; background: #000; margin: 14px 0; }
+.bd-embed iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
 
 .bd-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px); background: rgba(17,24,39,.92); color: #fff;
   padding: 12px 20px; border-radius: 999px; font-size: 14px; z-index: 2000; opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s; }

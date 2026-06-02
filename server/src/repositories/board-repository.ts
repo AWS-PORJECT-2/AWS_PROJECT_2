@@ -10,7 +10,7 @@ export interface BoardListOptions {
 export interface BoardRepository {
   listPosts(opts: BoardListOptions): Promise<BoardPost[]>;
   getPost(id: string): Promise<BoardPost | null>;
-  createPost(input: { authorId: string; category: string; title: string; body: string; media: BoardMedia[] }): Promise<BoardPost>;
+  createPost(input: { authorId: string; category: string; title: string; body: string; contentBlocks: unknown[]; media: BoardMedia[] }): Promise<BoardPost>;
   /** 작성자 id 반환(소유 확인용). 없으면 null. */
   getPostAuthorId(id: string): Promise<string | null>;
   deletePost(id: string): Promise<boolean>;

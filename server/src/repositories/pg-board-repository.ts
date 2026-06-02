@@ -24,6 +24,7 @@ function toPost(r: Record<string, unknown>): BoardPost {
     category: (r.category as string) ?? 'general',
     title: (r.title as string) ?? '',
     body: (r.body as string) ?? '',
+    contentBlocks: Array.isArray(r.content_blocks) ? (r.content_blocks as unknown[]) : [],
     media: normalizeMedia(r.media as unknown) as BoardMedia[],
     commentCount: Number(r.comment_count) || 0,
     author: toAuthor(r),
@@ -51,7 +52,7 @@ export class PgBoardRepository implements BoardRepository {
     if (opts.before) { params.push(opts.before); where.push(`p.created_at < $${params.length}`); }
     params.push(Math.min(Math.max(opts.limit, 1), 50));
     const result = await this.pool.query(
-      `SELECT p.id, p.category, p.title, p.body, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+      `SELECT p.id, p.category, p.title, p.body, p.content_blocks, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
          FROM board_posts p JOIN "user" u ON u.id = p.author_id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY p.created_at DESC
@@ -63,18 +64,18 @@ export class PgBoardRepository implements BoardRepository {
 
   async getPost(id: string): Promise<BoardPost | null> {
     const r = await this.pool.query(
-      `SELECT p.id, p.category, p.title, p.body, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+      `SELECT p.id, p.category, p.title, p.body, p.content_blocks, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
          FROM board_posts p JOIN "user" u ON u.id = p.author_id WHERE p.id = $1`,
       [id],
     );
     return r.rows[0] ? toPost(r.rows[0]) : null;
   }
 
-  async createPost(input: { authorId: string; category: string; title: string; body: string; media: BoardMedia[] }): Promise<BoardPost> {
+  async createPost(input: { authorId: string; category: string; title: string; body: string; contentBlocks: unknown[]; media: BoardMedia[] }): Promise<BoardPost> {
     const r = await this.pool.query(
-      `INSERT INTO board_posts (author_id, category, title, body, media)
-       VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING id`,
-      [input.authorId, input.category, input.title, input.body, JSON.stringify(input.media)],
+      `INSERT INTO board_posts (author_id, category, title, body, content_blocks, media)
+       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb) RETURNING id`,
+      [input.authorId, input.category, input.title, input.body, JSON.stringify(input.contentBlocks ?? []), JSON.stringify(input.media)],
     );
     const created = await this.getPost(r.rows[0].id as string);
     if (!created) throw new Error('board post created but not found');

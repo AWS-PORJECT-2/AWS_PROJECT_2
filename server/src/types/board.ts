@@ -13,6 +13,7 @@ export interface BoardPost {
   category: string;
   title: string;
   body: string;
+  contentBlocks: unknown[];
   media: BoardMedia[];
   commentCount: number;
   author: BoardAuthor;

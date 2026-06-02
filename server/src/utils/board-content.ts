@@ -28,6 +28,17 @@ export function sanitizeComment(v: unknown): string {
   return (typeof v === 'string' ? v : '').trim().slice(0, COMMENT_MAX);
 }
 
+/** 새니타이즈된 html → 평문(목록 스니펫·검색용). 태그/엔티티 제거 후 500자. */
+export function htmlToText(html: unknown): string {
+  return (typeof html === 'string' ? html : '')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&[a-z]+;/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 500);
+}
+
 /** 유튜브 URL/ID 에서 11자 영상 ID 추출(실패 시 null). */
 export function youtubeId(input: string): string | null {
   if (typeof input !== 'string') return null;
