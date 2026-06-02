@@ -135,6 +135,7 @@
     aiDesign: null,     // AI 디자인 보기 결과(blueprintDataUrl) — 가상피팅 잠금 해제 키
     aiFitting: null,    // 가상피팅/전시 결과(tryOnDataUrl)
     description: '',    // 설명 모드(인형·액세서리) 텍스트
+    descPhotos: [],     // 설명 모드 참고 사진(최대 5장, data URL)
   };
   function cvLayers() { return S.views[S.view] || (S.views[S.view] = []); }
   function selLayer() { var ls = cvLayers(); for (var i = 0; i < ls.length; i++) if (ls[i].id === S.sel) return ls[i]; return null; }
@@ -252,6 +253,42 @@
     ta.value = S.description || '';
     ta.addEventListener('input', function () { S.description = ta.value; });
     card.appendChild(ta);
+
+    // 참고 사진 첨부(최대 5장)
+    card.appendChild(el('div', { class: 'dz-describe__lbl' }, '참고 사진 (최대 5장, 선택)'));
+    var photosWrap = el('div', { class: 'dz-desc-photos' });
+    function renderPhotos() {
+      photosWrap.replaceChildren();
+      S.descPhotos.forEach(function (src, idx) {
+        var cell = el('div', { class: 'dz-desc-photo' }, el('img', { src: src, alt: '' }));
+        var rm = el('button', { class: 'dz-desc-photo__rm', type: 'button', title: '삭제' }, '×');
+        rm.addEventListener('click', function () { S.descPhotos.splice(idx, 1); renderPhotos(); });
+        cell.appendChild(rm);
+        photosWrap.appendChild(cell);
+      });
+      if (S.descPhotos.length < 5) {
+        var add = el('button', { class: 'dz-desc-photo dz-desc-photo--add', type: 'button' },
+          el('span', { class: 'dz-desc-photo__plus' }, '+'), el('span', {}, '사진'));
+        add.addEventListener('click', pickDescPhoto);
+        photosWrap.appendChild(add);
+      }
+    }
+    function pickDescPhoto() {
+      var input = el('input', { type: 'file', accept: 'image/*', multiple: '', style: 'display:none' });
+      input.addEventListener('change', function () {
+        var files = Array.prototype.slice.call(input.files || []);
+        var room = 5 - S.descPhotos.length;
+        if (files.length > room) toast('사진은 최대 5장까지예요');
+        files.slice(0, room).forEach(function (f) {
+          readImageFile(f).then(function (res) { if (S.descPhotos.length < 5) { S.descPhotos.push(res.url); renderPhotos(); } })
+            .catch(function () { toast('이미지를 읽지 못했습니다'); });
+        });
+      });
+      document.body.appendChild(input); input.click(); setTimeout(function () { input.remove(); }, 1000);
+    }
+    renderPhotos();
+    card.appendChild(photosWrap);
+
     card.appendChild(btn('디자인 뽑기', 'primary', runDescribeAi, 'dz-describe__go'));
     wrap.appendChild(card);
     root.appendChild(wrap);
@@ -259,24 +296,25 @@
   }
   function describeBody(preview) {
     return { category: S.slug, product: S.product, title: S.title,
-      design: { describe: true, description: S.description, product: S.product, version: 2 }, preview: preview || null };
+      design: { describe: true, description: S.description, photos: S.descPhotos, product: S.product, version: 2 },
+      preview: preview || S.descPhotos[0] || null };
   }
   function saveDescribe() {
-    if (!S.description.trim()) { toast('디자인 설명을 입력해 주세요'); return; }
+    if (!S.description.trim() && !S.descPhotos.length) { toast('설명을 입력하거나 사진을 추가해 주세요'); return; }
     var b = document.querySelector('.dz-top .wz-btn--primary'); if (b) b.disabled = true;
     var p = S.designId ? window.api.patch('/me/designs/' + S.designId, describeBody()) : window.api.post('/me/designs', describeBody());
     p.then(function (r) { if (r && r.id) S.designId = r.id; toast('저장했어요. 마이페이지 > 내 디자인에서 이어서 편집할 수 있어요.'); })
       .catch(function (err) { if (err && err.status === 401) { location.href = '/login.html'; return; } toast('저장 실패: ' + ((err && err.message) || '오류')); })
       .finally(function () { if (b) b.disabled = false; });
   }
-  // 디자인 뽑기 — 설명을 AI 에게 보내 디자인 생성(prod GEMINI 미연결 시 안내). 설명은 함께 저장.
+  // 디자인 뽑기 — 설명 + 참고사진(최대 5장)을 AI 에 보내 디자인 생성(prod GEMINI 미연결 시 안내). 함께 저장.
   function runDescribeAi() {
-    if (!S.description.trim()) { toast('디자인 설명을 입력해 주세요'); return; }
-    var m = aiModal('AI 디자인 생성', '설명을 바탕으로 ' + (curItem().name || '굿즈') + ' 디자인을 만들어요.');
-    // 설명 저장(완성본 보존)
+    if (!S.description.trim() && !S.descPhotos.length) { toast('설명을 입력하거나 사진을 추가해 주세요'); return; }
+    var m = aiModal('AI 디자인 생성', '설명' + (S.descPhotos.length ? '과 참고 사진' : '') + '을 바탕으로 ' + (curItem().name || '굿즈') + ' 디자인을 만들어요.');
+    // 설명·사진 저장(완성본 보존)
     (S.designId ? window.api.patch('/me/designs/' + S.designId, describeBody()) : window.api.post('/me/designs', describeBody()))
       .then(function (r) { if (r && r.id) S.designId = r.id; }).catch(function () {});
-    window.api.post('/ai/blueprint', { prompt: S.description, description: S.description, category: S.slug })
+    window.api.post('/ai/blueprint', { imageDataUrls: S.descPhotos, prompt: S.description, description: S.description, category: S.slug })
       .then(function (res) {
         var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
         if (!url) throw new Error('NO_RESULT');
@@ -871,6 +909,7 @@
       S.aiDesign = d.aiImage || null; // 이전에 AI 디자인을 만들었으면 가상피팅 잠금 해제 상태로 복원
       S.aiFitting = null;
       S.description = dz.description || ''; // 설명 모드 복원
+      S.descPhotos = Array.isArray(dz.photos) ? dz.photos.slice(0, 5) : [];
       // 이미지 캐시 재생성 + seq 보정
       imgCache = {}; var maxSeq = 0;
       Object.keys(S.views).forEach(function (v) {
