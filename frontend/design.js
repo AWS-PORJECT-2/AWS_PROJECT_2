@@ -954,7 +954,7 @@
 
     var row = el('div', { class: 'dz-finish' });
     var designBtn = el('button', { class: 'wz-btn wz-btn--outline dz-finish__btn', type: 'button' },
-      el('span', { class: 'dz-finish__ic', html: DESIGN_SVG }), 'AI 디자인 보기');
+      el('span', { class: 'dz-finish__ic', html: DESIGN_SVG }), 'AI 실물 보기');
     designBtn.addEventListener('click', runAiDesign);
 
     dzFitBtn = el('button', { class: 'wz-btn wz-btn--outline dz-finish__btn', type: 'button' },
@@ -973,11 +973,11 @@
     var apparel = isApparel();
     dzFitBtn.disabled = locked;
     dzFitBtn.classList.toggle('is-locked', locked);
-    dzFitBtn.title = locked ? '먼저 ‘AI 디자인 보기’를 해주세요' : '';
+    dzFitBtn.title = locked ? '먼저 ‘AI 실물 보기’를 해주세요' : '';
     var ic = dzFitBtn.querySelector('.dz-finish__ic');
     if (ic) ic.innerHTML = locked ? LOCK_SVG : FIT_SVG;
     if (dzHint) dzHint.textContent = locked
-      ? '‘AI 디자인 보기’로 ' + (apparel ? '의상' : '제품') + ' 이미지를 먼저 생성하면 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 볼 수 있어요.'
+      ? '‘AI 실물 보기’로 ' + (apparel ? '의상' : '제품') + ' 실물을 먼저 만들면 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 볼 수 있어요.'
       : '이제 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 생성할 수 있어요.';
   }
 
@@ -1034,7 +1034,7 @@
   function runAiDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
     var apparel = isApparel();
-    var m = aiModal('AI 디자인 생성', '앞·뒤·양옆 등 디자인한 모든 면을 AI 에 보내 실제 ' + (apparel ? '의상' : (S.product || '굿즈')) + '을 만들어요.');
+    var m = aiModal('AI 실물 제작', '앞·뒤·양옆 등 디자인한 모든 면을 AI 에 보내 실제 ' + (apparel ? '의상(실물)' : (S.product || '굿즈') + ' 실물') + ' 사진을 만들어요.');
     compositeArtViews(1000).then(function (r) {
       var urls = r.urls;
       // 저장도 겸함(완성본 보존). 앞면(대표) 미리보기.
@@ -1048,13 +1048,13 @@
       if (!url) throw new Error('NO_RESULT');
       S.aiDesign = url; setFitLock();
       if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
-      showResult(m.box, m.overlay, url, 'AI 디자인');
+      showResult(m.box, m.overlay, url, 'AI 실물');
     }).catch(function (err) { aiError(m.box, m.overlay, err); });
   }
 
   // 오른쪽: 가상피팅 보기 — AI 디자인 결과를 /ai/try-on(모델 착용/제품 전시). AI 디자인 전엔 잠금.
   function runAiFitting() {
-    if (!S.aiDesign) { toast('먼저 ‘AI 디자인 보기’를 해주세요'); return; }
+    if (!S.aiDesign) { toast('먼저 ‘AI 실물 보기’를 해주세요'); return; }
     var apparel = isApparel();
     var m = aiModal(apparel ? '가상피팅 생성' : '전시 이미지 생성',
       apparel ? 'AI 디자인을 모델이 착용한 모습을 생성해요.' : 'AI 디자인을 ' + (S.product || '굿즈') + ' 전시 사진으로 생성해요.');

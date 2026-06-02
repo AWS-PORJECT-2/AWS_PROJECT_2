@@ -74,8 +74,9 @@ export function createAiBlueprintHandler(gemini: GeminiImageService, timeoutMs: 
     }
 
     try {
+      const category = typeof body.category === 'string' ? body.category : 'etc';
       const result = await withTimeout(
-        gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }),
+        gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category),
         timeoutMs,
       );
       res.json({ blueprintDataUrl: `data:${result.mimeType};base64,${result.base64}` });

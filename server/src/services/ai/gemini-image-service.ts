@@ -55,14 +55,6 @@ function hashImages(images: ImageInput[]): string {
   return h.digest('hex');
 }
 
-const BLUEPRINT_PROMPT =
-  'Look at the attached reference photo(s) of a garment. Produce a single clean flat product illustration of THAT SAME garment showing two views side-by-side:\n' +
-  '- LEFT half: Front view (collar, front opening, chest logo, pockets visible).\n' +
-  '- RIGHT half: Back view (full back panel with any back logo, embroidery, or lettering visible).\n\n' +
-  'Style: e-commerce flat product photo on a pure white background. Garment laid flat or shown as if on an invisible mannequin. No body, no model, no scene.\n\n' +
-  'Both views are the EXACT SAME garment — preserve every detail from the reference photo(s): exact colors, sleeve color contrast, all logos, embroidery, patches, lettering, stripes, ribbing. Do not invent or omit anything.\n\n' +
-  'Crop tight, minimal whitespace at top and bottom. Output exactly ONE image with the two views side-by-side. No labels, no text.';
-
 type ModelType = 'female' | 'male' | 'female_athletic' | 'male_athletic';
 type Background = 'studio' | 'campus' | 'classroom' | 'outdoor';
 
@@ -111,6 +103,33 @@ function buildTryOnPrompt(modelType: string, background: string, category: strin
   );
 }
 
+// "AI 실물 보기" — 디자인을 적용한 실제 제작된 제품 사진(도면 X, 포토리얼리스틱). 모델 착용 X(그건 가상피팅).
+//  category 로 의류/굿즈 구분: 의류=고스트 마네킹 실물 옷, 굿즈=실물 제품 진열 컷.
+function buildProductPhotoPrompt(category: string): string {
+  if (categoryType(category) === 'goods') {
+    return (
+      'The attached image(s) are reference views of ONE custom merchandise product (multiple images = front/back/different sides of the SAME product). ' +
+      'Generate ONE photorealistic e-commerce product photo of that EXACT product as a REAL, manufactured item:\n' +
+      '- A clean studio product shot — the real product attractively presented (e.g. standing or propped on a clean surface), as if actually photographed for an online store. Realistic material, texture, lighting and a soft shadow.\n' +
+      '- This MUST look like a REAL photographed product, NOT a flat 2D drawing, sketch or technical illustration.\n' +
+      '- No human model. The designed side faces the camera, fully visible and undistorted.\n\n' +
+      'Background: clean light studio. The product MUST match the references EXACTLY: same colors, logos, lettering, patterns, shape — do not invent or omit any detail.\n' +
+      'Output exactly ONE image.'
+    );
+  }
+  // 의류: 고스트(인비저블) 마네킹에 입혀진 실물 옷 — 실제 촬영한 제품컷 느낌.
+  return (
+    'The attached image(s) are reference views (front / back / sides) of ONE custom garment design. Treat multiple images as different faces of the SAME garment. ' +
+    'Generate ONE photorealistic e-commerce product photo of that EXACT garment as a REAL, manufactured piece of clothing:\n' +
+    '- Show it as a real product shot on an INVISIBLE / GHOST MANNEQUIN — a 3D garment with natural fabric folds, texture, stitching and seams, exactly as if actually photographed for an online clothing store.\n' +
+    '- If front and back views are provided, show the front and back of the SAME garment side-by-side.\n' +
+    '- It MUST look like a REAL photographed garment, NOT a flat 2D drawing, sketch or technical illustration.\n' +
+    '- No human model, no face, no body. Clean white / light studio background, soft even lighting, gentle shadow.\n\n' +
+    'The garment MUST match the references EXACTLY: same colors, sleeve/contrast colors, all logos, embroidery, patches, lettering, patterns and their exact placement — do not invent or omit anything.\n' +
+    'Crop tight, minimal whitespace. Output exactly ONE image.'
+  );
+}
+
 export class GeminiImageService {
   private readonly ai: GoogleGenAI;
   private readonly model: string;
@@ -131,17 +150,18 @@ export class GeminiImageService {
     return new GeminiImageService(apiKey);
   }
 
-  async generateBlueprint(clothing: ImageInput[], ctx: BilledCallContext): Promise<ImageInput> {
+  // "AI 실물 보기" — 디자인 적용한 실제 제품(실물) 사진 생성. category 로 의류/굿즈 구분.
+  async generateBlueprint(clothing: ImageInput[], ctx: BilledCallContext, category = 'etc'): Promise<ImageInput> {
     if (clothing.length === 0) {
-      throw new AppError('MISSING_REQUIRED_FIELD', '도면 생성에 사용할 이미지가 없습니다');
+      throw new AppError('MISSING_REQUIRED_FIELD', '실물 생성에 사용할 이미지가 없습니다');
     }
     if (clothing.length > 5) {
-      throw new AppError('MISSING_REQUIRED_FIELD', '도면 생성용 이미지는 최대 5장까지 첨부 가능합니다');
+      throw new AppError('MISSING_REQUIRED_FIELD', '실물 생성용 이미지는 최대 5장까지 첨부 가능합니다');
     }
-    // 도면은 매번 같은 결과가 바람직 — seed 고정 + 낮은 temperature
-    return this.callOnce(BLUEPRINT_PROMPT, clothing, ctx, {
+    // 디자인 충실도 우선 — seed 고정 + 낮은 temperature(약간만 올려 자연스러운 질감 허용)
+    return this.callOnce(buildProductPhotoPrompt(category), clothing, ctx, {
       seed: parsePositiveInt(process.env.GEMINI_SEED, 12345),
-      temperature: 0.2,
+      temperature: 0.35,
     });
   }
 
