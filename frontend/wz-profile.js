@@ -49,6 +49,7 @@
       { key: 'backings',   label: '후원한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
       { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds',     hash: 'funds' },
       { key: 'drafts',     label: '개설 중인 프로젝트', icon: 'edit',  view: 'drafts',    hash: 'drafts' },
+      { key: 'designs',    label: '내 디자인',         icon: 'edit',  view: 'designs',   hash: 'designs' },
       { key: 'friends',    label: '사용자 검색',       icon: 'users',  view: 'friends',   hash: 'friends' },
       { key: 'maker',      label: '내 메이커 페이지로 가기', icon: 'crown', href: '/maker.html?me=1' },
       { key: 'create',     label: '프로젝트 만들기',   icon: 'plus',   href: '/fund-create.html' },
@@ -102,6 +103,7 @@
     if (tab === 'liked' || tab === 'likes') { selectView('liked', true); return true; }
     if (tab === 'friends') { selectView('friends', true); return true; }
     if (tab === 'drafts') { selectView('drafts', true); return true; }
+    if (tab === 'designs') { selectView('designs', true); return true; }
     if (tab === 'recent') { selectView('recent', true); return true; }
     return false;
   }
@@ -377,6 +379,7 @@
     if (view === 'backings') return panelBackings();
     if (view === 'funds') return panelFunds();
     if (view === 'drafts') return panelDrafts();
+    if (view === 'designs') return panelDesigns();
     if (view === 'friends') return panelFriends();
     showHome();
   }
@@ -615,6 +618,84 @@
     actions.append(go, del);
 
     row.append(body, actions);
+    return row;
+  }
+
+  /* 패널: 내 디자인 (디자인하기 에디터 저장본, GET /api/me/designs)
+   *  각 카드: 미리보기 썸네일 · 제목 · 상품/수정일 + [이어서 편집](/design.html?id=<id>) · [다운로드] · [삭제]. */
+  function panelDesigns() {
+    refs.curView = 'designs';
+    var main = panelHead('내 디자인', 'designs');
+    var list = W.el('div', { class: 'wz-mp-drafts' });
+    main.appendChild(list);
+    whenMeKnown(function (me) {
+      if (refs.curView !== 'designs') return;
+      if (!me) { list.replaceChildren(loginEmpty('저장한 디자인을 보려면 로그인하세요')); return; }
+      window.api.get('/me/designs')
+        .then(function (r) { fillDesigns(list, (r && r.items) || []); })
+        .catch(function () { list.replaceChildren(errorState()); });
+    }, list);
+  }
+  function fillDesigns(list, items) {
+    list.replaceChildren();
+    if (!items.length) {
+      list.appendChild(emptyState('edit', '아직 저장한 디자인이 없어요', '디자인하러 가기', '/design.html'));
+      return;
+    }
+    items.forEach(function (d) { list.appendChild(designCard(d, list)); });
+  }
+  /* 디자인 한 줄. d: { id, title, category, product, preview, hasAi, updatedAt } */
+  function designCard(d, list) {
+    var row = W.el('div', { class: 'wz-mp-draft' });
+
+    var thumb = W.el('img', {
+      src: d.preview || '/assets/placeholder-project.png', alt: '',
+      style: 'width:56px;height:56px;border-radius:10px;object-fit:contain;background:#f5f5f7;border:1px solid #ececf1;flex:0 0 auto',
+    });
+
+    var body = W.el('div', { class: 'wz-mp-draft__body' });
+    body.appendChild(W.el('p', { class: 'wz-mp-draft__title' }, (d.title && String(d.title).trim()) ? d.title : '내 디자인'));
+    var metas = [];
+    var cat = d.category ? (window.dtCategory && window.dtCategory(d.category)) : null;
+    if (d.product) metas.push(d.product);
+    else if (cat) metas.push(cat.label);
+    var when = relTime(d.updatedAt);
+    if (when) metas.push(when + ' 수정');
+    if (metas.length) {
+      var meta = W.el('p', { class: 'wz-mp-draft__meta' });
+      metas.forEach(function (m, i) {
+        if (i) meta.appendChild(W.el('span', { class: 'wz-mp-draft__dot' }, '·'));
+        meta.appendChild(W.el('span', {}, m));
+      });
+      body.appendChild(meta);
+    }
+
+    var actions = W.el('div', { class: 'wz-mp-draft__actions' });
+    var go = W.el('a', { class: 'wz-btn wz-btn--primary wz-mp-draft__go', href: '/design.html?id=' + encodeURIComponent(d.id) }, '이어서 편집');
+    var dlIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 11l5 5 5-5M5 21h14"/></svg>';
+    var dl = W.el('button', { class: 'wz-mp-draft__del', type: 'button', title: '다운로드', 'aria-label': '다운로드', html: dlIcon });
+    dl.addEventListener('click', function () {
+      if (!d.preview) { return; }
+      var a = W.el('a', { href: d.preview, download: '두띵-디자인-' + ((d.title && String(d.title).trim()) || 'design') + '.png' });
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    var del = W.el('button', { class: 'wz-mp-draft__del', type: 'button', 'aria-label': '디자인 삭제', title: '삭제', html: IC.trash });
+    var busy = false;
+    del.addEventListener('click', function () {
+      if (busy) return;
+      var label = (d.title && String(d.title).trim()) ? d.title : '내 디자인';
+      if (!window.confirm('「' + label + '」 디자인을 삭제할까요?')) return;
+      busy = true; del.disabled = true;
+      window.api.del('/me/designs/' + encodeURIComponent(d.id))
+        .then(function () {
+          row.remove();
+          if (!list.querySelector('.wz-mp-draft')) fillDesigns(list, []);
+        })
+        .catch(function () { busy = false; del.disabled = false; });
+    });
+    actions.append(go, dl, del);
+
+    row.append(thumb, body, actions);
     return row;
   }
 
