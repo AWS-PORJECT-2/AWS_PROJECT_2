@@ -179,7 +179,7 @@
 
     var sentViaSocket = false;
     if (state.socket && state.socket.connected && state.roomId) {
-      try { state.socket.emit('send_message', { roomId: state.roomId, message: text }); sentViaSocket = true; } catch (_) {}
+      try { state.socket.emit('message:send', { message: text }); sentViaSocket = true; } catch (_) {} // 서버 핸들러명은 'message:send'(유저는 자기 방으로 라우팅)
     }
 
     if (!sentViaSocket) {
@@ -236,6 +236,7 @@
     if (send) send.addEventListener('click', sendMessage);
     if (input) {
       input.addEventListener('keydown', function (e) {
+        if (e.isComposing || e.keyCode === 229) return; // 한글 IME 조합 중 Enter 무시(끝글자 중복 전송 방지)
         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
       });
     }

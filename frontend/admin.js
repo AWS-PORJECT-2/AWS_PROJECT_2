@@ -1707,7 +1707,7 @@
         var txt = el('input', { class: 'wza-chat__textinput', type: 'text', maxlength: '2000', placeholder: '메시지를 입력하세요' });
         var send = el('button', { class: 'wza-chat__send', type: 'button', 'aria-label': '전송', html: ICON.send });
         function doSend() { sendMessage(txt); }
-        txt.addEventListener('keydown', function (e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
+        txt.addEventListener('keydown', function (e) { if (e.isComposing || e.keyCode === 229) return; if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); } });
         send.addEventListener('click', doSend);
         input.appendChild(txt); input.appendChild(send);
         convo.appendChild(input);
