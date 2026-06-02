@@ -15,7 +15,10 @@ export class EmailValidatorImpl implements EmailValidator {
   isAllowedDomain(email: string): boolean {
     // 개별 허용 이메일은 도메인 제한을 우회.
     if (typeof email === 'string' && ALLOWED_EMAILS.has(email.trim().toLowerCase())) return true;
-    const domain = this.extractDomain(email);
+    const domain = this.extractDomain(email); // 형식 검증(잘못된 이메일은 throw)
+    // 테스트용 임시 개방: ALLOW_ANY_EMAIL_DOMAIN=true 면 학교 도메인 제한 해제(형식·구글 이메일 인증은 유지).
+    //  env 만 끄면(또는 제거) 즉시 @kookmin.ac.kr 제한으로 복귀. (env 는 호출 시점에 읽어 재시작만으로 토글)
+    if (process.env.ALLOW_ANY_EMAIL_DOMAIN === 'true') return true;
     return this.allowedDomains.some((d) => d.isActive && d.domain.toLowerCase() === domain.toLowerCase());
   }
 
