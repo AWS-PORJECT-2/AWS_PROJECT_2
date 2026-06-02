@@ -92,8 +92,8 @@
 .wc-modecard__desc { font-size: 13px; color: var(--c-text-muted); line-height: 1.6; margin: 0; }
 
 .wc-pick__actions { display: flex; justify-content: center; gap: 12px; margin-top: 8px; }
-.wc-pick__actions .wz-btn { min-width: 160px; }
-.wc-pick__actions .wz-btn--primary { min-width: 220px; }
+.wc-pick__actions .wz-btn { flex: 1 1 0; min-width: 0; max-width: 240px; }
+@media (max-width: 520px) { .wc-pick__actions { gap: 8px; } .wc-pick__actions .wz-btn { font-size: 14px; padding: 0 8px; } }
 
 /* =================== 1. 작성 현황 (메인) =================== */
 .wc-studio { display: grid; grid-template-columns: 220px minmax(0, 1fr) 300px; gap: 28px; align-items: start; padding: 32px 0 80px; }

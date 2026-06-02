@@ -1,0 +1,99 @@
+/* 디자인하기 에디터 — 상품 목업 + 레이어(이미지/텍스트) 드래그/리사이즈 + 레이어 패널 + 옵션.
+   wz.css/tokens.css 위에 얹는 페이지 전용 스타일. 보라 #8B5CF6 테마. */
+.dz-wrap { max-width: 1180px; margin: 0 auto; padding: 18px 16px 64px; }
+.dz-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; }
+.dz-top__l { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.dz-title { font-size: 20px; font-weight: 800; letter-spacing: -.02em; color: #1a1a1a; }
+.dz-titlein { font-size: 16px; font-weight: 700; border: 1.5px solid #e5e5ea; border-radius: 10px; padding: 7px 10px; max-width: 240px; }
+.dz-titlein:focus { outline: none; border-color: #8B5CF6; }
+.dz-top__r { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* 본문: 캔버스 | 우측 패널 */
+.dz-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; align-items: start; }
+@media (max-width: 900px) { .dz-grid { grid-template-columns: 1fr; } }
+
+/* 캔버스 영역 */
+.dz-stage { background: #f6f6f8; border: 1px solid #ececf1; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; align-items: center; }
+.dz-views { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center; }
+.dz-view { border: 1.5px solid #e5e5ea; background: #fff; color: #555; border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.dz-view.is-on { border-color: #8B5CF6; color: #8B5CF6; background: #f5f0ff; }
+
+.dz-canvas { position: relative; width: 100%; max-width: 460px; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.06); touch-action: none; user-select: none; }
+.dz-canvas__mock { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.dz-canvas__mock svg { width: 100%; height: 100%; display: block; }
+.dz-print { position: absolute; border: 1.5px dashed rgba(139,92,246,.55); border-radius: 6px; pointer-events: none; }
+.dz-print__tag { position: absolute; top: -10px; left: 8px; background: #8B5CF6; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
+
+.dz-layer { position: absolute; box-sizing: border-box; cursor: move; }
+.dz-layer img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
+.dz-layer__txt { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.15; word-break: break-word; white-space: pre-wrap; pointer-events: none; }
+.dz-layer.is-sel { outline: 2px solid #8B5CF6; outline-offset: 1px; }
+.dz-h { position: absolute; width: 14px; height: 14px; background: #fff; border: 2px solid #8B5CF6; border-radius: 50%; box-sizing: border-box; }
+.dz-h--se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+.dz-h--del { left: -9px; top: -9px; width: 20px; height: 20px; background: #ef4444; border-color: #fff; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; line-height: 1; }
+
+.dz-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #b7b7c0; font-size: 13px; font-weight: 600; text-align: center; padding: 0 24px; pointer-events: none; }
+
+/* 우측 패널 */
+.dz-panel { display: flex; flex-direction: column; gap: 14px; }
+.dz-card { background: #fff; border: 1px solid #ececf1; border-radius: 14px; padding: 14px; }
+.dz-card__t { font-size: 12px; font-weight: 800; color: #8a8a93; letter-spacing: .02em; text-transform: uppercase; margin-bottom: 10px; }
+.dz-tools { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dz-tool { display: flex; flex-direction: column; align-items: center; gap: 5px; border: 1.5px solid #e9e9ee; background: #fff; border-radius: 12px; padding: 12px 6px; font-size: 12px; font-weight: 700; color: #444; cursor: pointer; }
+.dz-tool:hover { border-color: #8B5CF6; color: #8B5CF6; }
+.dz-tool svg { width: 22px; height: 22px; }
+
+.dz-field { margin-bottom: 12px; }
+.dz-field:last-child { margin-bottom: 0; }
+.dz-field__l { font-size: 12px; font-weight: 700; color: #555; margin-bottom: 6px; display: block; }
+.dz-select, .dz-input { width: 100%; border: 1.5px solid #e5e5ea; border-radius: 10px; padding: 9px 10px; font-size: 14px; font-weight: 600; background: #fff; color: #1a1a1a; box-sizing: border-box; }
+.dz-select:focus, .dz-input:focus { outline: none; border-color: #8B5CF6; }
+.dz-row { display: flex; gap: 8px; }
+.dz-row > * { flex: 1; }
+
+.dz-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.dz-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #e0e0e6; cursor: pointer; }
+.dz-sw.is-on { box-shadow: 0 0 0 2px #8B5CF6; }
+
+/* 레이어 목록 */
+.dz-layers { display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+.dz-litem { display: flex; align-items: center; gap: 8px; border: 1.5px solid #eee; border-radius: 10px; padding: 6px 8px; cursor: pointer; background: #fff; }
+.dz-litem.is-sel { border-color: #8B5CF6; background: #f7f3ff; }
+.dz-litem__th { width: 30px; height: 30px; border-radius: 6px; background: #f1f1f4; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; overflow: hidden; font-size: 11px; color: #999; }
+.dz-litem__th img { width: 100%; height: 100%; object-fit: cover; }
+.dz-litem__n { flex: 1; font-size: 13px; font-weight: 600; color: #333; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.dz-litem__b { border: none; background: none; cursor: pointer; color: #aaa; padding: 4px; border-radius: 6px; font-size: 13px; }
+.dz-litem__b:hover { color: #ef4444; background: #fdecec; }
+.dz-litem__empty { font-size: 13px; color: #b0b0b8; text-align: center; padding: 14px 0; }
+
+/* 텍스트 속성 패널 */
+.dz-tprops { display: none; }
+.dz-tprops.is-on { display: block; }
+
+/* 완성 결과 / 불러오기 모달 */
+.dz-modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.dz-modal__box { background: #fff; border-radius: 18px; width: 100%; max-width: 520px; max-height: 88vh; overflow-y: auto; padding: 22px; }
+.dz-modal__t { font-size: 18px; font-weight: 800; margin-bottom: 4px; }
+.dz-modal__s { font-size: 13px; color: #777; margin-bottom: 16px; }
+.dz-modal__foot { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; flex-wrap: wrap; }
+.dz-result__img { width: 100%; border-radius: 12px; border: 1px solid #eee; background: #fafafa; display: block; }
+.dz-spin { width: 20px; height: 20px; border: 3px solid #ede7fb; border-top-color: #8B5CF6; border-radius: 50%; animation: dz-spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 8px; }
+@keyframes dz-spin { to { transform: rotate(360deg); } }
+.dz-status { display: flex; align-items: center; justify-content: center; gap: 8px; color: #555; font-size: 14px; font-weight: 600; padding: 26px 0; text-align: center; }
+
+.dz-saved { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (max-width: 480px) { .dz-saved { grid-template-columns: 1fr; } }
+.dz-saved__item { border: 1.5px solid #eee; border-radius: 12px; overflow: hidden; cursor: pointer; background: #fff; position: relative; }
+.dz-saved__item:hover { border-color: #8B5CF6; }
+.dz-saved__th { width: 100%; aspect-ratio: 1/1; object-fit: contain; background: #f6f6f8; display: block; }
+.dz-saved__meta { padding: 8px 10px; }
+.dz-saved__n { font-size: 13px; font-weight: 700; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dz-saved__d { font-size: 11px; color: #999; margin-top: 2px; }
+.dz-saved__del { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55); color: #fff; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; }
+.dz-saved__del:hover { background: #ef4444; }
+
+/* 토스트 */
+.dz-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(12px); background: #1c1c1e; color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; z-index: 10001; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; max-width: 90vw; text-align: center; }
+.dz-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+.dz-hint { font-size: 12px; color: #9a9aa2; margin-top: 8px; text-align: center; line-height: 1.5; }
