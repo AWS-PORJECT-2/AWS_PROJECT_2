@@ -310,3 +310,20 @@ export function createAdminLogAckHandler(pool: pg.Pool) {
     }
   };
 }
+
+/** POST /api/admin/logs/ack-all — 미확인 에러 로그 일괄 확인(로그 탭 진입 시 자동 호출, 알림식). 멱등. */
+export function createAdminLogAckAllHandler(pool: pg.Pool) {
+  return async (req: Request, res: Response): Promise<void> => {
+    try {
+      const result = await pool.query(
+        `UPDATE audit_logs SET acknowledged_at = NOW(), acknowledged_by = $1
+           WHERE level = 'error' AND acknowledged_at IS NULL`,
+        [req.userId ?? null],
+      );
+      res.json({ ok: true, acknowledged: result.rowCount ?? 0 });
+    } catch (err) {
+      logger.error({ err }, '관리자 로그 일괄 확인 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}

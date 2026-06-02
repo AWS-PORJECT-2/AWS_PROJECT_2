@@ -20,7 +20,7 @@ import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersListHandler, createAdminSetUserRoleHandler } from './routes/admin-users.js';
-import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminLogAckHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
+import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminLogAckHandler, createAdminLogAckAllHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
 import { PgReportRepository } from './repositories/pg-report-repository.js';
 import { createReportCreateHandler, createAdminReportsListHandler, createAdminReportResolveHandler } from './routes/reports-routes.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
@@ -408,6 +408,7 @@ export function createApp(
   // 사이드바 배지용 단일 대기 카운트 — 가벼운 COUNT 집계.
   app.get('/api/admin/pending-counts', authRequired, requireAdmin, createAdminPendingCountsHandler(pool));
   app.get('/api/admin/logs', authRequired, requireAdmin, createAdminLogsHandler(pool));
+  app.post('/api/admin/logs/ack-all', authRequired, requireAdmin, createAdminLogAckAllHandler(pool));
   app.post('/api/admin/logs/:id/ack', authRequired, requireAdmin, createAdminLogAckHandler(pool));
 
   // --- 신고(027_reports) — 사용자 접수 + 관리자 처리 ---

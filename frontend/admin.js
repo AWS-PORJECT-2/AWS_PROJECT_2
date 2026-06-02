@@ -1717,7 +1717,11 @@
     });
     panel.appendChild(chips);
     var slot = el('div', {}); panel.appendChild(slot);
-    loadLogs(slot, state.level);
+    // 알림처럼: 탭을 열면 먼저 목록을 보여준 뒤(새 에러는 적색) 미확인 에러를 자동 확인 처리 → 배지 0.
+    // 다음 방문부터 그 에러들은 흐리게(확인됨) 표시되고, 새로 들어온 것만 적색으로 부각.
+    loadLogs(slot, state.level).then(function () {
+      window.api.post('/admin/logs/ack-all', {}).then(function () { setBadgeFor('logs', 0); }).catch(function () {});
+    });
   }
 
   async function loadLogs(slot, level) {
@@ -1730,7 +1734,7 @@
       var wrap = el('div', { class: 'wza-tablewrap' });
       var table = el('table', { class: 'wza-table' });
       table.appendChild(el('thead', {}, el('tr', {},
-        el('th', {}, '시각'), el('th', {}, '레벨'), el('th', {}, '소스'), el('th', {}, '메시지'), el('th', { class: 'wza-table__right' }, '확인'))));
+        el('th', {}, '시각'), el('th', {}, '레벨'), el('th', {}, '소스'), el('th', {}, '메시지'))));
       var tbody = el('tbody', {});
       items.forEach(function (lg) { tbody.appendChild(logRow(lg)); });
       table.appendChild(tbody);
@@ -1766,26 +1770,9 @@
       msgTd.appendChild(box);
     }
     tr.appendChild(msgTd);
-
-    // 확인(ack): 확인 전엔 '확인' 버튼(미확인 에러는 적색 행 유지), 확인 후엔 흐린 행(is-ack)+'확인됨'.
-    // 에러를 확인하면 사이드 '로그·오류' 배지 -1 (알림처럼 감소).
-    var acked = !!lg.acknowledgedAt;
-    if (acked) tr.classList.add('is-ack');
-    var ackTd = el('td', { class: 'wza-table__right', style: 'white-space:nowrap' });
-    function showAcked() { ackTd.textContent = ''; ackTd.appendChild(el('span', { class: 'wza-badge wza-badge--ok' }, '확인됨')); }
-    if (acked) {
-      showAcked();
-    } else {
-      var ackBtn = el('button', { class: 'wza-btn wza-btn--outline', type: 'button', style: 'padding:6px 12px' }, '확인');
-      ackBtn.addEventListener('click', function () {
-        ackBtn.disabled = true; ackBtn.textContent = '확인 중…';
-        window.api.post('/admin/logs/' + encodeURIComponent(lg.id) + '/ack', {})
-          .then(function () { tr.classList.add('is-ack'); showAcked(); if (lvl === 'error') bumpBadge('logs', -1); })
-          .catch(function () { ackBtn.disabled = false; ackBtn.textContent = '확인(재시도)'; });
-      });
-      ackTd.appendChild(ackBtn);
-    }
-    tr.appendChild(ackTd);
+    // 알림식 확인: 이전에 본(확인된) 에러는 흐리게(is-ack, 적색 해제), 새로 들어온 에러는 적색.
+    // 확인은 탭을 여는 순간 자동 처리(renderLogs 에서 ack-all) — 별도 버튼 없음.
+    if (lg.acknowledgedAt) tr.classList.add('is-ack');
     return tr;
   }
 
