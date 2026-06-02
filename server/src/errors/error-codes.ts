@@ -5,6 +5,7 @@ export const ErrorCodes = {
   INVALID_EMAIL_DOMAIN: { httpStatus: 403, code: 'INVALID_EMAIL_DOMAIN', message: '허용된 학교 이메일 계정으로만 로그인 가능합니다' },
   MISSING_REQUIRED_FIELD: { httpStatus: 400, code: 'MISSING_REQUIRED_FIELD', message: '필수 필드가 누락되었습니다' },
   INVALID_INPUT: { httpStatus: 400, code: 'INVALID_INPUT', message: '요청 형식이 올바르지 않습니다' },
+  PAYLOAD_TOO_LARGE: { httpStatus: 413, code: 'PAYLOAD_TOO_LARGE', message: '요청 본문이 너무 큽니다' },
   INVALID_STATE: { httpStatus: 400, code: 'INVALID_STATE', message: '로그인 세션이 만료되었습니다. 다시 시도해주세요' },
   AUTH_FAILED: { httpStatus: 401, code: 'AUTH_FAILED', message: 'Google 인증에 실패했습니다' },
   TOKEN_EXPIRED: { httpStatus: 401, code: 'TOKEN_EXPIRED', message: '인증이 만료되었습니다' },

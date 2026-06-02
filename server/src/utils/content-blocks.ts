@@ -165,28 +165,34 @@ export function sanitizeStoryHtml(html: string, maxChars: number = MAX_HTML_CHAR
   if (s.length > maxChars * 2) s = s.slice(0, maxChars * 2);
 
   // 1) script/style 블록 + HTML 주석 제거(여닫이 사이 전부). 닫는 태그 없는 경우도 끝까지 제거.
-  s = s.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');
-  s = s.replace(/<script\b[^>]*>[\s\S]*$/gi, '');
-  s = s.replace(/<style\b[^>]*>[\s\S]*?<\/style\s*>/gi, '');
-  s = s.replace(/<style\b[^>]*>[\s\S]*$/gi, '');
+  // 속성부는 [^<>]* — 닫는 '>' 없는 입력에서 다음 '<' 전까지만 스캔해 2차 백트래킹을 막는다(아래 3) 동일).
+  s = s.replace(/<script\b[^<>]*>[\s\S]*?<\/script\s*>/gi, '');
+  s = s.replace(/<script\b[^<>]*>[\s\S]*$/gi, '');
+  s = s.replace(/<style\b[^<>]*>[\s\S]*?<\/style\s*>/gi, '');
+  s = s.replace(/<style\b[^<>]*>[\s\S]*$/gi, '');
   s = s.replace(/<!--[\s\S]*?-->/g, '');
   // CDATA/처리지시 등 잔재 제거.
   s = s.replace(/<![\s\S]*?>/g, '');
   s = s.replace(/<\?[\s\S]*?\?>/g, '');
 
   // 2) 위험 iframe(여닫이) 통째 제거 — src 가 화이트리스트 아니면.
-  s = s.replace(/<iframe\b([^>]*)>([\s\S]*?)<\/iframe\s*>/gi, (full, attrs: string) => {
+  s = s.replace(/<iframe\b([^<>]*)>([\s\S]*?)<\/iframe\s*>/gi, (full, attrs: string) => {
     const src = extractAttrValue(attrs, 'src');
     return src && IFRAME_SRC_OK.test(decodeAttr(src)) ? full : '';
   });
   // 닫는 태그 없는 iframe 도 src 검증.
-  s = s.replace(/<iframe\b([^>]*)\/?>/gi, (full, attrs: string) => {
+  s = s.replace(/<iframe\b([^<>]*)\/?>/gi, (full, attrs: string) => {
     const src = extractAttrValue(attrs, 'src');
     return src && IFRAME_SRC_OK.test(decodeAttr(src)) ? full : '';
   });
 
   // 3) 모든 태그 토큰 순회.
-  s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9-]*)\b((?:[^>"']|"[^"]*"|'[^']*')*)\/?>/g, (full, rawName: string, attrs: string) => {
+  // 속성부는 [^<>]* 로 캡처한다(다음 '<'·'>' 전까지만). 과거 ((?:[^>"']|"[^"]*"|'[^']*')*) 나 단순
+  // [^>]* 는 닫는 '>' 없는 입력(예: '<a href="x" ' 반복)에서 매 '<' 마다 끝까지 재스캔 → 2차(quadratic)
+  // 백트래킹으로 수백KB 입력만으로 이벤트루프를 수초~수십초 정지시키는 DoS였다. '<' 도 경계로 두면 각
+  // 토큰 스캔이 다음 '<' 까지로 제한돼 전체 선형이 된다. base64 인라인 이미지는 '<'/'>' 가 없어 영향 없음.
+  // 속성값 안의 '<'/'>'(비표준·엔티티 인코딩 권장)는 보존 안 되지만 sanitizeAttributes 재파싱으로 안전.
+  s = s.replace(/<\/?([a-zA-Z][a-zA-Z0-9-]*)\b([^<>]*)\/?>/g, (full, rawName: string, attrs: string) => {
     const name = rawName.toLowerCase();
     const isClose = full[1] === '/';
     if (!HTML_ALLOWED_TAGS.has(name)) return ''; // 비허용 태그: 태그만 제거(내부 텍스트는 그대로 남음)
@@ -218,7 +224,7 @@ function extractAttrValue(attrStr: string, attr: string): string {
 function htmlHasContent(html: string): boolean {
   if (/<(img|iframe|video|audio)\b/i.test(html)) return true;
   const text = html
-    .replace(/<[^>]*>/g, '')
+    .replace(/<[^<>]*>/g, '')
     .replace(/&nbsp;|&#160;|&#xa0;/gi, ' ')
     .replace(/&[a-z]+;|&#\d+;|&#x[0-9a-f]+;/gi, '')
     .replace(/[\s\u00a0]+/g, '');

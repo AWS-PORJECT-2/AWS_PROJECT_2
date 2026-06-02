@@ -217,12 +217,21 @@ export function createApp(
   app.use(compression());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
 
-  // 웹훅은 raw body가 필요하므로 전역 JSON 파서보다 먼저 등록 (아래에서 등록)
-  // 웹훅 외 라우트용 JSON 파서 — webhook 경로는 제외
+  // 웹훅은 raw body가 필요하므로 전역 JSON 파서보다 먼저 등록 (아래 express.raw 로 등록)
+  // 라우트별 JSON 바디 한도 — 기본은 작게(256kb), data URL(영상/이미지)·임시저장만 크게.
+  //  과거엔 전역 50mb 라서 /api/auth/* 등 "무인증·바디 거의 안 읽는" 공개 엔드포인트까지 최대 50MB 를
+  //  버퍼링·JSON.parse 하는 DoS 증폭 표면이 됐다(rate-limit 보다 바디 파서가 먼저 도므로 한도 전 차단도 못 함).
+  //  이제 큰 바디가 실제로 필요한 라우트만 상향하고 나머지는 256kb 로 막는다.
+  const json50mb = express.json({ limit: '50mb' });   // 대표 영상(data URL ~36MB) + 만들기 임시저장(data JSONB)
+  const json12mb = express.json({ limit: '12mb' });   // 게시판 글(인라인 압축 이미지)
+  const json256kb = express.json({ limit: '256kb' }); // 그 외 전부(인증/댓글/좋아요/메타 JSON)
+  const needsLargeBody = (p: string): boolean =>
+    p === '/api/funds' || p === '/api/me'
+    || p.startsWith('/api/me/funds') || p.startsWith('/api/me/drafts') || p.startsWith('/api/admin/funds');
   app.use((req, res, next) => {
-    if (req.path === '/api/payments/webhook') return next();
-    // 대표 영상(video data URL) + 만들기 폼 임시저장(data JSONB) 이 커서 50mb 로 상향.
-    express.json({ limit: '50mb' })(req, res, next);
+    if (req.path === '/api/payments/webhook') return next(); // raw 파서가 별도 처리
+    const parser = needsLargeBody(req.path) ? json50mb : (req.path === '/api/board/posts' ? json12mb : json256kb);
+    parser(req, res, next);
   });
   app.use(cookieParser());
 

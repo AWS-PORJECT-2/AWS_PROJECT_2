@@ -51,14 +51,18 @@ export class PgBoardRepository implements BoardRepository {
     if (opts.category) { params.push(opts.category); where.push(`p.category = $${params.length}`); }
     if (opts.before) { params.push(opts.before); where.push(`p.created_at < $${params.length}`); }
     params.push(Math.min(Math.max(opts.limit, 1), 50));
+    // 목록은 가벼운 컬럼만 — content_blocks/media(글당 최대 수 MB의 base64)를 절대 싣지 않는다.
+    // 카드 스니펫은 평문 body(migration 035가 목록/검색용으로 만든 컬럼)로 충분하고, 전체 본문/미디어는
+    // getPost(상세)에서만 반환한다. (공개·무제한 GET 에 MB급 행을 곱해 보내던 자초 DoS/대역폭 낭비 차단.)
     const result = await this.pool.query(
-      `SELECT p.id, p.category, p.title, p.body, p.content_blocks, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+      `SELECT p.id, p.category, p.title, p.body, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
          FROM board_posts p JOIN "user" u ON u.id = p.author_id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY p.created_at DESC
         LIMIT $${params.length}`,
       params,
     );
+    // toPost 는 누락된 content_blocks/media 를 [] 로 매핑 — 목록 응답은 자연히 경량화된다.
     return result.rows.map(toPost);
   }
 

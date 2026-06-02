@@ -20,6 +20,20 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     return;
   }
 
+  // body-parser(express.json/raw) 오류 — 전부 클라이언트 입력 문제다. 5xx(=감사로그 소음)로 새지 않게 정리.
+  //  entity.too.large → 413(본문이 라우트 한도 초과), entity.parse.failed/charset → 400(깨진 JSON).
+  const bodyErr = err as { type?: string; status?: number; statusCode?: number };
+  if (bodyErr?.type === 'entity.too.large' || bodyErr?.status === 413 || bodyErr?.statusCode === 413) {
+    const tooLarge = new AppError('PAYLOAD_TOO_LARGE');
+    res.status(tooLarge.httpStatus).json(createErrorResponse(tooLarge));
+    return;
+  }
+  if (bodyErr?.type === 'entity.parse.failed' || bodyErr?.type === 'charset.unsupported' || bodyErr?.type === 'encoding.unsupported') {
+    const bad = new AppError('INVALID_INPUT');
+    res.status(bad.httpStatus).json(createErrorResponse(bad));
+    return;
+  }
+
   // Postgres 형변환/길이 오류 — 잘못된 :id(비-UUID)·과대 입력 등 클라이언트 입력. 500 누출 대신 400 으로 정리.
   //  22P02 invalid_text_representation, 22003 numeric_value_out_of_range, 22001 string_data_right_truncation(컬럼 길이 초과).
   const pgCode = (err as { code?: string })?.code;
