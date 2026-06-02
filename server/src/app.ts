@@ -71,6 +71,7 @@ import {
   createMeDraftUpdateHandler, createMeDraftDeleteHandler,
 } from './routes/me-drafts.js';
 import { createDesignsRouter } from './routes/designs.js';
+import { createLibraryListHandler, createLibraryAddHandler, createLibraryDeleteHandler } from './routes/library.js';
 import { PgProjectDraftRepository } from './repositories/pg-project-draft-repository.js';
 import { PgNotificationRepository } from './repositories/pg-notification-repository.js';
 import {
@@ -230,6 +231,7 @@ export function createApp(
     p === '/api/funds' || p === '/api/me'
     || p.startsWith('/api/me/funds') || p.startsWith('/api/me/drafts') || p.startsWith('/api/admin/funds')
     || p.startsWith('/api/me/designs') // 디자인하기 저장(레이어 이미지 data URL + 미리보기)로 커질 수 있음
+    || p.startsWith('/api/admin/library') // 라이브러리 관리자 업로드(data URL)
     || p.startsWith('/api/ai'); // AI 가상피팅/전시: 디자인 합성 이미지(data URL) 업로드 — 256kb 초과 가능
   // 게시판 글 작성(POST /posts) + 수정(PATCH /posts/:id) 은 인라인 압축 이미지로 커질 수 있어 12mb.
   //  단 댓글(/posts/:id/comments)은 256kb 유지 — 글 본문 경로만 매칭(:id 뒤 추가 세그먼트 없음).
@@ -426,6 +428,11 @@ export function createApp(
 
   // 디자인하기 에디터 저장소(본인 디자인 CRUD) — 프로필에서 이어서/불러오기/다운로드.
   app.use('/api/me/designs', createDesignsRouter(pool, authRequired, writeRateLimit));
+
+  // 디자인하기 라이브러리(무료 디자인 + 자수 패치) — 공개 목록 + 관리자 추가/삭제.
+  app.get('/api/library', createLibraryListHandler(pool));
+  app.post('/api/admin/library', authRequired, requireAdmin, writeRateLimit, createLibraryAddHandler(pool));
+  app.delete('/api/admin/library/:id', authRequired, requireAdmin, createLibraryDeleteHandler(pool));
   app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
   app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
   app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));

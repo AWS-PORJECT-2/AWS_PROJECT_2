@@ -525,14 +525,62 @@
     var imgIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></svg>';
     var txtIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8"><path d="M4 6V4h16v2"/><path d="M12 4v16"/><path d="M9 20h6"/></svg>';
 
+    var freeIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19l1-5.8L3.5 9.2l5.9-.9z"/></svg>';
+    var patchIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="#8B5CF6" stroke-width="1.8"><rect x="4" y="4" width="16" height="16" rx="4" stroke-dasharray="3 2"/><path d="M9 9h6M9 13h6"/></svg>';
     var imgTool = el('button', { class: 'dz-tool', type: 'button' }, el('span', { html: imgIcon }), '이미지 업로드');
     imgTool.addEventListener('click', pickImage);
     var txtTool = el('button', { class: 'dz-tool', type: 'button' }, el('span', { html: txtIcon }), '텍스트 추가');
     txtTool.addEventListener('click', addText);
+    var freeTool = el('button', { class: 'dz-tool', type: 'button' }, el('span', { html: freeIcon }), '무료 디자인');
+    freeTool.addEventListener('click', function () { openLibrary('free'); });
+    var patchTool = el('button', { class: 'dz-tool', type: 'button' }, el('span', { html: patchIcon }), '자수 패치');
+    patchTool.addEventListener('click', function () { openLibrary('patch'); });
 
-    tools.append(imgTool, txtTool);
+    tools.append(imgTool, txtTool, freeTool, patchTool);
     card.appendChild(tools);
     return card;
+  }
+  // 라이브러리 picker — 무료 디자인 / 자수 패치 그리드에서 선택 → 이미지 레이어로 추가.
+  function openLibrary(kind) {
+    var title = kind === 'patch' ? '자수 패치' : '무료 디자인';
+    var overlay = el('div', { class: 'dz-modal' });
+    var box = el('div', { class: 'dz-modal__box' });
+    box.append(el('div', { class: 'dz-modal__t' }, title), el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), '불러오는 중…'));
+    overlay.appendChild(box);
+    overlay.addEventListener('pointerdown', function (e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+    window.api.get('/library?kind=' + kind).then(function (res) {
+      var items = (res && res.items) || [];
+      box.replaceChildren(el('div', { class: 'dz-modal__t' }, title));
+      if (!items.length) { box.appendChild(el('div', { class: 'dz-status' }, '아직 등록된 항목이 없어요.')); }
+      else {
+        var grid = el('div', { class: 'dz-libgrid' });
+        items.forEach(function (it) {
+          var cell = el('button', { class: 'dz-libcell', type: 'button', title: it.name }, el('img', { src: it.image, alt: it.name, loading: 'lazy' }));
+          cell.addEventListener('click', function () { addLibraryAsset(it.image); overlay.remove(); });
+          grid.appendChild(cell);
+        });
+        box.appendChild(grid);
+      }
+      box.appendChild(el('div', { class: 'dz-modal__foot' }, btn('닫기', 'outline', function () { overlay.remove(); })));
+    }).catch(function () {
+      box.replaceChildren(el('div', { class: 'dz-modal__t' }, title), el('div', { class: 'dz-status' }, '불러오지 못했어요.'),
+        el('div', { class: 'dz-modal__foot' }, btn('닫기', 'outline', function () { overlay.remove(); })));
+    });
+  }
+  function addLibraryAsset(src) {
+    var im = new Image();
+    im.onload = function () {
+      var pr = printRect();
+      var natAR = (im.naturalHeight || 1) / (im.naturalWidth || 1);
+      var w = Math.min(pr.w * 0.55, 28);
+      var hPct = w * canvasAspect() * natAR;
+      var L = { id: 'L' + (++S.seq), type: 'image', src: src, x: pr.l + pr.w / 2, y: pr.t + pr.h / 2, w: w, h: hPct, ar: natAR };
+      imgCache[L.id] = im;
+      pushHistory(); cvLayers().push(L); S.sel = L.id; render();
+    };
+    im.onerror = function () { toast('이미지를 불러오지 못했어요'); };
+    im.src = src;
   }
 
   // ---- 옵션 카드(상품/색/사이즈/수량) ----------------------------------------

@@ -113,6 +113,13 @@
 .dz-saved__del { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55); color: #fff; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; }
 .dz-saved__del:hover { background: #ef4444; }
 
+/* 라이브러리 picker 그리드 */
+.dz-libgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 8px; }
+@media (max-width: 480px) { .dz-libgrid { grid-template-columns: repeat(4, 1fr); } }
+.dz-libcell { aspect-ratio: 1/1; border: 1.5px solid #ececf1; border-radius: 12px; background: #fafafa; cursor: pointer; padding: 10px; display: flex; align-items: center; justify-content: center; }
+.dz-libcell:hover { border-color: #8B5CF6; background: #f5f0ff; }
+.dz-libcell img { max-width: 100%; max-height: 100%; object-fit: contain; }
+
 /* 토스트 */
 .dz-toast { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(12px); background: #1c1c1e; color: #fff; padding: 11px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; z-index: 10001; opacity: 0; transition: opacity .18s, transform .18s; pointer-events: none; max-width: 90vw; text-align: center; }
 .dz-toast.is-on { opacity: 1; transform: translateX(-50%) translateY(0); }

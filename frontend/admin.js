@@ -51,6 +51,7 @@
     chat:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9.9 9.9 0 0 1-4-1L3 20l1.1-4A8.4 8.4 0 1 1 21 11.5z"/></svg>',
     shield:  '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
     box:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M21 16V8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+    lib:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9 6.8 19l1-5.8L3.5 9.2l5.9-.9z"/></svg>',
     chev:    '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>',
     proxy:   '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg>',
     img:     '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>',
@@ -103,6 +104,7 @@
     { id: 'ordercancels', label: '펀딩 취소', icon: 'cancel', render: renderOrderCancels },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
+    { id: 'library',   label: '디자인·패치', icon: 'lib',   render: renderLibrary },
     { id: 'reports',   label: '신고',      icon: 'flag',    render: renderReports },
     { id: 'chat',      label: '문의 채팅', icon: 'chat',    render: renderChat },
     { id: 'logs',      label: '로그·오류', icon: 'logs',    render: renderLogs },
@@ -1782,6 +1784,67 @@
   /* ============================================================
    * 8) 로그·오류
    * ============================================================ */
+  // 디자인하기 라이브러리 관리 — 무료 디자인 / 자수 패치 추가·삭제.
+  function renderLibrary(panel) {
+    panel.appendChild(panelHead('디자인 · 패치 관리', '디자인하기 에디터의 "무료 디자인"·"자수 패치"를 추가/삭제합니다. 배경 투명 PNG 권장(5MB 미만).'));
+    var state = { kind: 'free' };
+    var KINDS = [{ k: 'free', label: '무료 디자인' }, { k: 'patch', label: '자수 패치' }];
+    var chips = el('div', { class: 'wza-chips' });
+    KINDS.forEach(function (t) {
+      var chip = el('button', { class: 'wza-chip' + (t.k === state.kind ? ' is-active' : ''), type: 'button' }, t.label);
+      chip.addEventListener('click', function () {
+        state.kind = t.k;
+        chips.querySelectorAll('.wza-chip').forEach(function (c) { c.classList.remove('is-active'); });
+        chip.classList.add('is-active'); load();
+      });
+      chips.appendChild(chip);
+    });
+    panel.appendChild(chips);
+
+    var form = el('div', { class: 'wza-libform' });
+    var nameIn = el('input', { class: 'wza-input', type: 'text', placeholder: '이름(예: 별, A 패치)', maxlength: '40' });
+    var fileIn = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp,image/svg+xml', class: 'wza-libfile' });
+    var addBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '추가');
+    addBtn.addEventListener('click', function () {
+      var f = fileIn.files && fileIn.files[0];
+      if (!f) { alert('이미지를 선택해 주세요'); return; }
+      if (f.size > 5 * 1024 * 1024) { alert('이미지는 5MB 미만만 가능합니다'); return; }
+      var fr = new FileReader();
+      fr.onload = function () {
+        addBtn.disabled = true;
+        window.api.post('/admin/library', { kind: state.kind, name: nameIn.value.trim(), image: fr.result })
+          .then(function () { nameIn.value = ''; fileIn.value = ''; load(); })
+          .catch(function (e) { alert('추가 실패: ' + ((e && e.message) || '오류')); })
+          .finally(function () { addBtn.disabled = false; });
+      };
+      fr.onerror = function () { alert('이미지를 읽지 못했습니다'); };
+      fr.readAsDataURL(f);
+    });
+    form.append(nameIn, fileIn, addBtn);
+    panel.appendChild(form);
+
+    var slot = el('div', {}); panel.appendChild(slot);
+    function load() {
+      slot.replaceChildren(el('div', { class: 'wza-muted' }, '불러오는 중…'));
+      window.api.get('/library?kind=' + state.kind).then(function (res) {
+        var items = (res && res.items) || [];
+        slot.replaceChildren();
+        if (!items.length) { slot.appendChild(el('div', { class: 'wza-muted' }, '등록된 항목이 없어요. 위에서 추가하세요.')); return; }
+        var grid = el('div', { class: 'wza-libgrid' });
+        items.forEach(function (it) {
+          var cell = el('div', { class: 'wza-libitem' });
+          cell.append(el('div', { class: 'wza-libimg' }, el('img', { src: it.image, alt: it.name || '', loading: 'lazy' })), el('div', { class: 'wza-libname' }, it.name || ''));
+          var del = el('button', { class: 'wza-libdel', type: 'button', title: '삭제' }, '×');
+          del.addEventListener('click', function () { if (!confirm('「' + (it.name || '') + '」 삭제할까요?')) return; window.api.del('/admin/library/' + it.id).then(load).catch(function () { alert('삭제 실패'); }); });
+          cell.appendChild(del);
+          grid.appendChild(cell);
+        });
+        slot.appendChild(grid);
+      }).catch(function () { slot.replaceChildren(el('div', { class: 'wza-muted' }, '불러오지 못했어요.')); });
+    }
+    load();
+  }
+
   function renderLogs(panel) {
     panel.appendChild(panelHead('로그·오류', '시스템 감사 로그(audit_logs)를 최신순으로 봅니다. 오류는 적색으로 강조됩니다.'));
     var state = { level: 'all' };
