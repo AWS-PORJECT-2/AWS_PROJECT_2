@@ -19,6 +19,19 @@
 (function () {
   if (window.WZConsent) return;
 
+  // 안전망: 이 스크립트를 로드한 페이지에 wz-consent.css 가 없으면 주입한다.
+  //  (없으면 동의/약관 모달 .wzc-over 가 position:fixed/z-index 없이 페이지 흐름 밖에 무스타일 렌더되고,
+  //   overflow:hidden 으로 스크롤도 막혀 '동의하고 계속' 버튼에 도달 불가 → 배송지 저장이 '저장 중...'
+  //   상태로 무한대기하던 버그. board/feed/main/settings 등 일부 페이지가 JS만 로드했었음.)
+  try {
+    if (!document.querySelector('link[href*="wz-consent.css"]')) {
+      var _css = document.createElement('link');
+      _css.rel = 'stylesheet';
+      _css.href = 'wz-consent.css';
+      (document.head || document.documentElement).appendChild(_css);
+    }
+  } catch (_) { /* 무시 — 주입 실패해도 동작엔 영향 없게 */ }
+
   var ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
   var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
   var ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg>';
