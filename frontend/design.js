@@ -25,21 +25,21 @@
   function pr(l, t, w, h) { return { l: l, t: t, w: w, h: h }; }
   // 인쇄영역(캔버스 대비 %)은 실제 목업 이미지의 제품 위치를 픽셀 분석 + 시각 검수로 맞춤.
   var PRODUCTS = {
-    jacket: { type: 'apparel', items: [
+    jacket: { type: 'apparel', tint: true, items: [
       { name: '바시티 자켓', img: 'varsity_jacket', views: AP,
         print: { front: pr(31, 23, 38, 56), back: pr(29, 18, 42, 62), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
-    hoodie: { type: 'apparel', items: [
+    hoodie: { type: 'apparel', tint: true, items: [
       { name: '후드티', img: 'hoodie', views: AP,
         print: { front: pr(31, 41, 38, 39), back: pr(30, 18, 40, 60), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
       { name: '맨투맨', img: 'sweatshirt', views: AP,
         print: { front: pr(30, 22, 40, 58), back: pr(29, 22, 42, 57), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
-    tshirt: { type: 'apparel', items: [
+    tshirt: { type: 'apparel', tint: true, items: [
       { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
         print: { front: pr(29, 18, 42, 66), back: pr(29, 17, 42, 68), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
     ] },
-    ecobag: { type: 'goods', items: [
+    ecobag: { type: 'goods', tint: true, items: [
       { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
     ] },
     keyring: { type: 'goods', items: [
@@ -57,13 +57,13 @@
     badge: { type: 'goods', items: [
       { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 32, 48, 36) } },
     ] },
-    tumbler: { type: 'goods', items: [
+    tumbler: { type: 'goods', tint: true, items: [
       { name: '텀블러', img: 'tumbler', views: ['front', 'left', 'right', 'wrap'],
         print: { front: pr(37, 20, 24, 54), left: pr(36, 20, 24, 55), right: pr(38, 20, 24, 54), wrap: pr(10, 34, 80, 32) } },
       { name: '머그컵', img: 'mug', views: ['front', 'left', 'right'],
         print: { front: pr(34, 34, 28, 30), left: pr(33, 33, 32, 32), right: pr(33, 33, 32, 32) } },
     ] },
-    fabric: { type: 'goods', items: [
+    fabric: { type: 'goods', tint: true, items: [
       { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
     doll: { type: 'goods', items: [
@@ -79,6 +79,7 @@
   function catDef(slug) { return PRODUCTS[slug] || PRODUCTS.etc; }
   function curItem() { return catDef(S.slug).items[S.itemIdx] || catDef(S.slug).items[0]; }
   function isApparel() { return catDef(S.slug).type === 'apparel'; }
+  function tintable() { return catDef(S.slug).tint === true; } // 색이 필요한 제품(의류·에코백·텀블러/머그·담요)만 실시간 색칠
 
   // 색상 팔레트(주문 옵션용 메타데이터 — 사진 목업은 흰색 기준이라 색을 시각적으로 바꾸진 않음)
   var COLORS = [
@@ -289,7 +290,7 @@
       s.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mockSvg());
       return;
     }
-    var tintOn = isApparel() && !isWhite(color);
+    var tintOn = tintable() && !isWhite(color);
     var msrc = maskSrc(view);
     loadImg2(src, function (base) {
       if (stale() || !base) return;
@@ -346,19 +347,21 @@
     });
     if (prodItems.length > 1) card.appendChild(field('상품', prodSel));
 
-    // 색상 — 의류는 실시간으로 옷 색이 바뀜(마스크+multiply). 굿즈는 주문 옵션 메타.
-    var sw = el('div', { class: 'dz-swatches' });
-    COLORS.forEach(function (c) {
-      var d = el('div', { class: 'dz-sw' + (c.hex === S.color ? ' is-on' : ''), title: c.name, style: 'background:' + c.hex });
-      d.addEventListener('click', function () {
-        S.color = c.hex;
-        sw.querySelectorAll('.dz-sw').forEach(function (n) { n.classList.remove('is-on'); });
-        d.classList.add('is-on');
-        repaintMock();                                        // 의류: 옷 색 실시간 반영 / SVG 폴백도 갱신
+    // 색상 — 색이 필요한 제품(tintable)만 노출 + 실시간 색 변경. 그 외(키링·스티커 등)는 색 옵션 숨김.
+    if (tintable()) {
+      var sw = el('div', { class: 'dz-swatches' });
+      COLORS.forEach(function (c) {
+        var d = el('div', { class: 'dz-sw' + (c.hex === S.color ? ' is-on' : ''), title: c.name, style: 'background:' + c.hex });
+        d.addEventListener('click', function () {
+          S.color = c.hex;
+          sw.querySelectorAll('.dz-sw').forEach(function (n) { n.classList.remove('is-on'); });
+          d.classList.add('is-on');
+          repaintMock(); // 실시간 옷/제품 색 반영
+        });
+        sw.appendChild(d);
       });
-      sw.appendChild(d);
-    });
-    card.appendChild(field('색상', sw));
+      card.appendChild(field('색상', sw));
+    }
 
     // 사이즈(의류만) + 수량
     var row = el('div', { class: 'dz-row' });
@@ -634,7 +637,7 @@
       var ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CW, CH);
       var msrc = maskSrc(view);
-      var tinted = isApparel() && !isWhite(S.color);
+      var tinted = tintable() && !isWhite(S.color);
 
       drawBase(function () { loadMask(function (maskImg) { tintThenLayers(maskImg); }); });
 
