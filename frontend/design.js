@@ -1023,16 +1023,26 @@
   }
 
   // 왼쪽: AI 디자인 보기 — 합성 디자인 → /ai/blueprint(AI 의상/제품 이미지). 성공 시 가상피팅 잠금 해제.
+  // 디자인 있는 모든 면(앞/뒤/좌/우/넥)을 합성해 배열로 반환 — AI 에 전부 전달(blueprint 최대 5장).
+  function compositeArtViews(pxW) {
+    var withArt = views().filter(function (v) { return (S.views[v] || []).length > 0; });
+    var list = (withArt.length ? withArt : [primaryView()]).slice(0, 5);
+    return Promise.all(list.map(function (v) { return composite(v, pxW); })).then(function (urls) {
+      return { urls: urls, faces: list };
+    });
+  }
   function runAiDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
     var apparel = isApparel();
-    var m = aiModal('AI 디자인 생성', '디자인을 실제 ' + (apparel ? '의상' : (S.product || '굿즈')) + ' 이미지로 만들어요.');
-    composite(primaryView(), 1000).then(function (designUrl) {
-      // 저장도 겸함(완성본 보존)
-      var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: designUrl };
+    var m = aiModal('AI 디자인 생성', '앞·뒤·양옆 등 디자인한 모든 면을 AI 에 보내 실제 ' + (apparel ? '의상' : (S.product || '굿즈')) + '을 만들어요.');
+    compositeArtViews(1000).then(function (r) {
+      var urls = r.urls;
+      // 저장도 겸함(완성본 보존). 앞면(대표) 미리보기.
+      var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: urls[0] };
       (S.designId ? window.api.patch('/me/designs/' + S.designId, saveBody) : window.api.post('/me/designs', saveBody))
-        .then(function (r) { if (r && r.id) S.designId = r.id; }).catch(function () {});
-      return window.api.post('/ai/blueprint', { imageDataUrls: [designUrl], category: S.slug });
+        .then(function (rr) { if (rr && rr.id) S.designId = rr.id; }).catch(function () {});
+      // 모든 면 이미지 + 어떤 면인지(faces) 함께 전달.
+      return window.api.post('/ai/blueprint', { imageDataUrls: urls, faces: r.faces, category: S.slug, product: S.product });
     }).then(function (res) {
       var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
       if (!url) throw new Error('NO_RESULT');
