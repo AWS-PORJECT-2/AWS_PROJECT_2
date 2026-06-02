@@ -120,6 +120,21 @@
 .dz-desc-photo__plus { font-size: 22px; font-weight: 400; line-height: 1; }
 .dz-describe__go { width: 100%; margin-top: 18px; }
 
+/* 하단 AI 영역 — 도면 | 가상피팅 (인라인 결과) */
+.dz-aisec { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-top: 22px; }
+@media (max-width: 760px) { .dz-aisec { grid-template-columns: 1fr; } }
+.dz-aisec__col { background: #fff; border: 1px solid #ececf1; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; }
+.dz-aisec__t { font-size: 16px; font-weight: 800; color: #1a1a1a; }
+.dz-aisec__s { font-size: 13px; color: #777; margin: 6px 0 14px; line-height: 1.55; }
+.dz-aisec .dz-row { margin-bottom: 12px; }
+.dz-aisec__go { width: 100%; }
+.dz-aiout { margin-top: 14px; }
+.dz-aiout:empty { display: none; }
+.dz-aiout__img { width: 100%; border-radius: 12px; border: 1px solid #eee; background: #fafafa; display: block; }
+.dz-aiout__foot { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.dz-aiout__foot .wz-btn { flex: 1 1 0; min-width: 0; }
+.dz-aisec__go.is-locked, .dz-aisec__go:disabled { opacity: .5; cursor: not-allowed; }
+
 /* 완성 영역 — 완성하기(전체폭) + 아래 좌/우 AI 디자인 보기 | 가상피팅 보기 */
 .dz-finishwrap { display: flex; flex-direction: column; gap: 8px; }
 .dz-finishwrap .dz-complete { width: 100%; }

@@ -91,15 +91,16 @@ function buildTryOnPrompt(modelType: string, background: string, category: strin
     );
   }
 
-  // 의류(과잠/후드티/반팔티): 모델이 착용한 앞/뒤 2분할.
+  // 의류(과잠/후드티/반팔티): 모델이 착용한 앞/뒤 2분할. 얼굴은 안 나오게(어깨 윗부분 크롭).
   return (
     'The attached image(s) are reference photos of ONE garment design (clothing). If multiple photos are attached, treat them as different views/details of the SAME garment. Generate ONE photorealistic image of ' + who +
     ' wearing that exact garment, shown in two halves side-by-side:\n' +
-    '- LEFT half: the student facing the camera (front of the garment visible).\n' +
-    '- RIGHT half: the SAME student with their back to the camera (back of the garment visible).\n\n' +
-    'Background: ' + bg + ' — identical in both halves. Same body, hair, lighting and framing in both halves; only the camera angle differs. Show from head to waist.\n' +
+    '- LEFT half: the body facing the camera (front of the garment visible).\n' +
+    '- RIGHT half: the SAME body with their back to the camera (back of the garment visible).\n\n' +
+    'IMPORTANT: do NOT show the person\'s face or head. Crop the frame just below the shoulders so the head/face is OUT of frame — show only from the shoulders/upper chest down to the waist. No face, no hair, no neck-up.\n' +
+    'Background: ' + bg + ' — identical in both halves. Same body, lighting and framing in both halves; only the camera angle differs.\n' +
     'The garment MUST match the attached design EXACTLY: same colors, logos, lettering, patterns, sleeve color contrast — do not invent or omit any detail.\n' +
-    'Crop tight, minimal whitespace at top and bottom. Output exactly ONE image.'
+    'Crop tight, minimal whitespace. Output exactly ONE image.'
   );
 }
 

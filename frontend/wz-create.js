@@ -525,6 +525,8 @@
     );
     wrap.appendChild(head);
 
+    // 디자인하기 지원 여부 — 웹·앱/기타(type none)는 미지원.
+    function canDesign(slug) { return !!slug && (typeof window.dtCategoryType !== 'function' || window.dtCategoryType(slug) !== 'none'); }
     var grid = W.el('div', { class: 'wc-catgrid' });
     var nextBtn, designBtn;
     (window.DT_CATEGORIES || []).forEach(function (c) {
@@ -538,7 +540,7 @@
         grid.querySelectorAll('.wc-catcard').forEach(function (x) { x.classList.remove('is-on'); x.setAttribute('aria-pressed', 'false'); });
         card.classList.add('is-on'); card.setAttribute('aria-pressed', 'true');
         if (nextBtn) nextBtn.disabled = !nstate.category;
-        if (designBtn) designBtn.disabled = !nstate.category;
+        if (designBtn) { designBtn.disabled = !canDesign(nstate.category); designBtn.title = (nstate.category && !canDesign(nstate.category)) ? '웹·앱/기타는 디자인하기를 지원하지 않아요' : ''; }
       });
       grid.appendChild(card);
     });
@@ -547,11 +549,11 @@
     var actions = W.el('div', { class: 'wc-pick__actions' });
     var backBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wz-btn--lg', type: 'button' }, '이전');
     backBtn.addEventListener('click', renderPick);
-    // 디자인하기 — 선택 카테고리의 상품 위에 직접 디자인하는 에디터로 이동.
+    // 디자인하기 — 선택 카테고리의 상품 위에 직접 디자인. 웹·앱/기타(type none)는 미지원 → 잠금.
     designBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--lg', type: 'button' }, '디자인하기');
-    designBtn.disabled = !nstate.category;
+    designBtn.disabled = !canDesign(nstate.category);
     designBtn.addEventListener('click', function () {
-      if (!nstate.category) { toast('카테고리를 먼저 선택해 주세요'); return; }
+      if (!canDesign(nstate.category)) { toast(nstate.category ? '웹·앱/기타는 디자인하기를 지원하지 않아요' : '카테고리를 먼저 선택해 주세요'); return; }
       location.href = '/design.html?category=' + encodeURIComponent(nstate.category);
     });
     nextBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '다음');

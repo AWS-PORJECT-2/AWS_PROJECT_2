@@ -71,10 +71,10 @@
     accessory: { type: 'goods', mode: 'describe', items: [
       { name: '액세서리', img: 'accessory', views: ['front'], print: { front: pr(32, 26, 36, 40) } },
     ] },
-    webapp: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
-    etc: { type: 'none', items: [{ name: '커스텀 굿즈', img: null, views: ['front'], print: { front: pr(22, 22, 56, 56) } }] },
+    // 웹·앱, 기타(type 'none')는 디자인하기 미지원 — PRODUCTS 에서 제외(에디터 안 열림).
   };
-  function catDef(slug) { return PRODUCTS[slug] || PRODUCTS.etc; }
+  function catDef(slug) { return PRODUCTS[slug] || PRODUCTS.tshirt; }
+  function supportsDesign(slug) { return !!PRODUCTS[slug]; }
   function curItem() { return catDef(S.slug).items[S.itemIdx] || catDef(S.slug).items[0]; }
   function isApparel() { return catDef(S.slug).type === 'apparel'; }
   function tintable() { return catDef(S.slug).tint === true; } // 색이 필요한 제품(의류·에코백·텀블러/머그·담요)만 실시간 색칠
@@ -231,6 +231,7 @@
     grid.appendChild(panel);
 
     wrap.appendChild(grid);
+    wrap.appendChild(aiSection()); // 하단: 도면 | 가상피팅 (인라인 결과)
     root.appendChild(wrap);
 
     renderLayers(); renderProps(); renderLayerList();
@@ -907,7 +908,7 @@
       var dz = d.design || {};
       S.designId = d.id;
       S.title = d.title || '내 디자인';
-      S.slug = (d.category && PRODUCTS[d.category]) ? d.category : (S.slug && PRODUCTS[S.slug] ? S.slug : 'etc');
+      S.slug = (d.category && PRODUCTS[d.category]) ? d.category : (S.slug && PRODUCTS[S.slug] ? S.slug : 'tshirt');
       S.catObj = window.dtCategory(S.slug);
       var defItems = catDef(S.slug).items;
       // itemIdx 복원(없으면 상품명 매칭, 그래도 없으면 0)
@@ -956,42 +957,86 @@
 
   // 완성 영역: [완성하기](저장) + 아래 좌/우 [AI 디자인 보기] [가상피팅 보기].
   //  가상피팅은 AI 디자인 보기로 결과(S.aiDesign)가 나오기 전까지 잠금.
-  var dzFitBtn = null, dzHint = null;
-  var LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
-  var FIT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="6" r="3"/><path d="M6 21v-3a6 6 0 0 1 12 0v3"/></svg>';
-  var DESIGN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 19l7-7a2.5 2.5 0 0 0-3.5-3.5L8 16l-1 4 4-1z"/><path d="M5 21h6"/></svg>';
+  var dzFitBtn = null, dzDesignBtn = null, dzDesignOut = null, dzFitOut = null, dzFitGender = null, dzFitBg = null;
+  // 우측 패널: 완성하기(저장)만.
   function completeBlock() {
+    return btn('완성하기 — 디자인 저장', 'primary', finishDesign, 'dz-complete');
+  }
+  // 하단 AI 영역 — 좌(도면 보기) | 우(가상피팅 보기). 결과는 팝업이 아니라 이 자리에 인라인 생성·유지.
+  function aiSection() {
     var apparel = isApparel();
-    var wrap = el('div', { class: 'dz-finishwrap' });
-    wrap.appendChild(btn('완성하기 — 디자인 저장', 'primary', finishDesign, 'dz-complete'));
+    var sec = el('div', { class: 'dz-aisec' });
 
-    var row = el('div', { class: 'dz-finish' });
-    var designBtn = el('button', { class: 'wz-btn wz-btn--outline dz-finish__btn', type: 'button' },
-      el('span', { class: 'dz-finish__ic', html: DESIGN_SVG }), 'AI 실물 보기');
-    designBtn.addEventListener('click', runAiDesign);
+    // 좌: 도면 보기
+    var left = el('div', { class: 'dz-aisec__col' });
+    left.append(
+      el('div', { class: 'dz-aisec__t' }, '도면 보기'),
+      el('div', { class: 'dz-aisec__s' }, apparel ? '앞·뒤·옆 등 디자인한 모든 면을 AI로 합성해 실제 옷 도면을 만들어요.' : '디자인으로 실제 ' + (S.product || '굿즈') + ' 이미지를 만들어요.'),
+    );
+    dzDesignBtn = btn('도면 생성', 'primary', runAiDesign, 'dz-aisec__go');
+    left.appendChild(dzDesignBtn);
+    dzDesignOut = el('div', { class: 'dz-aiout' });
+    if (S.aiDesign) aiOutResult(dzDesignOut, S.aiDesign, '도면');
+    left.appendChild(dzDesignOut);
 
-    dzFitBtn = el('button', { class: 'wz-btn wz-btn--outline dz-finish__btn', type: 'button' },
-      el('span', { class: 'dz-finish__ic' }), apparel ? '가상피팅 보기' : '전시 이미지 보기');
-    dzFitBtn.addEventListener('click', runAiFitting);
-    row.append(designBtn, dzFitBtn);
-    wrap.appendChild(row);
-    dzHint = el('div', { class: 'dz-hint dz-finish__hint' });
-    wrap.appendChild(dzHint);
+    // 우: 가상피팅(의류) / 가상 전시(굿즈) — 도면 생성 전엔 잠금.
+    var right = el('div', { class: 'dz-aisec__col' });
+    right.append(
+      el('div', { class: 'dz-aisec__t' }, apparel ? '가상피팅 보기' : '가상 전시 보기'),
+      el('div', { class: 'dz-aisec__s' }, apparel ? '왼쪽에서 만든 옷을 모델이 착용한 모습(얼굴 없음).' : '제품을 전시한 모습을 만들어요.'),
+    );
+    var opts = el('div', { class: 'dz-row' });
+    if (apparel) {
+      dzFitGender = el('select', { class: 'dz-select' });
+      [['female', '여성'], ['male', '남성']].forEach(function (o) { dzFitGender.appendChild(el('option', { value: o[0] }, o[1])); });
+      opts.appendChild(fieldInline('모델', dzFitGender));
+    } else { dzFitGender = null; }
+    dzFitBg = el('select', { class: 'dz-select' });
+    [['studio', '스튜디오'], ['campus', '캠퍼스'], ['outdoor', '야외']].forEach(function (o) { dzFitBg.appendChild(el('option', { value: o[0] }, o[1])); });
+    opts.appendChild(fieldInline('배경', dzFitBg));
+    right.appendChild(opts);
+    dzFitBtn = btn(apparel ? '가상피팅 생성' : '가상 전시 생성', 'primary', runAiFitting, 'dz-aisec__go');
+    right.appendChild(dzFitBtn);
+    dzFitOut = el('div', { class: 'dz-aiout' });
+    if (S.aiFitting) aiOutResult(dzFitOut, S.aiFitting, apparel ? '가상피팅' : '전시');
+    right.appendChild(dzFitOut);
+
+    sec.append(left, right);
     setFitLock();
-    return wrap;
+    return sec;
   }
   function setFitLock() {
     if (!dzFitBtn) return;
     var locked = !S.aiDesign;
-    var apparel = isApparel();
     dzFitBtn.disabled = locked;
     dzFitBtn.classList.toggle('is-locked', locked);
-    dzFitBtn.title = locked ? '먼저 ‘AI 실물 보기’를 해주세요' : '';
-    var ic = dzFitBtn.querySelector('.dz-finish__ic');
-    if (ic) ic.innerHTML = locked ? LOCK_SVG : FIT_SVG;
-    if (dzHint) dzHint.textContent = locked
-      ? '‘AI 실물 보기’로 ' + (apparel ? '의상' : '제품') + ' 실물을 먼저 만들면 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 볼 수 있어요.'
-      : '이제 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 생성할 수 있어요.';
+    dzFitBtn.title = locked ? '먼저 왼쪽 ‘도면 생성’을 해주세요' : '';
+  }
+  // 인라인 결과 렌더(팝업 X) — 로딩/결과(이미지+다운로드+펀딩)/에러.
+  function aiOutLoading(out, msg) {
+    out.replaceChildren(el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), msg || 'AI가 이미지를 생성하고 있어요. 잠시만 기다려 주세요…'));
+  }
+  function aiOutResult(out, url, label) {
+    out.replaceChildren(
+      el('img', { class: 'dz-aiout__img', src: url, alt: label || 'AI 결과' }),
+      el('div', { class: 'dz-aiout__foot' },
+        btn('이미지 다운로드', 'outline', function () {
+          var a = el('a', { href: url, download: '두띵-' + safeName(S.title) + '-' + safeName(label || 'AI') + '.png' });
+          document.body.appendChild(a); a.click(); a.remove();
+        }),
+        btn('이 디자인으로 펀딩 만들기', 'primary', function () {
+          try { sessionStorage.setItem('dt_design_handoff', JSON.stringify({ image: url, category: S.slug, product: S.product, title: S.title })); } catch (_) {}
+          location.href = '/fund-create.html?category=' + encodeURIComponent(S.slug);
+        }),
+      ),
+    );
+  }
+  function aiOutError(out, err) {
+    if (err && err.status === 401) { location.href = '/login.html'; return; }
+    var msg = (err && (err.status === 400 || err.status === 404 || err.status === 503))
+      ? 'AI 생성이 아직 연결되지 않았어요. 디자인은 저장/다운로드할 수 있어요.'
+      : 'AI 생성에 실패했어요: ' + ((err && err.message) || '오류');
+    out.replaceChildren(el('div', { class: 'dz-status' }, msg));
   }
 
   // 완성하기 — 디자인을 프로필에 저장(이어서 편집/불러오기 가능).
@@ -1044,41 +1089,43 @@
       return { urls: urls, faces: list };
     });
   }
+  // 좌: 도면 생성 — 디자인 있는 모든 면 합성 → /ai/blueprint. 결과는 dzDesignOut 에 인라인.
   function runAiDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
-    var apparel = isApparel();
-    var m = aiModal('AI 실물 제작', '앞·뒤·양옆 등 디자인한 모든 면을 AI 에 보내 실제 ' + (apparel ? '의상(실물)' : (S.product || '굿즈') + ' 실물') + ' 사진을 만들어요.');
+    aiOutLoading(dzDesignOut, '앞·뒤·옆 디자인을 AI로 합성하고 있어요…');
+    if (dzDesignBtn) dzDesignBtn.disabled = true;
+    // 새 도면을 만들면 이전 가상피팅은 무효 → 잠금/비움.
+    S.aiFitting = null; if (dzFitOut) dzFitOut.replaceChildren();
     compositeArtViews(1000).then(function (r) {
-      var urls = r.urls;
-      // 저장도 겸함(완성본 보존). 앞면(대표) 미리보기.
-      var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: urls[0] };
+      var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: r.urls[0] };
       (S.designId ? window.api.patch('/me/designs/' + S.designId, saveBody) : window.api.post('/me/designs', saveBody))
         .then(function (rr) { if (rr && rr.id) S.designId = rr.id; }).catch(function () {});
-      // 모든 면 이미지 + 어떤 면인지(faces) 함께 전달.
-      return window.api.post('/ai/blueprint', { imageDataUrls: urls, faces: r.faces, category: S.slug, product: S.product });
+      return window.api.post('/ai/blueprint', { imageDataUrls: r.urls, faces: r.faces, category: S.slug, product: S.product });
     }).then(function (res) {
       var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
       if (!url) throw new Error('NO_RESULT');
       S.aiDesign = url; setFitLock();
       if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
-      showResult(m.box, m.overlay, url, 'AI 실물');
-    }).catch(function (err) { aiError(m.box, m.overlay, err); });
+      aiOutResult(dzDesignOut, url, '도면');
+    }).catch(function (err) { aiOutError(dzDesignOut, err); })
+      .finally(function () { if (dzDesignBtn) dzDesignBtn.disabled = false; });
   }
 
-  // 오른쪽: 가상피팅 보기 — AI 디자인 결과를 /ai/try-on(모델 착용/제품 전시). AI 디자인 전엔 잠금.
+  // 우: 가상피팅/전시 — 왼쪽 도면(S.aiDesign) 기준 → /ai/try-on. 결과는 dzFitOut 에 인라인. 도면 전엔 잠금.
   function runAiFitting() {
-    if (!S.aiDesign) { toast('먼저 ‘AI 실물 보기’를 해주세요'); return; }
+    if (!S.aiDesign) { toast('먼저 왼쪽 ‘도면 생성’을 해주세요'); return; }
     var apparel = isApparel();
-    var m = aiModal(apparel ? '가상피팅 생성' : '전시 이미지 생성',
-      apparel ? 'AI 디자인을 모델이 착용한 모습을 생성해요.' : 'AI 디자인을 ' + (S.product || '굿즈') + ' 전시 사진으로 생성해요.');
-    var aiBody = { imageDataUrls: [S.aiDesign], background: 'studio', category: S.slug };
-    if (apparel) aiBody.modelType = 'female';
+    aiOutLoading(dzFitOut, apparel ? '모델이 착용한 모습을 생성하고 있어요…' : '전시 이미지를 생성하고 있어요…');
+    if (dzFitBtn) dzFitBtn.disabled = true;
+    var aiBody = { imageDataUrls: [S.aiDesign], background: dzFitBg ? dzFitBg.value : 'studio', category: S.slug, faceless: true };
+    if (apparel) aiBody.modelType = dzFitGender ? dzFitGender.value : 'female';
     window.api.post('/ai/try-on', aiBody).then(function (res) {
       var url = res && (res.tryOnDataUrl || res.imageDataUrl || res.url);
       if (!url) throw new Error('NO_RESULT');
       S.aiFitting = url;
-      showResult(m.box, m.overlay, url, apparel ? '가상피팅' : '전시 이미지');
-    }).catch(function (err) { aiError(m.box, m.overlay, err); });
+      aiOutResult(dzFitOut, url, apparel ? '가상피팅' : '전시');
+    }).catch(function (err) { aiOutError(dzFitOut, err); })
+      .finally(function () { if (dzFitBtn) dzFitBtn.disabled = !S.aiDesign; });
   }
 
   function showResult(box, overlay, url, label) {
@@ -1113,7 +1160,7 @@
 
     var loadId = qs('id');
     if (loadId) { // 프로필에서 이어서 편집 — 로딩 표시 후, loadDesign 성공 시 전체 렌더(중간 셸 깜빡임 방지)
-      S.slug = 'etc'; // loadDesign 폴백용 안전 기본값(d.category 가 유효하면 덮어씀)
+      S.slug = 'tshirt'; // loadDesign 폴백용 안전 기본값(d.category 가 유효하면 덮어씀)
       root.replaceChildren(el('div', { class: 'dz-wrap' },
         el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), '디자인을 불러오는 중…')));
       loadDesign(loadId);
@@ -1123,7 +1170,15 @@
     // ?category= 는 slug(jacket..) 또는 라벨(반팔티..) 둘 다 허용 → slug 로 정규화.
     var q = qs('category') || 'tshirt';
     var norm = window.dtCategory(q) ? window.dtCategory(q).slug : q;
-    S.slug = PRODUCTS[norm] ? norm : 'tshirt';
+    if (!supportsDesign(norm)) { // 웹·앱·기타 등 미지원 카테고리 → 에디터 안 염
+      root.replaceChildren(el('div', { class: 'dz-wrap' },
+        el('div', { class: 'dz-describe', style: 'text-align:center' },
+          el('div', { class: 'dz-describe__t' }, '디자인하기 미지원 카테고리'),
+          el('div', { class: 'dz-describe__s' }, '이 카테고리(웹·앱/기타)는 디자인하기를 지원하지 않아요. 다른 카테고리를 선택해 주세요.'),
+          btn('카테고리 선택으로', 'primary', function () { location.href = '/fund-create.html'; }, 'dz-describe__go'))));
+      return;
+    }
+    S.slug = norm;
     S.catObj = window.dtCategory(S.slug);
     S.itemIdx = 0;
     S.product = curItem().name;
