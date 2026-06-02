@@ -223,6 +223,11 @@ export class PgUserRepository implements UserRepository {
     await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
   }
 
+  async countActiveAdmins(): Promise<number> {
+    const r = await this.pool.query(`SELECT COUNT(*)::int AS n FROM "user" WHERE role = 'ADMIN' AND status = 'ACTIVE'`);
+    return Number(r.rows[0]?.n) || 0;
+  }
+
   async setStatus(userId: string, patch: StatusPatch): Promise<User | null> {
     const until = patch.status === 'SUSPENDED' ? (patch.suspendedUntil ?? null) : null;
     const reason = patch.status === 'ACTIVE' ? null : (patch.reason ?? null);
@@ -290,6 +295,8 @@ export class PgUserRepository implements UserRepository {
       await client.query('DELETE FROM project_drafts WHERE user_id = $1', [userId]);
       // 본인이 신고한 건 + 본인(메이커)을 대상으로 한 신고 모두 정리(reports 는 FK 없음, target_id 도 UUID).
       await client.query('DELETE FROM reports WHERE reporter_id = $1 OR target_id = $1', [userId]);
+      // 본인 게시판 글(board_posts)은 아래에서 CASCADE 로 지워지므로, 그 글을 대상으로 한 신고 행도 함께 정리(댕글링 방지).
+      await client.query(`DELETE FROM reports WHERE target_type = 'board_post' AND target_id IN (SELECT id::text FROM board_posts WHERE author_id = $1)`, [userId]);
       await client.query('DELETE FROM project_likes WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM project_subscriptions WHERE user_id = $1', [userId]);
       // 본인 메이커 프로필을 대상으로 한 타인 댓글(target_type='profile', target_id=내 userId)도 정리.

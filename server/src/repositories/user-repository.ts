@@ -35,6 +35,8 @@ export interface UserRepository {
   updateProfile(userId: string, data: ProfilePatch): Promise<User | null>;
   /** 권한 변경. 강등(USER)은 마지막 활동관리자 보호 가드를 거치며 위반 시 AppError('LAST_ADMIN'). */
   setRole(userId: string, role: User['role']): Promise<void>;
+  /** 로그인 가능한 관리자 수(role=ADMIN AND status=ACTIVE) — 본인 탈퇴 시 마지막 관리자 락아웃 방지용. */
+  countActiveAdmins(): Promise<number>;
   listAll(limit?: number): Promise<User[]>;
   delete(userId: string): Promise<void>;
 

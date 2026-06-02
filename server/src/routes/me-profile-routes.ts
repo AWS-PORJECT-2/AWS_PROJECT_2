@@ -193,6 +193,13 @@ export function createDeleteMeHandler(
         }
       }
 
+      // 사전 점검 3 — 본인이 마지막 활동 관리자이면 차단(관리자 0명 락아웃 방지). 다른 관리자 지정 후 탈퇴.
+      const meUser = await userRepo.findById(userId);
+      if (meUser && meUser.role === 'ADMIN' && (meUser.status ?? 'ACTIVE') === 'ACTIVE' && (await userRepo.countActiveAdmins()) <= 1) {
+        res.status(409).json({ error: 'LAST_ADMIN', message: '마지막 관리자는 탈퇴할 수 없어요. 다른 관리자를 먼저 지정해 주세요.' });
+        return;
+      }
+
       // refresh 세션 우선 정리(있으면). user 삭제는 CASCADE 로 정리되지만 명시적으로 먼저 시도.
       if (refreshTokenRepo) {
         try { await refreshTokenRepo.deleteByUserId(userId); } catch { /* best-effort */ }
