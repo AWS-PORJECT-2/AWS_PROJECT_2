@@ -6,7 +6,9 @@
 
 /* ===== 오버레이/다이얼로그 ===== */
 .wzc-over {
-  position: fixed; inset: 0; z-index: 3000;
+  /* 동의/약관/게이트는 항상 최상단 — 설정 모달(9000)·토스트(9500) 등 어떤 오버레이보다 위에 떠야 한다.
+     (배송지 저장 시 설정 모달 위로 동의 모달이 떠야 하는데 3000 이라 9000 모달 뒤에 가려 안 보이던 버그.) */
+  position: fixed; inset: 0; z-index: 10000;
   display: flex; align-items: center; justify-content: center;
   padding: 20px; box-sizing: border-box;
   background: rgba(16, 24, 40, .52);
