@@ -1,8 +1,8 @@
 // 신고(report) 엔티티. (027_reports)
 // 사용자가 메이커(maker) 또는 게시글(project=groupbuy)을 신고. 관리자가 처리.
 
-/** 신고 대상 유형. 'maker'=메이커(유저), 'project'=게시글(groupbuy). */
-export type ReportTargetType = 'maker' | 'project';
+/** 신고 대상 유형. 'maker'=메이커(유저), 'project'=펀딩(groupbuy), 'board_post'=커뮤니티 게시글. */
+export type ReportTargetType = 'maker' | 'project' | 'board_post';
 
 /** 신고 사유 카테고리. 'etc'(기타) 면 detail 필수. */
 export type ReportReasonCategory =
@@ -30,14 +30,14 @@ export interface Report {
   resolvedBy: string | null;
 }
 
-export const REPORT_TARGET_TYPES: readonly ReportTargetType[] = ['maker', 'project'] as const;
+export const REPORT_TARGET_TYPES: readonly ReportTargetType[] = ['maker', 'project', 'board_post'] as const;
 
 export const REPORT_REASON_CATEGORIES: readonly ReportReasonCategory[] = [
   'spam', 'abuse', 'fraud', 'sexual', 'copyright', 'privacy', 'etc',
 ] as const;
 
 export function isReportTargetType(v: unknown): v is ReportTargetType {
-  return v === 'maker' || v === 'project';
+  return v === 'maker' || v === 'project' || v === 'board_post';
 }
 
 export function isReportReasonCategory(v: unknown): v is ReportReasonCategory {

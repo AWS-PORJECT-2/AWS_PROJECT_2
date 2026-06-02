@@ -188,6 +188,16 @@
           });
           meta.appendChild(del);
         }
+        // 신고 — 로그인했고 작성자 본인이 아니면(자기 글은 신고 불가).
+        if (me && p.author && me.id !== p.author.id) {
+          var rep = el('button', { class: 'bd-report', type: 'button' }, '신고');
+          rep.addEventListener('click', function () {
+            if (window.WZReport && typeof window.WZReport.open === 'function') {
+              window.WZReport.open({ targetType: 'board_post', targetId: p.id, targetLabel: p.title || '게시글' });
+            }
+          });
+          meta.appendChild(rep);
+        }
         art.appendChild(meta);
         art.appendChild(renderBody(p));
         root.appendChild(art);

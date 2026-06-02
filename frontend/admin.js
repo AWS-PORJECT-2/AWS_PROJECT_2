@@ -1490,20 +1490,21 @@
   }
 
   function reportItem(r, list, status) {
-    var isProject = r.targetType === 'project';
+    var tt = r.targetType;
+    var typeLabel = tt === 'project' ? '게시글' : (tt === 'board_post' ? '커뮤니티글' : '메이커');
     var item = el('div', { class: 'wza-item' + (r.status === 'open' ? ' wza-item--warn' : '') });
 
     var body = el('div', { class: 'wza-item__body' });
 
-    // 제목 줄: 대상(메이커/게시글) + 대상 라벨(사용자값) + 상태
+    // 제목 줄: 대상(메이커/게시글/커뮤니티글) + 대상 라벨(사용자값) + 상태
     var title = el('div', { class: 'wza-item__title' });
-    title.appendChild(el('span', { class: 'wza-badge wza-badge--proxy' }, isProject ? '게시글' : '메이커'));
+    title.appendChild(el('span', { class: 'wza-badge wza-badge--proxy' }, typeLabel));
     // 대상 라벨(사용자값) — textContent 로 안전 삽입. 링크 가능하면 a, 아니면 span.
     var hasTarget = r.targetId != null && r.targetId !== '';
     if (hasTarget) {
-      var href = (isProject ? '/detail.html?id=' : '/maker.html?id=') + encodeURIComponent(r.targetId);
+      var href = (tt === 'project' ? '/detail.html?id=' : tt === 'board_post' ? '/board.html?post=' : '/maker.html?id=') + encodeURIComponent(r.targetId);
       var link = el('a', { class: 'wza-report__target', href: href, target: '_blank', rel: 'noopener' });
-      link.appendChild(document.createTextNode(r.targetLabel || (isProject ? '게시글 보기' : '메이커 보기')));
+      link.appendChild(document.createTextNode(r.targetLabel || (typeLabel + ' 보기')));
       title.appendChild(link);
     } else {
       title.appendChild(el('span', { class: 'wza-report__target' }, r.targetLabel || '-'));

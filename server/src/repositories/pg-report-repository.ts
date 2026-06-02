@@ -47,14 +47,16 @@ export class PgReportRepository implements ReportRepository {
               r.status, r.created_at, r.resolved_at,
               COALESCE(NULLIF(TRIM(ru.nickname), ''), ru.name) AS reporter_nickname,
               CASE
-                WHEN r.target_type = 'maker'   THEN COALESCE(NULLIF(TRIM(mu.nickname), ''), mu.name)
-                WHEN r.target_type = 'project' THEN gb.title
+                WHEN r.target_type = 'maker'      THEN COALESCE(NULLIF(TRIM(mu.nickname), ''), mu.name)
+                WHEN r.target_type = 'project'    THEN gb.title
+                WHEN r.target_type = 'board_post' THEN bp.title
                 ELSE NULL
               END AS target_label
          FROM reports r
          LEFT JOIN "user" ru ON ru.id::text = r.reporter_id::text
          LEFT JOIN "user" mu ON r.target_type = 'maker'   AND mu.id::text = r.target_id::text
          LEFT JOIN groupbuys gb ON r.target_type = 'project' AND gb.id::text = r.target_id::text
+         LEFT JOIN board_posts bp ON r.target_type = 'board_post' AND bp.id::text = r.target_id::text
          ${where}
         ORDER BY r.created_at DESC
         LIMIT 200`,

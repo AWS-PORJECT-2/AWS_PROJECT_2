@@ -1,6 +1,10 @@
 import type pg from 'pg';
 import type { User, UserRole, UserStatus, NotificationPrefs, PublicProfile, ProfileBadge, UserSearchItem } from '../types/index.js';
 import type { UserRepository, ProfilePatch, StatusPatch } from './user-repository.js';
+import { AppError } from '../errors/app-error.js';
+
+// 관리자 파괴행위(강등/정지/차단/탈퇴) 직렬화용 어드바이저리 락 키(임의 상수, 전 인스턴스 공통).
+const ADMIN_GUARD_LOCK = 778899001;
 
 // notification_prefs (JSONB/문자열) → NotificationPrefs 안전 파싱
 function parsePrefs(raw: unknown): NotificationPrefs {
@@ -214,26 +218,50 @@ export class PgUserRepository implements UserRepository {
   }
 
   async setRole(userId: string, role: User['role']): Promise<void> {
+    // 강등(ADMIN→USER)은 마지막 활동관리자 보호 가드를 거친다(원자적). 승격은 자유.
+    if (role === 'USER') { await this.guardLastAdmin(userId, `UPDATE "user" SET role = 'USER' WHERE id = $1 RETURNING *`, [userId]); return; }
     await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
-  }
-
-  async countActiveAdmins(): Promise<number> {
-    const r = await this.pool.query(`SELECT COUNT(*)::int AS n FROM "user" WHERE role = 'ADMIN' AND status = 'ACTIVE'`);
-    return Number(r.rows[0]?.n) || 0;
   }
 
   async setStatus(userId: string, patch: StatusPatch): Promise<User | null> {
     const until = patch.status === 'SUSPENDED' ? (patch.suspendedUntil ?? null) : null;
     const reason = patch.status === 'ACTIVE' ? null : (patch.reason ?? null);
-    const result = await this.pool.query(
-      `UPDATE "user"
+    const sql = `UPDATE "user"
           SET status = $1, suspended_until = $2, suspension_reason = $3,
               status_updated_at = NOW(), status_updated_by = $4
-        WHERE id = $5 RETURNING *`,
-      [patch.status, until, reason, patch.adminId ?? null, userId],
-    );
-    if (result.rows.length === 0) return null;
-    return this.mapRow(result.rows[0]);
+        WHERE id = $5 RETURNING *`;
+    const params = [patch.status, until, reason, patch.adminId ?? null, userId];
+    // 정상화(ACTIVE)는 락아웃 위험 없음 → 단순 UPDATE. 정지/차단/탈퇴(파괴적)는 가드.
+    if (patch.status === 'ACTIVE') {
+      const r = await this.pool.query(sql, params);
+      return r.rows[0] ? this.mapRow(r.rows[0]) : null;
+    }
+    return this.guardLastAdmin(userId, sql, params);
+  }
+
+  // 마지막 활동관리자(role=ADMIN AND status=ACTIVE) 0명 도달 방지 — 트랜잭션 어드바이저리 락으로 모든
+  //  관리자 파괴행위(강등/정지/차단/탈퇴)를 직렬화해 COUNT→UPDATE TOCTOU 경합을 제거한다.
+  //  대상이 마지막 활동관리자면 AppError('LAST_ADMIN')(409)을 던지고, 아니면 sql 을 실행해 갱신 행 반환.
+  private async guardLastAdmin(targetId: string, sql: string, params: unknown[]): Promise<User | null> {
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock($1)', [ADMIN_GUARD_LOCK]);
+      const t = await client.query(`SELECT role, status FROM "user" WHERE id = $1 FOR UPDATE`, [targetId]);
+      if (!t.rows[0]) { await client.query('ROLLBACK'); return null; } // 대상 없음
+      if (t.rows[0].role === 'ADMIN' && t.rows[0].status === 'ACTIVE') {
+        const c = await client.query(`SELECT COUNT(*)::int AS n FROM "user" WHERE role = 'ADMIN' AND status = 'ACTIVE'`);
+        if ((Number(c.rows[0]?.n) || 0) <= 1) { await client.query('ROLLBACK'); throw new AppError('LAST_ADMIN'); }
+      }
+      const r = await client.query(sql, params);
+      await client.query('COMMIT');
+      return r.rows[0] ? this.mapRow(r.rows[0]) : null;
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
   }
 
   async clearExpiredSuspension(userId: string): Promise<void> {

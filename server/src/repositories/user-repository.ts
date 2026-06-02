@@ -33,14 +33,13 @@ export interface UserRepository {
   findById(id: string): Promise<User | null>;
   updateLastLogin(userId: string): Promise<void>;
   updateProfile(userId: string, data: ProfilePatch): Promise<User | null>;
+  /** 권한 변경. 강등(USER)은 마지막 활동관리자 보호 가드를 거치며 위반 시 AppError('LAST_ADMIN'). */
   setRole(userId: string, role: User['role']): Promise<void>;
-  /** 로그인 가능한 관리자 수(role=ADMIN AND status=ACTIVE) — 마지막 관리자 락아웃 방지용. */
-  countActiveAdmins(): Promise<number>;
   listAll(limit?: number): Promise<User[]>;
   delete(userId: string): Promise<void>;
 
   // ─── 관리자 제재(037_user_moderation) ───
-  /** 계정 상태 변경(정지/차단/탈퇴/복구). 반환 = 갱신된 사용자. */
+  /** 계정 상태 변경(정지/차단/탈퇴/복구). 파괴적 변경이 마지막 활동관리자면 AppError('LAST_ADMIN'). 반환 = 갱신된 사용자. */
   setStatus(userId: string, patch: StatusPatch): Promise<User | null>;
   /** 기간정지가 만료됐으면 ACTIVE 로 자동 복구(best-effort, 멱등). */
   clearExpiredSuspension(userId: string): Promise<void>;

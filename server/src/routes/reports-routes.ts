@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { ReportRepository } from '../repositories/report-repository.js';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
 import type { UserRepository } from '../repositories/user-repository.js';
+import type { BoardRepository } from '../repositories/board-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { ReportStatus } from '../types/index.js';
 import { isReportTargetType, isReportReasonCategory } from '../types/index.js';
@@ -24,6 +25,7 @@ export function createReportCreateHandler(
   reportRepo: ReportRepository,
   groupBuyRepo: GroupBuyRepository,
   userRepo: UserRepository,
+  boardRepo: BoardRepository,
   notificationRepo?: NotificationRepository,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -63,16 +65,27 @@ export function createReportCreateHandler(
           res.status(404).json({ error: 'NOT_FOUND', message: '신고 대상을 찾을 수 없습니다' });
           return;
         }
-      } else {
+      } else if (targetType === 'project') {
         let fund = null;
         try { fund = await groupBuyRepo.findById(targetId); } catch { /* 조회 실패는 무시(접수 허용) */ }
         if (fund === null) {
           res.status(404).json({ error: 'NOT_FOUND', message: '신고 대상을 찾을 수 없습니다' });
           return;
         }
-        // 자기 게시글 신고 차단(창작자 본인).
+        // 자기 펀딩 신고 차단(창작자 본인).
         if (fund.creatorId === userId) {
           res.status(400).json({ error: 'SELF_REPORT', message: '본인 게시글은 신고할 수 없습니다' });
+          return;
+        }
+      } else if (targetType === 'board_post') {
+        let authorId: string | null = null;
+        try { authorId = await boardRepo.getPostAuthorId(targetId); } catch { /* 조회 실패는 무시(접수 허용) */ }
+        if (authorId === null) {
+          res.status(404).json({ error: 'NOT_FOUND', message: '신고 대상을 찾을 수 없습니다' });
+          return;
+        }
+        if (authorId === userId) {
+          res.status(400).json({ error: 'SELF_REPORT', message: '본인 글은 신고할 수 없습니다' });
           return;
         }
       }

@@ -22,12 +22,15 @@ export class PgCommentRepository implements CommentRepository {
 
   async list(targetType: CommentTargetType, targetId: string): Promise<Comment[]> {
     const res = await this.pool.query(
-      `SELECT c.id, c.target_type, c.target_id, c.user_id, c.parent_id, c.content, c.created_at,
-              u.name AS user_name, u.picture AS user_picture, u.slug AS user_slug
-         FROM comments c
-         LEFT JOIN "user" u ON u.id = c.user_id
-        WHERE c.target_type = $1 AND c.target_id = $2
-        ORDER BY c.created_at DESC`,
+      // 공개 GET 이므로 결과 하드 캡(무제한 조회 DoS 방지) — 최신 500개. board.listComments 와 동일 패턴.
+      `SELECT * FROM (
+         SELECT c.id, c.target_type, c.target_id, c.user_id, c.parent_id, c.content, c.created_at,
+                u.name AS user_name, u.picture AS user_picture, u.slug AS user_slug
+           FROM comments c
+           LEFT JOIN "user" u ON u.id = c.user_id
+          WHERE c.target_type = $1 AND c.target_id = $2
+          ORDER BY c.created_at DESC LIMIT 500
+       ) t ORDER BY t.created_at DESC`,
       [targetType, targetId],
     );
     return res.rows.map(mapRow);

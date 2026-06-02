@@ -448,7 +448,7 @@ export function createApp(
 
   // --- 신고(027_reports) — 사용자 접수 + 관리자 처리 ---
   const reportRepository = new PgReportRepository(pool);
-  app.post('/api/reports', authRequired, writeRateLimit, createReportCreateHandler(reportRepository, groupBuyRepository, userRepository, notificationRepository));
+  app.post('/api/reports', authRequired, writeRateLimit, createReportCreateHandler(reportRepository, groupBuyRepository, userRepository, boardRepository, notificationRepository));
   app.get('/api/admin/reports', authRequired, requireAdmin, createAdminReportsListHandler(reportRepository));
   app.post('/api/admin/reports/:id/resolve', authRequired, requireAdmin, createAdminReportResolveHandler(reportRepository));
 

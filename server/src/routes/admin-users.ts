@@ -61,12 +61,17 @@ export function createAdminUsersRouter(
     if (req.params.id === req.userId) { res.status(400).json({ error: 'SELF_TARGET', message: '본인 계정에는 할 수 없습니다' }); return true; }
     return false;
   };
-  // 마지막 관리자 락아웃 방지 — 대상이 현재 "활동 관리자"이고 활동 관리자가 1명뿐이면 파괴행위(강등/정지/차단/탈퇴) 차단.
-  const wouldLockoutAdmin = async (target: User): Promise<boolean> => {
-    if ((target.role ?? 'USER') !== 'ADMIN' || (target.status ?? 'ACTIVE') !== 'ACTIVE') return false;
-    return (await userRepo.countActiveAdmins()) <= 1;
+  // 마지막 활동관리자 보호는 userRepo.setStatus/setRole 안에서 원자적으로(어드바이저리 락) 처리되어
+  //  위반 시 AppError('LAST_ADMIN')(409)을 던진다 → 각 핸들러 try/catch 의 fail() 이 그대로 응답.
+  // 제재 시 대상의 기존 실시간 소켓(채팅)도 즉시 끊는다(연결 핸드셰이크 게이트는 신규 연결만 막으므로).
+  const disconnectSockets = async (req: Request, userId: string): Promise<void> => {
+    try {
+      const io = (req.app as { io?: { fetchSockets: () => Promise<Array<{ data?: { userId?: string }; disconnect: (close: boolean) => void }>> } }).io;
+      if (!io) return;
+      const sockets = await io.fetchSockets();
+      for (const s of sockets) { if (s.data?.userId === userId) s.disconnect(true); }
+    } catch { /* best-effort */ }
   };
-  const lastAdmin = (res: Response) => res.status(409).json(createErrorResponse(new AppError('LAST_ADMIN')));
 
   // 목록 — 상태/역할/검색 필터.
   router.get('/', async (req: Request, res: Response) => {
@@ -99,7 +104,6 @@ export function createAdminUsersRouter(
       if (status !== 'ACTIVE' && blockSelf(req, res)) return;
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
-      if (status !== 'ACTIVE' && await wouldLockoutAdmin(target)) { lastAdmin(res); return; } // 마지막 관리자 정지/차단 차단
       const reason = reasonOf(req);
 
       let suspendedUntil: Date | null = null;
@@ -113,8 +117,11 @@ export function createAdminUsersRouter(
       const updated = await userRepo.setStatus(targetId, { status: status as 'SUSPENDED' | 'BANNED' | 'ACTIVE', suspendedUntil, reason, adminId: req.userId ?? null });
       if (!updated) { notFound(res); return; }
 
-      // 정지/차단 시 즉시 강제 로그아웃(모든 refresh token 폐기).
-      if (status !== 'ACTIVE') { try { await refreshTokenRepo.deleteByUserId(targetId); } catch (e) { logger.warn({ e, targetId }, '상태변경 토큰폐기 실패'); } }
+      // 정지/차단 시 즉시 강제 로그아웃(모든 refresh token 폐기 + 기존 실시간 소켓 종료).
+      if (status !== 'ACTIVE') {
+        try { await refreshTokenRepo.deleteByUserId(targetId); } catch (e) { logger.warn({ e, targetId }, '상태변경 토큰폐기 실패'); }
+        void disconnectSockets(req, targetId);
+      }
 
       const action = status === 'SUSPENDED' ? 'suspend' : status === 'BANNED' ? 'ban' : 'unban';
       void recordModeration(pool, { targetUserId: targetId, adminId: req.userId ?? null, action, reason, meta: { until: suspendedUntil?.toISOString() ?? null } });
@@ -136,11 +143,11 @@ export function createAdminUsersRouter(
       const targetId = req.params.id;
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
-      if (await wouldLockoutAdmin(target)) { lastAdmin(res); return; } // 마지막 관리자 탈퇴 차단
       const reason = reasonOf(req);
       const updated = await userRepo.setStatus(targetId, { status: 'WITHDRAWN', reason, adminId: req.userId ?? null });
       if (!updated) { notFound(res); return; }
       try { await refreshTokenRepo.deleteByUserId(targetId); } catch (e) { logger.warn({ e, targetId }, '탈퇴 토큰폐기 실패'); }
+      void disconnectSockets(req, targetId);
       void recordModeration(pool, { targetUserId: targetId, adminId: req.userId ?? null, action: 'withdraw', reason });
       void logAudit(pool, { level: 'info', source: 'admin', message: '사용자 강제 탈퇴', meta: { targetId }, userId: req.userId ?? null });
       res.json({ user: publicUser(updated) });
@@ -233,6 +240,7 @@ export function createAdminUsersRouter(
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
       await refreshTokenRepo.deleteByUserId(targetId);
+      void disconnectSockets(req, targetId); // 기존 실시간 소켓도 종료
       void recordModeration(pool, { targetUserId: targetId, adminId: req.userId ?? null, action: 'force_logout' });
       void logAudit(pool, { level: 'info', source: 'admin', message: '사용자 강제 로그아웃', meta: { targetId }, userId: req.userId ?? null });
       res.json({ ok: true });
@@ -247,8 +255,7 @@ export function createAdminUsersRouter(
       if (role === 'USER' && targetId === req.userId) { res.status(400).json({ error: 'SELF_DEMOTE', message: '본인 계정은 강등할 수 없습니다' }); return; }
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
-      if (role === 'USER' && await wouldLockoutAdmin(target)) { lastAdmin(res); return; } // 마지막 관리자 강등 차단
-      await userRepo.setRole(targetId, role);
+      await userRepo.setRole(targetId, role); // 마지막 활동관리자 강등이면 repo 가 LAST_ADMIN(409) throw → fail()
       void recordModeration(pool, { targetUserId: targetId, adminId: req.userId ?? null, action: 'role', meta: { from: target.role ?? 'USER', to: role } });
       void logAudit(pool, { level: 'info', source: 'admin', message: '사용자 권한 변경', meta: { targetId, role }, userId: req.userId ?? null });
       await notify(notificationRepo, { userId: targetId, type: 'role_changed', title: '권한이 변경되었습니다', body: role === 'ADMIN' ? '관리자 권한이 부여되었습니다.' : '일반 사용자 권한으로 변경되었습니다.' });

@@ -56,6 +56,9 @@
   border-radius: 8px; padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 .bd-edit:hover { border-color: var(--c-primary-300, #C4B5FD); color: var(--c-primary-600, #7C3AED); }
 .bd-edit + .bd-del { margin-left: 6px; }
+.bd-report { border: 1px solid var(--c-border, #E5E7EB); background: #fff; color: var(--c-text-faint, #9CA3AF);
+  border-radius: 8px; padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; margin-left: 6px; }
+.bd-report:hover { border-color: var(--c-danger, #DC2626); color: var(--c-danger, #DC2626); }
 .bd-del { margin-left: auto; border: 1px solid var(--c-border, #E5E7EB); background: #fff; color: var(--c-danger, #DC2626);
   border-radius: 8px; padding: 5px 12px; font-size: 13px; font-weight: 600; cursor: pointer; font-family: inherit; }
 

@@ -112,7 +112,8 @@
 
   function open(opts) {
     opts = opts || {};
-    var targetType = opts.targetType === 'maker' ? 'maker' : 'project';
+    var ALLOWED_TT = { maker: 1, project: 1, board_post: 1 };
+    var targetType = ALLOWED_TT[opts.targetType] ? opts.targetType : 'project';
     var targetId = opts.targetId;
     var targetLabel = opts.targetLabel;
 
