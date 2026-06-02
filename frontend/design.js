@@ -27,17 +27,17 @@
   var PRODUCTS = {
     jacket: { type: 'apparel', items: [
       { name: '바시티 자켓', img: 'varsity_jacket', views: AP,
-        print: { front: pr(33, 26, 34, 30), back: pr(28, 17, 44, 44), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
+        print: { front: pr(31, 23, 38, 56), back: pr(29, 18, 42, 62), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
     hoodie: { type: 'apparel', items: [
       { name: '후드티', img: 'hoodie', views: AP,
-        print: { front: pr(32, 43, 36, 25), back: pr(30, 18, 40, 44), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
+        print: { front: pr(31, 41, 38, 39), back: pr(30, 18, 40, 60), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
       { name: '맨투맨', img: 'sweatshirt', views: AP,
-        print: { front: pr(31, 26, 38, 38), back: pr(28, 18, 44, 44), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
+        print: { front: pr(30, 22, 40, 58), back: pr(29, 22, 42, 57), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
     tshirt: { type: 'apparel', items: [
       { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
-        print: { front: pr(30, 25, 40, 40), back: pr(28, 17, 44, 45), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
+        print: { front: pr(29, 18, 42, 66), back: pr(29, 17, 42, 68), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
     ] },
     ecobag: { type: 'goods', items: [
       { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
@@ -141,7 +141,15 @@
   var imgCache = {}; // layerId -> HTMLImageElement (합성용)
 
   // ---- DOM refs ---------------------------------------------------------------
-  var root, canvasEl, layersWrap, selWrap, tintEl, viewsWrap, propsBox, layerListBox, titleInput;
+  var root, canvasEl, layersWrap, selWrap, mockCanvasEl, viewsWrap, propsBox, layerListBox, titleInput;
+  var mockImgCache = {}, mockMaskCache = {};
+  function loadImg(cache, src, cb) {
+    var im = cache[src];
+    if (im && im.complete && im.naturalWidth) { cb(im); return; }
+    im = new Image(); cache[src] = im;
+    im.onload = function () { cb(im); }; im.onerror = function () {};
+    im.src = src;
+  }
 
   function toast(msg) {
     var t = el('div', { class: 'dz-toast' }, msg);
@@ -180,16 +188,8 @@
     stage.appendChild(viewsWrap);
 
     canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
-    canvasEl.appendChild(buildMockNode());
+    canvasEl.appendChild(buildMockNode()); // 목업+옷색(canvas)
     var mk = maskSrc(S.view);
-    // 옷 색(실시간) — 의류만: 마스크로 옷 영역만 색칠 + multiply 로 음영 유지.
-    tintEl = null;
-    if (isApparel() && mk) {
-      tintEl = el('div', { class: 'dz-canvas__tint' });
-      tintEl.style.background = S.color;
-      applyMaskCss(tintEl, mk);
-      canvasEl.appendChild(tintEl);
-    }
     // 인쇄 영역(인쇄 위치) 가이드 — 상품·면별로 권장 배치 영역 표시.
     var prc = printRect();
     if (prc) {
@@ -269,19 +269,45 @@
     render();
   }
 
-  // 목업 노드: PNG 가 있으면 사진 목업, 없으면(또는 로드 실패) SVG 폴백.
+  // 목업 노드: canvas 에 목업 사진 + (의류·유색이면) 옷 색을 multiply 로 합성해 그린다.
+  //  CSS mix-blend-mode 보다 브라우저 호환이 확실하고, 합성(다운로드/AI)과 동일한 결과.
   function buildMockNode() {
-    var mock = el('div', { class: 'dz-canvas__mock' });
-    var src = mockupSrc(S.view);
-    if (!src) { mock.innerHTML = mockSvg(); return mock; }
-    var img = new Image();
-    img.alt = '';
-    img.style.cssText = 'width:100%;height:100%;display:block;object-fit:contain';
-    img.onerror = function () { mock.innerHTML = mockSvg(); };
-    mock.appendChild(img);
-    img.src = src;
-    return mock;
+    var cv = el('canvas', { class: 'dz-canvas__mock' });
+    cv.width = 800; cv.height = 800;
+    cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
+    mockCanvasEl = cv;
+    paintMockCanvas(cv);
+    return cv;
   }
+  function paintMockCanvas(cv) {
+    var ctx = cv.getContext('2d');
+    var CW = cv.width, CH = cv.height;
+    var src = mockupSrc(S.view);
+    if (!src) { // webapp/etc — SVG 폴백
+      var svgImg = new Image();
+      svgImg.onload = function () { if (mockCanvasEl === cv) { ctx.clearRect(0, 0, CW, CH); ctx.drawImage(svgImg, 0, 0, CW, CH); } };
+      svgImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mockSvg());
+      return;
+    }
+    loadImg(mockImgCache, src, function (base) {
+      if (mockCanvasEl !== cv) return; // 면/상품 바뀜 → 무시
+      ctx.clearRect(0, 0, CW, CH);
+      ctx.drawImage(base, 0, 0, CW, CH);
+      var msrc = maskSrc(S.view);
+      if (isApparel() && !isWhite(S.color) && msrc) {
+        loadImg(mockMaskCache, msrc, function (mask) {
+          if (mockCanvasEl !== cv) return;
+          ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH);
+          var tc = document.createElement('canvas'); tc.width = CW; tc.height = CH;
+          var tx = tc.getContext('2d');
+          tx.fillStyle = S.color; tx.fillRect(0, 0, CW, CH);
+          tx.globalCompositeOperation = 'destination-in'; tx.drawImage(mask, 0, 0, CW, CH);
+          ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(tc, 0, 0); ctx.globalCompositeOperation = 'source-over';
+        });
+      }
+    });
+  }
+  function repaintMock() { if (mockCanvasEl) paintMockCanvas(mockCanvasEl); }
 
   // ---- 툴 카드(이미지/텍스트 추가) -------------------------------------------
   function toolsCard() {
@@ -329,8 +355,7 @@
         S.color = c.hex;
         sw.querySelectorAll('.dz-sw').forEach(function (n) { n.classList.remove('is-on'); });
         d.classList.add('is-on');
-        if (tintEl) tintEl.style.background = S.color;       // 의류: 실시간 색 변경
-        else if (!curItem().img) render();                   // SVG 폴백 상품: 다시 그림
+        repaintMock();                                        // 의류: 옷 색 실시간 반영 / SVG 폴백도 갱신
       });
       sw.appendChild(d);
     });
