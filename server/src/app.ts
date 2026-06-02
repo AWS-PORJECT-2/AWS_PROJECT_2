@@ -15,6 +15,8 @@ import { MockOAuthClient } from './services/mock-oauth-client.js';
 import { TokenServiceImpl } from './services/token-service.js';
 import { AuthServiceImpl } from './services/auth-service.js';
 import { createAuthRouter } from './routes/index.js';
+import { PgBoardRepository } from './repositories/pg-board-repository.js';
+import { createBoardRouter } from './routes/board.js';
 import { createAiRouter } from './routes/ai.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
@@ -236,6 +238,7 @@ export function createApp(
   const refreshTokenRepository = new PgRefreshTokenRepository(pool);
   // 서버 기반 알림(024_notifications) — pool 만 의존하므로 먼저 구성해 auth 서비스에도 주입.
   const notificationRepository = new PgNotificationRepository(pool);
+  const boardRepository = new PgBoardRepository(pool);
 
   const authService = new AuthServiceImpl({
     emailValidator, oauthClient, tokenService,
@@ -248,6 +251,9 @@ export function createApp(
   app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
   const authRequired = createAuthRequired(tokenService, userRepository);
+
+  // 커뮤니티 게시판 — 목록/상세/댓글 목록은 공개, 작성/삭제는 로그인(삭제는 본인 또는 관리자).
+  app.use('/api/board', createBoardRouter(boardRepository, authRequired, userRepository));
   // soft-auth: 토큰 있으면 req.userId 채우고, 없거나 무효여도 통과(공개 GET 의 viewer 플래그용).
   const optionalAuth = createOptionalAuth(tokenService);
 

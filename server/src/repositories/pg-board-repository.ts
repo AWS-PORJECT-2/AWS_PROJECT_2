@@ -1,0 +1,132 @@
+import pg from 'pg';
+import type { BoardRepository, BoardListOptions } from './board-repository.js';
+import type { BoardPost, BoardComment, BoardAuthor } from '../types/board.js';
+import type { BoardMedia } from '../utils/board-content.js';
+import { normalizeMedia } from '../utils/board-content.js';
+
+const AUTHOR_COLS = 'u.id AS author_id, u.name AS author_name, u.nickname AS author_nickname, u.picture AS author_picture, u.slug AS author_slug';
+
+function toAuthor(r: Record<string, unknown>): BoardAuthor {
+  return {
+    id: r.author_id as string,
+    name: (r.author_name as string | null) ?? null,
+    nickname: (r.author_nickname as string | null) ?? null,
+    picture: (r.author_picture as string | null) ?? null,
+    slug: (r.author_slug as string | null) ?? null,
+  };
+}
+function iso(v: unknown): string {
+  return v instanceof Date ? v.toISOString() : String(v ?? '');
+}
+function toPost(r: Record<string, unknown>): BoardPost {
+  return {
+    id: r.id as string,
+    category: (r.category as string) ?? 'general',
+    title: (r.title as string) ?? '',
+    body: (r.body as string) ?? '',
+    media: normalizeMedia(r.media as unknown) as BoardMedia[],
+    commentCount: Number(r.comment_count) || 0,
+    author: toAuthor(r),
+    createdAt: iso(r.created_at),
+    updatedAt: iso(r.updated_at),
+  };
+}
+function toComment(r: Record<string, unknown>): BoardComment {
+  return {
+    id: r.id as string,
+    postId: r.post_id as string,
+    body: (r.body as string) ?? '',
+    author: toAuthor(r),
+    createdAt: iso(r.created_at),
+  };
+}
+
+export class PgBoardRepository implements BoardRepository {
+  constructor(private readonly pool: pg.Pool) {}
+
+  async listPosts(opts: BoardListOptions): Promise<BoardPost[]> {
+    const params: unknown[] = [];
+    const where: string[] = [];
+    if (opts.category) { params.push(opts.category); where.push(`p.category = $${params.length}`); }
+    if (opts.before) { params.push(opts.before); where.push(`p.created_at < $${params.length}`); }
+    params.push(Math.min(Math.max(opts.limit, 1), 50));
+    const result = await this.pool.query(
+      `SELECT p.id, p.category, p.title, p.body, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+         FROM board_posts p JOIN "user" u ON u.id = p.author_id
+        ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+        ORDER BY p.created_at DESC
+        LIMIT $${params.length}`,
+      params,
+    );
+    return result.rows.map(toPost);
+  }
+
+  async getPost(id: string): Promise<BoardPost | null> {
+    const r = await this.pool.query(
+      `SELECT p.id, p.category, p.title, p.body, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+         FROM board_posts p JOIN "user" u ON u.id = p.author_id WHERE p.id = $1`,
+      [id],
+    );
+    return r.rows[0] ? toPost(r.rows[0]) : null;
+  }
+
+  async createPost(input: { authorId: string; category: string; title: string; body: string; media: BoardMedia[] }): Promise<BoardPost> {
+    const r = await this.pool.query(
+      `INSERT INTO board_posts (author_id, category, title, body, media)
+       VALUES ($1, $2, $3, $4, $5::jsonb) RETURNING id`,
+      [input.authorId, input.category, input.title, input.body, JSON.stringify(input.media)],
+    );
+    const created = await this.getPost(r.rows[0].id as string);
+    if (!created) throw new Error('board post created but not found');
+    return created;
+  }
+
+  async getPostAuthorId(id: string): Promise<string | null> {
+    const r = await this.pool.query('SELECT author_id FROM board_posts WHERE id = $1', [id]);
+    return r.rows[0] ? (r.rows[0].author_id as string) : null;
+  }
+
+  async deletePost(id: string): Promise<boolean> {
+    const r = await this.pool.query('DELETE FROM board_posts WHERE id = $1', [id]);
+    return (r.rowCount ?? 0) > 0;
+  }
+
+  async listComments(postId: string): Promise<BoardComment[]> {
+    const r = await this.pool.query(
+      `SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
+         FROM board_comments c JOIN "user" u ON u.id = c.author_id
+        WHERE c.post_id = $1 ORDER BY c.created_at ASC`,
+      [postId],
+    );
+    return r.rows.map(toComment);
+  }
+
+  async createComment(input: { postId: string; authorId: string; body: string }): Promise<BoardComment | null> {
+    const ins = await this.pool.query(
+      'INSERT INTO board_comments (post_id, author_id, body) VALUES ($1, $2, $3) RETURNING id',
+      [input.postId, input.authorId, input.body],
+    );
+    await this.pool.query('UPDATE board_posts SET comment_count = comment_count + 1 WHERE id = $1', [input.postId]);
+    const r = await this.pool.query(
+      `SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
+         FROM board_comments c JOIN "user" u ON u.id = c.author_id WHERE c.id = $1`,
+      [ins.rows[0].id as string],
+    );
+    return r.rows[0] ? toComment(r.rows[0]) : null;
+  }
+
+  async getCommentAuthorId(id: string): Promise<string | null> {
+    const r = await this.pool.query('SELECT author_id FROM board_comments WHERE id = $1', [id]);
+    return r.rows[0] ? (r.rows[0].author_id as string) : null;
+  }
+
+  async deleteComment(id: string): Promise<boolean> {
+    const r = await this.pool.query('DELETE FROM board_comments WHERE id = $1 RETURNING post_id', [id]);
+    if (!r.rows[0]) return false;
+    await this.pool.query(
+      'UPDATE board_posts SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = $1',
+      [r.rows[0].post_id as string],
+    );
+    return true;
+  }
+}

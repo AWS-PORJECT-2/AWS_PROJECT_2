@@ -1,0 +1,79 @@
+/**
+ * 게시판 콘텐츠 검증·정규화.
+ * 본문(body)은 평문으로 저장하고 렌더 시 escape + 자동링크 → 본문 경유 HTML 주입 불가.
+ * 미디어는 구조화(image/video/youtube/link)하여 타입·URL 형식을 서버에서 검증한다.
+ */
+
+export const BOARD_CATEGORIES = ['general', 'promo', 'question', 'free', 'review'] as const;
+export type BoardCategory = (typeof BOARD_CATEGORIES)[number];
+
+const TITLE_MAX = 120;
+const BODY_MAX = 5000;
+const MEDIA_MAX = 10;
+const COMMENT_MAX = 2000;
+// 미디어 data URL 1건 상한(base64 문자수 ≈ 8MB). 과도한 업로드/DB 비대화 방지.
+const DATAURL_MAX = 11_000_000;
+
+export function isValidBoardCategory(c: unknown): c is BoardCategory {
+  return typeof c === 'string' && (BOARD_CATEGORIES as readonly string[]).includes(c);
+}
+
+export function sanitizeTitle(v: unknown): string {
+  return (typeof v === 'string' ? v : '').trim().slice(0, TITLE_MAX);
+}
+export function sanitizeBody(v: unknown): string {
+  return (typeof v === 'string' ? v : '').replace(/\r\n/g, '\n').slice(0, BODY_MAX);
+}
+export function sanitizeComment(v: unknown): string {
+  return (typeof v === 'string' ? v : '').trim().slice(0, COMMENT_MAX);
+}
+
+/** 유튜브 URL/ID 에서 11자 영상 ID 추출(실패 시 null). */
+export function youtubeId(input: string): string | null {
+  if (typeof input !== 'string') return null;
+  const s = input.trim();
+  if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+  const m = s.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|v\/))([A-Za-z0-9_-]{11})/);
+  return m ? m[1] : null;
+}
+
+function isHttpUrl(v: unknown): boolean {
+  return typeof v === 'string' && /^https?:\/\/[^\s]+$/i.test(v) && v.length <= 2048;
+}
+function isImageUrl(v: unknown): boolean {
+  if (typeof v !== 'string') return false;
+  return isHttpUrl(v) || (/^data:image\/(png|jpe?g|webp|gif);base64,/.test(v) && v.length <= DATAURL_MAX);
+}
+function isVideoUrl(v: unknown): boolean {
+  if (typeof v !== 'string') return false;
+  return isHttpUrl(v) || (/^data:video\/(mp4|webm|quicktime);base64,/.test(v) && v.length <= DATAURL_MAX);
+}
+
+export interface BoardMedia {
+  type: 'image' | 'video' | 'youtube' | 'link';
+  url?: string;       // image/video/link
+  youtubeId?: string; // youtube
+  title?: string;     // link 표시용(선택)
+}
+
+/** 미디어 배열 정규화 — 유효 항목만, 최대 MEDIA_MAX 개. 알 수 없는 형식은 버린다. */
+export function normalizeMedia(arr: unknown): BoardMedia[] {
+  if (!Array.isArray(arr)) return [];
+  const out: BoardMedia[] = [];
+  for (const raw of arr) {
+    if (out.length >= MEDIA_MAX) break;
+    if (!raw || typeof raw !== 'object') continue;
+    const item = raw as Record<string, unknown>;
+    const type = item.type;
+    if (type === 'image' && isImageUrl(item.url)) out.push({ type: 'image', url: item.url as string });
+    else if (type === 'video' && isVideoUrl(item.url)) out.push({ type: 'video', url: item.url as string });
+    else if (type === 'youtube') {
+      const id = youtubeId(typeof item.url === 'string' ? item.url : (typeof item.youtubeId === 'string' ? item.youtubeId : ''));
+      if (id) out.push({ type: 'youtube', youtubeId: id });
+    } else if (type === 'link' && isHttpUrl(item.url)) {
+      const title = typeof item.title === 'string' ? item.title.trim().slice(0, 200) : undefined;
+      out.push({ type: 'link', url: item.url as string, title: title || undefined });
+    }
+  }
+  return out;
+}

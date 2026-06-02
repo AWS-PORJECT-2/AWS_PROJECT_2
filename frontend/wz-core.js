@@ -210,6 +210,10 @@
     const soonLink = el('a', { class: 'wz-hd__nav2link wz-hd__nav2link--soon', href: '/feed.html?feed=scheduled' }, '공개예정');
     soonLink.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); location.href = '/feed.html?feed=scheduled'; });
     nav2inner.appendChild(soonLink);
+    // 커뮤니티 게시판 진입(공개예정 옆)
+    const boardLink = el('a', { class: 'wz-hd__nav2link wz-hd__nav2link--board', href: '/board.html' }, '게시판');
+    boardLink.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); location.href = '/board.html'; });
+    nav2inner.appendChild(boardLink);
     nav2.appendChild(nav2inner);
     hd.appendChild(nav2);
 
