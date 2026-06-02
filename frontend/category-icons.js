@@ -65,6 +65,7 @@ function categoryFallbackSvg(key) {
     doll:     '<circle cx="60" cy="46" r="18"/><path d="M40 100v-8q0-16 20-16t20 16v8z"/><circle cx="53" cy="44" r="2.5" fill="' + P + '"/><circle cx="67" cy="44" r="2.5" fill="' + P + '"/>',
     accessory:'<circle cx="46" cy="50" r="12"/><path d="M46 62v14"/><path d="M70 44q14 0 14 16t-14 16" /><circle cx="70" cy="60" r="3" fill="' + P + '"/>',
     etc:      '<circle cx="40" cy="60" r="5" fill="' + P + '"/><circle cx="60" cy="60" r="5" fill="' + P + '"/><circle cx="80" cy="60" r="5" fill="' + P + '"/>',
+    webapp:   '<rect x="26" y="30" width="68" height="46" rx="5"/><path d="M26 42h68"/><circle cx="34" cy="36" r="1.6" fill="' + P + '"/><path d="M48 90h24M60 76v14"/>',
   };
   if (ICONS[key]) return svg(ICONS[key]);
   // 미상 key — 굿즈 박스
