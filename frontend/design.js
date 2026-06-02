@@ -142,13 +142,18 @@
 
   // ---- DOM refs ---------------------------------------------------------------
   var root, canvasEl, layersWrap, selWrap, mockCanvasEl, viewsWrap, propsBox, layerListBox, titleInput;
-  var mockImgCache = {}, mockMaskCache = {};
-  function loadImg(cache, src, cb) {
-    var im = cache[src];
-    if (im && im.complete && im.naturalWidth) { cb(im); return; }
-    im = new Image(); cache[src] = im;
-    im.onload = function () { cb(im); }; im.onerror = function () {};
-    im.src = src;
+  // 이미지 로더(큐 기반) — 같은 src 동시요청을 합치고, 로드되면 대기 콜백 모두 호출.
+  var imgCache2 = {};
+  function loadImg2(src, cb) {
+    var e = imgCache2[src];
+    if (e && e.img.complete && e.img.naturalWidth) { cb(e.img); return; }
+    if (e) { e.cbs.push(cb); return; }
+    var img = new Image();
+    var rec = { img: img, cbs: [cb] };
+    imgCache2[src] = rec;
+    img.onload = function () { var cbs = rec.cbs; rec.cbs = []; cbs.forEach(function (f) { f(img); }); };
+    img.onerror = function () { rec.cbs = []; cb(null); };
+    img.src = src;
   }
 
   function toast(msg) {
@@ -190,13 +195,6 @@
     canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
     canvasEl.appendChild(buildMockNode()); // 목업+옷색(canvas)
     var mk = maskSrc(S.view);
-    // 인쇄 영역(인쇄 위치) 가이드 — 상품·면별로 권장 배치 영역 표시.
-    var prc = printRect();
-    if (prc) {
-      var guide = el('div', { class: 'dz-print', style: 'left:' + prc.l + '%;top:' + prc.t + '%;width:' + prc.w + '%;height:' + prc.h + '%' });
-      guide.appendChild(el('div', { class: 'dz-print__tag' }, '인쇄 영역'));
-      canvasEl.appendChild(guide);
-    }
     // 레이어 컨테이너 — 제품 실루엣 마스크로 클리핑(제품 밖으로 나간 부분은 잘림).
     layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0' });
     applyMaskCss(layersWrap, mk);
@@ -276,38 +274,39 @@
     cv.width = 800; cv.height = 800;
     cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
     mockCanvasEl = cv;
-    paintMockCanvas(cv);
+    paintMockCanvas(cv, S.view, S.color);
     return cv;
   }
-  function paintMockCanvas(cv) {
-    var ctx = cv.getContext('2d');
-    var CW = cv.width, CH = cv.height;
-    var src = mockupSrc(S.view);
+  // view/color 를 명시 인자로 받아 비동기 콜백 중 S 변형의 영향을 안 받게. 모든 면(앞/뒤/옆)에 동일 적용.
+  function paintMockCanvas(cv, view, color) {
+    var ctx = cv.getContext('2d'), CW = cv.width, CH = cv.height;
+    var token = (cv.__tk = (cv.__tk || 0) + 1);
+    function stale() { return mockCanvasEl !== cv || cv.__tk !== token; }
+    var src = mockupSrc(view);
     if (!src) { // webapp/etc — SVG 폴백
-      var svgImg = new Image();
-      svgImg.onload = function () { if (mockCanvasEl === cv) { ctx.clearRect(0, 0, CW, CH); ctx.drawImage(svgImg, 0, 0, CW, CH); } };
-      svgImg.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mockSvg());
+      var s = new Image();
+      s.onload = function () { if (!stale()) { ctx.clearRect(0, 0, CW, CH); ctx.drawImage(s, 0, 0, CW, CH); } };
+      s.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mockSvg());
       return;
     }
-    loadImg(mockImgCache, src, function (base) {
-      if (mockCanvasEl !== cv) return; // 면/상품 바뀜 → 무시
-      ctx.clearRect(0, 0, CW, CH);
-      ctx.drawImage(base, 0, 0, CW, CH);
-      var msrc = maskSrc(S.view);
-      if (isApparel() && !isWhite(S.color) && msrc) {
-        loadImg(mockMaskCache, msrc, function (mask) {
-          if (mockCanvasEl !== cv) return;
-          ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH);
-          var tc = document.createElement('canvas'); tc.width = CW; tc.height = CH;
-          var tx = tc.getContext('2d');
-          tx.fillStyle = S.color; tx.fillRect(0, 0, CW, CH);
-          tx.globalCompositeOperation = 'destination-in'; tx.drawImage(mask, 0, 0, CW, CH);
-          ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(tc, 0, 0); ctx.globalCompositeOperation = 'source-over';
-        });
-      }
+    var tintOn = isApparel() && !isWhite(color);
+    var msrc = maskSrc(view);
+    loadImg2(src, function (base) {
+      if (stale() || !base) return;
+      ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH);
+      if (!(tintOn && msrc)) return;
+      loadImg2(msrc, function (mask) {
+        if (stale() || !mask) return;
+        ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH);
+        var tc = document.createElement('canvas'); tc.width = CW; tc.height = CH;
+        var tx = tc.getContext('2d');
+        tx.fillStyle = color; tx.fillRect(0, 0, CW, CH);
+        tx.globalCompositeOperation = 'destination-in'; tx.drawImage(mask, 0, 0, CW, CH);
+        ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(tc, 0, 0); ctx.globalCompositeOperation = 'source-over';
+      });
     });
   }
-  function repaintMock() { if (mockCanvasEl) paintMockCanvas(mockCanvasEl); }
+  function repaintMock() { if (mockCanvasEl) paintMockCanvas(mockCanvasEl, S.view, S.color); }
 
   // ---- 툴 카드(이미지/텍스트 추가) -------------------------------------------
   function toolsCard() {
