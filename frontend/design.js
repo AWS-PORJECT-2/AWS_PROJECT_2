@@ -25,21 +25,21 @@
   function pr(l, t, w, h) { return { l: l, t: t, w: w, h: h }; }
   // 인쇄영역(캔버스 대비 %)은 실제 목업 이미지의 제품 위치를 픽셀 분석 + 시각 검수로 맞춤.
   var PRODUCTS = {
-    jacket: { type: 'apparel', tint: true, items: [
+    jacket: { type: 'apparel', colors: true, items: [
       { name: '바시티 자켓', img: 'varsity_jacket', views: AP,
         print: { front: pr(31, 23, 38, 56), back: pr(29, 18, 42, 62), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
-    hoodie: { type: 'apparel', tint: true, items: [
+    hoodie: { type: 'apparel', colors: true, items: [
       { name: '후드티', img: 'hoodie', views: AP,
         print: { front: pr(31, 47, 38, 33), back: pr(30, 18, 40, 60), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
       { name: '맨투맨', img: 'sweatshirt', views: AP,
         print: { front: pr(30, 22, 40, 58), back: pr(29, 22, 42, 57), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
-    tshirt: { type: 'apparel', tint: true, items: [
+    tshirt: { type: 'apparel', colors: true, items: [
       { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
         print: { front: pr(29, 18, 42, 66), back: pr(29, 17, 42, 68), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
     ] },
-    ecobag: { type: 'goods', items: [
+    ecobag: { type: 'goods', colors: true, items: [
       { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
     ] },
     keyring: { type: 'goods', items: [
@@ -48,7 +48,7 @@
       { name: '사각 키링', img: 'keyring_square', views: ['front'], print: { front: pr(26, 26, 46, 46) } },
       { name: '스트랩 키링', img: 'keyring_strap', views: ['front'], print: { front: pr(44, 16, 14, 50) } },
     ] },
-    phonecase: { type: 'goods', items: [
+    phonecase: { type: 'goods', colors: true, items: [
       { name: '폰케이스', img: 'phonecase', views: ['back'], print: { back: pr(33, 15, 34, 66) } },
     ] },
     sticker: { type: 'goods', items: [
@@ -57,11 +57,11 @@
     badge: { type: 'goods', items: [
       { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 32, 48, 36) } },
     ] },
-    tumbler: { type: 'goods', items: [
+    tumbler: { type: 'goods', colors: true, items: [
       { name: '텀블러', img: 'tumbler', views: ['front'], print: { front: pr(37, 20, 24, 54) } },
       { name: '머그컵', img: 'mug', views: ['front'], print: { front: pr(34, 34, 28, 30) } },
     ] },
-    fabric: { type: 'goods', items: [
+    fabric: { type: 'goods', colors: true, items: [
       { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
     // 인형·액세서리는 레이어 에디터 대신 "말로 설명 → AI 디자인 뽑기" 모드.
@@ -77,15 +77,17 @@
   function supportsDesign(slug) { return !!PRODUCTS[slug]; }
   function curItem() { return catDef(S.slug).items[S.itemIdx] || catDef(S.slug).items[0]; }
   function isApparel() { return catDef(S.slug).type === 'apparel'; }
-  function tintable() { return catDef(S.slug).tint === true; } // 색이 필요한 제품(의류·에코백·텀블러/머그·담요)만 실시간 색칠
 
-  // 색상 팔레트(주문 옵션용 메타데이터 — 사진 목업은 흰색 기준이라 색을 시각적으로 바꾸진 않음)
+  // 색상 팔레트. key = 사전 생성된 색상 목업 파일 접미사(/assets/mockups/<img>_<view>__<key>.jpg).
+  //  화이트는 원본(접미사 없음). 색 변경 = 실시간 멀티플라이가 아니라 해당 색 이미지로 교체(배경 번짐 없음).
   var COLORS = [
-    { name: '화이트', hex: '#ffffff' }, { name: '블랙', hex: '#2b2b2e' },
-    { name: '그레이', hex: '#b8bcc4' }, { name: '네이비', hex: '#23304f' },
-    { name: '레드', hex: '#d23b3b' }, { name: '퍼플', hex: '#8B5CF6' },
-    { name: '그린', hex: '#3a9a5c' }, { name: '베이지', hex: '#e7dcc6' },
+    { name: '화이트', hex: '#ffffff', key: '' }, { name: '블랙', hex: '#2b2b2e', key: 'black' },
+    { name: '그레이', hex: '#b8bcc4', key: 'gray' }, { name: '네이비', hex: '#23304f', key: 'navy' },
+    { name: '레드', hex: '#d23b3b', key: 'red' }, { name: '퍼플', hex: '#8b5cf6', key: 'purple' },
+    { name: '그린', hex: '#3a9a5c', key: 'green' }, { name: '베이지', hex: '#e7dcc6', key: 'beige' },
   ];
+  function colorKey(hex) { for (var i = 0; i < COLORS.length; i++) { if (COLORS[i].hex.toLowerCase() === String(hex).toLowerCase()) return COLORS[i].key; } return ''; }
+  function colorable() { return catDef(S.slug).colors === true; }
   var SIZES = ['S', 'M', 'L', 'XL', '2XL'];
 
   // 텍스트 글꼴(서체) — design.html 에서 구글폰트 로드.
@@ -112,11 +114,14 @@
   function primaryView() { return views()[0]; } // 대표 면(폰케이스처럼 front 가 없는 상품 대비)
   function viewLabel(v) { return VIEW_LABEL[v] || v; }
 
-  // 베이스 목업 이미지 경로(/assets/mockups/<img>_<view>.jpg, 흰배경 렌더 → 경량 JPEG). img 없으면 null → SVG 폴백.
+  // 목업 이미지 경로. 색이 흰색이 아니고 colorable 카테고리면 사전 생성된 색상 이미지(__key)로 교체.
   function mockupSrc(view) {
     var it = curItem();
-    return it.img ? '/assets/mockups/' + it.img + '_' + view + '.jpg' : null;
+    if (!it.img) return null;
+    var k = (colorable() && !isWhite(S.color)) ? colorKey(S.color) : '';
+    return '/assets/mockups/' + it.img + '_' + view + (k ? '__' + k : '') + '.jpg';
   }
+  function baseMockupSrc(view) { var it = curItem(); return it.img ? '/assets/mockups/' + it.img + '_' + view + '.jpg' : null; }
   // 옷/제품 실루엣 마스크(알파 PNG, 제품=불투명·배경=투명). 레이어를 이 모양으로 클리핑 → 제품 밖은 잘림.
   function maskSrc(view) {
     var it = curItem();
@@ -317,12 +322,10 @@
     stage.appendChild(viewsWrap);
 
     canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
-    canvasEl.appendChild(buildMockNode()); // 목업+옷색(canvas)
-    // 인쇄 범위 가이드(점선) — 이 범위를 벗어난 디자인은 잘려서 인쇄되지 않음.
-    var prc = printRect();
-    canvasEl.appendChild(el('div', { class: 'dz-print', style: 'left:' + prc.l + '%;top:' + prc.t + '%;width:' + prc.w + '%;height:' + prc.h + '%' }));
-    // 레이어 컨테이너 — 인쇄 범위(사각형)로 클리핑(범위 밖은 안 보임).
-    layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0;clip-path:inset(' + prc.t + '% ' + (100 - prc.l - prc.w) + '% ' + (100 - prc.t - prc.h) + '% ' + prc.l + '%)' });
+    canvasEl.appendChild(buildMockNode()); // 목업(색상 이미지)
+    // 레이어 컨테이너 — 제품 실루엣 마스크로 클리핑(제품 밖으로 나간 디자인은 안 보임).
+    layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0' });
+    applyMaskCss(layersWrap, maskSrc(S.view));
     canvasEl.appendChild(layersWrap);
     // 선택 UI(선택박스+핸들)는 마스크 밖 별도 오버레이 — 제품 가장자리에서도 안 잘리고 잡을 수 있게.
     selWrap = el('div', { class: 'dz-canvas__sel', style: 'position:absolute;inset:0;pointer-events:none' });
@@ -501,39 +504,29 @@
     cv.width = 800; cv.height = 800;
     cv.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none';
     mockCanvasEl = cv;
-    paintMockCanvas(cv, S.view, S.color);
+    paintMockCanvas(cv, S.view);
     return cv;
   }
-  // view/color 를 명시 인자로 받아 비동기 콜백 중 S 변형의 영향을 안 받게. 모든 면(앞/뒤/옆)에 동일 적용.
-  function paintMockCanvas(cv, view, color) {
+  // 색은 mockupSrc 가 색상 이미지(__key)로 교체 — canvas 에 그대로 그림(멀티플라이 X → 배경 번짐 없음).
+  function paintMockCanvas(cv, view) {
     var ctx = cv.getContext('2d'), CW = cv.width, CH = cv.height;
     var token = (cv.__tk = (cv.__tk || 0) + 1);
     function stale() { return mockCanvasEl !== cv || cv.__tk !== token; }
     var src = mockupSrc(view);
-    if (!src) { // webapp/etc — SVG 폴백
+    if (!src) { // 이미지 없는 상품 — SVG 폴백
       var s = new Image();
       s.onload = function () { if (!stale()) { ctx.clearRect(0, 0, CW, CH); ctx.drawImage(s, 0, 0, CW, CH); } };
       s.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(mockSvg());
       return;
     }
-    var tintOn = tintable() && !isWhite(color);
-    var msrc = maskSrc(view);
     loadImg2(src, function (base) {
-      if (stale() || !base) return;
-      ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH);
-      if (!(tintOn && msrc)) return;
-      loadImg2(msrc, function (mask) {
-        if (stale() || !mask) return;
-        ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH);
-        var tc = document.createElement('canvas'); tc.width = CW; tc.height = CH;
-        var tx = tc.getContext('2d');
-        tx.fillStyle = color; tx.fillRect(0, 0, CW, CH);
-        tx.globalCompositeOperation = 'destination-in'; tx.drawImage(mask, 0, 0, CW, CH);
-        ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(tc, 0, 0); ctx.globalCompositeOperation = 'source-over';
-      });
+      if (stale()) return;
+      if (base) { ctx.clearRect(0, 0, CW, CH); ctx.drawImage(base, 0, 0, CW, CH); return; }
+      var fb = baseMockupSrc(view); // 색상 이미지 없으면 흰색 베이스로 폴백
+      if (fb && fb !== src) loadImg2(fb, function (b2) { if (!stale() && b2) { ctx.clearRect(0, 0, CW, CH); ctx.drawImage(b2, 0, 0, CW, CH); } });
     });
   }
-  function repaintMock() { if (mockCanvasEl) paintMockCanvas(mockCanvasEl, S.view, S.color); }
+  function repaintMock() { if (mockCanvasEl) paintMockCanvas(mockCanvasEl, S.view); }
 
   // ---- 툴 카드(이미지/텍스트 추가) -------------------------------------------
   function toolsCard() {
@@ -622,7 +615,7 @@
     if (prodItems.length > 1) card.appendChild(field('상품', prodSel));
 
     // 색상 — 색이 필요한 제품(tintable)만 노출 + 실시간 색 변경. 그 외(키링·스티커 등)는 색 옵션 숨김.
-    if (tintable()) {
+    if (colorable()) {
       var sw = el('div', { class: 'dz-swatches' });
       COLORS.forEach(function (c) {
         var d = el('div', { class: 'dz-sw' + (c.hex === S.color ? ' is-on' : ''), title: c.name, style: 'background:' + c.hex });
@@ -1013,9 +1006,8 @@
       var ctx = canvas.getContext('2d');
       ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, CW, CH);
       var msrc = maskSrc(view);
-      var tinted = tintable() && !isWhite(S.color);
 
-      drawBase(function () { loadMask(function (maskImg) { tintThenLayers(maskImg); }); });
+      drawBase(function () { loadMask(function (maskImg) { loadLayers(maskImg); }); });
 
       // 베이스 목업(PNG 우선, 없으면 SVG 폴백)
       function drawBase(cb) {
@@ -1023,7 +1015,11 @@
         if (!base) { drawSvg(cb); return; }
         var png = new Image();
         png.onload = function () { ctx.drawImage(png, 0, 0, CW, CH); cb(); };
-        png.onerror = function () { drawSvg(cb); };
+        png.onerror = function () { // 색상 이미지 없으면 흰색 베이스 → 그래도 없으면 SVG
+          var fb = baseMockupSrc(view);
+          if (fb && fb !== base) { var p2 = new Image(); p2.onload = function () { ctx.drawImage(p2, 0, 0, CW, CH); cb(); }; p2.onerror = function () { drawSvg(cb); }; p2.src = fb; }
+          else drawSvg(cb);
+        };
         png.src = base;
       }
       function drawSvg(cb) {
@@ -1037,15 +1033,7 @@
         if (!msrc) { cb(null); return; }
         var mi = new Image(); mi.onload = function () { cb(mi); }; mi.onerror = function () { cb(null); }; mi.src = msrc;
       }
-      // 옷 색(의류·흰색 아님): 색 채운 뒤 마스크로 옷 영역만 남기고 multiply 로 베이스에 입힘.
-      function tintThenLayers(maskImg) {
-        if (tinted && maskImg) {
-          var tc = document.createElement('canvas'); tc.width = CW; tc.height = CH;
-          var tx = tc.getContext('2d');
-          tx.fillStyle = S.color; tx.fillRect(0, 0, CW, CH);
-          tx.globalCompositeOperation = 'destination-in'; tx.drawImage(maskImg, 0, 0, CW, CH);
-          ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(tc, 0, 0); ctx.globalCompositeOperation = 'source-over';
-        }
+      function loadLayers(maskImg) {
         var ls = S.views[view] || [];
         var imgs = ls.filter(function (L) { return L.type === 'image'; });
         var pending = imgs.length;
@@ -1059,16 +1047,10 @@
           n.src = L.src;
         });
       }
-      // 레이어는 별도 캔버스에 그린 뒤 인쇄 범위(사각형)로 클리핑 → 베이스에 합성.
+      // 레이어를 별도 캔버스에 그린 뒤 제품 실루엣 마스크로 클리핑 → 베이스에 합성.
       function paint(maskImg, ls) {
         var lc = document.createElement('canvas'); lc.width = CW; lc.height = CH;
         var lx = lc.getContext('2d');
-        var pp = curItem().print || {};
-        var box = pp[view] || pp[views()[0]] || pr(0, 0, 100, 100);
-        lx.save();
-        lx.beginPath();
-        lx.rect(box.l / 100 * CW, box.t / 100 * CH, box.w / 100 * CW, box.h / 100 * CH);
-        lx.clip();
         ls.forEach(function (L) {
           var cx = L.x / 100 * CW, cy = L.y / 100 * CH;
           lx.save();
