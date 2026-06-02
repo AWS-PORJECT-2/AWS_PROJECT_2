@@ -23,6 +23,9 @@
     share: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></svg>',
     edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
     link: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>',
+    kakao: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7-.2.7-.7 2.6-.8 3-.1.5.2.5.4.4.2-.1 2.7-1.8 3.8-2.6.6.1 1.3.1 1.9.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>',
+    twitterX: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.2 2.5h3.3l-7.2 8.2 8.5 11.3h-6.7l-5.2-6.8-6 6.8H1.6l7.7-8.8L1.2 2.5h6.8l4.7 6.2 5.5-6.2zm-1.2 17.6h1.8L7.1 4.3H5.2l11.8 15.8z"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M22 12a10 10 0 1 0-11.6 9.9v-7H7.9V12h2.5V9.8c0-2.5 1.5-3.9 3.8-3.9 1.1 0 2.2.2 2.2.2v2.5h-1.2c-1.2 0-1.6.8-1.6 1.6V12h2.7l-.4 2.9h-2.3v7A10 10 0 0 0 22 12z"/></svg>',
     badge: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 14.4 7.2 16.9l.9-5.4L4.2 7.7l5.4-.8L12 2z"/></svg>',
     camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>',
     box: W.ICON.box,
@@ -335,18 +338,69 @@
     syncTabCounts();
   }
 
-  function onShare() {
-    var url = location.href;
-    var title = (state.profile && (state.profile.name || state.profile.nickname)) || '메이커';
-    if (navigator.share) {
-      navigator.share({ title: title + ' · 두띵', url: url }).catch(function () {});
-      return;
-    }
+  /* ---------- 공유(카카오/X/페이스북/링크) — 상세(wz-detail) 공유시트와 동일 동작 ---------- */
+  function copyLink(url) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(url).then(function () { toast('링크를 복사했어요'); }).catch(function () { toast(url); });
     } else {
       toast(url);
     }
+  }
+  function openShareWindow(shareUrl) {
+    // 클릭(사용자 제스처) 첫 줄에서 동기 호출되어야 팝업 차단을 피한다.
+    window.open(shareUrl, '_blank', 'noopener,noreferrer,width=600,height=540');
+  }
+  // 카카오톡: SDK/도메인 등록 없이 — 링크 복사 + 카카오톡 앱 실행 시도(설치 시 열림, 아니면 무시).
+  function openKakaoTalk() {
+    try {
+      var ifr = document.createElement('iframe');
+      ifr.style.display = 'none';
+      ifr.src = 'kakaotalk://';
+      document.body.appendChild(ifr);
+      setTimeout(function () { try { ifr.remove(); } catch (_) {} }, 1500);
+    } catch (_) { /* 무시 */ }
+  }
+
+  function onShare() {
+    var url = location.href;
+    var enc = encodeURIComponent(url);
+    var title = (state.profile && (state.profile.name || state.profile.nickname)) || '메이커';
+    var encTitle = encodeURIComponent(title + ' · 두띵');
+
+    // 각 항목은 클릭 즉시(동기) 처리 — window.open 은 핸들러 첫 줄에서(팝업 차단 방지). 모두 <button>.
+    var items = [
+      ['kakao', '카카오톡', IC.kakao, function () { try { if (navigator.clipboard) navigator.clipboard.writeText(url); } catch (_) { /* 무시 */ } openKakaoTalk(); }],
+      ['twitterX', 'X', IC.twitterX, function () { openShareWindow('https://twitter.com/intent/tweet?url=' + enc + '&text=' + encTitle); }],
+      ['facebook', '페이스북', IC.facebook, function () { openShareWindow('https://www.facebook.com/sharer/sharer.php?u=' + enc); }],
+      ['link', '링크 복사', IC.link, function () { copyLink(url); }],
+    ];
+
+    var overlay = W.el('div', { class: 'wz-mk-sharesheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '공유하기' });
+    var box = W.el('div', { class: 'wz-mk-sharesheet__box' });
+    var close = function () { overlay.remove(); document.removeEventListener('keydown', onKey); };
+    function onKey(e) { if (e.key === 'Escape') close(); }
+
+    var head = W.el('div', { class: 'wz-mk-sharesheet__head' });
+    var closeBtn = W.el('button', { class: 'wz-mk-sharesheet__close', type: 'button', 'aria-label': '닫기', html: W.ICON.close });
+    closeBtn.addEventListener('click', close);
+    head.append(W.el('h3', {}, '공유하기'), closeBtn);
+
+    var grid = W.el('div', { class: 'wz-mk-sharesheet__grid' });
+    items.forEach(function (it) {
+      var key = it[0], label = it[1], icon = it[2], action = it[3];
+      var btn = W.el('button', { class: 'wz-mk-shareitem wz-mk-shareitem--' + key, type: 'button' },
+        W.el('span', { class: 'wz-mk-shareitem__ic', html: icon }),
+        W.el('span', { class: 'wz-mk-shareitem__label' }, label));
+      // 핸들러 첫 줄에서 action() 동기 실행(window.open 이 제스처 안에서) 후 시트 닫기.
+      btn.addEventListener('click', function () { action(); close(); });
+      grid.appendChild(btn);
+    });
+
+    box.append(head, grid);
+    overlay.appendChild(box);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(overlay);
   }
 
   /* =================== 탭 바 =================== */

@@ -32,6 +32,18 @@ export function sanitizeComment(v: unknown): string {
   return (typeof v === 'string' ? v : '').trim().slice(0, COMMENT_MAX);
 }
 
+// 목록 카드용 경량 썸네일 — 작은 data:image(≤THUMB_MAX) 또는 https URL(ytimg 등)만 허용. 그 외 null.
+// 목록 응답을 가볍게 유지하기 위해 본문 인라인 이미지(수 MB)와 별개로 작은 썸네일만 저장한다.
+const THUMB_MAX = 400_000; // base64 약 300KB — 목록 N건 곱해도 가벼움
+export function sanitizeThumbnail(v: unknown): string | null {
+  if (typeof v !== 'string') return null;
+  const s = v.trim();
+  if (!s) return null;
+  if (/^https:\/\/[^\s]+$/i.test(s) && s.length <= 2048) return s;
+  if (/^data:image\/(png|jpe?g|webp);base64,/.test(s) && s.length <= THUMB_MAX) return s;
+  return null;
+}
+
 /** 새니타이즈된 html → 평문(목록 스니펫·검색용). 태그/엔티티 제거 후 500자. */
 export function htmlToText(html: unknown): string {
   return (typeof html === 'string' ? html : '')

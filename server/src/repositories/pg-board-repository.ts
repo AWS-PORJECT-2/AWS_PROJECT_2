@@ -24,6 +24,7 @@ function toPost(r: Record<string, unknown>): BoardPost {
     category: (r.category as string) ?? 'general',
     title: (r.title as string) ?? '',
     body: (r.body as string) ?? '',
+    thumbnail: (r.thumbnail as string | null) ?? null,
     contentBlocks: Array.isArray(r.content_blocks) ? (r.content_blocks as unknown[]) : [],
     media: normalizeMedia(r.media as unknown) as BoardMedia[],
     commentCount: Number(r.comment_count) || 0,
@@ -55,7 +56,7 @@ export class PgBoardRepository implements BoardRepository {
     // 카드 스니펫은 평문 body(migration 035가 목록/검색용으로 만든 컬럼)로 충분하고, 전체 본문/미디어는
     // getPost(상세)에서만 반환한다. (공개·무제한 GET 에 MB급 행을 곱해 보내던 자초 DoS/대역폭 낭비 차단.)
     const result = await this.pool.query(
-      `SELECT p.id, p.category, p.title, p.body, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+      `SELECT p.id, p.category, p.title, p.body, p.thumbnail, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
          FROM board_posts p JOIN "user" u ON u.id = p.author_id
         ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
         ORDER BY p.created_at DESC
@@ -68,22 +69,32 @@ export class PgBoardRepository implements BoardRepository {
 
   async getPost(id: string): Promise<BoardPost | null> {
     const r = await this.pool.query(
-      `SELECT p.id, p.category, p.title, p.body, p.content_blocks, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
+      `SELECT p.id, p.category, p.title, p.body, p.thumbnail, p.content_blocks, p.media, p.comment_count, p.created_at, p.updated_at, ${AUTHOR_COLS}
          FROM board_posts p JOIN "user" u ON u.id = p.author_id WHERE p.id = $1`,
       [id],
     );
     return r.rows[0] ? toPost(r.rows[0]) : null;
   }
 
-  async createPost(input: { authorId: string; category: string; title: string; body: string; contentBlocks: unknown[]; media: BoardMedia[] }): Promise<BoardPost> {
+  async createPost(input: { authorId: string; category: string; title: string; body: string; thumbnail: string | null; contentBlocks: unknown[]; media: BoardMedia[] }): Promise<BoardPost> {
     const r = await this.pool.query(
-      `INSERT INTO board_posts (author_id, category, title, body, content_blocks, media)
-       VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb) RETURNING id`,
-      [input.authorId, input.category, input.title, input.body, JSON.stringify(input.contentBlocks ?? []), JSON.stringify(input.media)],
+      `INSERT INTO board_posts (author_id, category, title, body, thumbnail, content_blocks, media)
+       VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7::jsonb) RETURNING id`,
+      [input.authorId, input.category, input.title, input.body, input.thumbnail, JSON.stringify(input.contentBlocks ?? []), JSON.stringify(input.media)],
     );
     const created = await this.getPost(r.rows[0].id as string);
     if (!created) throw new Error('board post created but not found');
     return created;
+  }
+
+  async updatePost(id: string, input: { category: string; title: string; body: string; thumbnail: string | null; contentBlocks: unknown[]; media: BoardMedia[] }): Promise<BoardPost | null> {
+    const r = await this.pool.query(
+      `UPDATE board_posts
+          SET category = $2, title = $3, body = $4, thumbnail = $5, content_blocks = $6::jsonb, media = $7::jsonb, updated_at = NOW()
+        WHERE id = $1 RETURNING id`,
+      [id, input.category, input.title, input.body, input.thumbnail, JSON.stringify(input.contentBlocks ?? []), JSON.stringify(input.media)],
+    );
+    return r.rows[0] ? this.getPost(r.rows[0].id as string) : null;
   }
 
   async getPostAuthorId(id: string): Promise<string | null> {

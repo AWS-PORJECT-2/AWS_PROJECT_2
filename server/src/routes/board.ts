@@ -6,8 +6,36 @@ import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { uuidParamGuard } from '../middleware/uuid-param.js';
-import { isValidBoardCategory, sanitizeTitle, sanitizeBody, sanitizeComment, normalizeMedia, htmlToText, BOARD_HTML_MAX } from '../utils/board-content.js';
+import { isValidBoardCategory, sanitizeTitle, sanitizeBody, sanitizeComment, sanitizeThumbnail, normalizeMedia, htmlToText, BOARD_HTML_MAX } from '../utils/board-content.js';
 import { sanitizeStoryHtml } from '../utils/content-blocks.js';
+
+// 글 본문(작성/수정 공용) 정규화 — 서버에서 contentBlocks(html) 재새니타이즈 + 평문 스니펫·미디어·썸네일 파생.
+// 반환 null = 필수 누락(title/내용). ok=true 면 저장 가능한 필드 묶음.
+function parsePostInput(raw: Record<string, unknown>):
+  | { ok: false; field: 'title' | 'content' }
+  | { ok: true; category: string; title: string; thumbnail: string | null; contentBlocks: unknown[]; media: ReturnType<typeof normalizeMedia>; body: string } {
+  const category = isValidBoardCategory(raw.category) ? raw.category : 'general';
+  const title = sanitizeTitle(raw.title);
+  const media = normalizeMedia(raw.media);
+  const thumbnail = sanitizeThumbnail(raw.thumbnail);
+  let contentBlocks: unknown[] = [];
+  let text = '';
+  let htmlHasMedia = false;
+  if (Array.isArray(raw.contentBlocks)) {
+    const rawBlock = raw.contentBlocks.find((b) => b && (b as { type?: string }).type === 'html') as { html?: unknown } | undefined;
+    const rawHtml = rawBlock && typeof rawBlock.html === 'string' ? rawBlock.html : '';
+    const html = sanitizeStoryHtml(rawHtml, BOARD_HTML_MAX);
+    contentBlocks = html ? [{ type: 'html', html }] : [];
+    text = htmlToText(html);
+    htmlHasMedia = /<(img|iframe)\b/i.test(html);
+  } else {
+    text = sanitizeBody(raw.body);
+  }
+  if (!title) return { ok: false, field: 'title' };
+  // 빈 글 차단 — 텍스트도 미디어(img/iframe)도 첨부도 없으면 거절.
+  if (!text.trim() && !htmlHasMedia && media.length === 0) return { ok: false, field: 'content' };
+  return { ok: true, category, title, thumbnail, contentBlocks, media, body: text };
+}
 
 function fail(res: Response, e: unknown, msg: string): void {
   if (e instanceof AppError) { res.status(e.httpStatus).json(createErrorResponse(e)); return; }
@@ -50,34 +78,38 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
   // 작성(로그인)
   router.post('/posts', authRequired, writeRateLimit, async (req: Request, res: Response) => {
     try {
-      const body = (req.body ?? {}) as Record<string, unknown>;
-      const category = isValidBoardCategory(body.category) ? body.category : 'general';
-      const title = sanitizeTitle(body.title);
-      const media = normalizeMedia(body.media);
-      // 리치 본문(contentBlocks: html) 우선 — 서버에서 normalizeContentBlocks(=sanitizeStoryHtml)로 재새니타이즈.
-      // 평문 스니펫(body)은 목록/검색용으로 파생. contentBlocks 없으면 레거시 평문 body 수용.
-      let contentBlocks: unknown[] = [];
-      let text = '';
-      let htmlHasMedia = false;
-      if (Array.isArray(body.contentBlocks)) {
-        // 게시판은 본문 html 단일 블록 — 서버에서 sanitizeStoryHtml(=태그 화이트리스트+iframe 검증)로 재새니타이즈.
-        const rawBlock = body.contentBlocks.find((b) => b && (b as { type?: string }).type === 'html') as { html?: unknown } | undefined;
-        const rawHtml = rawBlock && typeof rawBlock.html === 'string' ? rawBlock.html : '';
-        const html = sanitizeStoryHtml(rawHtml, BOARD_HTML_MAX);
-        contentBlocks = html ? [{ type: 'html', html }] : [];
-        text = htmlToText(html);
-        htmlHasMedia = /<(img|iframe)\b/i.test(html); // 텍스트는 없어도 사진/영상만 있는 글 허용
-      } else {
-        text = sanitizeBody(body.body);
+      const parsed = parsePostInput((req.body ?? {}) as Record<string, unknown>);
+      if (!parsed.ok) {
+        const msg = parsed.field === 'title' ? '제목을 입력해 주세요' : '내용을 입력해 주세요';
+        res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', msg))); return;
       }
-      if (!title) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '제목을 입력해 주세요'))); return; }
-      // 빈 글 차단 — 텍스트도 미디어(img/iframe)도 첨부도 없으면 거절(빈 html 블록 우회 방지).
-      if (!text.trim() && !htmlHasMedia && media.length === 0) {
-        res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '내용을 입력해 주세요'))); return;
-      }
-      const post = await repo.createPost({ authorId: req.userId as string, category, title, body: text, contentBlocks, media });
+      const post = await repo.createPost({
+        authorId: req.userId as string,
+        category: parsed.category, title: parsed.title, body: parsed.body,
+        thumbnail: parsed.thumbnail, contentBlocks: parsed.contentBlocks, media: parsed.media,
+      });
       res.status(201).json(post);
     } catch (e) { fail(res, e, '게시글 작성 실패'); }
+  });
+
+  // 수정(본인 또는 관리자) — 카테고리·제목·본문·썸네일 갱신. 작성자 불변.
+  router.patch('/posts/:id', authRequired, writeRateLimit, async (req: Request, res: Response) => {
+    try {
+      const authorId = await repo.getPostAuthorId(req.params.id);
+      if (!authorId) { notFound(res, '게시글을 찾을 수 없습니다'); return; }
+      if (!(await canModify(req, authorId, userRepo))) { res.status(403).json(createErrorResponse(new AppError('FORBIDDEN'))); return; }
+      const parsed = parsePostInput((req.body ?? {}) as Record<string, unknown>);
+      if (!parsed.ok) {
+        const msg = parsed.field === 'title' ? '제목을 입력해 주세요' : '내용을 입력해 주세요';
+        res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', msg))); return;
+      }
+      const post = await repo.updatePost(req.params.id, {
+        category: parsed.category, title: parsed.title, body: parsed.body,
+        thumbnail: parsed.thumbnail, contentBlocks: parsed.contentBlocks, media: parsed.media,
+      });
+      if (!post) { notFound(res, '게시글을 찾을 수 없습니다'); return; }
+      res.json(post);
+    } catch (e) { fail(res, e, '게시글 수정 실패'); }
   });
 
   // 삭제(본인 또는 관리자)

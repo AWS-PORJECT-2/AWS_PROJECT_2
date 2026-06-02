@@ -108,18 +108,56 @@
       .catch(function () { slot.replaceChildren(el('div', { class: 'bd-empty' }, '목록을 불러오지 못했습니다.')); });
   }
 
+  var THUMB_PLACEHOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
+
   function postCard(p) {
     var card = el('a', { class: 'bd-card', href: '/board.html?post=' + encodeURIComponent(p.id) });
-    card.appendChild(el('div', { class: 'bd-card__top' }, catBadge(p.category), el('span', { class: 'bd-card__title' }, p.title || '(제목 없음)')));
+    // 좌측 썸네일(있으면 이미지, 없으면 플레이스홀더)
+    var thumb = el('div', { class: 'bd-card__thumb' });
+    if (p.thumbnail) {
+      thumb.appendChild(el('img', { class: 'bd-card__thumbimg', src: p.thumbnail, alt: '', loading: 'lazy' }));
+    } else {
+      thumb.classList.add('bd-card__thumb--empty');
+      thumb.innerHTML = THUMB_PLACEHOLDER;
+    }
+    card.appendChild(thumb);
+    // 우측 본문
+    var bodyCol = el('div', { class: 'bd-card__body' });
+    bodyCol.appendChild(el('div', { class: 'bd-card__top' }, catBadge(p.category), el('span', { class: 'bd-card__title' }, p.title || '(제목 없음)')));
     var snip = htmlText(firstHtml(p)) || (p.body || '');
-    if (snip) card.appendChild(el('p', { class: 'bd-card__snippet' }, snip.length > 120 ? snip.slice(0, 120) + '…' : snip));
+    if (snip) bodyCol.appendChild(el('p', { class: 'bd-card__snippet' }, snip.length > 110 ? snip.slice(0, 110) + '…' : snip));
     var meta = el('div', { class: 'bd-card__meta' });
     meta.appendChild(authorChip(p.author));
     meta.appendChild(el('span', { class: 'bd-card__dot' }, '·'));
     meta.appendChild(el('span', {}, fmtTime(p.createdAt)));
     if (p.commentCount) { meta.appendChild(el('span', { class: 'bd-card__dot' }, '·')); meta.appendChild(el('span', {}, '댓글 ' + p.commentCount)); }
-    card.appendChild(meta);
+    bodyCol.appendChild(meta);
+    card.appendChild(bodyCol);
     return card;
+  }
+
+  // 목록 카드용 경량 썸네일 생성 — 본문 html 의 첫 이미지를 360px JPEG 로 축소, 없으면 유튜브 썸네일 URL, 둘 다 없으면 null.
+  function makeThumb(html, cb) {
+    var d = document.createElement('div'); d.innerHTML = sanitize(html);
+    var img = d.querySelector('img[src]');
+    if (img && img.getAttribute('src')) {
+      var im = new Image();
+      im.onload = function () {
+        try {
+          var max = 360, w = im.width || max, h = im.height || max;
+          if (w > max || h > max) { var ratio = Math.min(max / w, max / h); w = Math.round(w * ratio); h = Math.round(h * ratio); }
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(im, 0, 0, w, h);
+          cb(c.toDataURL('image/jpeg', 0.7));
+        } catch (e) { cb(null); } // 외부 이미지로 canvas 가 오염되면 추출 불가 → 썸네일 없음
+      };
+      im.onerror = function () { cb(null); };
+      im.src = img.getAttribute('src');
+      return;
+    }
+    var ifr = d.querySelector('iframe[src]');
+    if (ifr) { var m = (ifr.getAttribute('src') || '').match(/embed\/([A-Za-z0-9_-]{11})/); if (m) { cb('https://i.ytimg.com/vi/' + m[1] + '/hqdefault.jpg'); return; } }
+    cb(null);
   }
 
   /* ---------------- 상세 ---------------- */
@@ -136,6 +174,12 @@
         meta.appendChild(el('span', { class: 'bd-card__dot' }, '·'));
         meta.appendChild(el('span', {}, fmtTime(p.createdAt)));
         if (canModify(p.author)) {
+          // 수정: 작성자 본인만(관리자라도 남의 글 내용은 수정 안 함 — 삭제만). 본문 편집은 소유자 권한.
+          if (me && p.author && me.id === p.author.id) {
+            var edit = el('button', { class: 'bd-edit', type: 'button' }, '수정');
+            edit.addEventListener('click', function () { openCompose(p); });
+            meta.appendChild(edit);
+          }
           var del = el('button', { class: 'bd-del', type: 'button' }, '삭제');
           del.addEventListener('click', function () {
             if (!confirm('이 글을 삭제할까요?')) return;
@@ -162,7 +206,7 @@
     if (html) {
       box.innerHTML = sanitize(html);
       box.querySelectorAll('a[href]').forEach(function (a) { a.setAttribute('target', '_blank'); a.setAttribute('rel', 'noopener noreferrer'); });
-      box.querySelectorAll('iframe').forEach(function (f) { f.setAttribute('loading', 'lazy'); var w = el('div', { class: 'bd-embed' }); f.parentNode.insertBefore(w, f); w.appendChild(f); });
+      box.querySelectorAll('iframe').forEach(function (f) { f.setAttribute('loading', 'lazy'); if (f.closest('.bd-embed')) return; /* 에디터가 이미 .bd-embed(16:9)로 감싼 경우 이중 래핑 금지 — 이중 래핑 시 위에 검은 공백이 생김 */ var w = el('div', { class: 'bd-embed' }); f.parentNode.insertBefore(w, f); w.appendChild(f); });
       box.querySelectorAll('img').forEach(function (im) { im.setAttribute('loading', 'lazy'); });
       return box;
     }
@@ -280,11 +324,13 @@
     return m ? m[1] : null;
   }
 
-  /* ---------------- 작성 ---------------- */
-  function openCompose() {
+  /* ---------------- 작성 / 수정 ---------------- */
+  // post 인자가 있으면 수정 모드(PATCH), 없으면 새 글(POST).
+  function openCompose(post) {
+    var isEdit = !!(post && post.id);
     var back = el('div', { class: 'bd-modal' });
     var panel = el('div', { class: 'bd-modal__panel bd-modal__panel--lg' });
-    panel.appendChild(el('div', { class: 'bd-modal__head' }, el('strong', {}, '글쓰기'),
+    panel.appendChild(el('div', { class: 'bd-modal__head' }, el('strong', {}, isEdit ? '글 수정' : '글쓰기'),
       (function () { var x = el('button', { class: 'bd-modal__x', type: 'button', 'aria-label': '닫기' }, '×'); x.addEventListener('click', close); return x; })()));
 
     var catSel = el('select', { class: 'bd-input' });
@@ -292,13 +338,21 @@
     var titleIn = el('input', { class: 'bd-input', type: 'text', maxlength: '120', placeholder: '제목' });
     var ed = richEditor();
 
+    if (isEdit) {
+      catSel.value = post.category || 'general';
+      titleIn.value = post.title || '';
+      var existing = firstHtml(post);
+      if (existing) ed.area.innerHTML = sanitize(existing); // 기존 본문 프리필(렌더 시 재새니타이즈)
+    }
+
     panel.append(el('label', { class: 'bd-flabel' }, '카테고리'), catSel,
       el('label', { class: 'bd-flabel' }, '제목'), titleIn,
       el('label', { class: 'bd-flabel' }, '내용'),
       (function () { var w = el('div', { class: 'bd-rte' }); w.append(ed.bar, ed.area); return w; })());
 
     var msg = el('p', { class: 'bd-modal__msg' });
-    var submit = el('button', { class: 'wz-btn wz-btn--primary bd-modal__submit', type: 'button' }, '등록');
+    var doneLabel = isEdit ? '수정' : '등록';
+    var submit = el('button', { class: 'wz-btn wz-btn--primary bd-modal__submit', type: 'button' }, doneLabel);
     submit.addEventListener('click', function () {
       var title = titleIn.value.trim();
       var html = ed.getHtml();
@@ -306,10 +360,14 @@
       var hasMedia = /<(img|iframe)\b/i.test(html);
       if (!title) { msg.textContent = '제목을 입력해 주세요'; return; }
       if (!textLen && !hasMedia) { msg.textContent = '내용을 입력해 주세요'; return; }
-      submit.disabled = true; submit.textContent = '등록 중…'; msg.textContent = '';
-      api.post('/board/posts', { category: catSel.value, title: title, contentBlocks: [{ type: 'html', html: html }] })
-        .then(function (p) { close(); location.href = '/board.html?post=' + encodeURIComponent(p.id); })
-        .catch(function (e) { submit.disabled = false; submit.textContent = '등록'; msg.textContent = (e && e.message) || '등록에 실패했습니다'; });
+      submit.disabled = true; submit.textContent = (isEdit ? '수정' : '등록') + ' 중…'; msg.textContent = '';
+      // 목록 카드용 경량 썸네일을 만들어 함께 보냄(본문 인라인 이미지는 목록 응답에서 제외됨).
+      makeThumb(html, function (thumb) {
+        var payload = { category: catSel.value, title: title, contentBlocks: [{ type: 'html', html: html }], thumbnail: thumb };
+        var req = isEdit ? api.patch('/board/posts/' + encodeURIComponent(post.id), payload) : api.post('/board/posts', payload);
+        req.then(function (p) { close(); location.href = '/board.html?post=' + encodeURIComponent((p && p.id) || post.id); })
+          .catch(function (e) { submit.disabled = false; submit.textContent = doneLabel; msg.textContent = (e && e.message) || (isEdit ? '수정에 실패했습니다' : '등록에 실패했습니다'); });
+      });
     });
     panel.append(msg, submit);
 

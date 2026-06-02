@@ -295,3 +295,23 @@
   .wz-mk-stats { gap: 16px; }
   .wz-mk-stat__num { font-size: 18px; }
 }
+
+/* ---------- 공유 시트(카카오/X/페이스북/링크) — 상세 공유시트와 동일 디자인 ---------- */
+.wz-mk-sharesheet { position: fixed; inset: 0; z-index: 1000; background: rgba(16,24,40,.5); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.wz-mk-sharesheet__box { background: #fff; border-radius: 16px; width: 100%; max-width: 380px; box-shadow: var(--sh-3); padding: 20px 22px 24px; }
+.wz-mk-sharesheet__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+.wz-mk-sharesheet__head h3 { font-size: 17px; font-weight: 800; margin: 0; color: var(--c-text); }
+.wz-mk-sharesheet__close { appearance: none; border: 0; background: none; cursor: pointer; color: var(--c-text-muted); width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.wz-mk-sharesheet__close:hover { color: var(--c-text); }
+.wz-mk-sharesheet__close svg { width: 22px; height: 22px; }
+.wz-mk-sharesheet__grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.wz-mk-shareitem { appearance: none; background: none; border: 0; font-family: inherit; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 6px 2px; }
+.wz-mk-shareitem__ic { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--c-border); color: var(--c-text-sub); transition: transform .12s, border-color .12s, color .12s; }
+.wz-mk-shareitem:hover .wz-mk-shareitem__ic { transform: translateY(-2px); border-color: var(--c-primary-300); color: var(--c-primary-600); }
+.wz-mk-shareitem__ic svg { width: 24px; height: 24px; }
+.wz-mk-shareitem--kakao .wz-mk-shareitem__ic { background: #FEE500; border-color: #FEE500; color: #191600; }
+.wz-mk-shareitem--twitterX .wz-mk-shareitem__ic { background: #000; border-color: #000; color: #fff; }
+.wz-mk-shareitem--facebook .wz-mk-shareitem__ic { background: #1877F2; border-color: #1877F2; color: #fff; }
+.wz-mk-shareitem__label { font-size: 11px; font-weight: 700; color: var(--c-text-muted); text-align: center; line-height: 1.2; }
+.wz-mk-shareitem:hover .wz-mk-shareitem__label { color: var(--c-text); }
+.wz-mk-shareitem--link .wz-mk-shareitem__ic { color: var(--c-primary-600); }
