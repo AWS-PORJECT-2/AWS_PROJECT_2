@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.doothing.app",
+      "sha256_cert_fingerprints": [
+        "25:D2:D4:9F:F9:F3:A7:99:1A:56:56:CE:DC:ED:5A:A9:BF:4B:25:2F:01:22:FF:BE:52:A6:6E:F5:9A:9D:76:A8"
+      ]
+    }
+  }
+]
