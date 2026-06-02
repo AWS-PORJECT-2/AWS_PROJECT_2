@@ -211,6 +211,9 @@
 
 
   var root, me;
+  // 관리자 대리완성 모드: ?adminProxy=<groupbuyId> 로 진입하면 의뢰(pending_review)를 불러와
+  // 전체 작성 폼으로 완성하고 PATCH/rewards/approve 로 공개(의뢰자 명의 유지). null=일반 작성.
+  var adminProxyId = null, adminProxyMeta = null;
 
   function run() {
     root = document.getElementById('wz-create');
@@ -220,6 +223,14 @@
       me = m;
       if (!me) { renderNeedLogin(); return; }
       var q = new URLSearchParams(location.search);
+      var adminProxyParam = q.get('adminProxy');
+      if (adminProxyParam) {
+        if (String((me && me.role) || '').toUpperCase() !== 'ADMIN') {
+          root.replaceChildren(W.el('div', { class: 'wc-loading' }, '관리자만 접근할 수 있는 페이지입니다.'));
+          return;
+        }
+        loadAdminProxy(adminProxyParam); return;
+      }
       var draftId = q.get('draft');
       if (draftId) { resumeDraft(draftId); return; }
       var mode = q.get('mode');
@@ -242,6 +253,58 @@
         toast(err && err.status === 404 ? '임시저장을 찾을 수 없습니다' : '임시저장을 불러오지 못했습니다');
         renderPick();
       });
+  }
+
+  /* ?adminProxy=<id> — 관리자가 대리개설 의뢰(pending_review)를 전체 폼으로 완성·공개.
+   * 의뢰 원본(GET /groupbuys/:id)을 nstate 로 프리필 → 제출 시 PATCH/rewards/approve(의뢰자 명의 유지). */
+  function loadAdminProxy(id) {
+    root.replaceChildren();
+    root.appendChild(W.el('div', { class: 'wc-loading' }, '대리 개설 의뢰를 불러오는 중...'));
+    window.api.get('/groupbuys/' + encodeURIComponent(id))
+      .then(function (d) {
+        if (!d || !d.id) { toast('의뢰를 찾을 수 없습니다'); setTimeout(function () { location.href = '/admin.html'; }, 700); return; }
+        adminProxyId = d.id;
+        adminProxyMeta = { requester: (d.creatorInfo && (d.creatorInfo.name || d.creatorInfo.nickname)) || d.creatorName || d.authorName || d.creatorNickname || '의뢰자' };
+        nstate = newNState();
+        nstate.mode = 'normal';
+        nstate.plan = (d.plan === 'run' || d.plan === 'boost') ? d.plan : 'start';
+        nstate.category = d.category || '';
+        nstate.title = d.title || '';
+        nstate.description = d.description || '';
+        nstate.coverImage = d.coverImageUrl || d.coverImage || null;
+        nstate.videoUrl = d.videoUrl || '';
+        nstate.targetAmount = (d.targetAmount != null && Number(d.targetAmount) > 0) ? Number(d.targetAmount) : '';
+        nstate.deadline = d.deadline ? String(d.deadline).slice(0, 10) : '';
+        nstate.refundPolicy = d.refundPolicy || '';
+        nstate.legalNotice = d.legalNotice || '';
+        nstate.storyBlocks = ((d.contentBlocks) || []).map(function (b) {
+          if (b.type === 'html') return { type: 'html', html: b.html || '' };
+          if (b.type === 'image') return { type: 'image', value: b.url || b.value || '', width: b.width, align: b.align };
+          if (b.type === 'split') return { type: 'split', text: b.text || '', image: b.image || '', imageSide: b.imageSide, align: b.align };
+          return { type: 'text', value: b.text || b.value || '', variant: b.variant, align: b.align };
+        }).filter(function (b) { return (b.type === 'html' && b.html) || (b.type === 'image' && b.value) || (b.type === 'text' && b.value) || b.type === 'split'; });
+        nstate.rewardTiers = ((d.rewardTiers) || []).map(function (t) {
+          return { title: t.title || '', price: Number(t.price) || 0, desc: t.desc || '', stock: (t.stock != null ? t.stock : null) };
+        });
+        if (d.creatorInfo) {
+          nstate.creatorName = d.creatorInfo.name || nstate.creatorName;
+          nstate.creatorIntro = d.creatorInfo.intro || nstate.creatorIntro;
+        }
+        renderStudio();
+        injectAdminProxyBanner();
+      })
+      .catch(function (err) {
+        toast((err && err.status === 404) ? '의뢰를 찾을 수 없습니다' : '의뢰를 불러오지 못했습니다');
+        setTimeout(function () { location.href = '/admin.html'; }, 800);
+      });
+  }
+
+  function injectAdminProxyBanner() {
+    if (!adminProxyId || !root) return;
+    var b = W.el('div', { class: 'wc-proxybanner', style: 'margin:0 0 14px;padding:12px 16px;border-radius:12px;background:var(--c-primary-50,#F5F3FF);border:1px solid var(--c-primary-200,#DDD6FE);color:var(--c-primary-700,#6D28D9);font-size:14px;line-height:1.5' },
+      W.el('strong', {}, '대리 개설 작성 모드'),
+      W.el('span', {}, ' · 의뢰자 ' + ((adminProxyMeta && adminProxyMeta.requester) || '의뢰자') + ' 명의로 공개됩니다. 완성 후 제출하면 곧바로 공개 처리됩니다.'));
+    root.insertBefore(b, root.firstChild);
   }
 
   /* =====================================================================
@@ -2482,6 +2545,35 @@
         var creator = buildCreatorInfo();
         if (creator) payload.creatorInfo = creator;
         // designFee·platformFee 는 서버 계산. 클라가 보내지 않음.
+
+        // 관리자 대리완성: 일반 생성(POST /funds) 대신 의뢰 펀드를 편집·공개(의뢰자 명의 유지).
+        if (adminProxyId) {
+          var apCover = nstate.coverImage || nstate.tryonImage || firstStoryBlockImage(nstate.storyBlocks);
+          var apVideo = normalizeVideo(nstate.videoUrl);
+          var patchBody = {
+            title: nstate.title,
+            category: nstate.category,
+            description: nstate.description,
+            targetAmount: Math.floor(Number(nstate.targetAmount)),
+            deadline: nstate.deadline,
+            contentBlocks: blocks,
+            plan: PLAN_INFO[nstate.plan] ? nstate.plan : 'start',
+            videoUrl: apVideo || '',
+            refundPolicy: String(nstate.refundPolicy || '').trim(),
+            legalNotice: String(nstate.legalNotice || '').trim(),
+          };
+          if (apCover) patchBody.coverImageUrl = apCover;
+          if (creator) patchBody.creatorInfo = creator;
+          var pid = adminProxyId;
+          return window.api.patch('/admin/funds/' + encodeURIComponent(pid), patchBody)
+            .then(function () { return window.api.post('/admin/funds/' + encodeURIComponent(pid) + '/rewards', { rewardTiers: rewards }); })
+            .then(function () { return window.api.post('/admin/funds/' + encodeURIComponent(pid) + '/approve', {}); })
+            .then(function () {
+              toast('대리 개설 프로젝트가 작성·공개되었습니다');
+              setTimeout(function () { location.href = '/detail.html?id=' + encodeURIComponent(pid); }, 600);
+            })
+            .catch(function (err) { restore(); toast((err && err.message) ? err.message : '공개 처리에 실패했습니다.'); });
+        }
 
         return window.api.post('/funds', payload)
           .then(function (res) {

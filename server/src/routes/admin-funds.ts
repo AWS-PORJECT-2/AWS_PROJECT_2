@@ -271,6 +271,15 @@ export function createAdminFundUpdateHandler(repo: GroupBuyRepository) {
       if (v == null) fields.creatorInfo = null;
       else fields.creatorInfo = parseCreatorInfo(v); // 유효 필드만 추림(없으면 null)
     }
+    // 교환·반품 정책 / 정보고시 — 대리개설을 fund-create 전체 폼으로 작성할 때 함께 저장.
+    if ('refundPolicy' in body) {
+      const v = typeof body.refundPolicy === 'string' ? body.refundPolicy.trim() : '';
+      fields.refundPolicy = v ? v.slice(0, 4000) : null;
+    }
+    if ('legalNotice' in body) {
+      const v = typeof body.legalNotice === 'string' ? body.legalNotice.trim() : '';
+      fields.legalNotice = v ? v.slice(0, 4000) : null;
+    }
 
     if (errors.length > 0) {
       res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', `유효하지 않은 필드: ${errors.join(', ')}`)));

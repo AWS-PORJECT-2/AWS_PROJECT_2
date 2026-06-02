@@ -652,21 +652,14 @@
     head.appendChild(info);
 
     var actions = el('div', { class: 'wza-item__actions' });
-    var toggle = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '작성·공개');
-    actions.appendChild(toggle);
+    var openBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '작성·공개');
+    openBtn.addEventListener('click', function () {
+      // 인라인 편집 대신 전체 작성 페이지(fund-create)에서 의뢰자 정보 프리필로 작성·공개.
+      location.href = '/fund-create.html?adminProxy=' + encodeURIComponent(f.id);
+    });
+    actions.appendChild(openBtn);
     head.appendChild(actions);
     card.appendChild(head);
-
-    var panelBox = el('div', { class: 'wza-proxy__panel', style: 'display:none' });
-    card.appendChild(panelBox);
-
-    var built = false;
-    toggle.addEventListener('click', function () {
-      var open = panelBox.style.display === 'none';
-      panelBox.style.display = open ? '' : 'none';
-      toggle.textContent = open ? '접기' : '작성·공개';
-      if (open && !built) { built = true; buildProxyEditor(panelBox, f, list); }
-    });
     return card;
   }
 
