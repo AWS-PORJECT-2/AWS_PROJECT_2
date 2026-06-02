@@ -1045,11 +1045,11 @@
       function drawBase(cb) {
         var base = mockupSrc(view);
         if (!base) { drawSvg(cb); return; }
-        var png = new Image();
+        var png = new Image(); png.crossOrigin = 'anonymous';
         png.onload = function () { ctx.drawImage(png, 0, 0, CW, CH); cb(); };
         png.onerror = function () { // 색상 이미지 없으면 흰색 베이스 → 그래도 없으면 SVG
           var fb = baseMockupSrc(view);
-          if (fb && fb !== base) { var p2 = new Image(); p2.onload = function () { ctx.drawImage(p2, 0, 0, CW, CH); cb(); }; p2.onerror = function () { drawSvg(cb); }; p2.src = fb; }
+          if (fb && fb !== base) { var p2 = new Image(); p2.crossOrigin = 'anonymous'; p2.onload = function () { ctx.drawImage(p2, 0, 0, CW, CH); cb(); }; p2.onerror = function () { drawSvg(cb); }; p2.src = fb; }
           else drawSvg(cb);
         };
         png.src = base;
@@ -1063,7 +1063,7 @@
       }
       function loadMask(cb) {
         if (!msrc) { cb(null); return; }
-        var mi = new Image(); mi.onload = function () { cb(mi); }; mi.onerror = function () { cb(null); }; mi.src = msrc;
+        var mi = new Image(); mi.crossOrigin = 'anonymous'; mi.onload = function () { cb(mi); }; mi.onerror = function () { cb(null); }; mi.src = msrc;
       }
       function loadLayers(maskImg) {
         var ls = S.views[view] || [];
