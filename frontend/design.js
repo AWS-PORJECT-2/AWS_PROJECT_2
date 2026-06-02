@@ -614,7 +614,7 @@
     });
     if (prodItems.length > 1) card.appendChild(field('상품', prodSel));
 
-    // 색상 — 색이 필요한 제품(tintable)만 노출 + 실시간 색 변경. 그 외(키링·스티커 등)는 색 옵션 숨김.
+    // 색상 — 색이 필요한 제품(colorable)만 노출 + 색별 실사 목업 교체. 그 외(키링·스티커 등)는 색 옵션 숨김.
     if (colorable()) {
       var sw = el('div', { class: 'dz-swatches' });
       COLORS.forEach(function (c) {
@@ -655,7 +655,16 @@
       var node = el('div', { class: 'dz-layer', style: layerStyle(L) });
       node.dataset.id = L.id;
       if (L.type === 'image') {
-        node.appendChild(el('img', { src: L.src, alt: '' }));
+        if (L.tint) {
+          // 색 변경: 이미지 알파를 마스크로 단색 칠 (투명 보존)
+          var rc = el('div', { class: 'dz-layer__tint' });
+          rc.style.background = L.tint;
+          rc.style.webkitMaskImage = 'url("' + L.src + '")';
+          rc.style.maskImage = 'url("' + L.src + '")';
+          node.appendChild(rc);
+        } else {
+          node.appendChild(el('img', { src: L.src, alt: '' }));
+        }
       } else {
         var tx = el('div', { class: 'dz-layer__txt' });
         styleText(tx, L);
@@ -896,7 +905,9 @@
     if (!propsBox) return;
     propsBox.replaceChildren();
     var L = selLayer();
-    if (!L || L.type !== 'text') return;
+    if (!L) return;
+    if (L.type === 'image') { renderImageProps(L); return; }
+    if (L.type !== 'text') return;
     var card = el('div', { class: 'dz-card' });
     card.appendChild(el('div', { class: 'dz-card__t' }, '텍스트 설정'));
 
@@ -960,6 +971,26 @@
       fieldInline('패턴 세로', stepper(L.patr || 1, 1, 1, 5, function (v) { L.patr = v; L.h = textBoxH(L); renderLayers(); })),
     );
     card.appendChild(g2);
+    propsBox.appendChild(card);
+  }
+  // 이미지 레이어 속성 — 색 변경(recolor). 단색 도안/패치를 원하는 색으로(투명 보존).
+  function renderImageProps(L) {
+    var card = el('div', { class: 'dz-card' });
+    card.appendChild(el('div', { class: 'dz-card__t' }, '이미지 설정'));
+    var pal = el('div', { class: 'dz-tpal' });
+    var orig = el('div', { class: 'dz-tpsw dz-tpsw--orig' + (!L.tint ? ' is-on' : ''), title: '원본 색' });
+    orig.addEventListener('click', function () { L.tint = null; renderProps(); renderLayers(); });
+    pal.appendChild(orig);
+    TEXT_PALETTE.forEach(function (hex) {
+      var sw = el('div', { class: 'dz-tpsw' + (L.tint && hex.toLowerCase() === String(L.tint).toLowerCase() ? ' is-on' : ''), title: hex, style: 'background:' + hex });
+      sw.addEventListener('click', function () { L.tint = hex; pal.querySelectorAll('.dz-tpsw').forEach(function (n) { n.classList.remove('is-on'); }); sw.classList.add('is-on'); renderLayers(); });
+      pal.appendChild(sw);
+    });
+    var custom = el('input', { class: 'dz-tpcustom', type: 'color', value: toHex(L.tint || '#8b5cf6'), title: '직접 선택' });
+    custom.addEventListener('input', function () { L.tint = custom.value; pal.querySelectorAll('.dz-tpsw').forEach(function (n) { n.classList.remove('is-on'); }); renderLayers(); });
+    pal.appendChild(custom);
+    card.appendChild(field('색 변경', pal));
+    card.appendChild(el('div', { class: 'dz-hint', style: 'text-align:left;margin-top:4px' }, '단색 도안·패치에 색을 입힐 수 있어요. (사진은 한 색으로 칠해집니다)'));
     propsBox.appendChild(card);
   }
   function toHex(c) {
@@ -1061,7 +1092,20 @@
             var im2 = imgCache[L.id];
             if (im2 && im2.naturalWidth) {
               var w = L.w / 100 * CW, h = L.h / 100 * CH;
-              try { lx.drawImage(im2, -w / 2, -h / 2, w, h); } catch (_) {}
+              if (L.tint) {
+                // 색 변경: 이미지 알파를 마스크로 단색 칠
+                try {
+                  var tc = document.createElement('canvas');
+                  tc.width = Math.max(1, Math.round(w)); tc.height = Math.max(1, Math.round(h));
+                  var tx2 = tc.getContext('2d');
+                  tx2.drawImage(im2, 0, 0, tc.width, tc.height);
+                  tx2.globalCompositeOperation = 'source-in';
+                  tx2.fillStyle = L.tint; tx2.fillRect(0, 0, tc.width, tc.height);
+                  lx.drawImage(tc, -w / 2, -h / 2, w, h);
+                } catch (_) {}
+              } else {
+                try { lx.drawImage(im2, -w / 2, -h / 2, w, h); } catch (_) {}
+              }
             }
           } else {
             var fs = L.font / 100 * CH;
