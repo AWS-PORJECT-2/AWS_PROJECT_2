@@ -34,6 +34,8 @@ export interface UserRepository {
   updateLastLogin(userId: string): Promise<void>;
   updateProfile(userId: string, data: ProfilePatch): Promise<User | null>;
   setRole(userId: string, role: User['role']): Promise<void>;
+  /** 로그인 가능한 관리자 수(role=ADMIN AND status=ACTIVE) — 마지막 관리자 락아웃 방지용. */
+  countActiveAdmins(): Promise<number>;
   listAll(limit?: number): Promise<User[]>;
   delete(userId: string): Promise<void>;
 

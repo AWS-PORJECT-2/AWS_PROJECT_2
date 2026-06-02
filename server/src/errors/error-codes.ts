@@ -14,6 +14,7 @@ export const ErrorCodes = {
   USER_SUSPENDED: { httpStatus: 403, code: 'USER_SUSPENDED', message: '정지된 계정입니다. 관리자에게 문의해 주세요' },
   USER_BANNED: { httpStatus: 403, code: 'USER_BANNED', message: '이용이 영구 제한된 계정입니다. 관리자에게 문의해 주세요' },
   ACCOUNT_WITHDRAWN: { httpStatus: 403, code: 'ACCOUNT_WITHDRAWN', message: '탈퇴 처리된 계정입니다' },
+  LAST_ADMIN: { httpStatus: 409, code: 'LAST_ADMIN', message: '마지막 관리자입니다. 다른 관리자를 먼저 지정해 주세요' },
   INVALID_TOKEN: { httpStatus: 401, code: 'INVALID_TOKEN', message: '유효하지 않은 인증입니다' },
   GOOGLE_UNAVAILABLE: { httpStatus: 500, code: 'GOOGLE_UNAVAILABLE', message: 'Google 서버에 연결할 수 없습니다' },
   AI_UNAVAILABLE: { httpStatus: 503, code: 'AI_UNAVAILABLE', message: 'AI 서버가 연결되어 있지 않습니다' },

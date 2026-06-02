@@ -228,9 +228,13 @@ export function createApp(
   const needsLargeBody = (p: string): boolean =>
     p === '/api/funds' || p === '/api/me'
     || p.startsWith('/api/me/funds') || p.startsWith('/api/me/drafts') || p.startsWith('/api/admin/funds');
+  // 게시판 글 작성(POST /posts) + 수정(PATCH /posts/:id) 은 인라인 압축 이미지로 커질 수 있어 12mb.
+  //  단 댓글(/posts/:id/comments)은 256kb 유지 — 글 본문 경로만 매칭(:id 뒤 추가 세그먼트 없음).
+  const isBoardPostBody = (p: string): boolean =>
+    p === '/api/board/posts' || /^\/api\/board\/posts\/[^/]+$/.test(p);
   app.use((req, res, next) => {
     if (req.path === '/api/payments/webhook') return next(); // raw 파서가 별도 처리
-    const parser = needsLargeBody(req.path) ? json50mb : (req.path === '/api/board/posts' ? json12mb : json256kb);
+    const parser = needsLargeBody(req.path) ? json50mb : (isBoardPostBody(req.path) ? json12mb : json256kb);
     parser(req, res, next);
   });
   app.use(cookieParser());

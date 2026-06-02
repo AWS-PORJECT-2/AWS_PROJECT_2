@@ -5,6 +5,7 @@ import type { UserRepository } from './repositories/user-repository.js';
 import type { ChatRepository } from './repositories/chat-repository.js';
 import type { NotificationRepository } from './repositories/notification-repository.js';
 import { notify } from './services/notify.js';
+import { accessBlock, isSuspensionExpired } from './utils/account-status.js';
 import { logger } from './logger.js';
 
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:3000';
@@ -64,6 +65,10 @@ export function initSocketIO(
         next(new Error('사용자를 찾을 수 없습니다'));
         return;
       }
+      // 제재 게이트 — HTTP authRequired/로그인과 동일 규칙. 정지·차단·탈퇴 계정은 소켓 연결 거부.
+      const block = accessBlock(user);
+      if (block) { next(new Error('계정이 제재되었습니다')); return; }
+      if (isSuspensionExpired(user)) { void userRepo.clearExpiredSuspension(user.id); }
       // socket.data 에 사용자 정보 저장
       socket.data.userId = user.id;
       socket.data.userRole = user.role;

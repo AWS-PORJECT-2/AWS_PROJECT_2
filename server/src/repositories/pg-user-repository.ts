@@ -217,6 +217,11 @@ export class PgUserRepository implements UserRepository {
     await this.pool.query('UPDATE "user" SET role = $1 WHERE id = $2', [role, userId]);
   }
 
+  async countActiveAdmins(): Promise<number> {
+    const r = await this.pool.query(`SELECT COUNT(*)::int AS n FROM "user" WHERE role = 'ADMIN' AND status = 'ACTIVE'`);
+    return Number(r.rows[0]?.n) || 0;
+  }
+
   async setStatus(userId: string, patch: StatusPatch): Promise<User | null> {
     const until = patch.status === 'SUSPENDED' ? (patch.suspendedUntil ?? null) : null;
     const reason = patch.status === 'ACTIVE' ? null : (patch.reason ?? null);

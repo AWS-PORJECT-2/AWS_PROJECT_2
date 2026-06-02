@@ -104,6 +104,15 @@ export class AuthServiceImpl implements AuthService {
     const user = await this.userRepo.findByEmail(payload.email);
     if (!user) throw new AppError('INVALID_REFRESH_TOKEN');
 
+    // 제재 게이트 — 정지/차단/탈퇴 계정은 access 토큰 재발급 거부(폐기 누락/경합 시의 우회 차단).
+    const block = accessBlock(user);
+    if (block) {
+      await this.refreshTokenRepo.deleteByUserId(user.id);
+      logger.warn({ userId: user.id, status: user.status }, '제재 계정 refresh 차단');
+      throw new AppError(block.code);
+    }
+    if (isSuspensionExpired(user)) await this.userRepo.clearExpiredSuspension(user.id);
+
     // 기존 refresh token 즉시 무효화
     await this.refreshTokenRepo.deleteByTokenHash(tokenHash);
 

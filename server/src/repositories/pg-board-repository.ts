@@ -108,10 +108,13 @@ export class PgBoardRepository implements BoardRepository {
   }
 
   async listComments(postId: string): Promise<BoardComment[]> {
+    // 무인증 공개 GET 이므로 결과를 하드 캡(무제한 조회 DoS 방지). 최신 500개만(오래된 댓글은 절단).
     const r = await this.pool.query(
-      `SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
-         FROM board_comments c JOIN "user" u ON u.id = c.author_id
-        WHERE c.post_id = $1 ORDER BY c.created_at ASC`,
+      `SELECT * FROM (
+         SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
+           FROM board_comments c JOIN "user" u ON u.id = c.author_id
+          WHERE c.post_id = $1 ORDER BY c.created_at DESC LIMIT 500
+       ) t ORDER BY t.created_at ASC`,
       [postId],
     );
     return r.rows.map(toComment);

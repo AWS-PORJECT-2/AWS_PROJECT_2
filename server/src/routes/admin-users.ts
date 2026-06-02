@@ -61,6 +61,12 @@ export function createAdminUsersRouter(
     if (req.params.id === req.userId) { res.status(400).json({ error: 'SELF_TARGET', message: '본인 계정에는 할 수 없습니다' }); return true; }
     return false;
   };
+  // 마지막 관리자 락아웃 방지 — 대상이 현재 "활동 관리자"이고 활동 관리자가 1명뿐이면 파괴행위(강등/정지/차단/탈퇴) 차단.
+  const wouldLockoutAdmin = async (target: User): Promise<boolean> => {
+    if ((target.role ?? 'USER') !== 'ADMIN' || (target.status ?? 'ACTIVE') !== 'ACTIVE') return false;
+    return (await userRepo.countActiveAdmins()) <= 1;
+  };
+  const lastAdmin = (res: Response) => res.status(409).json(createErrorResponse(new AppError('LAST_ADMIN')));
 
   // 목록 — 상태/역할/검색 필터.
   router.get('/', async (req: Request, res: Response) => {
@@ -93,6 +99,7 @@ export function createAdminUsersRouter(
       if (status !== 'ACTIVE' && blockSelf(req, res)) return;
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
+      if (status !== 'ACTIVE' && await wouldLockoutAdmin(target)) { lastAdmin(res); return; } // 마지막 관리자 정지/차단 차단
       const reason = reasonOf(req);
 
       let suspendedUntil: Date | null = null;
@@ -129,6 +136,7 @@ export function createAdminUsersRouter(
       const targetId = req.params.id;
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
+      if (await wouldLockoutAdmin(target)) { lastAdmin(res); return; } // 마지막 관리자 탈퇴 차단
       const reason = reasonOf(req);
       const updated = await userRepo.setStatus(targetId, { status: 'WITHDRAWN', reason, adminId: req.userId ?? null });
       if (!updated) { notFound(res); return; }
@@ -239,6 +247,7 @@ export function createAdminUsersRouter(
       if (role === 'USER' && targetId === req.userId) { res.status(400).json({ error: 'SELF_DEMOTE', message: '본인 계정은 강등할 수 없습니다' }); return; }
       const target = await userRepo.findById(targetId);
       if (!target) { notFound(res); return; }
+      if (role === 'USER' && await wouldLockoutAdmin(target)) { lastAdmin(res); return; } // 마지막 관리자 강등 차단
       await userRepo.setRole(targetId, role);
       void recordModeration(pool, { targetUserId: targetId, adminId: req.userId ?? null, action: 'role', meta: { from: target.role ?? 'USER', to: role } });
       void logAudit(pool, { level: 'info', source: 'admin', message: '사용자 권한 변경', meta: { targetId, role }, userId: req.userId ?? null });

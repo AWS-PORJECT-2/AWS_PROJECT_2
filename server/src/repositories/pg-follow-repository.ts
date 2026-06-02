@@ -52,7 +52,8 @@ export class PgFollowRepository implements FollowRepository {
          FROM follows f
          JOIN "user" u ON u.id = f.follower_id
         WHERE f.creator_id = $1
-        ORDER BY f.created_at DESC`,
+        ORDER BY f.created_at DESC
+        LIMIT 1000`,
       [creatorId, viewerId ?? null],
     );
     return r.rows.map(mapFollowUser);
@@ -68,7 +69,8 @@ export class PgFollowRepository implements FollowRepository {
          FROM follows f
          JOIN "user" u ON u.id = f.creator_id
         WHERE f.follower_id = $1
-        ORDER BY f.created_at DESC`,
+        ORDER BY f.created_at DESC
+        LIMIT 1000`,
       [userId, viewerId ?? null],
     );
     return r.rows.map(mapFollowUser);

@@ -68,7 +68,7 @@ export async function getUserActivity(pool: pg.Pool, userId: string): Promise<Us
          (SELECT COUNT(*)::int FROM reward_orders WHERE user_id = $1) AS backings,
          (SELECT COUNT(*)::int FROM board_posts WHERE author_id = $1) AS posts,
          (SELECT COUNT(*)::int FROM comments WHERE user_id = $1) AS comments,
-         (SELECT COUNT(*)::int FROM reports WHERE target_type = 'profile' AND target_id::text = $1::text) AS reports_against`,
+         (SELECT COUNT(*)::int FROM reports WHERE target_type = 'maker' AND target_id::text = $1::text) AS reports_against`,
       [userId],
     );
     const row = r.rows[0] ?? {};

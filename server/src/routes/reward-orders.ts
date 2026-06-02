@@ -104,6 +104,9 @@ export function createBackingHandler(
           res.status(409).json({ error: 'ALREADY_BACKED', message: '이미 이 프로젝트에 참여 중이에요. 펀딩을 변경하거나 취소한 뒤 다시 참여할 수 있어요.' });
           return;
         }
+        if (result.error === 'NOT_OPEN') {
+          res.status(409).json({ error: 'NOT_OPEN', message: '방금 마감된 프로젝트예요. 다시 확인해 주세요.' }); return;
+        }
         res.status(409).json({ error: 'SOLD_OUT', message: '해당 리워드가 마감되었습니다' }); return;
       }
       const order = result;
