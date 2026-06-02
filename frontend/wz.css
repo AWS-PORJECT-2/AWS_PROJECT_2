@@ -658,3 +658,10 @@ a.wz-btn--primary svg path { color: #fff; stroke: #fff; }
   background: var(--c-primary-50); color: var(--c-primary-700);
 }
 .wz-subscribe.is-on .wz-subscribe__cnt { background: rgba(255,255,255,.26); color: #fff; }
+
+/* 헤더 언어 토글(KR/EN) */
+.wz-hd__lang { display: inline-flex; align-items: center; border: 1px solid var(--c-border, #E5E7EB); border-radius: 999px; overflow: hidden; height: 30px; margin-right: 2px; flex: 0 0 auto; }
+.wz-hd__langbtn { appearance: none; border: 0; background: transparent; color: var(--c-text-muted, #6B7280); font-family: inherit; font-size: 12px; font-weight: 800; padding: 0 9px; height: 100%; cursor: pointer; letter-spacing: .02em; line-height: 1; }
+.wz-hd__langbtn.is-on { background: var(--c-primary-500, #8B5CF6); color: #fff; }
+.wz-hd__langbtn:not(.is-on):hover { color: var(--c-text, #1A1A1A); }
+@media (max-width: 600px) { .wz-hd__lang { height: 28px; } .wz-hd__langbtn { padding: 0 7px; font-size: 11px; } }

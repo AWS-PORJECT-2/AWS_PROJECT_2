@@ -167,6 +167,18 @@
     function iconLink(name, label, href) {
       return el('a', { class: 'wz-hd__icon', href, 'aria-label': label, title: label, html: ICON[name] });
     }
+
+    /* 언어 토글(KR/EN) — localStorage 'wz_lang' 저장 후 reload. wz-i18n.js 가 EN 일 때 DOM 을 번역. */
+    let curLang = 'ko';
+    try { curLang = localStorage.getItem('wz_lang') === 'en' ? 'en' : 'ko'; } catch (_) { /* */ }
+    function switchLang(v) { try { localStorage.setItem('wz_lang', v); } catch (_) {} location.reload(); }
+    const langWrap = el('div', { class: 'wz-hd__lang', role: 'group', 'aria-label': '언어 선택' });
+    const koBtn = el('button', { class: 'wz-hd__langbtn' + (curLang === 'ko' ? ' is-on' : ''), type: 'button', 'data-no-i18n': '' }, 'KR');
+    const enBtn = el('button', { class: 'wz-hd__langbtn' + (curLang === 'en' ? ' is-on' : ''), type: 'button', 'data-no-i18n': '' }, 'EN');
+    koBtn.addEventListener('click', () => { if (curLang !== 'ko') switchLang('ko'); });
+    enBtn.addEventListener('click', () => { if (curLang !== 'en') switchLang('en'); });
+    langWrap.append(koBtn, enBtn);
+    right.appendChild(langWrap);
     /* 헤더 하트 = 관심목록 팝오버(페이지 이동 X). 클릭 시 드롭다운 열기/닫기. */
     const heartBtn = el('button', { class: 'wz-hd__icon wz-hd__heart', type: 'button', 'aria-label': '관심 목록', title: '관심 목록', 'aria-expanded': 'false', html: ICON.heart });
     heartBtn.addEventListener('click', (e) => { e.stopPropagation(); openLikedPop(heartBtn); });
