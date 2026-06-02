@@ -261,11 +261,35 @@
     var body = el('div', { class: 'bd-comment__body' }); linkify(body, c.body); row.appendChild(body);
     var meta = el('div', { class: 'bd-comment__meta' }, el('span', {}, fmtTime(c.createdAt)));
     if (canModify(c.author)) {
+      var edit = el('button', { class: 'bd-comment__edit', type: 'button' }, '수정');
+      edit.addEventListener('click', startEdit);
+      meta.appendChild(edit);
       var del = el('button', { class: 'bd-comment__del', type: 'button' }, '삭제');
-      del.addEventListener('click', function () { del.disabled = true; api.del('/board/comments/' + encodeURIComponent(c.id)).then(reload).catch(function () { del.disabled = false; toast('삭제 실패'); }); });
+      del.addEventListener('click', function () {
+        if (!confirm('이 댓글을 삭제할까요?')) return;
+        del.disabled = true;
+        api.del('/board/comments/' + encodeURIComponent(c.id)).then(reload).catch(function () { del.disabled = false; toast('삭제 실패'); });
+      });
       meta.appendChild(del);
     }
-    row.appendChild(meta); return row;
+    row.appendChild(meta);
+
+    // 인라인 수정 — 본문을 textarea 로 바꿔 PATCH.
+    function startEdit() {
+      var ta = el('textarea', { class: 'bd-comment__edit-ta', maxlength: '2000' }); ta.value = c.body;
+      var save = el('button', { class: 'wz-btn wz-btn--primary bd-comment__edit-save', type: 'button' }, '저장');
+      var cancel = el('button', { class: 'bd-comment__edit-cancel', type: 'button' }, '취소');
+      var box = el('div', { class: 'bd-comment__editbox' }, ta, el('div', { class: 'bd-comment__editbtns' }, save, cancel));
+      row.replaceChild(box, body); meta.style.display = 'none';
+      setTimeout(function () { ta.focus(); }, 0);
+      cancel.addEventListener('click', function () { row.replaceChild(body, box); meta.style.display = ''; });
+      save.addEventListener('click', function () {
+        var v = ta.value.trim(); if (!v) { toast('댓글을 입력해 주세요'); return; }
+        save.disabled = true;
+        api.patch('/board/comments/' + encodeURIComponent(c.id), { body: v }).then(reload).catch(function () { save.disabled = false; toast('수정 실패'); });
+      });
+    }
+    return row;
   }
 
   /* ---------------- 리치 에디터 ---------------- */

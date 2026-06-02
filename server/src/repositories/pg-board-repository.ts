@@ -134,6 +134,17 @@ export class PgBoardRepository implements BoardRepository {
     return r.rows[0] ? toComment(r.rows[0]) : null;
   }
 
+  async updateComment(id: string, body: string): Promise<BoardComment | null> {
+    const upd = await this.pool.query('UPDATE board_comments SET body = $2 WHERE id = $1 RETURNING id', [id, body]);
+    if (!upd.rows[0]) return null;
+    const r = await this.pool.query(
+      `SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
+         FROM board_comments c JOIN "user" u ON u.id = c.author_id WHERE c.id = $1`,
+      [id],
+    );
+    return r.rows[0] ? toComment(r.rows[0]) : null;
+  }
+
   async getCommentAuthorId(id: string): Promise<string | null> {
     const r = await this.pool.query('SELECT author_id FROM board_comments WHERE id = $1', [id]);
     return r.rows[0] ? (r.rows[0].author_id as string) : null;

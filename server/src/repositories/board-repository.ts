@@ -19,6 +19,7 @@ export interface BoardRepository {
 
   listComments(postId: string): Promise<BoardComment[]>;
   createComment(input: { postId: string; authorId: string; body: string }): Promise<BoardComment | null>;
+  updateComment(id: string, body: string): Promise<BoardComment | null>;
   getCommentAuthorId(id: string): Promise<string | null>;
   deleteComment(id: string): Promise<boolean>;
 }

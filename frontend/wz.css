@@ -4,7 +4,7 @@
  * 강조색 = 두띵 보라(--c-primary-500 #8B5CF6). 이모지 금지(SVG만).
  * ===================================================================== */
 *, *::before, *::after { box-sizing: border-box; }
-.wz-body { margin: 0; background: #fff; color: var(--c-text); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; word-break: keep-all; }
+.wz-body { margin: 0; background: #fff; color: var(--c-text); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; word-break: keep-all; overflow-x: clip; }
 .wz-body a { color: inherit; text-decoration: none; }
 .wz-wrap { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
 img { max-width: 100%; }
@@ -182,7 +182,12 @@ img { max-width: 100%; }
   .wz-hd__logo { height: 26px; flex-shrink: 0; }
   .wz-hd__logo img { height: 24px; }     /* 로고 축소(32→24) */
   .wz-searchrow, .wz-cats { padding-left: 16px; padding-right: 16px; }
-  .wz-search { height: 48px; }
+  /* 모바일 검색바 축소 — 일부 폰에서 너무 커 화면이 밀리던 문제. 높이·폰트·버튼·상단여백 축소. */
+  .wz-searchrow { padding-top: 14px; }
+  .wz-search { height: 46px; padding: 0 6px 0 18px; }
+  .wz-search input { font-size: 15px; }
+  .wz-search__btn { width: 40px; height: 40px; }
+  .wz-search__btn svg { width: 22px; height: 22px; }
   .wz-home { padding: 16px; }
   .wz-hero__cap h2 { font-size: 21px; }
   .wz-grid { grid-template-columns: repeat(2, minmax(0,1fr)); gap: 14px; }
@@ -228,9 +233,12 @@ img { max-width: 100%; }
 .wz-chip.is-active { background: var(--c-primary-50); border-color: var(--c-primary-500); color: var(--c-primary-700); font-weight: 700; }
 .wz-hd__navlink { cursor: pointer; }
 
-/* =================== 다크모드 잠금 (OS 다크모드여도 색 불변) =================== */
-html { color-scheme: light; }
-.wz-body, .wz-body input, .wz-body textarea, .wz-body select, .wz-body button { color-scheme: light; }
+/* =================== 다크모드 잠금 (OS/브라우저 강제 다크여도 색 불변) ===================
+   color-scheme:'only light' = 브라우저 자동 다크(force-dark) 비활성 신호(가장 강한 opt-out).
+   + html/body 배경을 명시(흰색)해 다크 캔버스가 비치지 않게 한다. */
+:root { color-scheme: only light; }
+html, body { color-scheme: only light; background-color: #fff; }
+.wz-body, .wz-body input, .wz-body textarea, .wz-body select, .wz-body button { color-scheme: only light; }
 
 /* =================== 헤더 v2 (로고·☰메뉴·홈 / 둘째줄 ☰카테고리·인기·신규·마감임박) =================== */
 /* ☰ 메뉴(사용자 편의 바로가기) 버튼 */
@@ -681,3 +689,12 @@ a.wz-btn--primary svg path { color: #fff; stroke: #fff; }
 .wz-hd__langbtn.is-on { background: var(--c-primary-500, #8B5CF6); color: #fff; }
 .wz-hd__langbtn:not(.is-on):hover { color: var(--c-text, #1A1A1A); }
 @media (max-width: 600px) { .wz-hd__lang { height: 28px; } .wz-hd__langbtn { padding: 0 7px; font-size: 11px; } }
+
+/* 아주 작은 화면(≤400px) — 검색바·헤더 우측 클러스터 추가 축소(가로 밀림 방지) */
+@media (max-width: 400px) {
+  .wz-search { height: 44px; }
+  .wz-search input { font-size: 14px; }
+  .wz-hd__right { gap: 6px; }
+  .wz-hd__lang { height: 26px; }
+  .wz-hd__langbtn { padding: 0 6px; font-size: 10.5px; }
+}

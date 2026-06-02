@@ -141,6 +141,20 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
     } catch (e) { fail(res, e, '댓글 작성 실패'); }
   });
 
+  // 댓글 수정(본인 또는 관리자)
+  router.patch('/comments/:id', authRequired, writeRateLimit, async (req: Request, res: Response) => {
+    try {
+      const text = sanitizeComment((req.body as Record<string, unknown> | undefined)?.body);
+      if (!text) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '댓글을 입력해 주세요'))); return; }
+      const authorId = await repo.getCommentAuthorId(req.params.id);
+      if (!authorId) { notFound(res, '댓글을 찾을 수 없습니다'); return; }
+      if (!(await canModify(req, authorId, userRepo))) { res.status(403).json(createErrorResponse(new AppError('FORBIDDEN'))); return; }
+      const c = await repo.updateComment(req.params.id, text);
+      if (!c) { notFound(res, '댓글을 찾을 수 없습니다'); return; }
+      res.json(c);
+    } catch (e) { fail(res, e, '댓글 수정 실패'); }
+  });
+
   // 댓글 삭제(본인 또는 관리자)
   router.delete('/comments/:id', authRequired, async (req: Request, res: Response) => {
     try {
