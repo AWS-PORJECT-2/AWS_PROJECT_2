@@ -229,9 +229,7 @@
     panelEl.replaceWith(fresh);
     panelEl = fresh;
     sec.render(panelEl);
-    // 확인 시 사라짐: 로그 탭은 진입(렌더)만으로 확인 처리 → 배지 0.
-    // 채팅은 방을 읽을 때 개별 감소(renderChat 내). 단, 탭 진입 자체로도 신규 표시를 정리.
-    if (current === 'logs') setBadgeFor('logs', 0);
+    // 채팅은 방을 읽을 때 개별 감소(renderChat 내). 로그는 개별 '확인'(ack) 시 감소 → 진입만으로 0 처리하지 않음(미확인 수 유지).
     // 탭 전환 시 서버와 재동기화(로그·채팅은 현재 보고 있으면 0 유지 — loadBadges 가드).
     if (sideEl) loadBadges();
   }
@@ -247,8 +245,8 @@
     Object.keys(BADGE_MAP).forEach(function (key) {
       var sec = BADGE_MAP[key];
       var n = Number(counts[key]) || 0;
-      // 로그·채팅을 현재 보고 있으면(확인 중) 신규 카운트를 다시 띄우지 않음.
-      if ((sec === 'logs' || sec === 'chat') && current === sec) n = 0;
+      // 채팅은 방을 읽으며 개별 감소 → 보는 중엔 재표시 안 함. 로그는 개별 '확인'(ack)으로 감소하므로 실제 미확인 수를 그대로 표시.
+      if (sec === 'chat' && current === sec) n = 0;
       setBadgeFor(sec, n);
     });
   }
@@ -1732,7 +1730,7 @@
       var wrap = el('div', { class: 'wza-tablewrap' });
       var table = el('table', { class: 'wza-table' });
       table.appendChild(el('thead', {}, el('tr', {},
-        el('th', {}, '시각'), el('th', {}, '레벨'), el('th', {}, '소스'), el('th', {}, '메시지'))));
+        el('th', {}, '시각'), el('th', {}, '레벨'), el('th', {}, '소스'), el('th', {}, '메시지'), el('th', { class: 'wza-table__right' }, '확인'))));
       var tbody = el('tbody', {});
       items.forEach(function (lg) { tbody.appendChild(logRow(lg)); });
       table.appendChild(tbody);
@@ -1768,6 +1766,26 @@
       msgTd.appendChild(box);
     }
     tr.appendChild(msgTd);
+
+    // 확인(ack): 확인 전엔 '확인' 버튼(미확인 에러는 적색 행 유지), 확인 후엔 흐린 행(is-ack)+'확인됨'.
+    // 에러를 확인하면 사이드 '로그·오류' 배지 -1 (알림처럼 감소).
+    var acked = !!lg.acknowledgedAt;
+    if (acked) tr.classList.add('is-ack');
+    var ackTd = el('td', { class: 'wza-table__right', style: 'white-space:nowrap' });
+    function showAcked() { ackTd.textContent = ''; ackTd.appendChild(el('span', { class: 'wza-badge wza-badge--ok' }, '확인됨')); }
+    if (acked) {
+      showAcked();
+    } else {
+      var ackBtn = el('button', { class: 'wza-btn wza-btn--outline', type: 'button', style: 'padding:6px 12px' }, '확인');
+      ackBtn.addEventListener('click', function () {
+        ackBtn.disabled = true; ackBtn.textContent = '확인 중…';
+        window.api.post('/admin/logs/' + encodeURIComponent(lg.id) + '/ack', {})
+          .then(function () { tr.classList.add('is-ack'); showAcked(); if (lvl === 'error') bumpBadge('logs', -1); })
+          .catch(function () { ackBtn.disabled = false; ackBtn.textContent = '확인(재시도)'; });
+      });
+      ackTd.appendChild(ackBtn);
+    }
+    tr.appendChild(ackTd);
     return tr;
   }
 

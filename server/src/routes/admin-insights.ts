@@ -225,7 +225,8 @@ export function createAdminPendingCountsHandler(pool: pg.Pool) {
         pool.query(`
           SELECT CASE WHEN to_regclass('public.audit_logs') IS NULL THEN 0
                       ELSE (SELECT COUNT(*)::int FROM audit_logs
-                             WHERE level = 'error' AND created_at >= NOW() - INTERVAL '24 hours') END AS logs_new
+                             WHERE level = 'error' AND created_at >= NOW() - INTERVAL '24 hours'
+                               AND acknowledged_at IS NULL) END AS logs_new
         `),
       ]);
 
@@ -265,7 +266,7 @@ export function createAdminLogsHandler(pool: pg.Pool) {
       }
       params.push(limit);
       const result = await pool.query(
-        `SELECT id, level, source, message, meta, user_id, created_at
+        `SELECT id, level, source, message, meta, user_id, created_at, acknowledged_at
            FROM audit_logs
            ${where}
           ORDER BY created_at DESC
@@ -281,10 +282,30 @@ export function createAdminLogsHandler(pool: pg.Pool) {
           meta: r.meta ?? {},
           userId: (r.user_id as string | null) ?? null,
           createdAt: r.created_at,
+          acknowledgedAt: (r.acknowledged_at as string | null) ?? null,
         })),
       });
     } catch (err) {
       logger.error({ err }, '관리자 로그 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** POST /api/admin/logs/:id/ack — 오류 로그 확인 처리(배지 logsNew 에서 제외 + 목록 '확인됨' 표시). 멱등. */
+export function createAdminLogAckHandler(pool: pg.Pool) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    try {
+      const result = await pool.query(
+        `UPDATE audit_logs SET acknowledged_at = COALESCE(acknowledged_at, NOW()), acknowledged_by = COALESCE(acknowledged_by, $2)
+           WHERE id = $1
+         RETURNING acknowledged_at`,
+        [id, req.userId ?? null],
+      );
+      res.json({ ok: true, id, acknowledgedAt: result.rows[0]?.acknowledged_at ?? null });
+    } catch (err) {
+      logger.error({ err, id }, '관리자 로그 확인 처리 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
     }
   };

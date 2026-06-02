@@ -197,6 +197,9 @@ a.wza-report__target:hover { text-decoration: underline; }
 .wza-lvl--info  { background: var(--c-primary-50); color: var(--c-primary-700); }
 .wza-table tr.is-error td { background: #FEF2F2; }
 .wza-table tr.is-error:hover td { background: #FEE2E2; }
+/* 확인됨 로그 — 적색 경고 해제 + 흐리게(확인 전/후 색 구분). is-error 보다 뒤라 우선 적용. */
+.wza-table tr.is-ack td { background: #fff; opacity: .5; }
+.wza-table tr.is-ack:hover td { background: #FAFAFA; }
 
 /* meta 펼치기 */
 .wza-meta { margin: 4px 0 0; }
