@@ -204,7 +204,14 @@ export function sanitizeStoryHtml(html: string, maxChars: number = MAX_HTML_CHAR
     return selfClose ? `<${name}${attrPart} />` : `<${name}${attrPart}>`;
   });
 
-  // 4) 길이 제한.
+  // 4) 잔여 위험 '<' 무력화. 위 3) 패스는 닫는 '>' 가 있는 정규 태그만 정규화·on*제거한다.
+  //  닫는 '>' 없는 조각(<img ... onerror="x" <EOF)이나 '<' 로 끊긴 조각(<a onclick="x"<b>)은
+  //  on*/스킴이 텍스트로 남는다(클라 DOMPurify가 1차로 막지만 서버 심층방어도 비워야 함).
+  //  정규 허용태그 형태(<x...> | </x...>, 내부에 '<'·'>' 없음)가 아닌 '<' 는 전부 &lt; 로 이스케이프해
+  //  비활성 텍스트로 만든다 → 남는 '<...>' 는 모두 on*가 제거된 정규 태그뿐. (lookahead 도 [^<>]* 라 선형)
+  s = s.replace(/<(?!\/?[a-zA-Z][^<>]*>)/g, '&lt;');
+
+  // 5) 길이 제한.
   if (s.length > maxChars) s = s.slice(0, maxChars);
   return s;
 }
