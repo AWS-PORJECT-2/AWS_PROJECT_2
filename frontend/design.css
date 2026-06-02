@@ -28,6 +28,9 @@
 .dz-layer img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
 .dz-layer__txt { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; text-align: center; line-height: 1.15; word-break: break-word; white-space: pre-wrap; pointer-events: none; }
 .dz-layer.is-sel { outline: 2px solid #8B5CF6; outline-offset: 1px; }
+/* 선택 오버레이(마스크 밖) — 선택 박스 + 핸들 */
+.dz-canvas__sel { position: absolute; inset: 0; pointer-events: none; }
+.dz-sel { position: absolute; box-sizing: border-box; outline: 2px solid #8B5CF6; outline-offset: 0; cursor: move; pointer-events: auto; }
 .dz-h { position: absolute; width: 14px; height: 14px; background: #fff; border: 2px solid #8B5CF6; border-radius: 50%; box-sizing: border-box; }
 .dz-h--se { right: -7px; bottom: -7px; cursor: nwse-resize; }
 .dz-h--del { left: -9px; top: -9px; width: 20px; height: 20px; background: #ef4444; border-color: #fff; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; line-height: 1; }

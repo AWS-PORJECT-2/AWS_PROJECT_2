@@ -31,7 +31,7 @@
     ] },
     hoodie: { type: 'apparel', items: [
       { name: '후드티', img: 'hoodie', views: AP,
-        print: { front: pr(36, 23, 28, 25), back: pr(30, 17, 40, 45), left: pr(41, 24, 18, 22), right: pr(42, 24, 19, 22) } },
+        print: { front: pr(33, 47, 34, 26), back: pr(30, 17, 40, 45), left: pr(41, 24, 18, 22), right: pr(42, 24, 19, 22) } },
       { name: '맨투맨', img: 'sweatshirt', views: AP,
         print: { front: pr(32, 26, 36, 33), back: pr(27, 18, 45, 43), left: pr(42, 24, 17, 22), right: pr(42, 24, 17, 22) } },
     ] },
@@ -99,6 +99,11 @@
     var it = curItem();
     return it.img ? '/assets/mockups/' + it.img + '_' + view + '.jpg' : null;
   }
+  // 옷/제품 실루엣 마스크(알파 PNG, 제품=불투명·배경=투명). 레이어를 이 모양으로 클리핑 → 제품 밖은 잘림.
+  function maskSrc(view) {
+    var it = curItem();
+    return it.img ? '/assets/mockups/' + it.img + '_' + view + '_mask.png' : null;
+  }
 
   // ---- 목업 SVG 폴백(이미지 없는 webapp/etc, 또는 로드 실패 시) -----------------
   function goodsSvg() {
@@ -128,7 +133,7 @@
   var imgCache = {}; // layerId -> HTMLImageElement (합성용)
 
   // ---- DOM refs ---------------------------------------------------------------
-  var root, canvasEl, layersWrap, viewsWrap, propsBox, layerListBox, titleInput;
+  var root, canvasEl, layersWrap, selWrap, viewsWrap, propsBox, layerListBox, titleInput;
 
   function toast(msg) {
     var t = el('div', { class: 'dz-toast' }, msg);
@@ -168,26 +173,30 @@
 
     canvasEl = el('div', { class: 'dz-canvas', style: 'aspect-ratio: 1 / 1' });
     canvasEl.appendChild(buildMockNode());
-    // 인쇄 영역 가이드
-    var pr = printRect();
-    if (pr) {
-      var guide = el('div', { class: 'dz-print', style: 'left:' + pr.l + '%;top:' + pr.t + '%;width:' + pr.w + '%;height:' + pr.h + '%' });
-      guide.appendChild(el('div', { class: 'dz-print__tag' }, '인쇄 영역'));
-      canvasEl.appendChild(guide);
-    }
+    // 레이어 컨테이너 — 제품 실루엣 마스크로 클리핑(제품 밖으로 나간 부분은 잘림).
     layersWrap = el('div', { class: 'dz-canvas__layers', style: 'position:absolute;inset:0' });
-    canvasEl.appendChild(layersWrap);
-    if (!cvLayers().length) {
-      canvasEl.appendChild(el('div', { class: 'dz-empty' }, '오른쪽에서 이미지나 텍스트를 추가해\n나만의 ' + (S.product || '굿즈') + '을(를) 디자인해 보세요'));
+    var mk = maskSrc(S.view);
+    if (mk) {
+      var mkCss = 'url("' + mk + '")';
+      layersWrap.style.webkitMaskImage = mkCss; layersWrap.style.maskImage = mkCss;
+      layersWrap.style.webkitMaskSize = '100% 100%'; layersWrap.style.maskSize = '100% 100%';
+      layersWrap.style.webkitMaskRepeat = 'no-repeat'; layersWrap.style.maskRepeat = 'no-repeat';
     }
-    // 빈 곳(레이어/핸들이 아닌 곳) 클릭 → 선택 해제
+    canvasEl.appendChild(layersWrap);
+    // 선택 UI(선택박스+핸들)는 마스크 밖 별도 오버레이 — 제품 가장자리에서도 안 잘리고 잡을 수 있게.
+    selWrap = el('div', { class: 'dz-canvas__sel', style: 'position:absolute;inset:0;pointer-events:none' });
+    canvasEl.appendChild(selWrap);
+    // 빈 곳(레이어/선택UI가 아닌 곳) 클릭 → 선택 해제
     canvasEl.addEventListener('pointerdown', function (e) {
-      if (!e.target.closest('.dz-layer')) {
+      if (!e.target.closest('.dz-layer') && !e.target.closest('.dz-sel')) {
         S.sel = null; renderLayers(); renderProps(); renderLayerList();
       }
     });
     stage.appendChild(canvasEl);
-    stage.appendChild(el('div', { class: 'dz-hint' }, '이미지를 끌어 위치를 옮기고, 모서리 점으로 크기를 조절하세요.'));
+    var hintText = cvLayers().length
+      ? '끌어서 이동 · 모서리 점으로 크기 조절. 제품 밖으로 나간 부분은 인쇄되지 않아요.'
+      : '오른쪽에서 이미지·텍스트를 추가해 ' + (S.product || '굿즈') + '을(를) 꾸며보세요. 디자인은 제품 모양에 맞게 잘립니다.';
+    stage.appendChild(el('div', { class: 'dz-hint' }, hintText));
     grid.appendChild(stage);
 
     // 우: 패널
@@ -335,10 +344,7 @@
     if (!layersWrap) return;
     layersWrap.replaceChildren();
     cvLayers().forEach(function (L) {
-      var node = el('div', {
-        class: 'dz-layer' + (L.id === S.sel ? ' is-sel' : ''),
-        style: layerStyle(L),
-      });
+      var node = el('div', { class: 'dz-layer', style: layerStyle(L) });
       node.dataset.id = L.id;
       if (L.type === 'image') {
         node.appendChild(el('img', { src: L.src, alt: '' }));
@@ -350,16 +356,40 @@
         tx.textContent = L.text || '';
         node.appendChild(tx);
       }
-      if (L.id === S.sel) {
-        var del = el('div', { class: 'dz-h dz-h--del', title: '삭제' }, '×');
-        del.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); removeLayer(L.id); });
-        var se = el('div', { class: 'dz-h dz-h--se', title: '크기 조절' });
-        se.addEventListener('pointerdown', function (e) { startResize(e, L); });
-        node.append(del, se);
-      }
       node.addEventListener('pointerdown', function (e) { startDrag(e, L); });
       layersWrap.appendChild(node);
     });
+    renderSel();
+  }
+  // 선택 박스 + 핸들(마스크 밖 오버레이). 디자인 내용(layersWrap)과 분리해 가장자리에서도 안 잘림.
+  function renderSel() {
+    if (!selWrap) return;
+    selWrap.replaceChildren();
+    var L = selLayer();
+    if (!L) return;
+    var box = el('div', { class: 'dz-sel', style: layerStyle(L) });
+    box.dataset.id = L.id;
+    box.addEventListener('pointerdown', function (e) { startDrag(e, L); });
+    var del = el('div', { class: 'dz-h dz-h--del', title: '삭제' }, '×');
+    del.addEventListener('pointerdown', function (e) { e.stopPropagation(); e.preventDefault(); removeLayer(L.id); });
+    var se = el('div', { class: 'dz-h dz-h--se', title: '크기 조절' });
+    se.addEventListener('pointerdown', function (e) { startResize(e, L); });
+    box.append(del, se);
+    selWrap.appendChild(box);
+  }
+  // 드래그/리사이즈 중 내용 노드 + 선택 박스를 함께 이동.
+  function posNodes(L) {
+    var sel = '[data-id="' + L.id + '"]';
+    [layersWrap && layersWrap.querySelector(sel), selWrap && selWrap.querySelector(sel)].forEach(function (n) {
+      if (!n) return;
+      n.style.left = (L.x - L.w / 2) + '%'; n.style.top = (L.y - L.h / 2) + '%';
+      n.style.width = L.w + '%'; n.style.height = L.h + '%';
+    });
+    if (L.type === 'text') {
+      var cn = layersWrap && layersWrap.querySelector(sel);
+      var t = cn && cn.querySelector('.dz-layer__txt');
+      if (t) t.style.fontSize = (L.font * canvasPxH() / 100) + 'px';
+    }
   }
   function layerStyle(L) {
     // 중심(x,y) 기준 배치. 이미지 w,h%; 텍스트는 w% 박스 + auto height.
@@ -373,16 +403,14 @@
   // ---- 드래그 / 리사이즈 ------------------------------------------------------
   function startDrag(e, L) {
     e.preventDefault();
-    S.sel = L.id; renderLayers(); renderProps(); renderLayerList();
+    if (S.sel !== L.id) { S.sel = L.id; renderLayers(); renderProps(); renderLayerList(); }
     var rect = canvasEl.getBoundingClientRect();
     var startX = e.clientX, startY = e.clientY, ox = L.x, oy = L.y;
-    var node = layersWrap.querySelector('[data-id="' + L.id + '"]');
     function move(ev) {
       var dx = (ev.clientX - startX) / rect.width * 100;
       var dy = (ev.clientY - startY) / rect.height * 100;
       L.x = clamp(ox + dx, 2, 98); L.y = clamp(oy + dy, 2, 98);
-      if (node) node.style.cssText = layerStyle(L) + (L.id === S.sel ? '' : '');
-      if (node) { node.style.left = (L.x - L.w / 2) + '%'; node.style.top = (L.y - L.h / 2) + '%'; }
+      posNodes(L);
     }
     function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); }
     document.addEventListener('pointermove', move);
@@ -392,7 +420,6 @@
     e.preventDefault(); e.stopPropagation();
     var rect = canvasEl.getBoundingClientRect();
     var startX = e.clientX, sw = L.w, sh = L.h, sf = L.font || 0;
-    var node = layersWrap.querySelector('[data-id="' + L.id + '"]');
     function move(ev) {
       var dxp = (ev.clientX - startX) / rect.width * 100;
       var nw = clamp(sw + dxp, 6, 96);
@@ -400,11 +427,7 @@
       L.w = nw;
       if (L.type === 'image') { L.h = clamp(sh * scale, 4, 140); }
       else { L.font = Math.max(2, sf * scale); L.h = textBoxH(L); }
-      if (node) {
-        node.style.left = (L.x - L.w / 2) + '%'; node.style.top = (L.y - L.h / 2) + '%';
-        node.style.width = L.w + '%'; node.style.height = L.h + '%';
-        if (L.type === 'text') { var t = node.querySelector('.dz-layer__txt'); if (t) t.style.fontSize = (L.font * canvasPxH() / 100) + 'px'; }
-      }
+      posNodes(L);
     }
     function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); renderProps(); }
     document.addEventListener('pointermove', move);
@@ -596,27 +619,35 @@
           n.src = L.src;
         });
         function paint() {
+          // 레이어는 별도 캔버스에 그린 뒤 제품 마스크로 클리핑(destination-in) → 베이스에 합성.
+          var lc = document.createElement('canvas'); lc.width = CW; lc.height = CH;
+          var lx = lc.getContext('2d');
           ls.forEach(function (L) {
             if (L.type === 'image') {
               var im2 = imgCache[L.id];
               if (!im2 || !im2.naturalWidth) return;
               var w = L.w / 100 * CW, h = L.h / 100 * CH;
               var x = (L.x / 100 * CW) - w / 2, y = (L.y / 100 * CH) - h / 2;
-              try { ctx.drawImage(im2, x, y, w, h); } catch (_) {}
+              try { lx.drawImage(im2, x, y, w, h); } catch (_) {}
             } else {
               var fs = L.font / 100 * CH;
-              ctx.font = (L.bold ? '800 ' : '500 ') + fs + 'px Pretendard, -apple-system, sans-serif';
-              ctx.fillStyle = L.color || '#222';
-              ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+              lx.font = (L.bold ? '800 ' : '500 ') + fs + 'px Pretendard, -apple-system, sans-serif';
+              lx.fillStyle = L.color || '#222';
+              lx.textAlign = 'center'; lx.textBaseline = 'middle';
               var lines = String(L.text || '').split('\n');
               var cx = L.x / 100 * CW, cy = L.y / 100 * CH;
               var lh = fs * 1.2;
               var startY = cy - (lines.length - 1) * lh / 2;
-              lines.forEach(function (ln, idx) { ctx.fillText(ln, cx, startY + idx * lh); });
+              lines.forEach(function (ln, idx) { lx.fillText(ln, cx, startY + idx * lh); });
             }
           });
-          S.view = prevView;
-          resolve(canvas.toDataURL('image/png'));
+          function finish() { ctx.drawImage(lc, 0, 0); S.view = prevView; resolve(canvas.toDataURL('image/png')); }
+          var msrc = (function () { var keep = S.view; S.view = view; var m = maskSrc(view); S.view = keep; return m; })();
+          if (!msrc) { finish(); return; }
+          var mimg = new Image();
+          mimg.onload = function () { lx.globalCompositeOperation = 'destination-in'; lx.drawImage(mimg, 0, 0, CW, CH); finish(); };
+          mimg.onerror = function () { finish(); }; // 마스크 없으면 클리핑 생략
+          mimg.src = msrc;
         }
       }
     });
