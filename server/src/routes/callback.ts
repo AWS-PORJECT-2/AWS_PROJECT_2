@@ -18,6 +18,16 @@ export function createCallbackHandler(authService: AuthService) {
       res.redirect(`${FRONTEND_URL}/${isMobile ? 'auth-return.html?error=missing_params' : 'login.html?error=missing_params'}`);
       return;
     }
+    // 웹: 로그인 시작 시 심은 oauth_state 쿠키와 대조 → 로그인 CSRF/세션 픽세이션 차단. 모바일은 면제.
+    if (!isMobile) {
+      const cookieState = typeof req.cookies?.oauth_state === 'string' ? req.cookies.oauth_state : undefined;
+      res.clearCookie('oauth_state', { path: '/api/auth' });
+      if (!cookieState || cookieState !== state) {
+        logger.warn({ ip: req.ip }, 'oauth_state 쿠키 불일치 — 콜백 거부(CSRF 의심)');
+        res.redirect(`${FRONTEND_URL}/login.html?error=login_failed`);
+        return;
+      }
+    }
     try {
       const result = await authService.handleCallback(code, state);
       if (isMobile) {
