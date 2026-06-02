@@ -31,7 +31,7 @@
     ] },
     hoodie: { type: 'apparel', tint: true, items: [
       { name: '후드티', img: 'hoodie', views: AP,
-        print: { front: pr(31, 41, 38, 39), back: pr(30, 18, 40, 60), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
+        print: { front: pr(31, 47, 38, 33), back: pr(30, 18, 40, 60), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
       { name: '맨투맨', img: 'sweatshirt', views: AP,
         print: { front: pr(30, 22, 40, 58), back: pr(29, 22, 42, 57), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
@@ -161,17 +161,35 @@
   var imgCache = {}; // layerId -> HTMLImageElement (합성용)
 
   // ---- 실행취소/다시실행 히스토리 (S.views 스냅샷) -----------------------------
-  var histPast = [], histFuture = [];
-  function snapViews() { return JSON.stringify(S.views); }
+  //  이미지 src(data URL)는 스냅샷에서 분리해 srcStore 에 레이어id로 1회만 저장(중복 X) → 50개
+  //  스냅샷이 메타데이터만 담아 메모리 비대화 방지. 복원 시 srcStore 에서 src 재부착.
+  var histPast = [], histFuture = [], srcStore = {};
+  function snapViews() {
+    var clone = JSON.parse(JSON.stringify(S.views));
+    Object.keys(clone).forEach(function (v) {
+      (clone[v] || []).forEach(function (L) {
+        if (L.type === 'image' && L.src) { srcStore[L.id] = L.src; delete L.src; }
+      });
+    });
+    return JSON.stringify(clone);
+  }
+  function applySnap(json) {
+    var views = JSON.parse(json);
+    Object.keys(views).forEach(function (v) {
+      (views[v] || []).forEach(function (L) { if (L.type === 'image' && !L.src && srcStore[L.id]) L.src = srcStore[L.id]; });
+    });
+    S.views = views;
+  }
   function pushHistory() { histPast.push(snapViews()); if (histPast.length > 50) histPast.shift(); histFuture = []; updateToolbar(); }
+  function resetHistory() { histPast = []; histFuture = []; srcStore = {}; }
   function rebuildImgCache() {
     imgCache = {};
     Object.keys(S.views).forEach(function (v) {
       (S.views[v] || []).forEach(function (L) { if (L.type === 'image') { var im = new Image(); im.src = L.src; imgCache[L.id] = im; } });
     });
   }
-  function undo() { if (!histPast.length) return; histFuture.push(snapViews()); S.views = JSON.parse(histPast.pop()); S.sel = null; rebuildImgCache(); render(); }
-  function redo() { if (!histFuture.length) return; histPast.push(snapViews()); S.views = JSON.parse(histFuture.pop()); S.sel = null; rebuildImgCache(); render(); }
+  function undo() { if (!histPast.length) return; histFuture.push(snapViews()); applySnap(histPast.pop()); S.sel = null; rebuildImgCache(); render(); }
+  function redo() { if (!histFuture.length) return; histPast.push(snapViews()); applySnap(histFuture.pop()); S.sel = null; rebuildImgCache(); render(); }
 
   // ---- 툴바 -------------------------------------------------------------------
   var toolbarEl = null, tbUndo = null, tbRedo = null;
@@ -471,6 +489,7 @@
     S.views = {}; views().forEach(function (v) { S.views[v] = []; });
     S.view = views()[0];
     S.sel = null;
+    resetHistory();
     imgCache = {};
     render();
   }
@@ -1212,6 +1231,7 @@
         });
       });
       S.seq = maxSeq;
+      resetHistory();
       render();
       toast('디자인을 불러왔어요');
     }).catch(function (err) {
@@ -1465,6 +1485,7 @@
     S.view = views()[0];
     S.views = {}; views().forEach(function (v) { S.views[v] = []; });
     S.title = (S.catObj ? S.catObj.label : '내') + ' 디자인';
+    resetHistory();
     render();
   }
 
