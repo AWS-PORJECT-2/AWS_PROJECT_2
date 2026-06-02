@@ -6,8 +6,8 @@ import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
 import { uuidParamGuard } from '../middleware/uuid-param.js';
-import { isValidBoardCategory, sanitizeTitle, sanitizeBody, sanitizeComment, normalizeMedia, htmlToText } from '../utils/board-content.js';
-import { normalizeContentBlocks } from '../utils/content-blocks.js';
+import { isValidBoardCategory, sanitizeTitle, sanitizeBody, sanitizeComment, normalizeMedia, htmlToText, BOARD_HTML_MAX } from '../utils/board-content.js';
+import { sanitizeStoryHtml } from '../utils/content-blocks.js';
 
 function fail(res: Response, e: unknown, msg: string): void {
   if (e instanceof AppError) { res.status(e.httpStatus).json(createErrorResponse(e)); return; }
@@ -59,10 +59,12 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
       let contentBlocks: unknown[] = [];
       let text = '';
       if (Array.isArray(body.contentBlocks)) {
-        contentBlocks = normalizeContentBlocks(body.contentBlocks);
-        text = contentBlocks
-          .map((b) => (b && (b as { type?: string }).type === 'html') ? htmlToText((b as { html?: string }).html) : '')
-          .filter(Boolean).join(' ').slice(0, 500);
+        // 게시판은 본문 html 단일 블록 — 서버에서 sanitizeStoryHtml(=태그 화이트리스트+iframe 검증)로 재새니타이즈.
+        const rawBlock = body.contentBlocks.find((b) => b && (b as { type?: string }).type === 'html') as { html?: unknown } | undefined;
+        const rawHtml = rawBlock && typeof rawBlock.html === 'string' ? rawBlock.html : '';
+        const html = sanitizeStoryHtml(rawHtml, BOARD_HTML_MAX);
+        contentBlocks = html ? [{ type: 'html', html }] : [];
+        text = htmlToText(html);
       } else {
         text = sanitizeBody(body.body);
       }

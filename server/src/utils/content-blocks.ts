@@ -157,7 +157,7 @@ function decodeAttr(s: string): string {
 //  3) 남은 모든 태그를 토큰 단위로 순회: 허용 태그가 아니면 태그만 벗기고(내부 텍스트 보존),
 //     허용 태그면 속성 새니타이즈(on 핸들러/비허용/위험스킴/style 필터). iframe 은 src 재검증.
 //  4) MAX_HTML_CHARS 로 절단.
-export function sanitizeStoryHtml(html: string): string {
+export function sanitizeStoryHtml(html: string, maxChars: number = MAX_HTML_CHARS): string {
   if (typeof html !== 'string' || !html) return '';
   let s = html;
 
@@ -196,7 +196,7 @@ export function sanitizeStoryHtml(html: string): string {
   });
 
   // 4) 길이 제한.
-  if (s.length > MAX_HTML_CHARS) s = s.slice(0, MAX_HTML_CHARS);
+  if (s.length > maxChars) s = s.slice(0, maxChars);
   return s;
 }
 

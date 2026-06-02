@@ -9,6 +9,10 @@ export type BoardCategory = (typeof BOARD_CATEGORIES)[number];
 
 const TITLE_MAX = 120;
 const BODY_MAX = 5000;
+// 게시판 리치 본문(html 블록) 새니타이즈 후 상한 — 인라인(클라 압축) 이미지 몇 장 수용.
+// funds 스토리(MAX_HTML_CHARS 200K)보다 큼: 게시판은 이미지를 별도 블록이 아닌 본문 인라인으로 둠.
+// (S3 업로드 도입 전 임시. writeRateLimit + 전역 50mb 바디로 남용 제한.)
+export const BOARD_HTML_MAX = 2_500_000;
 const MEDIA_MAX = 10;
 const COMMENT_MAX = 2000;
 // 미디어 data URL 1건 상한(base64 문자수 ≈ 8MB). 과도한 업로드/DB 비대화 방지.

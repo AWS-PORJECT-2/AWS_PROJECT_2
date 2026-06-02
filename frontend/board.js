@@ -12,7 +12,7 @@
 
   var CAT_LABEL = { general: '일반', promo: '홍보', question: '질문', free: '자유', review: '후기' };
   var CATS = [{ k: '', label: '전체' }, { k: 'general', label: '일반' }, { k: 'promo', label: '홍보' }, { k: 'question', label: '질문' }, { k: 'free', label: '자유' }, { k: 'review', label: '후기' }];
-  var IMG_MAX = 8 * 1024 * 1024;
+  var IMG_MAX = 12 * 1024 * 1024;
   var URL_RE = /(https?:\/\/[^\s<]+)/g;
 
   /* ---- 새니타이즈 (funds 스토리와 동일 화이트리스트, 서버가 최종 재검증) ---- */
@@ -40,6 +40,26 @@
   function firstHtml(post) {
     var b = (post && post.contentBlocks || []).find(function (x) { return x && x.type === 'html' && x.html; });
     return b ? b.html : '';
+  }
+
+  // 이미지 리사이즈(최대 1600px)+JPEG 압축 → 인라인 data URL 을 작게(보통 100~300KB). 본문 비대화/캡 초과 방지.
+  function compressImage(file, cb) {
+    var r = new FileReader();
+    r.onload = function () {
+      var img = new Image();
+      img.onload = function () {
+        var max = 1600, w = img.width, h = img.height;
+        if (w > max || h > max) { var ratio = Math.min(max / w, max / h); w = Math.round(w * ratio); h = Math.round(h * ratio); }
+        try {
+          var c = document.createElement('canvas'); c.width = w; c.height = h;
+          c.getContext('2d').drawImage(img, 0, 0, w, h);
+          cb(c.toDataURL('image/jpeg', 0.82));
+        } catch (e) { cb(String(r.result)); }
+      };
+      img.onerror = function () { cb(String(r.result)); };
+      img.src = String(r.result);
+    };
+    r.readAsDataURL(file);
   }
 
   function run() {
@@ -202,10 +222,8 @@
     fileImg.addEventListener('change', function () {
       var f = fileImg.files && fileImg.files[0]; fileImg.value = '';
       if (!f) return;
-      if (f.size > IMG_MAX) { toast('사진이 너무 큽니다(최대 8MB)'); return; }
-      var r = new FileReader();
-      r.onload = function () { restore(); insertNode(el('img', { src: String(r.result), alt: '' })); };
-      r.readAsDataURL(f);
+      if (f.size > IMG_MAX) { toast('사진이 너무 큽니다(최대 12MB)'); return; }
+      compressImage(f, function (url) { restore(); insertNode(el('img', { src: url, alt: '' })); });
     });
 
     var savedRange = null;
@@ -249,7 +267,7 @@
     // 붙여넣기: 이미지는 업로드, 그 외는 평문으로(서식 오염 방지)
     area.addEventListener('paste', function (e) {
       var items = e.clipboardData && e.clipboardData.items;
-      if (items) { for (var i = 0; i < items.length; i++) { if (items[i].type.indexOf('image') === 0) { var f = items[i].getAsFile(); if (f && f.size <= IMG_MAX) { e.preventDefault(); var r = new FileReader(); r.onload = function () { insertNode(el('img', { src: String(r.result), alt: '' })); }; r.readAsDataURL(f); return; } } } }
+      if (items) { for (var i = 0; i < items.length; i++) { if (items[i].type.indexOf('image') === 0) { var f = items[i].getAsFile(); if (f && f.size <= IMG_MAX) { e.preventDefault(); compressImage(f, function (url) { insertNode(el('img', { src: url, alt: '' })); }); return; } } } }
       e.preventDefault(); var t = (e.clipboardData || window.clipboardData).getData('text'); document.execCommand('insertText', false, t);
     });
 
