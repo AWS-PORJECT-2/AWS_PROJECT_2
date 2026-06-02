@@ -160,6 +160,9 @@ function decodeAttr(s: string): string {
 export function sanitizeStoryHtml(html: string, maxChars: number = MAX_HTML_CHARS): string {
   if (typeof html !== 'string' || !html) return '';
   let s = html;
+  // 정규식 패스 '전' 입력 길이 캡 — 대용량(최대 전역 바디) 입력에 다중 정규식을 돌릴 때의
+  // 이벤트루프 블록/RangeError 방지. (결과 캡(line 아래)과 별개로 입력 자체를 먼저 제한.)
+  if (s.length > maxChars * 2) s = s.slice(0, maxChars * 2);
 
   // 1) script/style 블록 + HTML 주석 제거(여닫이 사이 전부). 닫는 태그 없는 경우도 끝까지 제거.
   s = s.replace(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi, '');

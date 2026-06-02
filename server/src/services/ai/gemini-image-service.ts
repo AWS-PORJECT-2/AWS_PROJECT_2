@@ -241,9 +241,9 @@ export class GeminiImageService {
         },
       });
     } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
+      // 업스트림(Gemini) 원본 에러 메시지는 로그에만 남기고, 클라엔 일반 메시지만 노출(정보 누출 방지).
       logger.error({ err, route: ctx.route, userId: ctx.userId }, '[GEMINI-FAILED] Gemini 호출 실패');
-      throw new AppError('AI_UNAVAILABLE', `AI 생성 실패: ${detail}`);
+      throw new AppError('AI_UNAVAILABLE');
     }
 
     // 응답에서 이미지 1장만 추출 — 2장 이상 와도 첫 번째만 사용
