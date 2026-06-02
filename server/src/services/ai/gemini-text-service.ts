@@ -108,9 +108,9 @@ export class GeminiTextService {
         config: { temperature: 0.8 },
       });
     } catch (err) {
-      const detail = err instanceof Error ? err.message : String(err);
+      // 업스트림(제미나이) 원본 오류 메시지는 로그로만 남기고 클라이언트에는 일반 메시지(이미지 서비스와 동일 정책).
       logger.error({ err, userId }, '[GEMINI-TEXT-FAILED] 스토리 초안 호출 실패');
-      throw new AppError('AI_UNAVAILABLE', `AI 초안 생성 실패: ${detail}`);
+      throw new AppError('AI_UNAVAILABLE', 'AI 초안 생성에 실패했어요. 잠시 후 다시 시도해 주세요.');
     }
 
     const parts = response.candidates?.[0]?.content?.parts ?? [];

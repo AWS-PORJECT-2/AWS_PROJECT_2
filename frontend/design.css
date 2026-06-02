@@ -21,10 +21,6 @@
 .dz-canvas { position: relative; width: 100%; max-width: 460px; background: #fff; border-radius: 14px; overflow: hidden; box-shadow: 0 4px 18px rgba(0,0,0,.06); touch-action: none; user-select: none; }
 .dz-canvas__mock { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .dz-canvas__mock svg { width: 100%; height: 100%; display: block; }
-/* 옷 색(실시간) — 마스크로 옷 영역만, multiply 로 흰 목업에 색을 입히되 음영 유지 */
-.dz-canvas__tint { position: absolute; inset: 0; mix-blend-mode: multiply; pointer-events: none; }
-.dz-print { position: absolute; border: 1.5px dashed rgba(139,92,246,.7); border-radius: 6px; pointer-events: none; }
-.dz-print__tag { position: absolute; top: -10px; left: 8px; background: #8B5CF6; color: #fff; font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 999px; }
 
 .dz-layer { position: absolute; box-sizing: border-box; cursor: move; }
 .dz-layer img { width: 100%; height: 100%; display: block; pointer-events: none; -webkit-user-drag: none; }
@@ -55,8 +51,6 @@
 .dz-h { position: absolute; width: 14px; height: 14px; background: #fff; border: 2px solid #8B5CF6; border-radius: 50%; box-sizing: border-box; }
 .dz-h--se { right: -7px; bottom: -7px; cursor: nwse-resize; }
 .dz-h--del { left: -9px; top: -9px; width: 20px; height: 20px; background: #ef4444; border-color: #fff; color: #fff; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 800; line-height: 1; }
-
-.dz-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: #b7b7c0; font-size: 13px; font-weight: 600; text-align: center; padding: 0 24px; pointer-events: none; }
 
 /* 우측 패널 */
 .dz-panel { display: flex; flex-direction: column; gap: 14px; }
@@ -90,9 +84,6 @@
 .dz-litem__b:hover { color: #ef4444; background: #fdecec; }
 .dz-litem__empty { font-size: 13px; color: #b0b0b8; text-align: center; padding: 14px 0; }
 
-/* 텍스트 속성 패널 */
-.dz-tprops { display: none; }
-.dz-tprops.is-on { display: block; }
 
 /* 완성 결과 / 불러오기 모달 */
 .dz-modal { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 20px; }
@@ -171,12 +162,5 @@
 .dz-aiout__foot .wz-btn { flex: 1 1 0; min-width: 0; }
 .dz-aisec__go.is-locked, .dz-aisec__go:disabled { opacity: .5; cursor: not-allowed; }
 
-/* 완성 영역 — 완성하기(전체폭) + 아래 좌/우 AI 디자인 보기 | 가상피팅 보기 */
-.dz-finishwrap { display: flex; flex-direction: column; gap: 8px; }
-.dz-finishwrap .dz-complete { width: 100%; }
-.dz-finish { display: flex; gap: 8px; }
-.dz-finish__btn { flex: 1 1 0; min-width: 0; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 0 8px; }
-.dz-finish__btn:disabled, .dz-finish__btn.is-locked { opacity: .5; cursor: not-allowed; }
-.dz-finish__ic { display: inline-flex; align-items: center; flex: 0 0 auto; }
-.dz-finish__ic svg { width: 16px; height: 16px; display: block; }
-.dz-finish__hint { margin-top: 2px; }
+/* 완성 버튼(전체폭 CTA) — 컨트롤 패널 하단 */
+.dz-complete { width: 100%; }

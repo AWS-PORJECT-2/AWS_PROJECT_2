@@ -190,7 +190,7 @@
   function rebuildImgCache() {
     imgCache = {};
     Object.keys(S.views).forEach(function (v) {
-      (S.views[v] || []).forEach(function (L) { if (L.type === 'image') { var im = new Image(); im.src = L.src; imgCache[L.id] = im; } });
+      (S.views[v] || []).forEach(function (L) { if (L.type === 'image') { var im = new Image(); im.crossOrigin = 'anonymous'; im.src = L.src; imgCache[L.id] = im; } });
     });
   }
   function undo() { if (!histPast.length) return; histFuture.push(snapViews()); applySnap(histPast.pop()); S.sel = null; rebuildImgCache(); render(); }
@@ -497,8 +497,8 @@
     render();
   }
 
-  // 목업 노드: canvas 에 목업 사진 + (의류·유색이면) 옷 색을 multiply 로 합성해 그린다.
-  //  CSS mix-blend-mode 보다 브라우저 호환이 확실하고, 합성(다운로드/AI)과 동일한 결과.
+  // 목업 노드: canvas 에 목업 사진을 그린다(색상은 mockupSrc 가 색상별 사전생성 이미지로 교체).
+  //  합성(다운로드/AI)과 동일한 결과를 보장하기 위해 DOM <img> 대신 canvas 사용.
   function buildMockNode() {
     var cv = el('canvas', { class: 'dz-canvas__mock' });
     cv.width = 800; cv.height = 800;
@@ -582,6 +582,7 @@
   }
   function addLibraryAsset(src) {
     var im = new Image();
+    im.crossOrigin = 'anonymous';
     im.onload = function () {
       var pr = printRect();
       var natAR = (im.naturalHeight || 1) / (im.naturalWidth || 1);
@@ -794,7 +795,7 @@
         // h% from aspect: h_px/w_px = natAR → h% = w% * (canvasW/canvasH) * natAR
         var hPct = w * canvasAspect() * natAR;
         var L = { id: 'L' + (++S.seq), type: 'image', src: res.url, x: pr.l + pr.w / 2, y: pr.t + pr.h / 2, w: w, h: hPct, ar: natAR };
-        var im = new Image(); im.src = res.url; imgCache[L.id] = im;
+        var im = new Image(); im.crossOrigin = 'anonymous'; im.src = res.url; imgCache[L.id] = im;
         pushHistory(); cvLayers().push(L); S.sel = L.id; render();
       }).catch(function () { toast('이미지를 읽지 못했습니다. 다른 이미지를 시도해 주세요.'); });
     });
@@ -1073,6 +1074,7 @@
           var im = imgCache[L.id];
           if (im && im.complete && im.naturalWidth) { if (--pending === 0) paint(maskImg, ls); return; }
           var n = new Image();
+          n.crossOrigin = 'anonymous';
           n.onload = function () { imgCache[L.id] = n; if (--pending === 0) paint(maskImg, ls); };
           n.onerror = function () { if (--pending === 0) paint(maskImg, ls); };
           n.src = L.src;
@@ -1142,7 +1144,10 @@
         });
         if (maskImg) { lx.globalCompositeOperation = 'destination-in'; lx.drawImage(maskImg, 0, 0, CW, CH); }
         ctx.drawImage(lc, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
+        // 외부 출처 이미지가 캔버스를 오염시키면 toDataURL 이 throw → 콜백이 멈추지 않도록 null 반환.
+        var url = null;
+        try { url = canvas.toDataURL('image/png'); } catch (_) { url = null; }
+        resolve(url);
       }
     });
   }
@@ -1153,6 +1158,7 @@
   // ---- 다운로드 ---------------------------------------------------------------
   function downloadDesign() {
     composite(S.view, 1200).then(function (url) {
+      if (!url) { toast('이미지를 만들지 못했어요'); return; }
       var a = el('a', { href: url, download: '두띵-디자인-' + safeName(S.title) + '-' + safeName(viewLabel(S.view)) + '.png' });
       document.body.appendChild(a); a.click(); a.remove();
       toast('이미지를 다운로드했어요');
@@ -1253,7 +1259,7 @@
       Object.keys(S.views).forEach(function (v) {
         (S.views[v] || []).forEach(function (L) {
           var n = parseInt(String(L.id).replace(/\D/g, ''), 10); if (n > maxSeq) maxSeq = n;
-          if (L.type === 'image') { var im = new Image(); im.src = L.src; imgCache[L.id] = im; }
+          if (L.type === 'image') { var im = new Image(); im.crossOrigin = 'anonymous'; im.src = L.src; imgCache[L.id] = im; }
         });
       });
       S.seq = maxSeq;
