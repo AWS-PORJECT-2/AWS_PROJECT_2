@@ -95,10 +95,10 @@
   function primaryView() { return views()[0]; } // 대표 면(폰케이스처럼 front 가 없는 상품 대비)
   function viewLabel(v) { return VIEW_LABEL[v] || v; }
 
-  // 베이스 목업 이미지 경로(/assets/mockups/<img>_<view>.png). img 없으면 null → SVG 폴백.
+  // 베이스 목업 이미지 경로(/assets/mockups/<img>_<view>.jpg, 흰배경 렌더 → 경량 JPEG). img 없으면 null → SVG 폴백.
   function mockupSrc(view) {
     var it = curItem();
-    return it.img ? '/assets/mockups/' + it.img + '_' + view + '.png' : null;
+    return it.img ? '/assets/mockups/' + it.img + '_' + view + '.jpg' : null;
   }
 
   // ---- 목업 SVG 폴백(이미지 없는 webapp/etc, 또는 로드 실패 시) -----------------

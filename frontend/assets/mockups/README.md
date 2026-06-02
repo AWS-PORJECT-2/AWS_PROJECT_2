@@ -1,10 +1,10 @@
 # 디자인하기 — 상품 목업 이미지
 
-디자인 에디터(design.html)가 캔버스 배경으로 쓰는 상품 목업. 모두 **1248×1248 (1:1)** 기준.
+디자인 에디터(design.html)가 캔버스 배경으로 쓰는 상품 목업. 모두 1:1 기준(원본 1248²→1000px JPEG).
 파일이 없으면 SVG 폴백으로 자동 대체됩니다.
 
 ## 파일 이름 규칙
-`/assets/mockups/<상품img>_<면>.png` — 면: `front` `back` `left` `right` `neck` `wrap`
+`/assets/mockups/<상품img>_<면>.jpg` — 면: `front` `back` `left` `right` `neck` `wrap`
 
 design.js 의 `PRODUCTS` 가 카테고리 → 상품(img/면/인쇄영역)을 정의합니다. 현재 매핑:
 
