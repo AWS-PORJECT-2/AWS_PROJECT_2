@@ -487,7 +487,7 @@
    * → 스크롤 잠금 모달이 하나도 없는데 overflow 가 hidden 이면 해제. 모달이 떠 있으면 절대 건드리지 않는다(정상 잠금 보존). */
   // 실제로 body/html inline overflow 를 잠그는 백드롭만 화이트리스트 — 비-잠금 오버레이/죽은 셀렉터를 넣으면
   // 워치독이 정상 잠금을 잘못 풀거나(스크롤 새어나옴) 누수를 못 풀어(영구 스크롤락) 양방향 오작동함.
-  var SCROLL_LOCK_OVERLAYS = '.wzc-over, .adr-modal-back, .wzs-modal-back, .wz-mp-modal-back, .wz-rp';
+  var SCROLL_LOCK_OVERLAYS = '.wzc-over, .adr-modal-back, .wzs-modal-back, .wz-mp-modal-back, .wz-rp, .bd-modal';
   function releaseStuckScroll() {
     try {
       if (document.querySelector(SCROLL_LOCK_OVERLAYS)) return; // 모달 떠 있음 → 정상 잠금, 유지

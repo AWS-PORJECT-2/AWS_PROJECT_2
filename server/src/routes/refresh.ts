@@ -10,7 +10,7 @@ export function createRefreshHandler(authService: AuthService) {
   return async (req: Request, res: Response): Promise<void> => {
     const refreshToken = req.cookies?.refreshToken;
     if (!refreshToken || typeof refreshToken !== 'string') {
-      logger.warn({ ip: req.ip, hasCookies: !!req.cookies, cookieKeys: Object.keys(req.cookies || {}) }, '리프레시 토큰 쿠키 없음');
+      logger.debug({ ip: req.ip, hasCookies: !!req.cookies }, '리프레시 토큰 쿠키 없음');
       res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD')));
       return;
     }

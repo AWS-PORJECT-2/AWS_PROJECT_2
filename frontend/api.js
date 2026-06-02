@@ -69,8 +69,9 @@
     //  · 대용량 바디(커버/영상 data URL 업로드 등 >100KB) : 120s
     //  · 일반 요청 : 30s   (options.timeoutMs 로 개별 재정의 가능)
     var _big = init.body && init.body.length > 100000;
+    // AI·대용량·일반 중 가장 긴 값 채택(AI+대용량 동시여도 120s 보장 — AI 90s 가 대용량 120s 를 가리지 않게).
     var timeoutMs = (typeof options.timeoutMs === 'number') ? options.timeoutMs
-      : (path.indexOf('/ai/') === 0 ? 90000 : (_big ? 120000 : 30000));
+      : Math.max(path.indexOf('/ai/') === 0 ? 90000 : 0, _big ? 120000 : 0, 30000);
     var _ctrl = new AbortController();
     init.signal = _ctrl.signal;
     var _to = setTimeout(function () { _ctrl.abort(); }, timeoutMs);
