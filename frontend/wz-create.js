@@ -1406,12 +1406,17 @@
         });
       }
       if (cleaned.length === 0) { toast('직접 개설은 리워드가 최소 1개 필요합니다'); return false; }
-      // 안전장치 — 목표 금액이 설정돼 있으면 리워드 가격 합계가 목표 금액 이상이어야 저장 가능.
+      // 안전장치 — 리워드로 모을 수 있는 "최대 금액"(가격 × 한정수량 합)이 목표 금액 이상이어야 저장 가능.
+      //  예) 목표 100만 / 1만원×50개 + 2만원×50개 = 150만 → 통과. (가격만 합치면 3만으로 잘못 막힘.)
+      //  한정수량 미입력(무제한) 리워드가 하나라도 있으면 상한이 없어 어떤 목표든 도달 가능 → 통과.
       if (validTargetAmount(nstate.targetAmount)) {
-        var sumPrice = cleaned.reduce(function (s, t) { return s + (Number(t.price) || 0); }, 0);
         var goal = Math.floor(Number(nstate.targetAmount));
-        if (sumPrice < goal) {
-          toast('리워드 가격 합계(' + koreanAmount(sumPrice) + ')가 목표 금액(' + koreanAmount(goal) + ')보다 적어요. 목표 금액 이상이 되도록 리워드를 구성해 주세요.'); return false;
+        var hasUnlimited = cleaned.some(function (t) { return t.stock == null; });
+        var capacity = cleaned.reduce(function (s, t) {
+          return s + (t.stock == null ? 0 : (Number(t.price) || 0) * t.stock);
+        }, 0);
+        if (!hasUnlimited && capacity < goal) {
+          toast('리워드로 모을 수 있는 최대 금액(' + koreanAmount(capacity) + ')이 목표 금액(' + koreanAmount(goal) + ')보다 적어요. 한정 수량을 늘리거나 가격을 조정해 주세요.'); return false;
         }
       }
       nstate.rewardTiers = cleaned;

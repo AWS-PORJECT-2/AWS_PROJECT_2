@@ -334,6 +334,17 @@ export function createAdminSetRewardsHandler(repo: GroupBuyRepository) {
     try {
       const fund = await repo.findById(id);
       if (!fund) { res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' }); return; }
+      // 안전장치 — 목표 금액이 있으면 리워드로 모을 수 있는 최대 금액(가격 × 한정수량)이 목표 이상이어야 함.
+      //  funds-create.ts 의 생성 시 검증과 동일 불변식(대리/관리자 경로에서도 도달 불가능한 목표 방지).
+      const targetAmount = fund.targetAmount ?? null;
+      if (targetAmount != null && targetAmount > 0) {
+        const hasUnlimitedTier = tiers.some((t) => t.stockLimit == null);
+        const rewardCapacity = tiers.reduce((s, t) => s + (t.stockLimit == null ? 0 : (Number(t.price) || 0) * t.stockLimit), 0);
+        if (!hasUnlimitedTier && rewardCapacity < targetAmount) {
+          res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '리워드로 모을 수 있는 최대 금액(가격 × 수량)이 목표 금액보다 적습니다. 한정 수량을 늘리거나 가격을 조정해 주세요.')));
+          return;
+        }
+      }
       const finalPrice = Math.min(...tiers.map((t) => t.price));
       await repo.updateRewards(id, tiers, finalPrice);
       logger.info({ id, adminId: req.userId, tiers: tiers.length }, '관리자 리워드 설정');

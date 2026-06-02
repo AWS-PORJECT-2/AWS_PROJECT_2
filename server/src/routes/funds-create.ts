@@ -198,10 +198,16 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
     return null;
   }
 
-  // 안전장치(서버 강제) — 리워드 가격 합계가 목표 금액보다 적으면 생성 거부(클라 우회 방지).
-  const rewardSum = (rewardTiers ?? []).reduce((s, t) => s + (Number(t.price) || 0), 0);
-  if (targetAmount !== null && rewardSum < (targetAmount as number)) {
-    res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '리워드 가격 합계가 목표 금액보다 적습니다. 목표 금액 이상이 되도록 리워드를 구성해 주세요.')));
+  // 안전장치(서버 강제) — 리워드로 모을 수 있는 "최대 금액"(가격 × 한정 수량 합)이 목표 금액 이상이어야 함(클라 우회 방지).
+  //  예) 목표 100만 / 1만원×50개 + 2만원×50개 = 150만 → 통과. (가격만 합치면 3만으로 잘못 막힘.)
+  //  무제한(stockLimit=null) 리워드가 하나라도 있으면 상한이 없어 어떤 목표든 도달 가능 → 통과.
+  const hasUnlimitedTier = (rewardTiers ?? []).some((t) => t.stockLimit == null);
+  const rewardCapacity = (rewardTiers ?? []).reduce(
+    (s, t) => s + (t.stockLimit == null ? 0 : (Number(t.price) || 0) * t.stockLimit),
+    0,
+  );
+  if (targetAmount !== null && !hasUnlimitedTier && rewardCapacity < (targetAmount as number)) {
+    res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '리워드로 모을 수 있는 최대 금액(가격 × 수량)이 목표 금액보다 적습니다. 한정 수량을 늘리거나 가격을 조정해 주세요.')));
     return null;
   }
   // 공개 예정(openAt)이 있으면 마감일보다 앞서야 함(모집 일정이 더 길어야 함).

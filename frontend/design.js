@@ -141,6 +141,8 @@
     designId: null,     // 기존 디자인 수정 중이면 id
     title: '내 디자인',
     seq: 0,
+    aiDesign: null,     // AI 디자인 보기 결과(blueprintDataUrl) — 가상피팅 잠금 해제 키
+    aiFitting: null,    // 가상피팅/전시 결과(tryOnDataUrl)
   };
   function cvLayers() { return S.views[S.view] || (S.views[S.view] = []); }
   function selLayer() { var ls = cvLayers(); for (var i = 0; i < ls.length; i++) if (ls[i].id === S.sel) return ls[i]; return null; }
@@ -218,7 +220,7 @@
     layerListBox = el('div', { class: 'dz-card' });
     panel.appendChild(layerListBox);
     // 완성 버튼
-    panel.appendChild(btn('완성하기 — AI 의상/가상피팅 생성', 'primary', completeDesign, 'dz-complete'));
+    panel.appendChild(completeBlock());
     grid.appendChild(panel);
 
     wrap.appendChild(grid);
@@ -709,6 +711,8 @@
       S.views = dz.views || { front: [] };
       S.view = views(S.family)[0];
       S.sel = null;
+      S.aiDesign = d.aiImage || null; // 이전에 AI 디자인을 만들었으면 가상피팅 잠금 해제 상태로 복원
+      S.aiFitting = null;
       // 이미지 캐시 재생성 + seq 보정
       imgCache = {}; var maxSeq = 0;
       Object.keys(S.views).forEach(function (v) {
@@ -733,70 +737,141 @@
   function hasArt() {
     return Object.keys(S.views).some(function (v) { return (S.views[v] || []).length > 0; });
   }
-  function completeDesign() {
-    if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
-    var apparel = S.family !== 'goods';
 
+  // 완성 영역: [완성하기](저장) + 아래 좌/우 [AI 디자인 보기] [가상피팅 보기].
+  //  가상피팅은 AI 디자인 보기로 결과(S.aiDesign)가 나오기 전까지 잠금.
+  var dzFitBtn = null, dzHint = null;
+  var LOCK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
+  var FIT_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="6" r="3"/><path d="M6 21v-3a6 6 0 0 1 12 0v3"/></svg>';
+  var DESIGN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 19l7-7a2.5 2.5 0 0 0-3.5-3.5L8 16l-1 4 4-1z"/><path d="M5 21h6"/></svg>';
+  function completeBlock() {
+    var apparel = S.family !== 'goods';
+    var wrap = el('div', { class: 'dz-finishwrap' });
+    wrap.appendChild(btn('완성하기 — 디자인 저장', 'primary', finishDesign, 'dz-complete'));
+
+    var row = el('div', { class: 'dz-finish' });
+    var designBtn = el('button', { class: 'wz-btn wz-btn--outline dz-finish__btn', type: 'button' },
+      el('span', { class: 'dz-finish__ic', html: DESIGN_SVG }), 'AI 디자인 보기');
+    designBtn.addEventListener('click', runAiDesign);
+
+    dzFitBtn = el('button', { class: 'wz-btn wz-btn--outline dz-finish__btn', type: 'button' },
+      el('span', { class: 'dz-finish__ic' }), apparel ? '가상피팅 보기' : '전시 이미지 보기');
+    dzFitBtn.addEventListener('click', runAiFitting);
+    row.append(designBtn, dzFitBtn);
+    wrap.appendChild(row);
+    dzHint = el('div', { class: 'dz-hint dz-finish__hint' });
+    wrap.appendChild(dzHint);
+    setFitLock();
+    return wrap;
+  }
+  function setFitLock() {
+    if (!dzFitBtn) return;
+    var locked = !S.aiDesign;
+    var apparel = S.family !== 'goods';
+    dzFitBtn.disabled = locked;
+    dzFitBtn.classList.toggle('is-locked', locked);
+    dzFitBtn.title = locked ? '먼저 ‘AI 디자인 보기’를 해주세요' : '';
+    var ic = dzFitBtn.querySelector('.dz-finish__ic');
+    if (ic) ic.innerHTML = locked ? LOCK_SVG : FIT_SVG;
+    if (dzHint) dzHint.textContent = locked
+      ? '‘AI 디자인 보기’로 ' + (apparel ? '의상' : '제품') + ' 이미지를 먼저 생성하면 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 볼 수 있어요.'
+      : '이제 ' + (apparel ? '가상피팅' : '전시 이미지') + '을 생성할 수 있어요.';
+  }
+
+  // 완성하기 — 디자인을 프로필에 저장(이어서 편집/불러오기 가능).
+  function finishDesign() {
+    if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
+    var b = document.querySelector('.dz-complete'); if (b) b.disabled = true;
+    composite('front', 520).then(function (preview) {
+      var body = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: preview };
+      var p = S.designId ? window.api.patch('/me/designs/' + S.designId, body) : window.api.post('/me/designs', body);
+      return p.then(function (r) { if (r && r.id) S.designId = r.id; toast('완성! 프로필에 저장했어요. 마이페이지 > 내 디자인에서 이어서 편집할 수 있어요.'); });
+    }).catch(function (err) {
+      if (err && err.status === 401) { location.href = '/login.html'; return; }
+      toast('저장에 실패했어요: ' + ((err && err.message) || '오류'));
+    }).finally(function () { var b2 = document.querySelector('.dz-complete'); if (b2) b2.disabled = false; });
+  }
+
+  // 공통 AI 진행 모달.
+  function aiModal(title, sub) {
     var overlay = el('div', { class: 'dz-modal' });
     var box = el('div', { class: 'dz-modal__box' });
-    box.appendChild(el('div', { class: 'dz-modal__t' }, apparel ? 'AI 가상피팅 생성' : 'AI 전시 이미지 생성'));
-    box.appendChild(el('div', { class: 'dz-modal__s' }, apparel
-      ? '디자인을 실제 의상으로 만들어 모델이 착용한 모습을 생성해요.'
-      : '디자인을 실제 ' + (S.product || '굿즈') + ' 사진으로 생성해요.'));
-    var status = el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), '먼저 저장 후 AI에게 보내고 있어요…');
-    box.appendChild(status);
+    box.appendChild(el('div', { class: 'dz-modal__t' }, title));
+    if (sub) box.appendChild(el('div', { class: 'dz-modal__s' }, sub));
+    box.appendChild(el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), 'AI가 이미지를 생성하고 있어요. 잠시만 기다려 주세요…'));
     overlay.appendChild(box);
     overlay.addEventListener('pointerdown', function (e) { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
-
-    // 1) 합성(앞면) → 2) 저장(프로필) → 3) /ai/try-on
-    composite('front', 1000).then(function (designUrl) {
-      // 저장(완성본도 프로필에 보존)
-      var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: designUrl };
-      var saveP = S.designId ? window.api.patch('/me/designs/' + S.designId, saveBody) : window.api.post('/me/designs', saveBody);
-      saveP.then(function (r) { if (r && r.id) S.designId = r.id; }).catch(function () {});
-
-      var aiBody = { imageDataUrls: [designUrl], background: 'studio', category: S.slug };
-      if (apparel) aiBody.modelType = 'female';
-      return window.api.post('/ai/try-on', aiBody);
-    }).then(function (res) {
-      var url = res && (res.tryOnDataUrl || res.imageDataUrl || res.url);
-      if (!url) throw new Error('NO_RESULT');
-      showResult(box, overlay, url);
-    }).catch(function (err) {
-      var msg;
-      if (err && (err.status === 404 || err.status === 503)) {
-        msg = 'AI 이미지 생성이 아직 연결되지 않았어요. 디자인은 저장/다운로드할 수 있어요.';
-      } else if (err && err.status === 401) { location.href = '/login.html'; return; }
-      else { msg = 'AI 생성에 실패했어요: ' + ((err && err.message) || '오류'); }
-      box.replaceChildren(
-        el('div', { class: 'dz-modal__t' }, '안내'),
-        el('div', { class: 'dz-status' }, msg),
-        el('div', { class: 'dz-modal__foot' },
-          btn('디자인 다운로드', 'outline', function () { downloadDesign(); }),
-          btn('닫기', 'primary', function () { overlay.remove(); }),
-        ),
-      );
-    });
+    return { overlay: overlay, box: box };
   }
-  function showResult(box, overlay, url) {
+  function aiError(box, overlay, err) {
+    if (err && err.status === 401) { location.href = '/login.html'; return; }
+    var msg = (err && (err.status === 404 || err.status === 503))
+      ? 'AI 이미지 생성이 아직 연결되지 않았어요. 디자인은 저장/다운로드할 수 있어요.'
+      : 'AI 생성에 실패했어요: ' + ((err && err.message) || '오류');
     box.replaceChildren(
-      el('div', { class: 'dz-modal__t' }, '완성! 🎉'),
-      el('div', { class: 'dz-modal__s' }, 'AI가 생성한 결과예요. 다운로드하거나 펀딩 대표 이미지로 사용할 수 있어요.'),
-      el('img', { class: 'dz-result__img', src: url, alt: 'AI 생성 결과' }),
+      el('div', { class: 'dz-modal__t' }, '안내'),
+      el('div', { class: 'dz-status' }, msg),
       el('div', { class: 'dz-modal__foot' },
-        btn('이미지 다운로드', 'outline', function () {
-          var a = el('a', { href: url, download: '두띵-' + (S.title || 'design') + '-AI.png' });
-          document.body.appendChild(a); a.click(); a.remove();
-        }),
-        btn('이 디자인으로 펀딩 만들기', 'primary', function () {
-          try { sessionStorage.setItem('dt_design_handoff', JSON.stringify({ image: url, category: S.slug, product: S.product, title: S.title })); } catch (_) {}
-          location.href = '/fund-create.html?category=' + encodeURIComponent(S.slug);
-        }),
+        btn('디자인 다운로드', 'outline', function () { downloadDesign(); }),
+        btn('닫기', 'primary', function () { overlay.remove(); }),
       ),
     );
-    // 완성 이미지도 디자인 레코드에 저장
-    if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
+  }
+
+  // 왼쪽: AI 디자인 보기 — 합성 디자인 → /ai/blueprint(AI 의상/제품 이미지). 성공 시 가상피팅 잠금 해제.
+  function runAiDesign() {
+    if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
+    var apparel = S.family !== 'goods';
+    var m = aiModal('AI 디자인 생성', '디자인을 실제 ' + (apparel ? '의상' : (S.product || '굿즈')) + ' 이미지로 만들어요.');
+    composite('front', 1000).then(function (designUrl) {
+      // 저장도 겸함(완성본 보존)
+      var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: designUrl };
+      (S.designId ? window.api.patch('/me/designs/' + S.designId, saveBody) : window.api.post('/me/designs', saveBody))
+        .then(function (r) { if (r && r.id) S.designId = r.id; }).catch(function () {});
+      return window.api.post('/ai/blueprint', { imageDataUrls: [designUrl], category: S.slug });
+    }).then(function (res) {
+      var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
+      if (!url) throw new Error('NO_RESULT');
+      S.aiDesign = url; setFitLock();
+      if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
+      showResult(m.box, m.overlay, url, 'AI 디자인');
+    }).catch(function (err) { aiError(m.box, m.overlay, err); });
+  }
+
+  // 오른쪽: 가상피팅 보기 — AI 디자인 결과를 /ai/try-on(모델 착용/제품 전시). AI 디자인 전엔 잠금.
+  function runAiFitting() {
+    if (!S.aiDesign) { toast('먼저 ‘AI 디자인 보기’를 해주세요'); return; }
+    var apparel = S.family !== 'goods';
+    var m = aiModal(apparel ? '가상피팅 생성' : '전시 이미지 생성',
+      apparel ? 'AI 디자인을 모델이 착용한 모습을 생성해요.' : 'AI 디자인을 ' + (S.product || '굿즈') + ' 전시 사진으로 생성해요.');
+    var aiBody = { imageDataUrls: [S.aiDesign], background: 'studio', category: S.slug };
+    if (apparel) aiBody.modelType = 'female';
+    window.api.post('/ai/try-on', aiBody).then(function (res) {
+      var url = res && (res.tryOnDataUrl || res.imageDataUrl || res.url);
+      if (!url) throw new Error('NO_RESULT');
+      S.aiFitting = url;
+      showResult(m.box, m.overlay, url, apparel ? '가상피팅' : '전시 이미지');
+    }).catch(function (err) { aiError(m.box, m.overlay, err); });
+  }
+
+  function showResult(box, overlay, url, label) {
+    var foot = el('div', { class: 'dz-modal__foot' },
+      btn('이미지 다운로드', 'outline', function () {
+        var a = el('a', { href: url, download: '두띵-' + (S.title || 'design') + '-' + (label || 'AI') + '.png' });
+        document.body.appendChild(a); a.click(); a.remove();
+      }),
+      btn('이 디자인으로 펀딩 만들기', 'primary', function () {
+        try { sessionStorage.setItem('dt_design_handoff', JSON.stringify({ image: url, category: S.slug, product: S.product, title: S.title })); } catch (_) {}
+        location.href = '/fund-create.html?category=' + encodeURIComponent(S.slug);
+      }),
+    );
+    box.replaceChildren(
+      el('div', { class: 'dz-modal__t' }, (label || 'AI') + ' 완성! 🎉'),
+      el('div', { class: 'dz-modal__s' }, 'AI가 생성한 결과예요. 다운로드하거나 펀딩 대표 이미지로 사용할 수 있어요.'),
+      el('img', { class: 'dz-result__img', src: url, alt: label || 'AI 결과' }),
+      foot,
+    );
   }
 
   // ---- 초기화 -----------------------------------------------------------------
