@@ -229,14 +229,15 @@ export class PaymentScheduler {
         //    미사용 orders 시스템 대상이라 reward_orders 와 단절돼 있어, 여기서 별도로 예약/취소를 건다. ──
         //    펀드는 위에서 이미 open 밖으로 전이돼 findExpiredOpen 에 다시 안 잡힘(멱등). 단, 재처리되더라도
         //    schedulePledgedCharges(next_charge_at NULL 만)·cancelPledgedForFund(pledged 만)는 멱등.
+        // 무통장입금 모델: 성공 → pledged 를 입금대기(awaiting_deposit)로 전환하고 후원자별 입금 안내.
+        //  (구 모의결제 schedulePledgedCharges 는 더 이상 호출 안 함 — 자동결제 비활성.)
+        let awaitingOrders: Array<{ id: string; userId: string; amount: number }> = [];
         if (this.notify) {
           const { rewardOrderRepo } = this.notify;
           try {
             if (success) {
-              // 마감(deadline) + 1일부터 순차 모의결제. 아직 paid 아님(예약만).
-              const nextChargeAt = new Date(new Date(gb.deadline).getTime() + CHARGE_DELAY_MS);
-              const scheduled = await rewardOrderRepo.schedulePledgedCharges(gb.id, nextChargeAt);
-              if (scheduled > 0) logger.info({ groupbuyId: gb.id, scheduled, nextChargeAt }, '예약 후원 결제 스케줄링');
+              awaitingOrders = await rewardOrderRepo.markPledgedAwaitingDeposit(gb.id);
+              if (awaitingOrders.length > 0) logger.info({ groupbuyId: gb.id, count: awaitingOrders.length }, '마감 성공 — 무통장 입금 대기 전환');
             } else {
               // 예약 해제(청구 없음). 수량 복원 불필요(캠페인 종료).
               const cancelledUserIds = await rewardOrderRepo.cancelPledgedForFund(gb.id);
@@ -258,12 +259,18 @@ export class PaymentScheduler {
               body: `'${gb.title}' 프로젝트가 목표를 달성했어요. 축하해요!`,
               fundId: gb.id,
             });
-            await notifyMany(notificationRepo, backers, {
-              type: 'backed_success',
-              title: '후원하신 프로젝트가 성공했어요',
-              body: `'${gb.title}' 프로젝트가 목표를 달성했어요.`,
-              fundId: gb.id,
-            });
+            // 후원자별 무통장 입금 안내 — 각자 후원 금액 + 입금 계좌.
+            const bank = process.env.DEPOSIT_BANK ?? '국민은행';
+            const account = process.env.DEPOSIT_ACCOUNT ?? '000000-00-000000';
+            for (const o of awaitingOrders) {
+              await notify(notificationRepo, {
+                userId: o.userId,
+                type: 'deposit_request',
+                title: '펀딩 성공 · 입금 안내',
+                body: `'${gb.title}' 펀딩이 성공했습니다! ${bank} ${account} 계좌로 ${o.amount.toLocaleString('ko-KR')}원 입금해 주세요.`,
+                fundId: gb.id,
+              });
+            }
           } else {
             await notify(notificationRepo, {
               userId: gb.creatorId,

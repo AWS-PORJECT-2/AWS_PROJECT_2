@@ -537,24 +537,24 @@
    * 탭 3: 결제수단
    * ===================================================================== */
   function renderPayment(panel) {
-    panel.appendChild(el('p', { class: 'wzs-sec__desc' }, '간편결제에 사용할 카드 또는 계좌를 등록하세요. 펀딩에 참여하려면 결제수단이 최소 1개 필요해요.'));
+    // 무통장입금 모델 — 카드/계좌 간편결제 등록은 현재 잠금. 안내만 표시한다.
+    panel.appendChild(el('p', { class: 'wzs-sec__desc' }, '결제수단'));
+    var notice = el('div', {});
+    notice.style.cssText = 'margin:4px 0 0;padding:18px;border:1px solid var(--c-border,#E5E7EB);background:var(--c-bg-soft,#F8F7FB);border-radius:12px;line-height:1.7;';
+    notice.appendChild(el('div', { style: 'display:flex;align-items:center;gap:7px;font-size:15px;font-weight:800;color:var(--c-text);margin-bottom:6px' }, '🏦 현재 무통장 입금만 지원해요'));
+    notice.appendChild(el('p', { style: 'font-size:13.5px;color:var(--c-text-sub);margin:0' },
+      '카드·계좌 간편결제 등록은 준비 중이에요. 펀딩은 무통장 입금으로 진행됩니다 — 후원하면 먼저 예약만 되고, 펀딩이 목표를 달성하면 입금 안내(계좌·금액)를 알림으로 보내드려요. 안내받은 계좌로 입금하시면 관리자 확인 후 참여가 확정됩니다.'));
+    panel.appendChild(notice);
+    return; // 이하 카드 등록 UI 는 잠금(미실행)
 
-    // 펀딩 게이트(결제수단 미등록)에서 넘어온 경우 안내 배너 + 추가 폼 자동 오픈.
-    //   목적지: /settings.html#payment (?need=pay 가 있으면 게이트 유입으로 간주).
-    var fromGate = /(^|[?&])need=pay(\b|&|$)/.test(location.search) || /[?&]need=pay/.test(location.hash);
-    if (fromGate) {
-      var hint = el('div', { class: 'wzs-gate-hint' });
-      hint.style.cssText = 'margin:0 0 14px;padding:12px 14px;border:1px solid var(--c-primary-200,#ddd6fe);background:var(--c-primary-50,#f5f3ff);border-radius:10px;font-size:14px;line-height:1.6;color:var(--c-primary-700,#6d28d9);font-weight:600;';
-      hint.textContent = '펀딩을 완료하려면 결제수단을 먼저 등록해 주세요. 등록 후 다시 펀딩을 이어가실 수 있어요.';
-      panel.appendChild(hint);
-    }
-
+    /* eslint-disable no-unreachable */
     var listWrap = el('div', { class: 'wzs-cards' });
     panel.appendChild(listWrap);
 
     var addBtn = el('button', { class: 'wzs-add', type: 'button' }, el('span', { html: SVG.plus }), '결제수단 추가');
     addBtn.addEventListener('click', openAddPayment);
     panel.appendChild(addBtn);
+    var fromGate = false;
 
     function renderList() {
       listWrap.innerHTML = '';

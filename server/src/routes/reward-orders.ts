@@ -68,12 +68,8 @@ export function createBackingHandler(
         res.status(400).json({ error: 'INVALID_ADDRESS', message: '유효한 배송지를 선택해 주세요' }); return;
       }
 
-      // 결제수단 게이팅 — 마감 성공 시 자동결제하므로 등록된(ACTIVE) 카드/계좌가 반드시 있어야 후원 가능.
-      const methods = await paymentMethodRepo.list(userId);
-      if (!methods || methods.length === 0) {
-        res.status(400).json({ error: 'PAYMENT_METHOD_REQUIRED', message: '결제수단(카드/계좌)을 먼저 등록해 주세요' });
-        return;
-      }
+      // 무통장입금 모델: 카드/계좌 결제수단 등록은 잠근 상태라 게이팅하지 않는다.
+      //  마감 성공 시 각 후원자에게 입금 안내(계좌+금액) 알림이 가고, 관리자가 입금확인으로 참여 확정.
 
       // 1인 1펀딩 사전 검사(빠른 차단) — 같은 펀드에 이미 활성 주문이 있으면 즉시 409.
       //  (경합 안전성은 createWithStockGuard 트랜잭션 내 재검사로 최종 보장.)
@@ -119,7 +115,7 @@ export function createBackingHandler(
           userId,
           type: 'backed',
           title: '후원이 예약되었어요',
-          body: `'${fund.title}' 프로젝트 후원이 예약되었어요. 목표 달성 시 마감 다음날부터 결제가 진행돼요.`,
+          body: `'${fund.title}' 프로젝트 후원이 예약되었어요. 목표 달성 시 무통장 입금 안내(계좌·금액)를 보내드려요.`,
           fundId: fund.id,
         });
         if (fund.creatorId && fund.creatorId !== userId) {

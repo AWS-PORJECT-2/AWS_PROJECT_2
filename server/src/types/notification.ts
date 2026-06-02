@@ -15,6 +15,7 @@ export type NotificationType =
   | 'fund_approved'    // 관리자 심사 승인(공개) — 창작자
   | 'fund_rejected'    // 관리자 심사 반려 — 창작자
   | 'fund_deleted'     // 관리자 펀드 삭제 — 창작자
+  | 'deposit_request'   // 마감 성공 → 무통장 입금 안내(계좌·금액) — 후원자
   | 'deposit_confirmed' // 입금 확인(참여 확정) — 후원자
   | 'order_cancelled'  // 펀딩(주문) 취소 완료 — 후원자(환불·취소 처리됨)
   | 'payment_done'     // 모의결제 완료 — 후원자(마감 성공 후 자동결제)

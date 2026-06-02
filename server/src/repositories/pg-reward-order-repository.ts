@@ -590,6 +590,20 @@ export class PgRewardOrderRepository {
   }
 
   /**
+   * 무통장입금 모델: 마감 성공한 펀드의 pledged 주문 → 'awaiting_deposit'(입금 대기).
+   * 반환: 각 주문의 {id, userId, amount} — 후원자별 입금 안내(계좌·금액) 알림용. 멱등(pledged 만 대상).
+   */
+  async markPledgedAwaitingDeposit(fundId: string): Promise<Array<{ id: string; userId: string; amount: number }>> {
+    const res = await this.pool.query(
+      `UPDATE reward_orders SET status = 'awaiting_deposit'
+        WHERE fund_id = $1 AND status = 'pledged'
+        RETURNING id, user_id, amount`,
+      [fundId],
+    );
+    return res.rows.map((r) => ({ id: r.id as string, userId: r.user_id as string, amount: Number(r.amount) || 0 }));
+  }
+
+  /**
    * 마감 실패한 펀드의 pledged 주문들 → 'cancelled'(예약 해제, 청구 없음).
    * 캠페인 종료라 current_quantity 복원은 불필요(스펙) — 펀드가 failed 로 전이돼 더는 집계에 쓰이지 않음.
    * 반환: 취소된 후원자 user_id 목록(알림 대상). 멱등(pledged 만 대상).

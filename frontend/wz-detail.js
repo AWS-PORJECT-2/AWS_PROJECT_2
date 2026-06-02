@@ -714,7 +714,7 @@
     const dl = W.el('dl', {});
     [
       ['펀딩 방식', '목표 수량 달성 시에만 제작·발송되는 모두의 펀딩(올오어낫씽)입니다. 마감일까지 목표에 도달하지 못하면 결제가 진행되지 않습니다.'],
-      ['후원·결제 시점', '후원하면 먼저 예약만 됩니다. 마감일에 목표를 달성하면 다음날부터 등록한 결제수단으로 순차 결제됩니다. 마감 전에는 마이페이지에서 자유롭게 취소할 수 있어요.'],
+      ['후원·결제 시점', '후원하면 먼저 예약만 됩니다(결제 없음). 마감일에 목표를 달성하면 각 후원자에게 무통장 입금 안내(계좌·금액)가 알림으로 발송돼요. 안내받은 계좌로 입금하면 관리자 확인 후 참여가 확정됩니다. 마감 전에는 마이페이지에서 자유롭게 취소할 수 있어요.'],
       ['환불 안내', '목표 미달로 무산되거나 창작자 사정으로 취소되는 경우 결제가 진행되지 않거나 결제액 전액이 환불됩니다.'],
       ['배송 안내', '펀딩 종료 후 제작 기간을 거쳐 순차 발송되며, 일정은 새소식으로 공지됩니다.'],
     ].forEach(([t, d]) => {
@@ -820,13 +820,8 @@
       if (dd) periodDd.appendChild(dd);
       info.append(W.el('dt', {}, '펀딩 기간'), periodDd);
     }
-    // 결제 — 목표 달성 시 마감 다음날 순차 결제(텀블벅식, 배치18 마감 다음날 결제).
-    const payDate = fmtDatePlusDays(f.deadline, 1);
-    if (payDate) {
-      infoRow('결제', '목표 달성 시 ' + payDate + '부터 순차 결제');
-    } else {
-      infoRow('결제', '목표 달성 시 마감일 다음 날부터 순차 결제');
-    }
+    // 결제 — 무통장입금: 목표 달성 시 입금 안내 알림 발송.
+    infoRow('결제', '무통장 입금 (목표 달성 시 계좌·금액 안내)');
     // 예상 발송 — 구조화 필드 없음 → 무리한 가짜 날짜 대신 일반 안내.
     infoRow('예상 발송 시작일', '펀딩 종료 후 약 2~3주 내 순차 발송');
     if (info.childNodes.length) sideCol.appendChild(info);
@@ -1723,16 +1718,7 @@
     }
     const def = addrs.find((a) => a.isDefault) || addrs[0];
 
-    // 결제수단 사전 확인(미등록이면 서버 호출 전에 안내). 조회 실패는 막지 않고 서버 게이트에 위임.
-    try {
-      const pm = await window.api.get('/payment-methods');
-      const list = Array.isArray(pm) ? pm : (pm && pm.items) || [];
-      if (!list.length) { showPaymentMethodGate(); return; }
-    } catch (e) {
-      if (e && e.status === 401) { location.href = '/login.html'; return; }
-      /* 조회 실패는 무시하고 진행 — 최종 판정은 서버 게이트가 한다. */
-    }
-
+    // 무통장입금 모델 — 결제수단 등록을 잠갔으므로 결제수단 사전확인/게이트 없음. 바로 예약 진행.
     let res;
     try {
       res = await window.api.post('/funds/' + encodeURIComponent(f.id) + '/back', {
@@ -1810,7 +1796,7 @@
     // 안내문: 서버 chargeNote 가 있으면 우선 사용, 없으면 기본 예약 안내.
     const note = (res && typeof res.chargeNote === 'string' && res.chargeNote.trim())
       ? res.chargeNote.trim()
-      : '마감일에 목표를 달성하면 다음날부터 등록한 결제수단으로 순차 결제돼요.';
+      : '마감일에 목표를 달성하면 무통장 입금 안내(계좌·금액)를 알림으로 보내드려요.';
     body.appendChild(W.el('p', { class: 'wz-d-modal__note' },
       '후원이 예약되었어요. ' + note + ' 마감 전에는 마이페이지에서 자유롭게 취소할 수 있어요.'));
 
