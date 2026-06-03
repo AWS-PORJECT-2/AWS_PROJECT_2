@@ -16,6 +16,15 @@
   function cardRate(p) {
     return (p && typeof p.achievementRate === 'number') ? Math.max(0, Math.round(p.achievementRate)) : W.rate(p);
   }
+  function cardAmount(p) {
+    return Math.max(0, Number(p && (p.achievedAmount != null ? p.achievedAmount : p.currentAmount)) || 0);
+  }
+  /* % 달성 + 모인 금액 한 줄. */
+  function RateLine(p) {
+    const line = W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성');
+    line.appendChild(W.el('span', { class: 'wz-pcard__amount' }, W.money(cardAmount(p)) + ' 모음'));
+    return line;
+  }
 
   function run() {
     const root = document.getElementById('wz-feed');
@@ -252,7 +261,7 @@
     });
     th.appendChild(heart);
     card.appendChild(th);
-    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성'));
+    card.appendChild(RateLine(p));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || p.author || '익명'));
     return card;
@@ -276,6 +285,8 @@
     const info = openDday(p.openAt);
     th.appendChild(W.el('span', { class: 'wz-soon' + (info.cls ? ' wz-soon--' + info.cls : '') }, info.label));
     card.appendChild(th);
+    // 공개 전: 달성률 대신 알림신청 수.
+    card.appendChild(W.el('p', { class: 'wz-pcard__rate wz-pcard__rate--soon' }, (Number(p.subscriberCount) || 0) + '명이 알림 신청'));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || p.author || '익명'));
     card.appendChild(SubscribeBtn(p));

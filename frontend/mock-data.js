@@ -211,6 +211,7 @@ async function loadProductsFromBackend() {
       targetQuantity: p.targetQuantity || 0,
       currentQuantity: p.currentQuantity || 0,
       achievementRate: (typeof p.achievementRate === 'number') ? p.achievementRate : null,
+      achievedAmount: Number(p.achievedAmount) || 0,   // 현재 모인 금액(카드 표시)
       likeCount: Number(p.likeCount) || 0,      // 서버 집계 좋아요 수(전역, 항상 채워짐)
       deadline: p.deadline || '',
       status: p.status || '',

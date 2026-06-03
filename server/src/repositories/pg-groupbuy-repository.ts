@@ -129,6 +129,7 @@ function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
     // 찜(좋아요) — like_count 서브쿼리/집계, is_liked 는 viewer IN/조인 결과(없으면 0/false).
     likeCount: Number(row.like_count) || 0,
     isLiked: Boolean(row.is_liked),
+    subscriberCount: Number(row.subscriber_count) || 0,
   };
 }
 
@@ -634,7 +635,8 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
              g.target_amount, g.current_amount, g.final_price,
              g.deadline, g.status, g.created_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
-             u.name AS creator_name, u.slug AS creator_slug
+             u.name AS creator_name, u.slug AS creator_slug,
+             (SELECT COUNT(*)::int FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id) AS subscriber_count
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
        WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.open_at IS NOT NULL AND g.open_at > NOW()

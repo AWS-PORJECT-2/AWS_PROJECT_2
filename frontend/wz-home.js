@@ -14,6 +14,16 @@
   function cardRate(p) {
     return (p && typeof p.achievementRate === 'number') ? Math.max(0, Math.round(p.achievementRate)) : W.rate(p);
   }
+  /* 카드 모인 금액(현재) — achievedAmount(활성 후원 합계) 우선. */
+  function cardAmount(p) {
+    return Math.max(0, Number(p && (p.achievedAmount != null ? p.achievedAmount : p.currentAmount)) || 0);
+  }
+  /* % 달성 + 모인 금액 한 줄 엘리먼트. (% 보라 강조 + 모인금액 회색) */
+  function RateLine(p) {
+    const line = W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성');
+    line.appendChild(W.el('span', { class: 'wz-pcard__amount' }, W.money(cardAmount(p)) + ' 모음'));
+    return line;
+  }
 
   function run() {
     const root = document.getElementById('wz-home');
@@ -285,7 +295,35 @@
     const gridWrap = W.el('div', {});
     node.append(sortRow, chipRow, gridWrap);
 
-    const SORTS = [['popular', '인기순'], ['latest', '신규순'], ['ending', '마감임박순']];
+    const SORTS = [['popular', '인기순'], ['latest', '신규순'], ['ending', '마감임박순'], ['ended', '마감']];
+    // '마감' 탭 — 로컬(진행중) 목록엔 없으므로 서버에서 종료 프로젝트를 직접 가져온다.
+    function renderEnded() {
+      gridWrap.replaceChildren(SkelGrid(12));
+      const qs = new URLSearchParams(); qs.set('sort', 'ended');
+      if (state.category && state.category !== 'all') qs.set('category', state.category);
+      qs.set('limit', '24');
+      window.api.get('/groupbuys?' + qs.toString(), { silentAuthFail: true }).then((data) => {
+        const arr = (data && Array.isArray(data.items)) ? data.items : [];
+        if (!arr.length) {
+          const empty = W.el('div', { class: 'wz-sec__empty' });
+          const img = W.el('img', { src: '/assets/empty-feed.png', alt: '' }); img.addEventListener('error', () => img.remove());
+          empty.append(img, W.el('p', {}, '마감된 프로젝트가 아직 없어요'));
+          gridWrap.replaceChildren(empty); return;
+        }
+        const shown = arr.slice(0, 12);
+        const grid = W.el('div', { class: 'wz-grid' });
+        shown.forEach((p) => grid.appendChild(Card(p)));
+        const frag = document.createDocumentFragment(); frag.appendChild(grid);
+        if (arr.length > shown.length) {
+          const more = W.el('div', { class: 'wz-browse__more' });
+          const q2 = new URLSearchParams(); q2.set('sort', 'ended');
+          if (state.category && state.category !== 'all') q2.set('category', state.category);
+          more.appendChild(W.el('a', { class: 'wz-btn wz-btn--outline', href: '/feed.html?' + q2.toString() }, '마감 프로젝트 전체보기 (' + arr.length + ')'));
+          frag.appendChild(more);
+        }
+        gridWrap.replaceChildren(frag);
+      }).catch(() => { gridWrap.replaceChildren(W.el('div', { class: 'wz-sec__empty' }, W.el('p', {}, '불러오지 못했어요'))); });
+    }
     function render(products, loading) {
       sortRow.replaceChildren(...SORTS.map(([k, label]) => {
         const b = W.el('button', { class: 'wz-rank__tab' + (state.sort === k ? ' is-active' : ''), type: 'button' }, label);
@@ -300,6 +338,7 @@
       }));
       // 로딩 중이면 탭/칩(정적)만 먼저 보이고 그리드는 스켈레톤 카드로 채운다.
       if (loading) { gridWrap.replaceChildren(SkelGrid(12)); return; }
+      if (state.sort === 'ended') { renderEnded(); return; }   // 마감 = 서버에서 종료 프로젝트
       let arr = (products || []).filter((p) => state.category === 'all' || p.category === state.category);
       if (state.sort === 'latest') arr.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       else if (state.sort === 'ending') arr.sort((a, b) => new Date(a.deadline || 0) - new Date(b.deadline || 0));
@@ -396,36 +435,26 @@
     const badge = DdayBadge(p);
     if (badge) th.appendChild(badge);
     const liked = (typeof window.isLiked === 'function') && window.isLiked(p.id);
+    // 하트는 버튼만(개수 미표시 — 개수는 상세에서). 토글만 동작.
     const heart = W.el('button', { class: 'wz-pcard__heart' + (liked ? ' is-on' : ''), type: 'button', 'aria-label': '찜', html: W.ICON.heart });
-    // 하트 옆 좋아요 수(전역 집계). 0이면 숨김.
-    const likeNum = W.el('span', { class: 'wz-pcard__likecount' });
-    function paintLikeNum() {
-      const n = (typeof window.getLikeCount === 'function') ? window.getLikeCount(p.id) : (Number(p.likeCount) || 0);
-      likeNum.textContent = n > 0 ? String(n) : '';
-      likeNum.style.display = n > 0 ? '' : 'none';
-    }
-    paintLikeNum();
-    heart.appendChild(likeNum);
     heart.addEventListener('click', (e) => {
       e.preventDefault(); e.stopPropagation();
       if (typeof window.toggleLike !== 'function') return;
       const on = window.toggleLike(p.id);
       heart.classList.toggle('is-on', on);
-      paintLikeNum();
       if (on) { heart.classList.remove('is-pop'); void heart.offsetWidth; heart.classList.add('is-pop'); }
     });
-    // 서버 동기화/외부 토글 시 하트·수 갱신(전역 반영). 카드가 DOM 에서 빠지면 리스너 자기 제거.
+    // 서버 동기화/외부 토글 시 하트 상태만 갱신. 카드가 DOM 에서 빠지면 리스너 자기 제거.
     function onLikesUpdated(ev) {
       if (!card.isConnected) { window.removeEventListener('likes:updated', onLikesUpdated); return; }
       const d = ev.detail || {};
       if (d.id != null && !d.synced && String(d.id) !== String(p.id)) return;
       heart.classList.toggle('is-on', (typeof window.isLiked === 'function') && window.isLiked(p.id));
-      paintLikeNum();
     }
     window.addEventListener('likes:updated', onLikesUpdated);
     th.appendChild(heart);
     card.appendChild(th);
-    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성'));
+    card.appendChild(RateLine(p));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.author || p.creatorName || '익명'));
     return card;
@@ -503,7 +532,7 @@
     const badge = DdayBadge(p);
     if (badge) th.appendChild(badge);
     card.appendChild(th);
-    card.appendChild(W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성'));
+    card.appendChild(RateLine(p));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || '익명'));
     return card;
@@ -559,6 +588,8 @@
     W.fillThumb(th, { imageUrl: p.coverImageUrl || '', title: p.title, category: p.category });
     th.appendChild(W.el('span', { class: 'wz-soon' }, openLabel(p.openAt)));
     card.appendChild(th);
+    // 공개 전에는 달성률 대신 알림신청 수.
+    card.appendChild(W.el('p', { class: 'wz-pcard__rate wz-pcard__rate--soon' }, (Number(p.subscriberCount) || 0) + '명이 알림 신청'));
     card.appendChild(W.el('p', { class: 'wz-pcard__title' }, p.title || ''));
     card.appendChild(W.el('p', { class: 'wz-pcard__author' }, p.creatorName || '익명'));
     return card;
