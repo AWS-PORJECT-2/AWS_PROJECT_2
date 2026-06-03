@@ -88,7 +88,6 @@ import {
   PgOrderRepository,
   PgPaymentRepository,
   PgPaymentEventRepository,
-  PgRefundRepository,
 } from './repositories/index.js';
 import { TossPaymentsClient } from './services/toss-payments-client.js';
 import { PaymentServiceImpl } from './services/payment-service.js';
@@ -335,7 +334,6 @@ export function createApp(
   const orderRepository = new PgOrderRepository(pool);
   const paymentRepository = new PgPaymentRepository(pool);
   const paymentEventRepository = new PgPaymentEventRepository(pool);
-  const refundRepository = new PgRefundRepository(pool);
 
   const tossSecretKey = envOrDevDefault('TOSS_SECRET_KEY', 'test_sk_000000000000000000000000000');
   const tossWebhookSecret = envOrDevDefault('TOSS_WEBHOOK_SECRET', 'dev-toss-webhook-secret');
@@ -344,13 +342,11 @@ export function createApp(
 
   const paymentService = new PaymentServiceImpl({
     pgClient,
-    pool,
     groupBuyRepository,
     participationRepository,
     orderRepository,
     paymentRepository,
     paymentEventRepository,
-    refundRepository,
   });
 
   // Payment routes (webhook - no auth, raw body for HMAC verification)

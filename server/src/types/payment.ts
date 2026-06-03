@@ -2,7 +2,6 @@ export type GroupBuyStatus = 'pending' | 'pending_review' | 'rejected' | 'open' 
 export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
 export type OrderStatus = 'pending' | 'paid' | 'shipping_ready' | 'shipping' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
 export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
-export type RefundStatus = 'requested' | 'completed' | 'failed';
 
 export interface ProductOption {
   size: string;
@@ -168,38 +167,3 @@ export interface PaymentEvent {
   createdAt: Date;
 }
 
-export interface Refund {
-  id: string;
-  paymentId: string;
-  orderId: string;
-  amount: number;
-  reason: string;
-  status: RefundStatus;
-  pgRefundId: string | null;
-  createdAt: Date;
-  completedAt: Date | null;
-}
-
-// Request/Response types
-export interface ParticipateRequest {
-  cardInfo: import('../interfaces/pg-client.js').CardAuthInfo;
-  selectedOptions: Record<string, string>;
-  quantity: number;
-}
-
-export interface ParticipateResult {
-  participationId: string;
-  billingKeyInfo: { cardName: string; cardNumber: string; cardType: string };
-  status: 'confirmed';
-}
-
-export interface RefundRequest {
-  reason: string;
-  amount?: number;
-}
-
-export interface RefundResult {
-  refundId: string;
-  status: RefundStatus;
-  amount: number;
-}

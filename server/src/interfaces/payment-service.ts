@@ -1,28 +1,12 @@
-import type {
-  Participation, Order, PaymentEvent,
-  ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,
-} from '../types/index.js';
-
+// 레거시 단건결제 서비스 — 스케줄러/웹훅 전용(사용자 직접호출 경로는 제거됨).
 export interface PaymentService {
-  // 공동구매 참여
-  participate(userId: string, groupbuyId: string, request: ParticipateRequest): Promise<ParticipateResult>;
-  cancelParticipation(userId: string, groupbuyId: string): Promise<void>;
-  getParticipation(userId: string, groupbuyId: string): Promise<Participation | null>;
-
-  // 일괄 결제 실행
+  // 일괄 결제 실행(마감 성공 시 스케줄러)
   executeBatchPayments(groupbuyId: string): Promise<void>;
   markGroupBuyFailed(groupbuyId: string): Promise<void>;
-
-  // 환불
-  requestRefund(userId: string, orderId: string, request: RefundRequest): Promise<RefundResult>;
 
   // Webhook 처리
   handleWebhookEvent(eventType: string, pgTransactionId: string, payload: Record<string, unknown>): Promise<void>;
 
-  // 재시도
+  // 실패 결제 재시도(스케줄러)
   retryFailedPayment(orderId: string): Promise<void>;
-
-  // 조회
-  getUserOrders(userId: string): Promise<Order[]>;
-  getPaymentEvents(paymentId: string): Promise<PaymentEvent[]>;
 }

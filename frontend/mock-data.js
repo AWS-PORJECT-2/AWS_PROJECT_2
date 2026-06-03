@@ -131,14 +131,6 @@ function isLiked(productId) {
 }
 
 /**
- * 특정 펀드의 좋아요 수(전역) 조회 — 카드/상세의 하트 옆 숫자 표시용.
- */
-function getLikeCount(productId) {
-  const product = MOCK_PRODUCTS.find((p) => p.id === productId);
-  return product ? (Number(product.likeCount) || 0) : 0;
-}
-
-/**
  * 페이지 로드 시 localStorage와 isReserved/수치 동기화
  * - 좋아요(isLiked/likeCount)는 서버 데이터를 신뢰한다(여기서 건드리지 않음).
  * - 스토리지에 기록이 없으면(null) 기존 값을 유지
@@ -263,7 +255,6 @@ async function syncMyLikes() {
 
 window.MOCK_PRODUCTS = MOCK_PRODUCTS;
 window.loadProductsFromBackend = loadProductsFromBackend;
-window.getLikeCount = getLikeCount;
 window.syncMyLikes = syncMyLikes;
 
 /**

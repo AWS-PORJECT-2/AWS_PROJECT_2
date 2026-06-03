@@ -23,8 +23,6 @@ export type { PaymentRepository } from './payment-repository.js';
 export { PgPaymentRepository } from './pg-payment-repository.js';
 export type { PaymentEventRepository } from './payment-event-repository.js';
 export { PgPaymentEventRepository } from './pg-payment-event-repository.js';
-export type { RefundRepository } from './refund-repository.js';
-export { PgRefundRepository } from './pg-refund-repository.js';
 
 // Payment method repositories
 export type { PaymentMethodRepository } from './payment-method-repository.js';

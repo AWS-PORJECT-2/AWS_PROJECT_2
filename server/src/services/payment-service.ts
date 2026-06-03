@@ -1,5 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import type { Pool, PoolClient } from 'pg';
 import type { PaymentService } from '../interfaces/payment-service.js';
 import type { PgClient } from '../interfaces/pg-client.js';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
@@ -7,117 +6,41 @@ import type { ParticipationRepository } from '../repositories/participation-repo
 import type { OrderRepository } from '../repositories/order-repository.js';
 import type { PaymentRepository } from '../repositories/payment-repository.js';
 import type { PaymentEventRepository } from '../repositories/payment-event-repository.js';
-import type { RefundRepository } from '../repositories/refund-repository.js';
-import type {
-  Participation, Order, Payment, PaymentEvent,
-  ParticipateRequest, ParticipateResult, RefundRequest, RefundResult,
-} from '../types/index.js';
+import type { Participation, Order, Payment } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { logger } from '../logger.js';
 
+// 레거시 단건결제(orders/payments/participations) — 현재 라이브 머니플로우는 reward_orders + 무통장.
+// 이 서비스는 스케줄러(executeBatchPayments/markGroupBuyFailed/retryFailedPayment)와
+// 웹훅(handleWebhookEvent)에서만 쓰인다. 사용자 직접호출(참여/환불/조회) 경로는 제거됨.
+
 export interface PaymentServiceDeps {
   pgClient: PgClient;
-  pool: Pool;
   groupBuyRepository: GroupBuyRepository;
   participationRepository: ParticipationRepository;
   orderRepository: OrderRepository;
   paymentRepository: PaymentRepository;
   paymentEventRepository: PaymentEventRepository;
-  refundRepository: RefundRepository;
 }
 
-const MAX_DEADLOCK_RETRIES = 3;
 const RETRY_INTERVALS_MS = [1 * 60 * 60 * 1000, 4 * 60 * 60 * 1000, 24 * 60 * 60 * 1000]; // 1h, 4h, 24h
 const MAX_RETRY_COUNT = 3;
 
 export class PaymentServiceImpl implements PaymentService {
   private readonly pgClient: PgClient;
-  private readonly pool: Pool;
   private readonly groupBuyRepo: GroupBuyRepository;
   private readonly participationRepo: ParticipationRepository;
   private readonly orderRepo: OrderRepository;
   private readonly paymentRepo: PaymentRepository;
   private readonly paymentEventRepo: PaymentEventRepository;
-  private readonly refundRepo: RefundRepository;
 
   constructor(deps: PaymentServiceDeps) {
     this.pgClient = deps.pgClient;
-    this.pool = deps.pool;
     this.groupBuyRepo = deps.groupBuyRepository;
     this.participationRepo = deps.participationRepository;
     this.orderRepo = deps.orderRepository;
     this.paymentRepo = deps.paymentRepository;
     this.paymentEventRepo = deps.paymentEventRepository;
-    this.refundRepo = deps.refundRepository;
-  }
-
-  async participate(userId: string, groupbuyId: string, request: ParticipateRequest): Promise<ParticipateResult> {
-    const groupbuy = await this.groupBuyRepo.findById(groupbuyId);
-    if (!groupbuy) throw new AppError('GROUPBUY_NOT_FOUND');
-    if (groupbuy.status !== 'open') throw new AppError('GROUPBUY_NOT_AVAILABLE');
-    if (groupbuy.deadline <= new Date()) throw new AppError('GROUPBUY_EXPIRED');
-
-    // Validate selected options
-    this.validateOptions(groupbuy.productOptions, request.selectedOptions);
-
-    // Check duplicate participation
-    const existing = await this.participationRepo.findByUserAndGroupBuy(userId, groupbuyId);
-    if (existing && existing.status !== 'cancelled') throw new AppError('ALREADY_PARTICIPATING');
-
-    // Issue billing key
-    const billingKeyResult = await this.pgClient.issueBillingKey(userId, request.cardInfo);
-    if (!billingKeyResult.success || !billingKeyResult.billingKey) {
-      throw new AppError('BILLING_KEY_FAILED');
-    }
-
-    const participationId = randomUUID();
-    const participation: Participation = {
-      id: participationId,
-      groupbuyId,
-      userId,
-      billingKey: billingKeyResult.billingKey,
-      selectedOptions: request.selectedOptions,
-      quantity: request.quantity,
-      status: 'confirmed',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
-
-    // Create participation + increment quantity in transaction with deadlock retry
-    await this.withRetry(async () => {
-      await this.withTransaction(async (client) => {
-        await this.participationRepo.create(participation, client);
-        await this.groupBuyRepo.incrementQuantity(groupbuyId, request.quantity, client);
-      });
-    });
-
-    return {
-      participationId,
-      billingKeyInfo: billingKeyResult.cardInfo!,
-      status: 'confirmed',
-    };
-  }
-
-  async cancelParticipation(userId: string, groupbuyId: string): Promise<void> {
-    const participation = await this.participationRepo.findByUserAndGroupBuy(userId, groupbuyId);
-    if (!participation || participation.status === 'cancelled') {
-      throw new AppError('PARTICIPATION_NOT_FOUND');
-    }
-
-    const groupbuy = await this.groupBuyRepo.findById(groupbuyId);
-    if (!groupbuy) throw new AppError('GROUPBUY_NOT_FOUND');
-    if (groupbuy.status !== 'open') throw new AppError('GROUPBUY_NOT_AVAILABLE');
-
-    await this.withRetry(async () => {
-      await this.withTransaction(async (client) => {
-        await this.participationRepo.updateStatus(participation.id, 'cancelled', client);
-        await this.groupBuyRepo.decrementQuantity(groupbuyId, participation.quantity, client);
-      });
-    });
-  }
-
-  async getParticipation(userId: string, groupbuyId: string): Promise<Participation | null> {
-    return this.participationRepo.findByUserAndGroupBuy(userId, groupbuyId);
   }
 
   async executeBatchPayments(groupbuyId: string): Promise<void> {
@@ -144,82 +67,6 @@ export class PaymentServiceImpl implements PaymentService {
   async markGroupBuyFailed(groupbuyId: string): Promise<void> {
     await this.groupBuyRepo.updateStatus(groupbuyId, 'failed');
     await this.participationRepo.cancelAllByGroupBuy(groupbuyId);
-  }
-
-  async requestRefund(userId: string, orderId: string, request: RefundRequest): Promise<RefundResult> {
-    const order = await this.orderRepo.findById(orderId);
-    if (!order) throw new AppError('ORDER_NOT_FOUND');
-    if (order.userId !== userId) throw new AppError('ORDER_NOT_FOUND');
-    if (order.status !== 'paid') throw new AppError('ORDER_NOT_REFUNDABLE');
-
-    const refundAmount = request.amount ?? order.amount;
-    if (refundAmount <= 0 || refundAmount > order.amount) {
-      throw new AppError('INVALID_REFUND_AMOUNT');
-    }
-
-    // 멱등성: 이미 완료된 환불이 있으면 PG 를 재호출하지 않고 그 결과를 반환(이중환불 방지).
-    //  (부분쓰기 후 재시도 시 order 가 'paid' 로 남아 L153 가드를 통과해도 여기서 차단)
-    const existingRefunds = await this.refundRepo.findByOrderId(orderId);
-    const doneRefund = existingRefunds.find((r) => r.status === 'completed');
-    if (doneRefund) {
-      // 환불은 끝났는데 order 상태만 'paid' 로 남은 부분쓰기 상황도 함께 보정.
-      if (order.status === 'paid') { try { await this.orderRepo.updateStatus(orderId, 'refunded'); } catch { /* 무시 */ } }
-      return { refundId: doneRefund.id, status: 'completed', amount: doneRefund.amount };
-    }
-
-    // Find the payment for this order
-    const payments = await this.paymentRepo.findByOrderId(orderId);
-    const paidPayment = payments.find(p => p.status === 'paid');
-    if (!paidPayment || !paidPayment.pgTransactionId) {
-      throw new AppError('ORDER_NOT_REFUNDABLE');
-    }
-
-    const cancelResult = await this.pgClient.cancelPayment(
-      paidPayment.pgTransactionId,
-      request.reason,
-      refundAmount,
-    );
-
-    const refundId = randomUUID();
-    const now = new Date();
-
-    if (cancelResult.success) {
-      await this.refundRepo.create({
-        id: refundId,
-        paymentId: paidPayment.id,
-        orderId,
-        amount: refundAmount,
-        reason: request.reason,
-        status: 'completed',
-        pgRefundId: cancelResult.pgRefundId ?? null,
-        createdAt: now,
-        completedAt: now,
-      });
-      await this.orderRepo.updateStatus(orderId, 'refunded');
-      await this.recordEvent(paidPayment.id, 'refund.completed', {
-        refundId,
-        amount: refundAmount,
-        reason: request.reason,
-      });
-      return { refundId, status: 'completed', amount: refundAmount };
-    } else {
-      await this.refundRepo.create({
-        id: refundId,
-        paymentId: paidPayment.id,
-        orderId,
-        amount: refundAmount,
-        reason: request.reason,
-        status: 'failed',
-        pgRefundId: null,
-        createdAt: now,
-        completedAt: null,
-      });
-      await this.recordEvent(paidPayment.id, 'refund.failed', {
-        refundId,
-        error: cancelResult.error,
-      });
-      throw new AppError('PAYMENT_FAILED', cancelResult.error?.message ?? '환불 처리에 실패했습니다');
-    }
   }
 
   async handleWebhookEvent(eventType: string, pgTransactionId: string, payload: Record<string, unknown>): Promise<void> {
@@ -334,27 +181,7 @@ export class PaymentServiceImpl implements PaymentService {
     }
   }
 
-  async getUserOrders(userId: string): Promise<Order[]> {
-    return this.orderRepo.findByUserId(userId);
-  }
-
-  async getPaymentEvents(paymentId: string): Promise<PaymentEvent[]> {
-    return this.paymentEventRepo.findByPaymentId(paymentId);
-  }
-
   // --- Private helpers ---
-
-  private validateOptions(productOptions: Array<{ size: string; color: string; stock?: number }>, selectedOptions: Record<string, string>): void {
-    if (!selectedOptions.size || !selectedOptions.color) {
-      throw new AppError('INVALID_OPTIONS');
-    }
-    const match = productOptions.some(
-      opt => opt.size === selectedOptions.size && opt.color === selectedOptions.color,
-    );
-    if (!match) {
-      throw new AppError('INVALID_OPTIONS');
-    }
-  }
 
   private calculateAmount(basePrice: number, designFee: number, platformFee: number, quantity: number): number {
     return (basePrice + designFee + platformFee) * quantity;
@@ -438,46 +265,5 @@ export class PaymentServiceImpl implements PaymentService {
       payload,
       createdAt: new Date(),
     });
-  }
-
-  private async withRetry<T>(fn: () => Promise<T>): Promise<T> {
-    let lastError: unknown;
-    for (let attempt = 0; attempt <= MAX_DEADLOCK_RETRIES; attempt++) {
-      try {
-        return await fn();
-      } catch (err: unknown) {
-        lastError = err;
-        // pg 드라이버는 err.code 로 SQLSTATE 를 정확히 노출.
-        // 40P01 = deadlock_detected, 40001 = serialization_failure (둘 다 재시도 가능).
-        // err.message 매칭은 로케일/wrapper 따라 깨질 수 있어 fallback 으로만.
-        const code = (err as { code?: unknown })?.code;
-        const isRetryable = code === '40P01' || code === '40001'
-          || (err instanceof Error && (err.message.includes('deadlock') || err.message.includes('40P01')));
-        if (!isRetryable || attempt === MAX_DEADLOCK_RETRIES) throw err;
-        const delay = Math.pow(2, attempt) * 100; // 100ms, 200ms, 400ms
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    throw lastError;
-  }
-
-  private async withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client: PoolClient = await this.pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await fn(client);
-      await client.query('COMMIT');
-      return result;
-    } catch (err) {
-      // ROLLBACK 자체가 throw (이미 죽은 connection 등) 하더라도 원본 err 를 잃지 않게.
-      try {
-        await client.query('ROLLBACK');
-      } catch (rbErr) {
-        logger.error({ rbErr, originalErr: err }, 'ROLLBACK 실패 — 원본 에러는 throw');
-      }
-      throw err;
-    } finally {
-      client.release();
-    }
   }
 }
