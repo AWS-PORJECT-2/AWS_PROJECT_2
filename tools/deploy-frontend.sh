@@ -26,10 +26,12 @@ for f in "$FRONT"/*.css; do
   cleancss -o "$DIST/$(basename "$f")" "$f"
 done
 
-echo "▸ S3 업로드(JS/CSS=난독화본, HTML=원본)"
-aws s3 sync "$DIST" "s3://$BUCKET/" --exclude "*" --include "*.js"  --content-type "application/javascript" --only-show-errors
-aws s3 sync "$DIST" "s3://$BUCKET/" --exclude "*" --include "*.css" --content-type "text/css" --only-show-errors
-aws s3 sync "$FRONT/" "s3://$BUCKET/" --exclude "*" --include "*.html" --only-show-errors
+echo "▸ S3 업로드(JS/CSS=난독화본, HTML=원본) — Cache-Control: no-cache 로 항상 재검증(변경 즉시 반영)"
+# no-cache = 캐시하되 사용 전 반드시 서버 재검증(ETag) → 변경분 즉시 반영, 동일분은 304(빠름).
+# 목업/마스크(이미지)는 design.js 의 ?v= 쿼리로 캐시버스트하므로 장기 캐시여도 갱신 보장.
+aws s3 sync "$DIST" "s3://$BUCKET/" --exclude "*" --include "*.js"  --content-type "application/javascript" --cache-control "no-cache" --only-show-errors
+aws s3 sync "$DIST" "s3://$BUCKET/" --exclude "*" --include "*.css" --content-type "text/css" --cache-control "no-cache" --only-show-errors
+aws s3 sync "$FRONT/" "s3://$BUCKET/" --exclude "*" --include "*.html" --cache-control "no-cache" --only-show-errors
 
 echo "▸ CloudFront 무효화"
 aws cloudfront create-invalidation --distribution-id "$DIST_ID" --paths "/*" --query "Invalidation.Status" --output text

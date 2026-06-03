@@ -16,6 +16,10 @@
   var W = window.WZ || {};
   var el = W.el || function (t) { return document.createElement(t); };
 
+  // 목업/마스크 캐시버스터 — 이미지·마스크 갱신할 때마다 올린다(브라우저·CloudFront 캐시 무력화).
+  var ASSET_VER = '8';
+  function av(u) { return u ? u + (u.indexOf('?') < 0 ? '?v=' : '&v=') + ASSET_VER : u; }
+
   // ---- 카테고리별 상품 정의 ---------------------------------------------------
   // 각 카테고리 → { type, items:[{ name, img, views, print:{view:{l,t,w,h}} }] }
   //   type: 'apparel'(가상피팅) | 'goods'(전시) | 'none'
@@ -122,13 +126,13 @@
     var it = curItem();
     if (!it.img) return null;
     var k = colorable() ? (S.color || defaultColor()) : '';
-    return '/assets/mockups/' + it.img + '_' + view + (k ? '__' + k : '') + '.jpg';
+    return av('/assets/mockups/' + it.img + '_' + view + (k ? '__' + k : '') + '.jpg');
   }
-  function baseMockupSrc(view) { var it = curItem(); return it.img ? '/assets/mockups/' + it.img + '_' + view + '.jpg' : null; }
+  function baseMockupSrc(view) { var it = curItem(); return it.img ? av('/assets/mockups/' + it.img + '_' + view + '.jpg') : null; }
   // 옷/제품 실루엣 마스크(알파 PNG, 제품=불투명·배경=투명). 레이어를 이 모양으로 클리핑 → 제품 밖은 잘림.
   function maskSrc(view) {
     var it = curItem();
-    return it.img ? '/assets/mockups/' + it.img + '_' + view + '_mask.png' : null;
+    return it.img ? av('/assets/mockups/' + it.img + '_' + view + '_mask.png') : null;
   }
   function applyMaskCss(node, src) {
     if (!src) return;
@@ -305,7 +309,7 @@
         titleInput,
       ),
       el('div', { class: 'dz-top__r' },
-        btn('불러오기', 'outline', openLoadModal),
+        btn('내 디자인 보기', 'outline', openLoadModal),
         btn('다운로드', 'outline', downloadDesign),
         btn('저장', 'primary', saveDesign),
       ),
@@ -1079,30 +1083,31 @@
       });
     }).catch(function (err) {
       if (err && err.status === 401) { location.href = '/login.html'; return; }
+      // 저장 한도(5개) 초과 — "꽉 찼어요" 안내 후 [내 디자인 보기]로 유도.
+      if (err && err.status === 409) { toast((err.message || '내 디자인이 꽉 찼어요. 삭제 후 저장할 수 있어요.')); return; }
       toast('저장에 실패했어요: ' + ((err && err.message) || '오류'));
     }).finally(function () { if (btnEl) btnEl.disabled = false; });
   }
 
+  // '내 디자인' 모달 — 저장본을 [불러오기]/[삭제하기]. 삭제는 즉시 반영(새로고침 불필요), 상단에 n/5 표시.
+  var MAX_DESIGNS = 5;
   function openLoadModal() {
     var overlay = el('div', { class: 'dz-modal' });
     var box = el('div', { class: 'dz-modal__box' });
-    box.appendChild(el('div', { class: 'dz-modal__t' }, '내 디자인 불러오기'));
-    box.appendChild(el('div', { class: 'dz-modal__s' }, '저장한 디자인을 선택하면 이어서 편집할 수 있어요.'));
-    var listWrap = el('div', { class: 'dz-saved' });
-    box.appendChild(el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), '불러오는 중…'));
     overlay.appendChild(box);
     overlay.addEventListener('pointerdown', function (e) { if (e.target === overlay) overlay.remove(); });
     document.body.appendChild(overlay);
 
-    window.api.get('/me/designs').then(function (res) {
-      box.replaceChildren(
-        el('div', { class: 'dz-modal__t' }, '내 디자인 불러오기'),
-        el('div', { class: 'dz-modal__s' }, '저장한 디자인을 선택하면 이어서 편집할 수 있어요.'),
-      );
-      var items = (res && res.items) || [];
+    function paint(items) {
+      var head = el('div', { class: 'dz-modal__t' }, '내 디자인 ' + items.length + ' / ' + MAX_DESIGNS);
+      var sub = el('div', { class: 'dz-modal__s' }, items.length >= MAX_DESIGNS
+        ? '저장 공간이 꽉 찼어요. 삭제하면 새로 저장할 수 있어요.'
+        : '불러오기로 이어서 편집하거나 삭제할 수 있어요. (최대 ' + MAX_DESIGNS + '개)');
+      var kids = [head, sub];
       if (!items.length) {
-        box.appendChild(el('div', { class: 'dz-status' }, '아직 저장한 디자인이 없어요.'));
+        kids.push(el('div', { class: 'dz-status' }, '아직 저장한 디자인이 없어요.'));
       } else {
+        var listWrap = el('div', { class: 'dz-saved' });
         items.forEach(function (it) {
           var card = el('div', { class: 'dz-saved__item' });
           card.appendChild(el('img', { class: 'dz-saved__th', src: it.preview || '/assets/placeholder-project.png', alt: '' }));
@@ -1110,22 +1115,36 @@
             el('div', { class: 'dz-saved__n' }, it.title || '내 디자인'),
             el('div', { class: 'dz-saved__d' }, fmtDate(it.updatedAt)),
           ));
-          var del = el('button', { class: 'dz-saved__del', title: '삭제', type: 'button' }, '×');
-          del.addEventListener('click', function (e) {
-            e.stopPropagation();
+          var loadBtn = btn('불러오기', 'primary', function () { loadDesign(it.id); overlay.remove(); });
+          var delBtn = btn('삭제하기', 'outline', function () {
             if (!confirm('이 디자인을 삭제할까요?')) return;
-            window.api.del('/me/designs/' + it.id).then(function () { card.remove(); toast('삭제했어요'); });
+            delBtn.disabled = true; loadBtn.disabled = true;
+            window.api.del('/me/designs/' + it.id).then(function () {
+              // 즉시 반영: 목록·카운트 갱신(다시 그림)
+              paint(items.filter(function (x) { return x.id !== it.id; }));
+              toast('삭제했어요');
+            }).catch(function (err) {
+              if (err && err.status === 401) { location.href = '/login.html'; return; }
+              delBtn.disabled = false; loadBtn.disabled = false; toast('삭제하지 못했어요');
+            });
           });
-          card.appendChild(del);
-          card.addEventListener('click', function () { loadDesign(it.id); overlay.remove(); });
+          card.appendChild(el('div', { class: 'dz-saved__actions' }, loadBtn, delBtn));
           listWrap.appendChild(card);
         });
-        box.appendChild(listWrap);
+        kids.push(listWrap);
       }
-      box.appendChild(el('div', { class: 'dz-modal__foot' }, btn('닫기', 'outline', function () { overlay.remove(); })));
+      kids.push(el('div', { class: 'dz-modal__foot' }, btn('닫기', 'outline', function () { overlay.remove(); })));
+      box.replaceChildren.apply(box, kids);
+    }
+
+    box.replaceChildren(el('div', { class: 'dz-modal__t' }, '내 디자인'),
+      el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), '불러오는 중…'));
+    window.api.get('/me/designs').then(function (res) {
+      paint((res && res.items) || []);
     }).catch(function (err) {
       if (err && err.status === 401) { location.href = '/login.html'; return; }
-      box.replaceChildren(el('div', { class: 'dz-status' }, '목록을 불러오지 못했어요.'),
+      box.replaceChildren(el('div', { class: 'dz-modal__t' }, '내 디자인'),
+        el('div', { class: 'dz-status' }, '목록을 불러오지 못했어요.'),
         el('div', { class: 'dz-modal__foot' }, btn('닫기', 'outline', function () { overlay.remove(); })));
     });
   }

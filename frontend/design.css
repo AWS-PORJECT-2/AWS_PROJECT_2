@@ -96,14 +96,13 @@
 
 .dz-saved { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
 @media (max-width: 480px) { .dz-saved { grid-template-columns: 1fr; } }
-.dz-saved__item { border: 1.5px solid #eee; border-radius: 12px; overflow: hidden; cursor: pointer; background: #fff; position: relative; }
-.dz-saved__item:hover { border-color: #8B5CF6; }
+.dz-saved__item { border: 1.5px solid #eee; border-radius: 12px; overflow: hidden; background: #fff; position: relative; display: flex; flex-direction: column; }
 .dz-saved__th { width: 100%; aspect-ratio: 1/1; object-fit: contain; background: #f6f6f8; display: block; }
 .dz-saved__meta { padding: 8px 10px; }
 .dz-saved__n { font-size: 13px; font-weight: 700; color: #222; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dz-saved__d { font-size: 11px; color: #999; margin-top: 2px; }
-.dz-saved__del { position: absolute; top: 6px; right: 6px; background: rgba(0,0,0,.55); color: #fff; border: none; width: 24px; height: 24px; border-radius: 50%; cursor: pointer; font-size: 13px; line-height: 1; }
-.dz-saved__del:hover { background: #ef4444; }
+.dz-saved__actions { display: flex; gap: 6px; padding: 0 10px 10px; margin-top: auto; }
+.dz-saved__actions .wz-btn { flex: 1; padding: 7px 8px; font-size: 12px; }
 
 /* 라이브러리 picker 그리드 */
 .dz-libgrid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-top: 8px; }

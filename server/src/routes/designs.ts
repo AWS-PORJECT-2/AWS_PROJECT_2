@@ -23,6 +23,7 @@ function rowFull(r: Record<string, unknown>) {
   };
 }
 const TITLE_MAX = 120;
+const MAX_DESIGNS = 5; // 사용자당 저장 가능한 '내 디자인' 최대 개수.
 const clampStr = (v: unknown, n: number): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null);
 // preview/aiImage 는 data:image URL(또는 자체 경로)만 + 길이 상한(~8MB). 형식 안 맞으면 null 저장.
 const IMG_MAX = 8_000_000;
@@ -62,9 +63,14 @@ export function createDesignsRouter(pool: pg.Pool, authRequired: RequestHandler,
     } catch (e) { fail(res, e, '디자인 조회 실패'); }
   });
 
-  // 생성(본인).
+  // 생성(본인). 사용자당 MAX_DESIGNS 개로 제한 — 초과 시 409(프론트에서 "꽉 찼어요" 안내).
   router.post('/', authRequired, writeRateLimit, async (req: Request, res: Response) => {
     try {
+      const cnt = await pool.query('SELECT COUNT(*)::int AS n FROM user_designs WHERE user_id = $1', [req.userId]);
+      if (((cnt.rows[0]?.n as number) ?? 0) >= MAX_DESIGNS) {
+        res.status(409).json({ error: 'DESIGN_LIMIT', message: `내 디자인은 최대 ${MAX_DESIGNS}개까지 저장할 수 있어요. 기존 디자인을 삭제한 뒤 저장해 주세요.` });
+        return;
+      }
       const b = (req.body ?? {}) as Record<string, unknown>;
       const r = await pool.query(
         `INSERT INTO user_designs (user_id, category, product, title, design, preview, ai_image)
