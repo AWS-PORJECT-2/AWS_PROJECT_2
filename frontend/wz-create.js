@@ -337,7 +337,7 @@
         tag: '일반',
         feeLine: '정산 수수료 ' + MODE_INFO.normal.feeHint + ' (참고)',
         desc: '창작자가 제목·이미지·스토리·리워드·일정을 직접 구성합니다. 수수료가 낮은 대신 모든 내용을 직접 입력해야 합니다.',
-        points: ['수수료가 가장 낮음', '리워드·가격·일정 직접 설정', '대표 이미지·스토리 직접 작성', 'AI 가상 피팅으로 대표 이미지 제작 가능'],
+        points: ['수수료가 가장 낮음', '리워드·가격·일정 직접 설정', '대표 이미지·스토리 직접 작성'],
         cta: '직접 개설하기',
         onClick: startNormal,
       }),
@@ -809,7 +809,6 @@
       W.el('p', { class: 'wc-main__sub' }, '프로젝트를 공개하는 데 필요한 내용을 작성해 주세요'),
       ProgressCard(),
       SectionList(),
-      AiFittingCard(),
       SubmitArea(),
     );
     return col;
@@ -890,23 +889,6 @@
     return (typeof window.dtCategoryType === 'function') && window.dtCategoryType(nstate.category) === 'apparel';
   }
   function aiLabel() { return aiIsApparel() ? 'AI 가상 피팅' : 'AI 가상 전시'; }
-
-  function AiFittingCard() {
-    var apparel = aiIsApparel();
-    var card = W.el('div', { class: 'wc-aicard' });
-    var ic = W.el('div', { class: 'wc-aicard__ic', html: IC.sparkle });
-    var body = W.el('div', { class: 'wc-aicard__body' });
-    body.append(
-      W.el('p', { class: 'wc-aicard__name' }, aiLabel() + ' (선택)'),
-      W.el('p', { class: 'wc-aicard__desc' }, apparel
-        ? '디자인 이미지를 모델 착용 사진으로 만들어 대표 이미지로 사용할 수 있습니다.'
-        : '디자인 이미지를 멋진 전시·연출 사진으로 만들어 대표 이미지로 사용할 수 있습니다.'),
-    );
-    var btn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, apparel ? 'AI 피팅 열기' : 'AI 전시 열기');
-    btn.addEventListener('click', openAiModal);
-    card.append(ic, body, btn);
-    return card;
-  }
 
   function SubmitArea() {
     var wrap = W.el('div', { class: 'wc-submit' });
@@ -1110,7 +1092,7 @@
         }
       }
       renderCover();
-      body.appendChild(field('대표 이미지', false, previewWrap, '목록·상세 썸네일로 사용됩니다. 비우면 AI 피팅 결과나 스토리 첫 이미지가 사용됩니다.'));
+      body.appendChild(field('대표 이미지', false, previewWrap, '목록·상세 썸네일로 사용됩니다. 비우면 스토리 첫 이미지가 사용됩니다.'));
 
       // ---- 대표 영상(선택): 파일 업로드(data URL) 또는 링크(http) 택1 ----
       videoWrap = W.el('div', {});
