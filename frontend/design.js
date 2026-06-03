@@ -24,32 +24,48 @@
   var AP = ['front', 'back', 'left', 'right'];
   function pr(l, t, w, h) { return { l: l, t: t, w: w, h: h }; }
   // 인쇄영역(캔버스 대비 %)은 실제 목업 이미지의 제품 위치를 픽셀 분석 + 시각 검수로 맞춤.
+  // 색상 팔레트(사용자 제공 실사 색상 이미지 기준). {s:slug, n:한글명, h:스와치hex}.
+  //  파일: /assets/mockups/<img>_<view>__<slug>.jpg (첫 항목이 기본색).
+  var C_JACKET = [{s:'black',n:'블랙',h:'#171817'}, {s:'charcoal',n:'차콜',h:'#434243'}, {s:'navy',n:'네이비',h:'#182033'}, {s:'royalblue',n:'로얄블루',h:'#123b8b'}, {s:'burgundy',n:'버건디',h:'#4d181e'}, {s:'red',n:'레드',h:'#b20710'}, {s:'forestgreen',n:'포레스트그린',h:'#273229'}, {s:'olive',n:'올리브',h:'#545135'}, {s:'camel',n:'카멜',h:'#caa580'}, {s:'gray',n:'라이트그레이',h:'#bfbfc1'}];
+  var C_HOODIE = [{s:'heathergray',n:'헤더그레이',h:'#c6c5c4'}, {s:'black',n:'블랙',h:'#1d1d1c'}, {s:'charcoal',n:'차콜',h:'#454546'}, {s:'navy',n:'네이비',h:'#212940'}, {s:'cream',n:'크림',h:'#f4e7d1'}, {s:'oatmeal',n:'오트밀',h:'#eee6dd'}, {s:'forestgreen',n:'포레스트그린',h:'#284234'}, {s:'burgundy',n:'버건디',h:'#6b2235'}, {s:'skyblue',n:'스카이블루',h:'#a3bfdb'}, {s:'dustypink',n:'더스티핑크',h:'#e0a6a5'}];
+  var C_SWEAT = [{s:'heathergray',n:'헤더그레이',h:'#c9c9c9'}, {s:'black',n:'블랙',h:'#1d1d1d'}, {s:'charcoal',n:'차콜',h:'#404041'}, {s:'navy',n:'네이비',h:'#1e263b'}, {s:'cream',n:'크림',h:'#faf2e6'}, {s:'oatmeal',n:'오트밀',h:'#ece4d8'}, {s:'forestgreen',n:'포레스트그린',h:'#324837'}, {s:'burgundy',n:'버건디',h:'#5a1d2a'}, {s:'skyblue',n:'스카이블루',h:'#b0d1ee'}, {s:'dustypink',n:'더스티핑크',h:'#e0adaf'}];
+  var C_TSHIRT = [{s:'white',n:'화이트',h:'#f8f8f9'}, {s:'black',n:'블랙',h:'#181818'}, {s:'heathergray',n:'헤더그레이',h:'#d0d0cf'}, {s:'charcoal',n:'차콜',h:'#3e3e41'}, {s:'navy',n:'네이비',h:'#172239'}, {s:'cream',n:'크림',h:'#fbf2e2'}, {s:'beige',n:'베이지',h:'#e7dacb'}, {s:'forestgreen',n:'포레스트그린',h:'#2d3d30'}, {s:'skyblue',n:'스카이블루',h:'#b9d5f3'}, {s:'dustypink',n:'더스티핑크',h:'#dba5a9'}];
+  var C_ECOBAG = [{s:'natural',n:'내추럴캔버스',h:'#eddfcb'}, {s:'ivory',n:'아이보리',h:'#f2e8d9'}, {s:'oatmeal',n:'오트밀',h:'#e6d8c5'}, {s:'sand',n:'샌드베이지',h:'#dcc9b1'}, {s:'greige',n:'그레이지',h:'#c5b6a6'}, {s:'mocha',n:'모카브라운',h:'#5e4536'}, {s:'olivekhaki',n:'올리브카키',h:'#7d7251'}, {s:'deepnavy',n:'딥네이비',h:'#242d44'}, {s:'charcoal',n:'차콜',h:'#4f4e4f'}, {s:'black',n:'블랙',h:'#282827'}];
+  var C_PHONE = [{s:'black',n:'블랙',h:'#3b3b3a'}, {s:'darkgray',n:'다크그레이',h:'#555556'}, {s:'cream',n:'크림',h:'#d7ccc0'}, {s:'beige',n:'베이지',h:'#f3ebdc'}, {s:'burgundy',n:'버건디',h:'#e8c9c6'}, {s:'lavender',n:'라벤더',h:'#ccc1e0'}, {s:'sagegreen',n:'세이지그린',h:'#9da490'}, {s:'navy',n:'네이비',h:'#455247'}, {s:'babyblue',n:'베이비블루',h:'#c4d9ed'}, {s:'blushpink',n:'블러시핑크',h:'#682b3a'}];
+  var C_TUMBLER = [{s:'black',n:'블랙',h:'#2d2d2c'}, {s:'ivory',n:'아이보리',h:'#e3dac6'}, {s:'tan',n:'탄',h:'#c9b89f'}, {s:'sage',n:'세이지',h:'#8d9b81'}, {s:'darkgreen',n:'다크그린',h:'#30422f'}, {s:'navy',n:'네이비',h:'#15263c'}, {s:'skyblue',n:'스카이블루',h:'#8db1cc'}, {s:'lavender',n:'라벤더',h:'#c5b8d9'}, {s:'dustypink',n:'더스티핑크',h:'#e6b5af'}, {s:'burgundy',n:'버건디',h:'#551521'}];
+
   var PRODUCTS = {
-    jacket: { type: 'apparel', colors: true, items: [
-      { name: '바시티 자켓', img: 'varsity_jacket', views: AP,
+    jacket: { type: 'apparel', items: [
+      { name: '바시티 자켓', img: 'varsity_jacket', views: AP, colors: C_JACKET,
         print: { front: pr(31, 23, 38, 56), back: pr(29, 18, 42, 62), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
-    hoodie: { type: 'apparel', colors: true, items: [
-      { name: '후드티', img: 'hoodie', views: AP,
+    hoodie: { type: 'apparel', items: [
+      { name: '후드티', img: 'hoodie', views: AP, colors: C_HOODIE,
         print: { front: pr(31, 47, 38, 33), back: pr(30, 18, 40, 60), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
-      { name: '맨투맨', img: 'sweatshirt', views: AP,
+      { name: '맨투맨', img: 'sweatshirt', views: AP, colors: C_SWEAT,
         print: { front: pr(30, 22, 40, 58), back: pr(29, 22, 42, 57), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24) } },
     ] },
-    tshirt: { type: 'apparel', colors: true, items: [
-      { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'],
+    tshirt: { type: 'apparel', items: [
+      { name: '반팔티', img: 'tshirt', views: ['front', 'back', 'left', 'right', 'neck'], colors: C_TSHIRT,
         print: { front: pr(29, 18, 42, 66), back: pr(29, 17, 42, 68), left: pr(40, 26, 20, 24), right: pr(40, 26, 20, 24), neck: pr(36, 40, 28, 14) } },
     ] },
-    ecobag: { type: 'goods', colors: true, items: [
-      { name: '에코백', img: 'ecobag', views: ['front', 'back'], print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
+    ecobag: { type: 'goods', items: [
+      { name: '에코백', img: 'ecobag', views: ['front', 'back'], colors: C_ECOBAG, print: { front: pr(30, 37, 40, 40), back: pr(30, 37, 40, 40) } },
     ] },
     keyring: { type: 'goods', items: [
-      { name: '아크릴 키링', img: 'keyring', views: ['front'], print: { front: pr(32, 26, 36, 44) } },
-      { name: '원형 키링', img: 'keyring_round', views: ['front'], print: { front: pr(26, 28, 44, 44) } },
-      { name: '사각 키링', img: 'keyring_square', views: ['front'], print: { front: pr(26, 26, 46, 46) } },
-      { name: '스트랩 키링', img: 'keyring_strap', views: ['front'], print: { front: pr(44, 16, 14, 50) } },
+      { name: '하트 키링', img: 'keyring_heart', views: ['front'], print: { front: pr(30, 32, 40, 36) } },
+      { name: '별 키링', img: 'keyring_star', views: ['front'], print: { front: pr(30, 34, 40, 32) } },
+      { name: '육각형 키링', img: 'keyring_hexagon', views: ['front'], print: { front: pr(30, 32, 40, 40) } },
+      { name: '티켓 키링', img: 'keyring_ticket', views: ['front'], print: { front: pr(28, 34, 44, 34) } },
+      { name: '알약 키링', img: 'keyring_pill', views: ['front'], print: { front: pr(32, 32, 36, 38) } },
+      { name: '아치 키링', img: 'keyring_arch', views: ['front'], print: { front: pr(30, 36, 40, 36) } },
+      { name: '클로버 키링', img: 'keyring_clover', views: ['front'], print: { front: pr(32, 34, 36, 36) } },
+      { name: '구름 키링', img: 'keyring_cloud', views: ['front'], print: { front: pr(28, 36, 44, 30) } },
+      { name: '곰 키링', img: 'keyring_bear', views: ['front'], print: { front: pr(30, 36, 40, 34) } },
+      { name: '롱태그 키링', img: 'keyring_longtag', views: ['front'], print: { front: pr(32, 36, 36, 30) } },
     ] },
-    phonecase: { type: 'goods', colors: true, items: [
-      { name: '폰케이스', img: 'phonecase', views: ['back'], print: { back: pr(33, 15, 34, 66) } },
+    phonecase: { type: 'goods', items: [
+      { name: '폰케이스', img: 'phonecase', views: ['back'], colors: C_PHONE, print: { back: pr(33, 15, 34, 66) } },
     ] },
     sticker: { type: 'goods', items: [
       { name: '스티커', img: 'sticker_sheet', views: ['front'], print: { front: pr(18, 14, 64, 74) } },
@@ -57,11 +73,11 @@
     badge: { type: 'goods', items: [
       { name: '뱃지', img: 'badge', views: ['front'], print: { front: pr(26, 32, 48, 36) } },
     ] },
-    tumbler: { type: 'goods', colors: true, items: [
-      { name: '텀블러', img: 'tumbler', views: ['front'], print: { front: pr(37, 20, 24, 54) } },
+    tumbler: { type: 'goods', items: [
+      { name: '텀블러', img: 'tumbler', views: ['front'], colors: C_TUMBLER, print: { front: pr(37, 20, 24, 54) } },
       { name: '머그컵', img: 'mug', views: ['front'], print: { front: pr(34, 34, 28, 30) } },
     ] },
-    fabric: { type: 'goods', colors: true, items: [
+    fabric: { type: 'goods', items: [
       { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
     // 인형·액세서리는 레이어 에디터 대신 "말로 설명 → AI 디자인 뽑기" 모드.
@@ -78,16 +94,11 @@
   function curItem() { return catDef(S.slug).items[S.itemIdx] || catDef(S.slug).items[0]; }
   function isApparel() { return catDef(S.slug).type === 'apparel'; }
 
-  // 색상 팔레트. key = 사전 생성된 색상 목업 파일 접미사(/assets/mockups/<img>_<view>__<key>.jpg).
-  //  화이트는 원본(접미사 없음). 색 변경 = 실시간 멀티플라이가 아니라 해당 색 이미지로 교체(배경 번짐 없음).
-  var COLORS = [
-    { name: '화이트', hex: '#ffffff', key: '' }, { name: '블랙', hex: '#2b2b2e', key: 'black' },
-    { name: '그레이', hex: '#b8bcc4', key: 'gray' }, { name: '네이비', hex: '#23304f', key: 'navy' },
-    { name: '레드', hex: '#d23b3b', key: 'red' }, { name: '퍼플', hex: '#8b5cf6', key: 'purple' },
-    { name: '그린', hex: '#3a9a5c', key: 'green' }, { name: '베이지', hex: '#e7dcc6', key: 'beige' },
-  ];
-  function colorKey(hex) { for (var i = 0; i < COLORS.length; i++) { if (COLORS[i].hex.toLowerCase() === String(hex).toLowerCase()) return COLORS[i].key; } return ''; }
-  function colorable() { return catDef(S.slug).colors === true; }
+  // 색상 — 아이템별 팔레트(curItem().colors). S.color = 선택 slug, 기본 = 첫 색.
+  function itemColors() { return curItem().colors || []; }
+  function colorable() { return itemColors().length > 0; }
+  function defaultColor() { var c = itemColors(); return c.length ? c[0].s : ''; }
+  function colorHex() { var c = itemColors(); for (var i = 0; i < c.length; i++) if (c[i].s === S.color) return c[i].h; return c.length ? c[0].h : '#e9e9ee'; }
   var SIZES = ['S', 'M', 'L', 'XL', '2XL'];
 
   // 텍스트 글꼴(서체) — design.html 에서 구글폰트 로드.
@@ -118,7 +129,7 @@
   function mockupSrc(view) {
     var it = curItem();
     if (!it.img) return null;
-    var k = (colorable() && !isWhite(S.color)) ? colorKey(S.color) : '';
+    var k = colorable() ? (S.color || defaultColor()) : '';
     return '/assets/mockups/' + it.img + '_' + view + (k ? '__' + k : '') + '.jpg';
   }
   function baseMockupSrc(view) { var it = curItem(); return it.img ? '/assets/mockups/' + it.img + '_' + view + '.jpg' : null; }
@@ -134,12 +145,11 @@
     node.style.webkitMaskSize = '100% 100%'; node.style.maskSize = '100% 100%';
     node.style.webkitMaskRepeat = 'no-repeat'; node.style.maskRepeat = 'no-repeat';
   }
-  function isWhite(c) { return !c || String(c).toLowerCase() === '#ffffff' || String(c).toLowerCase() === '#fff'; }
 
   // ---- 목업 SVG 폴백(이미지 없는 webapp/etc, 또는 로드 실패 시) -----------------
   function goodsSvg() {
     var stroke = '#cfcfd6';
-    var inner = '<rect x="40" y="40" width="420" height="420" rx="44" fill="' + S.color + '" stroke="' + stroke + '" stroke-width="3"/>'
+    var inner = '<rect x="40" y="40" width="420" height="420" rx="44" fill="' + colorHex() + '" stroke="' + stroke + '" stroke-width="3"/>'
       + '<image href="/assets/' + S.slug + '.png" x="150" y="150" width="200" height="200" opacity="0.10" preserveAspectRatio="xMidYMid meet"/>';
     return '<svg viewBox="0 0 500 500" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet">' + inner + '</svg>';
   }
@@ -149,7 +159,7 @@
   // ---- 상태 -------------------------------------------------------------------
   var S = {
     slug: '', catObj: null, itemIdx: 0,
-    product: '', color: '#ffffff', size: 'M', qty: 1,
+    product: '', color: '', size: 'M', qty: 1,
     view: 'front',
     views: {},          // { front: [layer...], back: [layer...] }
     sel: null,          // 선택된 레이어 id
@@ -489,6 +499,7 @@
   function switchItem(idx) {
     S.itemIdx = idx;
     S.product = curItem().name;
+    S.color = defaultColor(); // 아이템마다 팔레트가 다름 → 첫 색으로 리셋
     S.views = {}; views().forEach(function (v) { S.views[v] = []; });
     S.view = views()[0];
     S.sel = null;
@@ -618,13 +629,13 @@
     // 색상 — 색이 필요한 제품(colorable)만 노출 + 색별 실사 목업 교체. 그 외(키링·스티커 등)는 색 옵션 숨김.
     if (colorable()) {
       var sw = el('div', { class: 'dz-swatches' });
-      COLORS.forEach(function (c) {
-        var d = el('div', { class: 'dz-sw' + (c.hex === S.color ? ' is-on' : ''), title: c.name, style: 'background:' + c.hex });
+      itemColors().forEach(function (c) {
+        var d = el('div', { class: 'dz-sw' + (c.s === S.color ? ' is-on' : ''), title: c.n, style: 'background:' + c.h });
         d.addEventListener('click', function () {
-          S.color = c.hex;
+          S.color = c.s;
           sw.querySelectorAll('.dz-sw').forEach(function (n) { n.classList.remove('is-on'); });
           d.classList.add('is-on');
-          repaintMock(); // 실시간 옷/제품 색 반영
+          repaintMock(); // 선택 색 실사 이미지로 교체
         });
         sw.appendChild(d);
       });
@@ -1246,7 +1257,9 @@
         ? dz.itemIdx
         : Math.max(0, defItems.findIndex(function (it) { return it.name === d.product; }));
       S.product = curItem().name;
-      S.color = dz.color || '#ffffff'; S.size = dz.size || 'M'; S.qty = dz.qty || 1;
+      // 저장된 색 slug 이 현재 팔레트에 있으면 복원, 아니면(구버전 hex 등) 기본색.
+      S.color = (function () { var cs = itemColors(); for (var i = 0; i < cs.length; i++) if (cs[i].s === dz.color) return dz.color; return defaultColor(); })();
+      S.size = dz.size || 'M'; S.qty = dz.qty || 1;
       S.views = dz.views || {};
       S.view = views()[0];
       S.sel = null;
@@ -1513,7 +1526,7 @@
     S.catObj = window.dtCategory(S.slug);
     S.itemIdx = 0;
     S.product = curItem().name;
-    S.color = '#ffffff';
+    S.color = defaultColor();
     S.view = views()[0];
     S.views = {}; views().forEach(function (v) { S.views[v] = []; });
     S.title = (S.catObj ? S.catObj.label : '내') + ' 디자인';
