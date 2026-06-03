@@ -21,7 +21,7 @@
   /* % 달성 + 모인 금액 한 줄 엘리먼트. (% 보라 강조 + 모인금액 회색) */
   function RateLine(p) {
     const line = W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성');
-    line.appendChild(W.el('span', { class: 'wz-pcard__amount' }, W.money(cardAmount(p)) + ' 모음'));
+    line.appendChild(W.el('span', { class: 'wz-pcard__amount' }, W.money(cardAmount(p)) + ' 달성'));
     return line;
   }
 
@@ -303,7 +303,8 @@
       if (state.category && state.category !== 'all') qs.set('category', state.category);
       qs.set('limit', '24');
       window.api.get('/groupbuys?' + qs.toString(), { silentAuthFail: true }).then((data) => {
-        const arr = (data && Array.isArray(data.items)) ? data.items : [];
+        // 서버 카드(coverImageUrl/creatorName)를 Card 가 쓰는 형태(imageUrl/author)로 매핑 — 안 하면 썸네일이 폴백 일러스트로 나옴.
+        const arr = ((data && Array.isArray(data.items)) ? data.items : []).map((p) => ({ ...p, imageUrl: p.coverImageUrl || '', author: p.creatorName || '익명' }));
         if (!arr.length) {
           const empty = W.el('div', { class: 'wz-sec__empty' });
           const img = W.el('img', { src: '/assets/empty-feed.png', alt: '' }); img.addEventListener('error', () => img.remove());

@@ -75,8 +75,12 @@ export function createAiBlueprintHandler(gemini: GeminiImageService, timeoutMs: 
 
     try {
       const category = typeof body.category === 'string' ? body.category : 'etc';
+      // 면 라벨(front/back/left/right/neck …) — 이미지 순서와 1:1. 프롬프트가 각 이미지의 면을 명시해 정확도↑.
+      const faces = Array.isArray(body.faces)
+        ? body.faces.slice(0, parsedList.length).map((f: unknown) => (typeof f === 'string' ? f : ''))
+        : [];
       const result = await withTimeout(
-        gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category),
+        gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category, faces),
         timeoutMs,
       );
       res.json({ blueprintDataUrl: `data:${result.mimeType};base64,${result.base64}` });

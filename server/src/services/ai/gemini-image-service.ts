@@ -106,26 +106,49 @@ function buildTryOnPrompt(modelType: string, background: string, category: strin
 
 // "AI 실물 보기" — 디자인을 적용한 실제 제작된 제품 사진(도면 X, 포토리얼리스틱). 모델 착용 X(그건 가상피팅).
 //  category 로 의류/굿즈 구분: 의류=고스트 마네킹 실물 옷, 굿즈=실물 제품 진열 컷.
-function buildProductPhotoPrompt(category: string): string {
+const FACE_LABEL: Record<string, string> = {
+  front: 'FRONT', back: 'BACK', left: 'LEFT side', right: 'RIGHT side', neck: 'NECK / collar', wrap: 'WRAP-around',
+};
+// 이미지 순서 ↔ 면(front/back/left/right) 매핑을 프롬프트로 명시 + 면별 패널 분리 지시.
+function facesBlock(faces: string[]): { mapping: string; layout: string } | null {
+  const labeled = faces.map((f) => FACE_LABEL[f] || '').filter(Boolean);
+  if (labeled.length < 2) return null;
+  const mapping = labeled.map((lbl, i) => `image ${i + 1} = the ${lbl}`).join(', ');
+  return {
+    mapping,
+    layout:
+      `Lay the result out as a single clean image split into ${labeled.length} clearly separated panels in this exact left-to-right order: ${labeled.join(' | ')}. ` +
+      'Separate each panel with a clear thin vertical divider line and a small gap, and print its angle name (FRONT / BACK / LEFT / RIGHT) as a small caption under each panel. ' +
+      "Each panel MUST faithfully reproduce ONLY that angle's own artwork at its exact placement — every side's design must be clearly visible in its own panel; never omit, duplicate or swap a side's design between panels.",
+  };
+}
+
+function buildProductPhotoPrompt(category: string, faces: string[] = []): string {
+  const fb = facesBlock(faces);
   if (categoryType(category) === 'goods') {
     return (
       'The attached image(s) are reference views of ONE custom merchandise product (multiple images = front/back/different sides of the SAME product). ' +
+      (fb ? `The images map to faces as follows: ${fb.mapping}. ` : '') +
       'Generate ONE photorealistic e-commerce product photo of that EXACT product as a REAL, manufactured item:\n' +
       '- A clean studio product shot — the real product attractively presented (e.g. standing or propped on a clean surface), as if actually photographed for an online store. Realistic material, texture, lighting and a soft shadow.\n' +
       '- This MUST look like a REAL photographed product, NOT a flat 2D drawing, sketch or technical illustration.\n' +
       '- No human model. The designed side faces the camera, fully visible and undistorted.\n\n' +
+      (fb ? fb.layout + '\n\n' : '') +
       'Background: clean light studio. The product MUST match the references EXACTLY: same colors, logos, lettering, patterns, shape — do not invent or omit any detail.\n' +
       'Output exactly ONE image.'
     );
   }
   // 의류: 고스트(인비저블) 마네킹에 입혀진 실물 옷 — 실제 촬영한 제품컷 느낌.
   return (
-    'The attached image(s) are reference views (front / back / sides) of ONE custom garment design. Treat multiple images as different faces of the SAME garment. ' +
+    'The attached image(s) are reference views of ONE custom garment design. Treat multiple images as different faces of the SAME garment. ' +
+    (fb ? `The images map to faces as follows: ${fb.mapping}. ` : '') +
     'Generate ONE photorealistic e-commerce product photo of that EXACT garment as a REAL, manufactured piece of clothing:\n' +
     '- Show it as a real product shot on an INVISIBLE / GHOST MANNEQUIN — a 3D garment with natural fabric folds, texture, stitching and seams, exactly as if actually photographed for an online clothing store.\n' +
-    '- If front and back views are provided, show the front and back of the SAME garment side-by-side.\n' +
     '- It MUST look like a REAL photographed garment, NOT a flat 2D drawing, sketch or technical illustration.\n' +
     '- No human model, no face, no body. Clean white / light studio background, soft even lighting, gentle shadow.\n\n' +
+    (fb
+      ? fb.layout + '\n\n'
+      : 'If front and back views are provided, show the front and back of the SAME garment side-by-side, separated by a clear divider.\n\n') +
     'The garment MUST match the references EXACTLY: same colors, sleeve/contrast colors, all logos, embroidery, patches, lettering, patterns and their exact placement — do not invent or omit anything.\n' +
     'Crop tight, minimal whitespace. Output exactly ONE image.'
   );
@@ -152,7 +175,7 @@ export class GeminiImageService {
   }
 
   // "AI 실물 보기" — 디자인 적용한 실제 제품(실물) 사진 생성. category 로 의류/굿즈 구분.
-  async generateBlueprint(clothing: ImageInput[], ctx: BilledCallContext, category = 'etc'): Promise<ImageInput> {
+  async generateBlueprint(clothing: ImageInput[], ctx: BilledCallContext, category = 'etc', faces: string[] = []): Promise<ImageInput> {
     if (clothing.length === 0) {
       throw new AppError('MISSING_REQUIRED_FIELD', '실물 생성에 사용할 이미지가 없습니다');
     }
@@ -160,7 +183,7 @@ export class GeminiImageService {
       throw new AppError('MISSING_REQUIRED_FIELD', '실물 생성용 이미지는 최대 5장까지 첨부 가능합니다');
     }
     // 디자인 충실도 우선 — seed 고정 + 낮은 temperature(약간만 올려 자연스러운 질감 허용)
-    return this.callOnce(buildProductPhotoPrompt(category), clothing, ctx, {
+    return this.callOnce(buildProductPhotoPrompt(category, faces), clothing, ctx, {
       seed: parsePositiveInt(process.env.GEMINI_SEED, 12345),
       temperature: 0.35,
     });

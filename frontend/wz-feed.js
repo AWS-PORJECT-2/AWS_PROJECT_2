@@ -22,7 +22,7 @@
   /* % 달성 + 모인 금액 한 줄. */
   function RateLine(p) {
     const line = W.el('p', { class: 'wz-pcard__rate' }, cardRate(p) + '% 달성');
-    line.appendChild(W.el('span', { class: 'wz-pcard__amount' }, W.money(cardAmount(p)) + ' 모음'));
+    line.appendChild(W.el('span', { class: 'wz-pcard__amount' }, W.money(cardAmount(p)) + ' 달성'));
     return line;
   }
 

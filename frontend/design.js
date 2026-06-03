@@ -80,14 +80,7 @@
     fabric: { type: 'goods', items: [
       { name: '담요', img: 'blanket', views: ['front'], print: { front: pr(24, 18, 52, 62) } },
     ] },
-    // 인형·액세서리는 레이어 에디터 대신 "말로 설명 → AI 디자인 뽑기" 모드.
-    doll: { type: 'goods', mode: 'describe', items: [
-      { name: '마스코트 인형', img: 'mascot', views: ['front'], print: { front: pr(36, 40, 28, 24) } },
-    ] },
-    accessory: { type: 'goods', mode: 'describe', items: [
-      { name: '액세서리', img: 'accessory', views: ['front'], print: { front: pr(32, 26, 36, 40) } },
-    ] },
-    // 웹·앱, 기타(type 'none')는 디자인하기 미지원 — PRODUCTS 에서 제외(에디터 안 열림).
+    // 인형·액세서리·웹앱·기타는 디자인하기 미지원 — PRODUCTS 에서 제외(에디터 안 열림, 만들기서 잠금).
   };
   function catDef(slug) { return PRODUCTS[slug] || PRODUCTS.tshirt; }
   function supportsDesign(slug) { return !!PRODUCTS[slug]; }
@@ -1509,7 +1502,7 @@
       root.replaceChildren(el('div', { class: 'dz-wrap' },
         el('div', { class: 'dz-describe', style: 'text-align:center' },
           el('div', { class: 'dz-describe__t' }, '디자인하기 미지원 카테고리'),
-          el('div', { class: 'dz-describe__s' }, '이 카테고리(웹·앱/기타)는 디자인하기를 지원하지 않아요. 다른 카테고리를 선택해 주세요.'),
+          el('div', { class: 'dz-describe__s' }, '이 카테고리(웹·앱/기타/인형/액세서리)는 디자인하기를 지원하지 않아요. 다른 카테고리를 선택해 주세요.'),
           btn('카테고리 선택으로', 'primary', function () { location.href = '/fund-create.html'; }, 'dz-describe__go'))));
       return;
     }

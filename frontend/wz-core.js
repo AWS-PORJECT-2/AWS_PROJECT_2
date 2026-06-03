@@ -212,7 +212,7 @@
     catBtn.addEventListener('click', (e) => { e.stopPropagation(); openCategoryMega(catBtn, hd); });
     nav2inner.appendChild(catBtn);
 
-    [['인기', { sort: 'popular' }], ['신규', { sort: 'latest' }], ['마감임박', { sort: 'ending' }]].forEach(([label, params]) => {
+    [['인기', { sort: 'popular' }], ['신규', { sort: 'latest' }], ['마감임박', { sort: 'ending' }], ['마감', { sort: 'ended' }]].forEach(([label, params]) => {
       const a = el('a', { class: 'wz-hd__nav2link', href: '#' }, label);
       a.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); go(params); });
       nav2inner.appendChild(a);
