@@ -7,6 +7,12 @@ import { uuidParamGuard } from '../middleware/uuid-param.js';
 
 const VALID_CHANNEL_TYPES: PaymentMethod['channelType'][] = ['TOSSPAY', 'KAKAOPAY', 'NAVERPAY', 'CARD_DIRECT'];
 
+// 응답에서 빌링키(암호문)는 제외 — 클라이언트에 불필요하며 노출하지 않는다(결제는 서버가 내부적으로만 사용).
+function publicPm(pm: PaymentMethod) {
+  const { encryptedBillingKey: _omit, ...rest } = pm as PaymentMethod & { encryptedBillingKey?: unknown };
+  return rest;
+}
+
 export function createPaymentMethodsHandlers(service: PaymentMethodService): Router {
   const router = Router();
   router.param('id', uuidParamGuard);  // :id(payment_methods UUID) 비-UUID 입력 → 400(22P02→500 방지)
@@ -37,7 +43,7 @@ export function createPaymentMethodsHandlers(service: PaymentMethodService): Rou
         cardLastFour: (body.cardLastFour as string) ?? undefined,
       });
 
-      res.status(201).json(result);
+      res.status(201).json(publicPm(result));
     } catch (err) {
       next(err);
     }
@@ -50,7 +56,7 @@ export function createPaymentMethodsHandlers(service: PaymentMethodService): Rou
       if (!userId) throw new AppError('NOT_AUTHENTICATED');
 
       const result = await service.list(userId);
-      res.json(result);
+      res.json(result.map(publicPm));
     } catch (err) {
       next(err);
     }
@@ -64,7 +70,7 @@ export function createPaymentMethodsHandlers(service: PaymentMethodService): Rou
 
       const { id } = req.params;
       const result = await service.setDefault(userId, id);
-      res.json(result);
+      res.json(publicPm(result));
     } catch (err) {
       next(err);
     }

@@ -24,6 +24,12 @@ function rowFull(r: Record<string, unknown>) {
 }
 const TITLE_MAX = 120;
 const clampStr = (v: unknown, n: number): string | null => (typeof v === 'string' && v.trim() ? v.trim().slice(0, n) : null);
+// preview/aiImage 는 data:image URL(또는 자체 경로)만 + 길이 상한(~8MB). 형식 안 맞으면 null 저장.
+const IMG_MAX = 8_000_000;
+const imageStr = (v: unknown): string | null => {
+  if (typeof v !== 'string' || !v || v.length > IMG_MAX) return null;
+  return (v.startsWith('data:image/') || v.startsWith('/assets/') || /^https:\/\//.test(v)) ? v : null;
+};
 
 export function createDesignsRouter(pool: pg.Pool, authRequired: RequestHandler, writeRateLimit: RequestHandler): Router {
   const router = Router();
@@ -64,7 +70,7 @@ export function createDesignsRouter(pool: pg.Pool, authRequired: RequestHandler,
         `INSERT INTO user_designs (user_id, category, product, title, design, preview, ai_image)
          VALUES ($1, $2, $3, $4, $5::jsonb, $6, $7) RETURNING *`,
         [req.userId, clampStr(b.category, 40), clampStr(b.product, 80), clampStr(b.title, TITLE_MAX) ?? '내 디자인',
-          JSON.stringify(b.design ?? {}), typeof b.preview === 'string' ? b.preview : null, typeof b.aiImage === 'string' ? b.aiImage : null],
+          JSON.stringify(b.design ?? {}), imageStr(b.preview), imageStr(b.aiImage)],
       );
       res.status(201).json(rowFull(r.rows[0]));
     } catch (e) { fail(res, e, '디자인 저장 실패'); }
@@ -79,8 +85,8 @@ export function createDesignsRouter(pool: pg.Pool, authRequired: RequestHandler,
       if (b.title !== undefined) set('title', clampStr(b.title, TITLE_MAX) ?? '내 디자인');
       if (b.product !== undefined) set('product', clampStr(b.product, 80));
       if (b.design !== undefined) { sets.push(`design = $${i++}::jsonb`); vals.push(JSON.stringify(b.design ?? {})); }
-      if (b.preview !== undefined) set('preview', typeof b.preview === 'string' ? b.preview : null);
-      if (b.aiImage !== undefined) set('ai_image', typeof b.aiImage === 'string' ? b.aiImage : null);
+      if (b.preview !== undefined) set('preview', imageStr(b.preview));
+      if (b.aiImage !== undefined) set('ai_image', imageStr(b.aiImage));
       if (!sets.length) { res.status(400).json(createErrorResponse(new AppError('MISSING_REQUIRED_FIELD', '변경할 내용이 없습니다'))); return; }
       sets.push('updated_at = NOW()');
       vals.push(req.params.id, req.userId);

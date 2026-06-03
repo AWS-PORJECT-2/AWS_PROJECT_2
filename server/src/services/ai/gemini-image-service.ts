@@ -310,10 +310,10 @@ export class GeminiImageService {
     }
     if (!imageOut) {
       // 이미지가 없으면 보통 모델이 텍스트로 거부 사유를 보냄 — 그걸 노출해 디버깅 가능하게.
-      const textPart = parts.map((p) => p.text).filter(Boolean).join(' ').slice(0, 300);
-      const reason = textPart || '응답에 이미지가 없습니다 (안전필터 또는 모델 설정 확인)';
+      // 모델의 원본 텍스트(거부 사유 등)는 로그로만 — 클라이언트엔 일반 메시지.
+      const reason = parts.map((p) => p.text).filter(Boolean).join(' ').slice(0, 300) || '(no text)';
       logger.warn({ route: ctx.route, userId: ctx.userId, reason }, '[GEMINI-NOIMAGE] 이미지 미반환');
-      throw new AppError('AI_UNAVAILABLE', `AI가 이미지를 만들지 못했습니다: ${reason}`);
+      throw new AppError('AI_UNAVAILABLE', 'AI가 이미지를 만들지 못했어요. 잠시 후 다시 시도해 주세요.');
     }
 
     this.dedupCache.set(cacheKey, { ts: now, output: imageOut });

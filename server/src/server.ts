@@ -40,6 +40,11 @@ if (chatRepository) {
   (app as any).io = io;
 }
 
+// Slowloris/느린 요청 방어 — 헤더·바디 수신 시간 상한. (CloudFront 뒤이지만 origin 직접 노출 대비.)
+httpServer.headersTimeout = 20_000;   // 헤더 전체 수신 20s 내
+httpServer.requestTimeout = 60_000;   // 요청(바디 포함) 전체 60s 내 — 대용량 이미지 업로드 여유
+httpServer.keepAliveTimeout = 65_000; // ALB/CloudFront keep-alive 보다 길게(소켓 조기 종료 방지)
+
 httpServer.listen(PORT, () => {
   logger.info({ port: PORT }, `doothing 서버가 http://localhost:${PORT} 에서 실행 중입니다`);
 });

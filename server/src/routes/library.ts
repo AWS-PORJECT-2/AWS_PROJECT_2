@@ -34,8 +34,9 @@ export function createLibraryAddHandler(pool: pg.Pool) {
     const name = typeof b.name === 'string' ? b.name.trim().slice(0, 80) : '';
     const image = typeof b.image === 'string' ? b.image.trim() : '';
     if (!KINDS.has(kind)) { res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', "kind 는 'free' 또는 'patch'"))); return; }
-    const okImage = image.startsWith('data:image/') || /^\/assets\/.+\.(png|jpe?g|webp|svg)$/i.test(image) || /^https?:\/\//i.test(image);
-    if (!okImage) { res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '유효한 이미지(업로드 또는 경로)가 필요합니다'))); return; }
+    // 업로드(data:image) 또는 자체 /assets 경로만 허용. 임의 외부 URL 금지(외부 트래커·캔버스 오염 차단).
+    const okImage = image.startsWith('data:image/') || /^\/assets\/.+\.(png|jpe?g|webp|svg)$/i.test(image);
+    if (!okImage) { res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '유효한 이미지(업로드 또는 /assets 경로)가 필요합니다'))); return; }
     try {
       const sortRow = await pool.query('SELECT COALESCE(MAX(sort), -1) + 1 AS s FROM design_assets WHERE kind = $1', [kind]);
       const sort = (sortRow.rows[0]?.s as number) ?? 0;

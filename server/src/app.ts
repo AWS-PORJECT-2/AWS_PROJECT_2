@@ -250,6 +250,15 @@ export function createApp(
   app.param('id', uuidParamGuard);
   app.param('orderId', uuidParamGuard);
 
+  // 전역 API 바닥 한도(DoS/스크래핑 방어) — 공유 IP/캠퍼스 NAT 고려해 넉넉히. 명백한 남용만 차단.
+  app.use('/api', rateLimit({
+    windowMs: 60 * 1000,
+    max: 1000,
+    message: { error: 'RATE_LIMITED', message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요' },
+    standardHeaders: true,
+    legacyHeaders: false,
+  }));
+
   const emailValidator = new EmailValidatorImpl(allowedDomains);
 
   const oauthClient = USE_MOCK_OAUTH

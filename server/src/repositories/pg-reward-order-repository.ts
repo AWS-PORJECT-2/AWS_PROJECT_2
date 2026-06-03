@@ -89,10 +89,13 @@ export class PgRewardOrderRepository {
       await client.query('BEGIN');
       // 펀드 행 잠금 — reward_tier 별 재고가 groupbuys JSON 컬럼에 있어 펀드 단위 직렬화로 충분.
       // 같은 펀드의 동시 후원이 직렬화되므로, 잠금 이후의 1인1펀딩 재검사도 경합 안전(유니크성 보장).
-      const lock = await client.query(`SELECT status FROM groupbuys WHERE id = $1 FOR UPDATE`, [o.fundId]);
+      const lock = await client.query(`SELECT status, deadline FROM groupbuys WHERE id = $1 FOR UPDATE`, [o.fundId]);
       // 잠금 후 상태 재검증(TOCTOU) — 라우트 사전검사와 INSERT 사이에 스케줄러가 마감(open→executing/failed)
-      //  시키면 마감된 펀드에 고아 pledged 주문이 생긴다. 잠금 상태에서 status='open' 을 재확인해 차단.
-      if (!lock.rows[0] || lock.rows[0].status !== 'open') { await client.query('ROLLBACK'); return { error: 'NOT_OPEN' }; }
+      //  시키면 마감된 펀드에 고아 pledged 주문이 생긴다. 잠금 상태에서 status='open' AND 마감일 미경과를 재확인.
+      //  (스케줄러는 60초 간격이라 status 가 아직 open 이어도 deadline 이 지났을 수 있어 별도 차단.)
+      const lockRow = lock.rows[0] as { status?: string; deadline?: string } | undefined;
+      const expired = !!lockRow?.deadline && new Date(lockRow.deadline).getTime() <= Date.now();
+      if (!lockRow || lockRow.status !== 'open' || expired) { await client.query('ROLLBACK'); return { error: 'NOT_OPEN' }; }
       // 1인 1펀딩 가드(트랜잭션 내 재검사) — 펀드 잠금 후 활성 주문 존재 시 차단.
       const dup = await client.query(
         `SELECT 1 FROM reward_orders
