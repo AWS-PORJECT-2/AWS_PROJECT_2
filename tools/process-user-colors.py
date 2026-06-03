@@ -132,7 +132,7 @@ for item, ovs in target_views.items():
         M = solid_mask(Image.open(f).convert('RGB'))
         from scipy.ndimage import gaussian_filter
         al = np.clip(gaussian_filter(M.astype(float),1.5),0,1)
-        Image.fromarray((al*255).astype('uint8')).save(os.path.join(OUT, f'{item}_{ov}_mask.png'))
+        _a=(al*255).astype('uint8'); _o=np.zeros((_a.shape[0],_a.shape[1],4),np.uint8); _o[...,0:3]=255; _o[...,3]=_a; Image.fromarray(_o,'RGBA').save(os.path.join(OUT, f'{item}_{ov}_mask.png'))
         # 기본 base = 첫 색
         base0 = os.path.join(OUT, f'{item}_{ov}__{palettes[item][0]["slug"]}.jpg')
         if os.path.exists(base0):
