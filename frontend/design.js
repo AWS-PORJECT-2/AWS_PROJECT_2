@@ -4,7 +4,7 @@
  *  - 카테고리·상품별 사진 목업(/assets/mockups/<img>_<view>.png, 1248² 1:1). 없으면 SVG 폴백.
  *  - 카테고리 내 상품 변형(후드↔맨투맨, 텀블러↔머그, 키링 모양 등) + 다면(앞/뒤/좌/우/넥/전개도).
  *  - 레이어: 이미지 업로드 + 텍스트. 캔버스 위에서 드래그/리사이즈/삭제, 레이어 패널로 순서/선택.
- *  - 옵션: 상품 종류 · 색상(주문 메타) · 사이즈 · 수량. 면별 독립 레이어.
+ *  - 옵션: 상품 종류 · 색상(주문 메타). 면별 독립 레이어.
  *  - 저장/불러오기: /api/me/designs (개인 프로필) — 언제든 이어서 편집.
  *  - 다운로드: 목업+레이어 합성 PNG.
  *  - 완성 영역: [완성하기-저장] + [AI 디자인 보기](/ai/blueprint) | [가상피팅 보기](/ai/try-on, AI디자인 전 잠금).
@@ -99,7 +99,6 @@
   function colorable() { return itemColors().length > 0; }
   function defaultColor() { var c = itemColors(); return c.length ? c[0].s : ''; }
   function colorHex() { var c = itemColors(); for (var i = 0; i < c.length; i++) if (c[i].s === S.color) return c[i].h; return c.length ? c[0].h : '#e9e9ee'; }
-  var SIZES = ['S', 'M', 'L', 'XL', '2XL'];
 
   // 텍스트 글꼴(서체) — design.html 에서 구글폰트 로드.
   var FONTS = [
@@ -159,7 +158,7 @@
   // ---- 상태 -------------------------------------------------------------------
   var S = {
     slug: '', catObj: null, itemIdx: 0,
-    product: '', color: '', size: 'M', qty: 1,
+    product: '', color: '', qty: 1,
     view: 'front',
     views: {},          // { front: [layer...], back: [layer...] }
     sel: null,          // 선택된 레이어 id
@@ -607,7 +606,7 @@
     im.src = src;
   }
 
-  // ---- 옵션 카드(상품/색/사이즈/수량) ----------------------------------------
+  // ---- 옵션 카드(상품/색) ----------------------------------------
   function optionsCard() {
     var card = el('div', { class: 'dz-card' });
     card.appendChild(el('div', { class: 'dz-card__t' }, '상품 옵션'));
@@ -640,14 +639,6 @@
         sw.appendChild(d);
       });
       card.appendChild(field('색상', sw));
-    }
-
-    // 사이즈(의류만). 수량은 제거(주문 단계에서 정함).
-    if (isApparel()) {
-      var sizeSel = el('select', { class: 'dz-select' });
-      SIZES.forEach(function (s) { var o = el('option', { value: s }, s); if (s === S.size) o.selected = true; sizeSel.appendChild(o); });
-      sizeSel.addEventListener('change', function () { S.size = sizeSel.value; });
-      card.appendChild(field('사이즈', sizeSel));
     }
 
     return card;
@@ -1178,7 +1169,7 @@
 
   // ---- 저장 / 불러오기 --------------------------------------------------------
   function serialize() {
-    return { product: S.product, itemIdx: S.itemIdx, color: S.color, size: S.size, qty: S.qty, views: S.views, version: 2 };
+    return { product: S.product, itemIdx: S.itemIdx, color: S.color, qty: S.qty, views: S.views, version: 2 };
   }
   function saveDesign() {
     var btnEl = document.querySelector('.dz-top .wz-btn--primary');
@@ -1259,7 +1250,7 @@
       S.product = curItem().name;
       // 저장된 색 slug 이 현재 팔레트에 있으면 복원, 아니면(구버전 hex 등) 기본색.
       S.color = (function () { var cs = itemColors(); for (var i = 0; i < cs.length; i++) if (cs[i].s === dz.color) return dz.color; return defaultColor(); })();
-      S.size = dz.size || 'M'; S.qty = dz.qty || 1;
+      S.qty = dz.qty || 1;
       S.views = dz.views || {};
       S.view = views()[0];
       S.sel = null;
