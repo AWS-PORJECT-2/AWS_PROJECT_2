@@ -98,14 +98,6 @@
 .bd-modal__x { border: 0; background: none; font-size: 26px; line-height: 1; cursor: pointer; color: var(--c-text-muted, #6B7280); }
 .bd-flabel { display: block; font-size: 13px; font-weight: 700; color: var(--c-text-sub, #4B5563); margin: 12px 0 6px; }
 .bd-input { width: 100%; border: 1px solid var(--c-border, #E5E7EB); border-radius: 10px; padding: 11px 13px; font-family: inherit; font-size: 15px; box-sizing: border-box; }
-.bd-input--body { resize: vertical; line-height: 1.6; }
-.bd-mediabar { display: flex; gap: 8px; flex-wrap: wrap; margin: 14px 0 10px; }
-.bd-mbtn { padding: 8px 14px; font-size: 13px; }
-.bd-mediaprev { display: flex; flex-direction: column; gap: 6px; }
-.bd-mchip { display: flex; align-items: center; gap: 8px; background: var(--c-bg, #FAFAFB); border: 1px solid var(--c-border, #E5E7EB); border-radius: 8px; padding: 6px 10px; font-size: 13px; }
-.bd-mchip__t { font-weight: 800; color: var(--c-primary-700, #6D28D9); flex-shrink: 0; }
-.bd-mchip__v { color: var(--c-text-muted, #6B7280); flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.bd-mchip__x { border: 0; background: none; cursor: pointer; font-size: 18px; color: var(--c-text-faint, #9CA3AF); }
 .bd-modal__msg { color: var(--c-danger, #DC2626); font-size: 13px; min-height: 18px; margin: 12px 0 0; }
 .bd-modal__submit { width: 100%; margin-top: 8px; }
 .bd-modal__panel--lg { max-width: 760px; }
