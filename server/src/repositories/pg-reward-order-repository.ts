@@ -369,8 +369,10 @@ export class PgRewardOrderRepository {
       if (sel.rows.length === 0) { await client.query('ROLLBACK'); return null; }
       const order = mapRow(sel.rows[0]);
       // 펀드 행 잠금 + 상태 확인 — 마감(성공/실패)으로 더이상 'open' 이 아니면 자유취소 불가(성공 확정 후 결제 회피·달성금액 사후감소 방지). null → 409.
-      const gb = await client.query(`SELECT status FROM groupbuys WHERE id = $1 FOR UPDATE`, [order.fundId]);
-      if (gb.rows[0]?.status !== 'open') { await client.query('ROLLBACK'); return null; }
+      const gb = await client.query(`SELECT status, deadline FROM groupbuys WHERE id = $1 FOR UPDATE`, [order.fundId]);
+      // status='open' AND 마감 전만(스케줄러 60s 갭 동안 마감펀드 사후 변경 차단 — createWithStockGuard 와 대칭).
+      const gbExpired = !!gb.rows[0]?.deadline && new Date(gb.rows[0].deadline as string).getTime() <= Date.now();
+      if (gb.rows[0]?.status !== 'open' || gbExpired) { await client.query('ROLLBACK'); return null; }
       // 사용자 자기취소(pledged): 수량 -1 + 달성 금액 캐시 -= amount(031).
       await client.query(
         `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
@@ -424,9 +426,10 @@ export class PgRewardOrderRepository {
       // 예약(pledged) 상태에서만 변경 가능 — 결제완료 후엔 취소 후 재참여로 안내.
       if (order.status !== 'pledged') { await client.query('ROLLBACK'); return { ok: false, code: 'INVALID_STATE' }; }
 
-      // 펀드 행 잠금 + 상태 확인(soldCount JSON 갱신·재고 검사 직렬화) — 마감 후('open' 아님)엔 변경 불가(성공 확정 후 하향 회피 방지).
-      const gb = await client.query('SELECT status FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
-      if (gb.rows[0]?.status !== 'open') { await client.query('ROLLBACK'); return { ok: false, code: 'INVALID_STATE' }; }
+      // 펀드 행 잠금 + 상태/마감 확인 — 마감 후('open' 아님 OR 마감일 경과)엔 변경 불가(성공 확정 후 하향 회피 방지, 스케줄러 60s 갭 포함).
+      const gb = await client.query('SELECT status, deadline FROM groupbuys WHERE id = $1 FOR UPDATE', [order.fundId]);
+      const chExpired = !!gb.rows[0]?.deadline && new Date(gb.rows[0].deadline as string).getTime() <= Date.now();
+      if (gb.rows[0]?.status !== 'open' || chExpired) { await client.query('ROLLBACK'); return { ok: false, code: 'INVALID_STATE' }; }
 
       const sameTier = oldTierId === newTierId;
       if (!sameTier && newStockLimit != null) {

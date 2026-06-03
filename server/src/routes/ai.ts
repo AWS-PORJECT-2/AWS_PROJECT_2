@@ -3,14 +3,12 @@ import rateLimit from 'express-rate-limit';
 import type { GeminiImageService } from '../services/ai/gemini-image-service.js';
 import { createAiBlueprintHandler } from './ai-blueprint.js';
 import { createAiTryOnHandler } from './ai-try-on.js';
-import { createAiGarmentsExtractHandler } from './ai-garments-extract.js';
 
 /**
  * AI 라우터 — POST /api/ai/* 의 합본 (Gemini nano-banana 기반).
  *
  * - /blueprint: 옷 사진 → 앞·뒤·옆 3-view 도면 (Gemini 1콜 ≈ $0.04)
  * - /try-on:   도면 → 모델 착용 사진 (Gemini 1콜 ≈ $0.04)
- * - /garments/extract: 옷 판매 사이트 URL 추출 (Gemini 비호출, 추후 구현)
  *
  * 비용 통제:
  *  - 모든 호출은 인증 필수
@@ -42,6 +40,5 @@ export function createAiRouter(gemini: GeminiImageService, timeoutMs: number): R
   const aiRateLimit = buildAiRateLimit();
   router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs));
   router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs));
-  router.post('/garments/extract', createAiGarmentsExtractHandler());
   return router;
 }

@@ -160,8 +160,6 @@
     seq: 0,
     aiDesign: null,     // AI 디자인 보기 결과(blueprintDataUrl) — 가상피팅 잠금 해제 키
     aiFitting: null,    // 가상피팅/전시 결과(tryOnDataUrl)
-    description: '',    // 설명 모드(인형·액세서리) 텍스트
-    descPhotos: [],     // 설명 모드 참고 사진(최대 5장, data URL)
   };
   function cvLayers() { return S.views[S.view] || (S.views[S.view] = []); }
   function selLayer() { var ls = cvLayers(); for (var i = 0; i < ls.length; i++) if (ls[i].id === S.sel) return ls[i]; return null; }
@@ -296,7 +294,6 @@
   // ---- 렌더: 전체 ------------------------------------------------------------
   function render() {
     root.replaceChildren();
-    if (catDef(S.slug).mode === 'describe') { renderDescribe(); return; } // 인형·액세서리: 설명 모드
     var wrap = el('div', { class: 'dz-wrap' });
 
     // 상단 바
@@ -367,102 +364,6 @@
 
     renderLayers(); renderProps(); renderLayerList();
     if (window.WZI18N && window.WZI18N.apply) try { window.WZI18N.apply(root); } catch (_) {}
-  }
-
-  // 설명 모드(인형·액세서리) — 레이어 에디터 대신 설명칸 + 디자인 뽑기.
-  function renderDescribe() {
-    var wrap = el('div', { class: 'dz-wrap' });
-    titleInput = el('input', { class: 'dz-titlein', type: 'text', maxlength: '40', value: S.title, 'aria-label': '디자인 이름' });
-    titleInput.addEventListener('change', function () { S.title = titleInput.value.trim() || '내 디자인'; });
-    wrap.appendChild(el('div', { class: 'dz-top' },
-      el('div', { class: 'dz-top__l' }, el('div', { class: 'dz-title' }, '디자인하기'), titleInput),
-      el('div', { class: 'dz-top__r' }, btn('불러오기', 'outline', openLoadModal), btn('저장', 'primary', saveDescribe)),
-    ));
-    var card = el('div', { class: 'dz-describe' });
-    card.appendChild(el('div', { class: 'dz-describe__t' }, (curItem().name || '굿즈') + ' 디자인 설명'));
-    card.appendChild(el('div', { class: 'dz-describe__s' }, '원하는 디자인을 말로 자세히 적어주세요. AI가 설명을 보고 디자인을 만들어 드립니다.'));
-    var ta = el('textarea', { class: 'dz-describe__ta', rows: '7',
-      placeholder: '예) 국민대 호랑이 마스코트 인형 — 파란 유니폼에 등번호 23, 둥글둥글 귀여운 느낌, 손에 작은 깃발' });
-    ta.value = S.description || '';
-    ta.addEventListener('input', function () { S.description = ta.value; });
-    card.appendChild(ta);
-
-    // 참고 사진 첨부(최대 5장)
-    card.appendChild(el('div', { class: 'dz-describe__lbl' }, '참고 사진 (최대 5장, 선택)'));
-    var photosWrap = el('div', { class: 'dz-desc-photos' });
-    function renderPhotos() {
-      photosWrap.replaceChildren();
-      S.descPhotos.forEach(function (src, idx) {
-        var cell = el('div', { class: 'dz-desc-photo' }, el('img', { src: src, alt: '' }));
-        var rm = el('button', { class: 'dz-desc-photo__rm', type: 'button', title: '삭제' }, '×');
-        rm.addEventListener('click', function () { S.descPhotos.splice(idx, 1); renderPhotos(); });
-        cell.appendChild(rm);
-        photosWrap.appendChild(cell);
-      });
-      if (S.descPhotos.length < 5) {
-        var add = el('button', { class: 'dz-desc-photo dz-desc-photo--add', type: 'button' },
-          el('span', { class: 'dz-desc-photo__plus' }, '+'), el('span', {}, '사진'));
-        add.addEventListener('click', pickDescPhoto);
-        photosWrap.appendChild(add);
-      }
-    }
-    function pickDescPhoto() {
-      var input = el('input', { type: 'file', accept: 'image/*', multiple: '', style: 'display:none' });
-      input.addEventListener('change', function () {
-        var files = Array.prototype.slice.call(input.files || []);
-        var room = 5 - S.descPhotos.length;
-        if (files.length > room) toast('사진은 최대 5장까지예요');
-        files.slice(0, room).forEach(function (f) {
-          var uerr = validateUpload(f); if (uerr) { toast(uerr); return; }
-          readImageFile(f).then(function (res) { if (S.descPhotos.length < 5) { S.descPhotos.push(res.url); renderPhotos(); } })
-            .catch(function () { toast('이미지를 읽지 못했습니다'); });
-        });
-      });
-      document.body.appendChild(input); input.click(); setTimeout(function () { input.remove(); }, 1000);
-    }
-    renderPhotos();
-    card.appendChild(photosWrap);
-
-    card.appendChild(btn('디자인 뽑기', 'primary', runDescribeAi, 'dz-describe__go'));
-    wrap.appendChild(card);
-    root.appendChild(wrap);
-    if (window.WZI18N && window.WZI18N.apply) try { window.WZI18N.apply(root); } catch (_) {}
-  }
-  function describeBody(preview) {
-    return { category: S.slug, product: S.product, title: S.title,
-      design: { describe: true, description: S.description, photos: S.descPhotos, product: S.product, version: 2 },
-      preview: preview || S.descPhotos[0] || null };
-  }
-  function saveDescribe() {
-    if (!S.description.trim() && !S.descPhotos.length) { toast('설명을 입력하거나 사진을 추가해 주세요'); return; }
-    var b = document.querySelector('.dz-top .wz-btn--primary'); if (b) b.disabled = true;
-    var p = S.designId ? window.api.patch('/me/designs/' + S.designId, describeBody()) : window.api.post('/me/designs', describeBody());
-    p.then(function (r) { if (r && r.id) S.designId = r.id; toast('저장했어요. 마이페이지 > 내 디자인에서 이어서 편집할 수 있어요.'); })
-      .catch(function (err) { if (err && err.status === 401) { location.href = '/login.html'; return; } toast('저장 실패: ' + ((err && err.message) || '오류')); })
-      .finally(function () { if (b) b.disabled = false; });
-  }
-  // 디자인 뽑기 — 설명 + 참고사진(최대 5장)을 AI 에 보내 디자인 생성(prod GEMINI 미연결 시 안내). 함께 저장.
-  function runDescribeAi() {
-    if (!S.description.trim() && !S.descPhotos.length) { toast('설명을 입력하거나 사진을 추가해 주세요'); return; }
-    var m = aiModal('AI 디자인 생성', '설명' + (S.descPhotos.length ? '과 참고 사진' : '') + '을 바탕으로 ' + (curItem().name || '굿즈') + ' 디자인을 만들어요.');
-    // 설명·사진 저장(완성본 보존)
-    (S.designId ? window.api.patch('/me/designs/' + S.designId, describeBody()) : window.api.post('/me/designs', describeBody()))
-      .then(function (r) { if (r && r.id) S.designId = r.id; }).catch(function () {});
-    window.api.post('/ai/blueprint', { imageDataUrls: S.descPhotos, prompt: S.description, description: S.description, category: S.slug })
-      .then(function (res) {
-        var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
-        if (!url) throw new Error('NO_RESULT');
-        if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
-        showResult(m.box, m.overlay, url, 'AI 디자인');
-      })
-      .catch(function (err) {
-        if (err && err.status === 401) { location.href = '/login.html'; return; }
-        m.box.replaceChildren(
-          el('div', { class: 'dz-modal__t' }, '안내'),
-          el('div', { class: 'dz-status' }, 'AI 디자인 생성이 아직 연결되지 않았어요. 설명은 저장됐어요. (관리자가 AI를 켜면 바로 생성됩니다.)'),
-          el('div', { class: 'dz-modal__foot' }, btn('닫기', 'primary', function () { m.overlay.remove(); })),
-        );
-      });
   }
 
   function btn(label, kind, on, cls) {
@@ -1249,8 +1150,6 @@
       S.sel = null;
       S.aiDesign = d.aiImage || null; // 이전에 AI 디자인을 만들었으면 가상피팅 잠금 해제 상태로 복원
       S.aiFitting = null;
-      S.description = dz.description || ''; // 설명 모드 복원
-      S.descPhotos = Array.isArray(dz.photos) ? dz.photos.slice(0, 5) : [];
       // 이미지 캐시 재생성 + seq 보정
       imgCache = {}; var maxSeq = 0;
       Object.keys(S.views).forEach(function (v) {
@@ -1381,33 +1280,6 @@
     }).finally(function () { var b2 = document.querySelector('.dz-complete'); if (b2) b2.disabled = false; });
   }
 
-  // 공통 AI 진행 모달.
-  function aiModal(title, sub) {
-    var overlay = el('div', { class: 'dz-modal' });
-    var box = el('div', { class: 'dz-modal__box' });
-    box.appendChild(el('div', { class: 'dz-modal__t' }, title));
-    if (sub) box.appendChild(el('div', { class: 'dz-modal__s' }, sub));
-    box.appendChild(el('div', { class: 'dz-status' }, el('span', { class: 'dz-spin' }), 'AI가 이미지를 생성하고 있어요. 잠시만 기다려 주세요…'));
-    overlay.appendChild(box);
-    overlay.addEventListener('pointerdown', function (e) { if (e.target === overlay) overlay.remove(); });
-    document.body.appendChild(overlay);
-    return { overlay: overlay, box: box };
-  }
-  function aiError(box, overlay, err) {
-    if (err && err.status === 401) { location.href = '/login.html'; return; }
-    var msg = (err && (err.status === 404 || err.status === 503))
-      ? 'AI 이미지 생성이 아직 연결되지 않았어요. 디자인은 저장/다운로드할 수 있어요.'
-      : 'AI 생성에 실패했어요: ' + ((err && err.message) || '오류');
-    box.replaceChildren(
-      el('div', { class: 'dz-modal__t' }, '안내'),
-      el('div', { class: 'dz-status' }, msg),
-      el('div', { class: 'dz-modal__foot' },
-        btn('디자인 다운로드', 'outline', function () { downloadDesign(); }),
-        btn('닫기', 'primary', function () { overlay.remove(); }),
-      ),
-    );
-  }
-
   // 왼쪽: AI 디자인 보기 — 합성 디자인 → /ai/blueprint(AI 의상/제품 이미지). 성공 시 가상피팅 잠금 해제.
   // 디자인 있는 모든 면(앞/뒤/좌/우/넥)을 합성해 배열로 반환 — AI 에 전부 전달(blueprint 최대 5장).
   function compositeArtViews(pxW) {
@@ -1462,25 +1334,6 @@
       aiOutResult(dzFitOut, url, apparel ? '가상피팅' : '전시');
     }).catch(function (err) { aiOutError(dzFitOut, err); })
       .finally(function () { if (dzFitBtn) dzFitBtn.disabled = !S.aiDesign; });
-  }
-
-  function showResult(box, overlay, url, label) {
-    var foot = el('div', { class: 'dz-modal__foot' },
-      btn('이미지 다운로드', 'outline', function () {
-        var a = el('a', { href: url, download: '두띵-' + safeName(S.title) + '-' + safeName(label || 'AI') + '.png' });
-        document.body.appendChild(a); a.click(); a.remove();
-      }),
-      btn('이 디자인으로 펀딩 만들기', 'primary', function () {
-        try { sessionStorage.setItem('dt_design_handoff', JSON.stringify({ image: url, category: S.slug, product: S.product, title: S.title })); } catch (_) {}
-        location.href = '/fund-create.html?category=' + encodeURIComponent(S.slug);
-      }),
-    );
-    box.replaceChildren(
-      el('div', { class: 'dz-modal__t' }, (label || 'AI') + ' 완성'),
-      el('div', { class: 'dz-modal__s' }, 'AI가 생성한 결과예요. 다운로드하거나 펀딩 대표 이미지로 사용할 수 있어요.'),
-      el('img', { class: 'dz-result__img', src: url, alt: label || 'AI 결과' }),
-      foot,
-    );
   }
 
   // ---- 초기화 -----------------------------------------------------------------
