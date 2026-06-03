@@ -1411,8 +1411,16 @@
   // 왼쪽: AI 디자인 보기 — 합성 디자인 → /ai/blueprint(AI 의상/제품 이미지). 성공 시 가상피팅 잠금 해제.
   // 디자인 있는 모든 면(앞/뒤/좌/우/넥)을 합성해 배열로 반환 — AI 에 전부 전달(blueprint 최대 5장).
   function compositeArtViews(pxW) {
-    var withArt = views().filter(function (v) { return (S.views[v] || []).length > 0; });
-    var list = (withArt.length ? withArt : [primaryView()]).slice(0, 5);
+    var all = views();
+    var list;
+    if (isApparel()) {
+      // 의류: 앞·뒤는 항상 포함(결과를 무조건 앞/뒤 2패널로). 옆면·넥은 디자인 있을 때만 추가(소매 반영용).
+      list = all.filter(function (v) { return v === 'front' || v === 'back' || (S.views[v] || []).length > 0; });
+    } else {
+      var withArt = all.filter(function (v) { return (S.views[v] || []).length > 0; });
+      list = withArt.length ? withArt : [primaryView()];
+    }
+    list = list.slice(0, 5);
     return Promise.all(list.map(function (v) { return composite(v, pxW); })).then(function (urls) {
       return { urls: urls, faces: list };
     });

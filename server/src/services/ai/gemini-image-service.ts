@@ -138,19 +138,20 @@ function buildProductPhotoPrompt(category: string, faces: string[] = []): string
       'Output exactly ONE image.'
     );
   }
-  // 의류: 고스트(인비저블) 마네킹에 입혀진 실물 옷 — 실제 촬영한 제품컷 느낌.
+  // 의류: 고스트 마네킹 — 결과는 무조건 앞|뒤 2패널. 옆면(소매) 디자인은 양쪽 패널의 소매에 반영.
+  const labeled = faces.map((f) => FACE_LABEL[f] || '').filter(Boolean);
+  const mapping = labeled.length
+    ? `The attached images map to garment faces as follows: ${labeled.map((l, i) => `image ${i + 1} = the ${l}`).join(', ')}. `
+    : '';
   return (
-    'The attached image(s) are reference views of ONE custom garment design. Treat multiple images as different faces of the SAME garment. ' +
-    (fb ? `The images map to faces as follows: ${fb.mapping}. ` : '') +
-    'Generate ONE photorealistic e-commerce product photo of that EXACT garment as a REAL, manufactured piece of clothing:\n' +
-    '- Show it as a real product shot on an INVISIBLE / GHOST MANNEQUIN — a 3D garment with natural fabric folds, texture, stitching and seams, exactly as if actually photographed for an online clothing store.\n' +
-    '- It MUST look like a REAL photographed garment, NOT a flat 2D drawing, sketch or technical illustration.\n' +
-    '- No human model, no face, no body. Clean white / light studio background, soft even lighting, gentle shadow.\n\n' +
-    (fb
-      ? fb.layout + '\n\n'
-      : 'If front and back views are provided, show the front and back of the SAME garment side-by-side, separated by a clear divider.\n\n') +
-    'The garment MUST match the references EXACTLY: same colors, sleeve/contrast colors, all logos, embroidery, patches, lettering, patterns and their exact placement — do not invent or omit anything.\n' +
-    'Crop tight, minimal whitespace. Output exactly ONE image.'
+    'The attached images are different faces of ONE custom garment. ' + mapping +
+    'Generate ONE photorealistic GHOST / INVISIBLE-MANNEQUIN product photo of that EXACT garment, laid out as EXACTLY TWO panels of the SAME garment side by side, separated by ONE clear thin vertical divider, each with a small caption beneath — "FRONT" on the left and "BACK" on the right:\n' +
+    '- LEFT panel = the FRONT of the garment (print the FRONT-face design on the chest).\n' +
+    '- RIGHT panel = the BACK of the garment (print the BACK-face design).\n' +
+    '- A LEFT-side or RIGHT-side reference image is a SLEEVE design: print it on the matching sleeve, and it MUST be clearly visible on that sleeve in BOTH the front and the back panel (a sleeve shows from both front and back).\n' +
+    '- ALWAYS output exactly these two panels — the FRONT and the BACK of this one garment. NEVER output a side/profile-only view, never a single panel, never omit the FRONT, never relabel the back as a side.\n' +
+    '- A REAL photographed garment with natural fabric folds, texture, stitching and seams — NOT a flat 2D drawing or sketch. No human, no face, no body.\n\n' +
+    'Clean white / light studio background, soft even lighting, gentle shadow. Match the references EXACTLY: garment colors, sleeve/contrast colors, every logo, embroidery, patch, lettering and pattern at its exact placement — do not invent or omit anything. Output exactly ONE image containing the two panels.'
   );
 }
 
