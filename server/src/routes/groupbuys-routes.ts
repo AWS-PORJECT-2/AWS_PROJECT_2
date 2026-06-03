@@ -9,14 +9,16 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 
 /**
  * GET /api/groupbuys — 공개 목록.
- * query: sort=popular|latest|ending, category, creatorId, limit, offset
+ * query: sort=popular|latest|ending|ended, category, creatorId, limit, offset
+ *   ended = 마감(마감일 지남/종료 상태) 프로젝트만
  * → { total, items:[<card>] }
  */
 export function createGroupBuysListHandler(repo: GroupBuyRepository) {
   return async (req: Request, res: Response): Promise<void> => {
     const sortRaw = String(req.query.sort ?? 'popular');
     const sort: GroupBuyFindManyOptions['sort'] =
-      sortRaw === 'latest' ? 'latest' : sortRaw === 'ending' ? 'ending' : 'popular';
+      sortRaw === 'latest' ? 'latest' : sortRaw === 'ending' ? 'ending'
+      : sortRaw === 'ended' ? 'ended' : 'popular';
     const category = (req.query.category as string | undefined)?.trim() || undefined;
     const creatorId = (req.query.creatorId as string | undefined)?.trim() || undefined;
     const limit = Number(req.query.limit) || undefined;

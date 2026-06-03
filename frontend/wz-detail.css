@@ -243,6 +243,9 @@ a.wz-d-makerlink:hover .wz-d-makerlink__ic { color: var(--c-primary-600); }
 @keyframes wz-d-heartpop { 0% { transform: scale(1); } 30% { transform: scale(.78); } 60% { transform: scale(1.28); } 100% { transform: scale(1); } }
 
 .wz-d-cta { margin-bottom: 14px; }
+/* 마감된 프로젝트의 펀딩 버튼 — 회색 비활성 */
+.wz-d-cta--ended { background: #e7e7ec; color: #9a9aa3; border-color: #e7e7ec; cursor: not-allowed; }
+.wz-d-cta--ended:hover { background: #e7e7ec; color: #9a9aa3; }
 
 /* 조회수(소유자/관리자 전용, 작게) */
 .wz-d-viewcount { font-size: 12px; color: var(--c-text-muted); margin: -2px 0 12px; }

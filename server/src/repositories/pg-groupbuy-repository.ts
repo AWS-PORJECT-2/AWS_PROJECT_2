@@ -429,6 +429,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       where.push(`g.creator_id = $${params.length}`);
       if (options.publicOnly) where.push(`g.status NOT IN ('pending','pending_review','rejected')`);
       else where.push(`g.status <> 'rejected'`);
+    } else if (options.sort === 'ended') {
+      // 마감 탭 — 마감일이 지난(또는 종료 상태) 공개 프로젝트. 비공개/예정 상태는 제외.
+      where.push(`g.status NOT IN ('pending','pending_review','rejected','scheduled')`);
+      where.push(`(g.deadline < NOW() OR g.status IN ('achieved','failed','executing','completed','cancelled'))`);
     } else {
       where.push(`g.status = 'open'`);
     }
@@ -441,6 +445,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     let orderSql: string;
     if (options.sort === 'latest') orderSql = 'ORDER BY g.created_at DESC';
     else if (options.sort === 'ending') orderSql = 'ORDER BY g.deadline ASC';
+    else if (options.sort === 'ended') orderSql = 'ORDER BY g.deadline DESC'; // 최근 마감 먼저
     else orderSql = 'ORDER BY g.current_quantity DESC, g.created_at DESC'; // popular
 
     // viewer 의 isLiked — 로그인 시 LEFT JOIN 한 번으로 채움(목록 N+1 방지). 비로그인이면 NULL → false.

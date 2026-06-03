@@ -8,7 +8,7 @@
  * ===================================================================== */
 (function () {
   const W = window.WZ;
-  const SORTS = [['popular', '인기순'], ['latest', '신규순'], ['ending', '마감임박순']];
+  const SORTS = [['popular', '인기순'], ['latest', '신규순'], ['ending', '마감임박순'], ['ended', '마감']];
   const state = { feed: '', sort: 'popular', category: 'all', q: '', lastItems: [] };
 
   /* 카드 달성률 — 서버 계약의 금액 기준 achievementRate 우선, 없으면 공용 W.rate(수량 기준) 폴백.

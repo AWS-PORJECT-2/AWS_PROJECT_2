@@ -102,7 +102,7 @@ export interface GroupBuyDetail extends GroupBuyCardItem {
 }
 
 export interface GroupBuyFindManyOptions {
-  sort?: 'popular' | 'latest' | 'ending';
+  sort?: 'popular' | 'latest' | 'ending' | 'ended';
   category?: string;
   creatorId?: string;
   limit?: number;

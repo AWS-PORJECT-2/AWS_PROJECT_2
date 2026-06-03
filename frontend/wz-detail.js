@@ -117,6 +117,13 @@
     return W.el('span', { class: 'wz-d-dday is-' + info.state }, info.label);
   }
 
+  /* 마감 여부 — 종료 상태이거나 마감일이 지났으면 펀딩 불가. */
+  function isEnded(f) {
+    if (['achieved', 'failed', 'executing', 'completed', 'cancelled'].indexOf(f.status) !== -1) return true;
+    const n = daysLeft(f.deadline);
+    return n != null && n < 0;
+  }
+
   /* ---------- 공개예정(scheduled) 판정 ----------
    * 백엔드 계약: detail.status='scheduled' 또는 openAt(ISO)이 미래면 공개예정.
    * (서버는 open_at 이 지난 scheduled 의 status 를 'open' 으로 노출하므로 둘 다 본다.) */
@@ -907,6 +914,10 @@
     } else if (_myActiveOrder) {
       /* 이미 참여 중(1인 1펀딩): 펀딩하기 대신 참여중 안내 + 변경(예약 상태만)·취소(마이페이지). */
       sideCol.appendChild(AlreadyBacked(f, _myActiveOrder));
+    } else if (isEnded(f)) {
+      /* 마감된 프로젝트: 펀딩 불가 — 비활성 '펀딩 마감' 버튼. */
+      const endedBtn = W.el('button', { class: 'wz-btn wz-btn--lg wz-btn--block wz-d-cta wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '펀딩 마감');
+      sideCol.appendChild(endedBtn);
     } else {
       /* 펀딩하기 큰 버튼 */
       const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
@@ -1549,6 +1560,10 @@
         else location.href = '/profile.html';
       });
       bar.append(like, go);
+    } else if (isEnded(f)) {
+      /* 마감: 펀딩 불가 — 비활성 '펀딩 마감'. */
+      const ended = W.el('button', { class: 'wz-btn wz-btn--lg wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '펀딩 마감');
+      bar.append(like, ended);
     } else {
       const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
       fund.addEventListener('click', () => backFlow(f));
