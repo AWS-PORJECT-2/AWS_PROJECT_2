@@ -109,6 +109,10 @@
     return W.el('span', { class: 'wz-d-dday is-' + info.state }, info.label);
   }
 
+  /* 관리자 승인 전(심사중/반려) — 펀딩 불가(펀딩하기 잠금). */
+  function isPendingApproval(f) {
+    return f && ['pending', 'pending_review', 'rejected'].indexOf(f.status) !== -1;
+  }
   /* 마감 여부 — 종료 상태이거나 마감일이 지났으면 펀딩 불가. */
   function isEnded(f) {
     if (['achieved', 'failed', 'executing', 'completed', 'cancelled'].indexOf(f.status) !== -1) return true;
@@ -910,6 +914,9 @@
       /* 마감된 프로젝트: 펀딩 불가 — 비활성 '펀딩 마감' 버튼. */
       const endedBtn = W.el('button', { class: 'wz-btn wz-btn--lg wz-btn--block wz-d-cta wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '펀딩 마감');
       sideCol.appendChild(endedBtn);
+    } else if (isPendingApproval(f)) {
+      /* 관리자 승인 전(심사 중/반려): 펀딩 불가 — 잠금 버튼. */
+      sideCol.appendChild(W.el('button', { class: 'wz-btn wz-btn--lg wz-btn--block wz-d-cta wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '심사 중 — 승인 후 펀딩 가능'));
     } else {
       /* 펀딩하기 큰 버튼 */
       const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
@@ -1556,6 +1563,9 @@
       /* 마감: 펀딩 불가 — 비활성 '펀딩 마감'. */
       const ended = W.el('button', { class: 'wz-btn wz-btn--lg wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '펀딩 마감');
       bar.append(like, ended);
+    } else if (isPendingApproval(f)) {
+      /* 관리자 승인 전: 펀딩 불가 — 잠금. */
+      bar.append(like, W.el('button', { class: 'wz-btn wz-btn--lg wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '심사 중'));
     } else {
       const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
       fund.addEventListener('click', () => backFlow(f));
