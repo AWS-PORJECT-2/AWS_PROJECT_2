@@ -66,6 +66,43 @@ export class PgFollowRepository implements FollowRepository {
     );
     return r.rows.map(mapFollowUser);
   }
+
+  /** blockerId 가 blockedId 를 차단 — 기존 양방향 팔로우도 함께 해제. */
+  async block(blockerId: string, blockedId: string): Promise<void> {
+    if (blockerId === blockedId) return;
+    await this.pool.query(
+      `INSERT INTO follow_blocks (blocker_id, blocked_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [blockerId, blockedId],
+    );
+    await this.pool.query(
+      `DELETE FROM follows WHERE (follower_id = $2 AND creator_id = $1) OR (follower_id = $1 AND creator_id = $2)`,
+      [blockerId, blockedId],
+    );
+  }
+
+  async unblock(blockerId: string, blockedId: string): Promise<void> {
+    await this.pool.query('DELETE FROM follow_blocks WHERE blocker_id = $1 AND blocked_id = $2', [blockerId, blockedId]);
+  }
+
+  async isBlocked(blockerId: string, blockedId: string): Promise<boolean> {
+    const r = await this.pool.query('SELECT 1 FROM follow_blocks WHERE blocker_id = $1 AND blocked_id = $2 LIMIT 1', [blockerId, blockedId]);
+    return r.rows.length > 0;
+  }
+
+  /** blockerId 가 차단한 유저 목록. listFollowers 와 동일한 FollowUser 형태(isFollowing=false). */
+  async listBlocked(blockerId: string): Promise<FollowUser[]> {
+    const r = await this.pool.query(
+      `SELECT u.id, u.name, u.nickname, u.slug, u.picture,
+              FALSE AS is_following
+         FROM follow_blocks fb
+         JOIN "user" u ON u.id = fb.blocked_id
+        WHERE fb.blocker_id = $1
+        ORDER BY fb.created_at DESC
+        LIMIT 1000`,
+      [blockerId],
+    );
+    return r.rows.map(mapFollowUser);
+  }
 }
 
 function mapFollowUser(row: Record<string, unknown>): FollowUser {

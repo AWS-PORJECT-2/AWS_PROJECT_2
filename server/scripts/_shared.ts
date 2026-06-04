@@ -10,8 +10,11 @@ import pg from 'pg';
 function buildSslConfig(): pg.PoolConfig['ssl'] {
   const mode = process.env.DATABASE_SSL;
   if (mode === 'disabled') {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('프로덕션에서는 DATABASE_SSL=disabled를 사용할 수 없습니다.');
+    // 로컬(loopback) DB 는 SSL 불필요 → 운영에서도 localhost 한정 허용(db.ts 와 동일 정책).
+    const url = process.env.DATABASE_URL || '';
+    const isLoopback = url.includes('@localhost') || url.includes('@127.0.0.1') || url.includes('@[::1]');
+    if (process.env.NODE_ENV === 'production' && !isLoopback) {
+      throw new Error('프로덕션에서는 원격 DB 에 DATABASE_SSL=disabled 를 사용할 수 없습니다.');
     }
     return undefined;
   }

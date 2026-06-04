@@ -2,6 +2,8 @@ import type { Request, Response } from 'express';
 import type { UserRepository } from '../repositories/user-repository.js';
 import type { FollowRepository } from '../repositories/follow-repository.js';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
+import { notify } from '../services/notify.js';
+import type { NotificationRepository } from '../repositories/notification-repository.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { logger } from '../logger.js';
@@ -61,14 +63,18 @@ export function createUserFundsHandler(userRepo: UserRepository, groupBuyRepo: G
 }
 
 /** POST /api/users/:id/follow — 팔로우(인증 필수). */
-export function createFollowHandler(followRepo: FollowRepository) {
+export function createFollowHandler(followRepo: FollowRepository, notificationRepo?: NotificationRepository) {
   return async (req: Request, res: Response): Promise<void> => {
     if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
     const targetId = req.params.id;
     if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
     if (targetId === req.userId) { res.status(400).json({ error: 'SELF', message: '자기 자신은 팔로우할 수 없습니다' }); return; }
     try {
+      if (await followRepo.isBlocked(targetId, req.userId)) { res.status(403).json({ error: 'BLOCKED', message: '차단되어 팔로우할 수 없습니다' }); return; }
       await followRepo.follow(req.userId, targetId);
+      if (notificationRepo) {
+        await notify(notificationRepo, { userId: targetId, type: 'new_follower', title: '새 팔로워', body: `${req.userName ?? '회원'}님이 회원님을 팔로우했어요` });
+      }
       res.json({ following: true, followerCount: await followRepo.countFollowers(targetId) });
     } catch (err) {
       logger.error({ err, targetId }, '팔로우 실패');
@@ -116,6 +122,52 @@ export function createFollowingHandler(followRepo: FollowRepository) {
       res.json(await followRepo.listFollowing(targetId, req.userId));
     } catch (err) {
       logger.error({ err, targetId }, '팔로잉 목록 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** POST /api/users/:id/block — 차단(인증 필수). req.userId 가 :id 를 차단. */
+export function createBlockHandler(followRepo: FollowRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const targetId = req.params.id;
+    if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
+    if (targetId === req.userId) { res.status(400).json({ error: 'SELF', message: '자기 자신은 차단할 수 없습니다' }); return; }
+    try {
+      await followRepo.block(req.userId, targetId);
+      res.json({ blocked: true });
+    } catch (err) {
+      logger.error({ err, targetId }, '차단 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** DELETE /api/users/:id/block — 차단 해제(인증 필수). */
+export function createUnblockHandler(followRepo: FollowRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const targetId = req.params.id;
+    if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
+    try {
+      await followRepo.unblock(req.userId, targetId);
+      res.json({ blocked: false });
+    } catch (err) {
+      logger.error({ err, targetId }, '차단 해제 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** GET /api/me/blocks — 내가 차단한 유저 목록(인증 필수). */
+export function createBlocksListHandler(followRepo: FollowRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    try {
+      res.json(await followRepo.listBlocked(req.userId));
+    } catch (err) {
+      logger.error({ err }, '차단 목록 조회 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
     }
   };

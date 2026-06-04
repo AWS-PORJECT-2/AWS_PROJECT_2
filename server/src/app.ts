@@ -35,6 +35,7 @@ import {
   createUserSearchHandler, createPublicProfileHandler, createUserFundsHandler,
   createFollowHandler as createUserFollowHandler, createUnfollowHandler as createUserUnfollowHandler,
   createFollowersHandler, createFollowingHandler,
+  createBlockHandler, createUnblockHandler, createBlocksListHandler,
 } from './routes/users-routes.js';
 import {
   createCommentsListHandler, createCommentCreateHandler, createCommentDeleteHandler,
@@ -488,10 +489,15 @@ export function createApp(
 
   // 팔로우 (구 상태조회 GET /api/users/:id/follow 호환 유지) + POST/DELETE
   app.get('/api/users/:id/follow', optionalAuth, createFollowStatusHandler(followRepository));
-  app.post('/api/users/:id/follow', authRequired, createUserFollowHandler(followRepository));
+  app.post('/api/users/:id/follow', authRequired, createUserFollowHandler(followRepository, notificationRepository));
   app.delete('/api/users/:id/follow', authRequired, createUserUnfollowHandler(followRepository));
   app.get('/api/users/:id/followers', optionalAuth, createFollowersHandler(followRepository));
   app.get('/api/users/:id/following', optionalAuth, createFollowingHandler(followRepository));
+
+  // 팔로우 차단 — 차단하면 상대는 나를 팔로우할 수 없고 기존 양방향 팔로우도 해제.
+  app.post('/api/users/:id/block', authRequired, createBlockHandler(followRepository));
+  app.delete('/api/users/:id/block', authRequired, createUnblockHandler(followRepository));
+  app.get('/api/me/blocks', authRequired, createBlocksListHandler(followRepository));
 
   // 메이커 공구 목록 — '/:idOrSlug/funds' 는 '/:idOrSlug' 보다 먼저.
   app.get('/api/users/:idOrSlug/funds', optionalAuth, createUserFundsHandler(userRepository, groupBuyRepository));

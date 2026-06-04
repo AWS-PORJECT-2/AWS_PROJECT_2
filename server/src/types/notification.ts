@@ -4,6 +4,7 @@ export type NotificationType =
   | 'welcome'          // 첫 회원가입
   | 'fund_submitted'   // 게시글 작성 — 작성자 본인(심사 중)
   | 'creator_new_fund' // 게시글 작성 — 작성자를 팔로우한 사용자
+  | 'new_follower'     // 누군가 나를 팔로우 — 팔로우 대상에게
   | 'backed'           // 펀딩 참여 — 후원자 본인
   | 'new_backer'       // 펀딩 참여 — 펀드 창작자
   | 'deadline_soon'    // 마감 임박(24~48h) — 후원자/창작자

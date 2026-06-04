@@ -14,4 +14,9 @@ export interface FollowRepository {
   listFollowing(userId: string, viewerId?: string): Promise<FollowUser[]>;
   countFollowers(creatorId: string): Promise<number>;
   countFollowing(userId: string): Promise<number>;
+  /** blockerId 가 blockedId 를 차단(팔로우 금지) — 기존 양방향 팔로우도 해제. */
+  block(blockerId: string, blockedId: string): Promise<void>;
+  unblock(blockerId: string, blockedId: string): Promise<void>;
+  isBlocked(blockerId: string, blockedId: string): Promise<boolean>;
+  listBlocked(blockerId: string): Promise<FollowUser[]>;
 }

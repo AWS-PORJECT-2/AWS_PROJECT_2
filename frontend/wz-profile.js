@@ -718,6 +718,7 @@
       { key: 'search',    label: '사용자 검색' },
       { key: 'following', label: '팔로잉' },
       { key: 'followers', label: '팔로워' },
+      { key: 'blocked',   label: '차단' },
     ];
     var list = W.el('div', { class: 'wz-mp-friendlist' });
 
@@ -760,6 +761,8 @@
         if (q) doFriendSearch(q, list, ++seq, function () { return seq; });
         else friendsHint(list, '이름이나 닉네임을 입력해 사용자를 검색해 보세요');
         try { inp.focus(); } catch (_) {}
+      } else if (key === 'blocked') {
+        loadBlockedList(list);
       } else {
         loadFollowList(list, key);
       }
@@ -791,7 +794,7 @@
       friendsHint(list, kind === 'following' ? '아직 팔로우한 사람이 없어요' : '아직 나를 팔로우한 사람이 없어요', kind === 'following' ? '/assets/empty-following.png' : '/assets/empty-friends.png');
       return;
     }
-    rows.forEach(function (u) { list.appendChild(friendRow(u)); });
+    rows.forEach(function (u) { list.appendChild(friendRow(u, kind === 'followers' ? { context: 'followers' } : null)); });
   }
 
   function doFriendSearch(q, list, mySeq, curSeq) {
@@ -816,7 +819,8 @@
     rows.forEach(function (u) { list.appendChild(friendRow(u)); });
   }
 
-  function friendRow(u) {
+  function friendRow(u, opts) {
+    var ctx = (opts && opts.context) || '';   // '' | 'followers' | 'blocked'
     var idOrSlug = u.slug || u.userId;
     var row = W.el('div', { class: 'wz-mp-friend' });
     // 아바타
@@ -834,7 +838,9 @@
     // 본인이면 팔로우 버튼 대신 클릭 불가한 '본인' 라벨, 아니면 팔로우 버튼.
     var myId = state.me && state.me.userId;
     var action;
-    if (myId && u.userId === myId) {
+    if (ctx === 'blocked') {
+      action = blockToggleBtn(u, true);   // 차단 목록 — '차단 해제' 버튼
+    } else if (myId && u.userId === myId) {
       // 배경/테두리 없이 검은 글자만 (사용자 요청)
       action = W.el('span', {
         class: 'wz-mp-self',
@@ -860,7 +866,10 @@
           setFollowBtn(btn, r ? !!r.following : willFollow);
         }).catch(function () { /* 실패 시 상태 유지 */ }).then(function () { busy = false; });
       });
-      action = btn;
+      // 팔로워 탭에서는 팔로우 버튼 옆에 '차단' 버튼도 노출.
+      action = (ctx === 'followers')
+        ? W.el('div', { style: 'display:flex;gap:6px;align-items:center;flex-shrink:0' }, btn, blockToggleBtn(u, false))
+        : btn;
     }
 
     row.append(av, info, action);
@@ -876,6 +885,49 @@
     btn.setAttribute('data-on', on ? '1' : '0');
     btn.classList.toggle('is-on', on);
     btn.replaceChildren(document.createTextNode(on ? '팔로잉' : '팔로우'));
+  }
+
+  /* 차단/차단해제 버튼. blocked=false → '차단'(POST), blocked=true → '차단 해제'(DELETE). 성공 시 행 제거. */
+  function blockToggleBtn(u, blocked) {
+    var b = W.el('button', {
+      type: 'button',
+      style: 'flex-shrink:0;align-self:center;border:1px solid ' + (blocked ? '#8B5CF6' : '#e0e0e4')
+        + ';background:' + (blocked ? '#8B5CF6' : '#fff') + ';color:' + (blocked ? '#fff' : '#777')
+        + ';font-size:12px;font-weight:600;padding:6px 12px;border-radius:999px;cursor:pointer;white-space:nowrap',
+    }, blocked ? '차단 해제' : '차단');
+    var busy = false;
+    b.addEventListener('click', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (!state.me) { location.href = '/login.html'; return; }
+      if (busy || !u.userId) return;
+      if (!blocked && !confirm((u.name || u.nickname || '이 사용자') + '님을 차단할까요?\n차단하면 회원님을 팔로우할 수 없고, 기존 팔로우도 해제됩니다.')) return;
+      busy = true;
+      var req = blocked
+        ? window.api.del('/users/' + encodeURIComponent(u.userId) + '/block')
+        : window.api.post('/users/' + encodeURIComponent(u.userId) + '/block', {});
+      req.then(function () {
+        var r = b.closest('.wz-mp-friend'); if (r) r.remove();
+      }).catch(function (err) {
+        busy = false;
+        if (err && err.status === 401) { location.href = '/login.html'; return; }
+        alert((err && err.message) || '처리하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      });
+    });
+    return b;
+  }
+
+  /* 차단 목록 로드 — GET /api/me/blocks. 각 행은 '차단 해제' 버튼. */
+  function loadBlockedList(list) {
+    if (!state.me) { list.replaceChildren(loginEmpty('차단 목록을 보려면 로그인하세요')); return; }
+    list.replaceChildren(loading());
+    window.api.get('/me/blocks', { silentAuthFail: true })
+      .then(function (rows) {
+        rows = Array.isArray(rows) ? rows : [];
+        list.replaceChildren();
+        if (!rows.length) { friendsHint(list, '차단한 사용자가 없어요'); return; }
+        rows.forEach(function (u) { list.appendChild(friendRow(u, { context: 'blocked' })); });
+      })
+      .catch(function () { friendsHint(list, '목록을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.'); });
   }
 
   // image(선택): /assets/empty-*.png. 로드 실패 시 users 아이콘으로 폴백.
