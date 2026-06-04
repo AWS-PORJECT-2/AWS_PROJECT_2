@@ -47,6 +47,7 @@ export interface GroupBuyListOptions {
   offset?: number;
   q?: string;
   status?: string;      // 특정 상태만 (예: 'open' 공개목록, 'pending' 관리자 심사목록)
+  hidden?: boolean;     // true 면 관리자 숨김(hidden) 펀드만 (관리자 '숨김' 탭). 미지정이면 숨김 여부 무관 — 044
   creatorId?: string;   // 특정 작성자 펀드만 (마이페이지 '제작한 펀딩')
 }
 
@@ -116,6 +117,8 @@ export interface GroupBuyRepository {
   findById(id: string): Promise<GroupBuy | null>;
   findExpiredOpen(now: Date): Promise<GroupBuy[]>;
   updateStatus(id: string, status: GroupBuyStatus): Promise<void>;
+  // 관리자 게시글 숨김/표시 — 044. status 와 독립.
+  setHidden(id: string, hidden: boolean): Promise<boolean>;
   list(options: GroupBuyListOptions): Promise<{ items: GroupBuyListItem[]; total: number }>;
   requestDelete(id: string, userId: string, reason: string): Promise<boolean>;
   // 회원 탈퇴 가드(#3) — 해당 창작자가 개설한 살아있는(deleted_at IS NULL) 펀드 수.

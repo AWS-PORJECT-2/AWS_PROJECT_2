@@ -19,7 +19,7 @@ import { PgBoardRepository } from './repositories/pg-board-repository.js';
 import { createBoardRouter } from './routes/board.js';
 import { createAiRouter } from './routes/ai.js';
 import { createFundsCreateHandler } from './routes/funds-create.js';
-import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler } from './routes/admin-funds.js';
+import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler, createAdminFundHideHandler, createAdminFundShowHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminLogAckHandler, createAdminLogAckAllHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
@@ -393,6 +393,8 @@ export function createApp(
   app.patch('/api/admin/funds/:id', authRequired, requireAdmin, createAdminFundUpdateHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository, notificationRepository));
   app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository, notificationRepository));
+  app.post('/api/admin/funds/:id/hide', authRequired, requireAdmin, createAdminFundHideHandler(groupBuyRepository));   // 게시글 숨김
+  app.post('/api/admin/funds/:id/show', authRequired, requireAdmin, createAdminFundShowHandler(groupBuyRepository));   // 다시 보이게
   app.post('/api/admin/funds/:id/rewards', authRequired, requireAdmin, createAdminSetRewardsHandler(groupBuyRepository));
 
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---

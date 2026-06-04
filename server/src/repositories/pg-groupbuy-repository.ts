@@ -213,6 +213,15 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     );
   }
 
+  // 관리자 게시글 숨김/표시 토글 — 삭제(deleted_at)된 건 제외. 실제 변경된 행이 있으면 true.
+  async setHidden(id: string, hidden: boolean): Promise<boolean> {
+    const res = await this.pool.query(
+      'UPDATE groupbuys SET hidden = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL',
+      [hidden, id],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
   // 작성자 본인 펀드에 삭제 요청 플래그 설정
   async requestDelete(id: string, userId: string, reason: string): Promise<boolean> {
     const res = await this.pool.query(
@@ -340,6 +349,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       params.push(options.status);
       where.push(`g.status = $${params.length}`);
     }
+    // 관리자 "숨김" 탭 — hidden=TRUE 만. (지정 안 하면 숨김 여부 무관하게 전부 — 소유자/관리자 목록은 숨긴 것도 보임)
+    if (options.hidden === true) {
+      where.push('g.hidden = TRUE');
+    }
     if (options.creatorId) {
       params.push(options.creatorId);
       where.push(`g.creator_id = $${params.length}`);
@@ -363,7 +376,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       SELECT g.id, g.creator_id, g.fund_id, g.title, g.description, g.product_options,
              g.base_price, g.design_fee, g.platform_fee, g.final_price,
              g.target_quantity, g.current_quantity, g.target_amount, g.current_amount,
-             g.deadline, g.status, g.category,
+             g.deadline, g.status, g.hidden, g.category,
              g.delegated, g.mode, g.reward_tiers,
              g.created_at, g.updated_at,
              COALESCE(g.tryon_image_url, g.design_image_url) AS image_url,
@@ -408,8 +421,9 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const limit = Math.min(Math.max(options.limit ?? 20, 1), 100);
     const offset = Math.max(options.offset ?? 0, 0);
 
-    // 삭제(soft delete)된 펀드는 목록/검색/메이커 페이지에서 모두 제외.
-    const where: string[] = ['g.deleted_at IS NULL'];
+    // 삭제(soft delete)된 펀드 + 관리자 숨김(hidden) 펀드는 공개 목록/검색/메이커 페이지에서 모두 제외.
+    // (소유자라도 공개 메이커 페이지엔 안 나옴 — 본인 관리용 '내 펀드'(list())에서는 숨긴 것도 보임)
+    const where: string[] = ['g.deleted_at IS NULL', 'g.hidden = FALSE'];
     const params: unknown[] = [];
 
     // 특정 메이커 페이지(creatorId)면: 비소유자 공개조회(publicOnly)는 비공개 상태(심사대기/대리의뢰/반려) 숨김,
@@ -549,10 +563,10 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     if (res.rows.length === 0) return null;
     const r = res.rows[0];
 
-    // 비공개 상태(심사대기/대리의뢰/반려) 상세는 소유자 또는 관리자만 열람 가능 — 그 외엔 null(→404)로 가린다.
+    // 비공개 상태(심사대기/대리의뢰/반려) 또는 관리자 숨김(hidden) 상세는 소유자 또는 관리자만 열람 가능 — 그 외엔 null(→404).
     //  (scheduled/open/achieved/failed/executing/completed/cancelled 는 공개. scheduled 는 '공개예정' 노출 설계.)
     const PRIVATE_STATUSES = new Set(['pending', 'pending_review', 'rejected']);
-    if (PRIVATE_STATUSES.has(r.status as string)) {
+    if (PRIVATE_STATUSES.has(r.status as string) || r.hidden === true) {
       const isOwner = !!viewerId && viewerId === (r.creator_id as string);
       if (!isOwner && !viewerIsAdmin) return null;
     }
@@ -628,13 +642,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
              (SELECT COUNT(*)::int FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id) AS subscriber_count
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
-       WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.open_at IS NOT NULL AND g.open_at > NOW()
+       WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.hidden = FALSE AND g.open_at IS NOT NULL AND g.open_at > NOW()
        ORDER BY g.open_at ASC
        LIMIT $1 OFFSET $2
     `;
     const countQuery = `
       SELECT COUNT(*)::int AS cnt FROM groupbuys g
-       WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.open_at IS NOT NULL AND g.open_at > NOW()
+       WHERE g.status = 'scheduled' AND g.deleted_at IS NULL AND g.hidden = FALSE AND g.open_at IS NOT NULL AND g.open_at > NOW()
     `;
     const [listRes, countRes] = await Promise.all([
       this.pool.query(listQuery, [lim, off]),
@@ -652,7 +666,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
               u.name AS creator_name
          FROM groupbuys g
          LEFT JOIN "user" u ON u.id = g.creator_id
-        WHERE g.plan = 'boost' AND g.status = 'open' AND g.deleted_at IS NULL
+        WHERE g.plan = 'boost' AND g.status = 'open' AND g.deleted_at IS NULL AND g.hidden = FALSE
         ORDER BY g.current_quantity DESC, g.created_at DESC
         LIMIT $1`,
       [lim],
@@ -962,6 +976,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       currentQuantity: row.current_quantity as number,
       deadline: new Date(row.deadline as string),
       status: row.status as GroupBuyStatus,
+      hidden: (row.hidden as boolean | undefined) ?? false,
       designImageUrl: (row.design_image_url as string | null) ?? null,
       tryonImageUrl: (row.tryon_image_url as string | null) ?? null,
       contentBlocks: parseContentBlocks(row.content_blocks),

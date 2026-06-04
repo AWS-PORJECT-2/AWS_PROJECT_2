@@ -44,14 +44,19 @@ function sanitizeTiers(v: unknown): RewardTier[] {
  */
 export function createAdminFundsListHandler(repo: GroupBuyRepository) {
   return async (req: Request, res: Response): Promise<void> => {
+    // hidden=true 탭: 상태 무관하게 관리자 숨김(hidden) 펀드 전부. 그 외: 상태별(기본 pending).
+    const wantHidden = String(req.query.hidden ?? '') === 'true';
     const status = (req.query.status as string | undefined)?.trim() || 'pending';
     try {
-      const { items, total } = await repo.list({ status, sort: 'latest', limit: 100, offset: 0 });
+      const { items, total } = wantHidden
+        ? await repo.list({ hidden: true, sort: 'latest', limit: 100, offset: 0 })
+        : await repo.list({ status, sort: 'latest', limit: 100, offset: 0 });
       const funds = items.map((g) => ({
         id: g.id,
         title: g.title,
         category: g.category ?? null,
         status: g.status,
+        hidden: g.hidden ?? false,
         creatorId: g.creatorId,
         authorName: (g as { authorName?: string | null }).authorName ?? null,
         imageUrl: (g as { imageUrl?: string | null }).imageUrl ?? null,
@@ -131,6 +136,33 @@ function createReviewHandler(
     }
   };
 }
+
+// 관리자 게시글 숨김/표시 — 삭제와 달리 status 보존, 공개에서만 가린다(언제든 토글 가능). 044
+function createVisibilityHandler(repo: GroupBuyRepository, hidden: boolean, label: string) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const id = req.params.id;
+    try {
+      const fund = await repo.findById(id);
+      if (!fund) {
+        res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' });
+        return;
+      }
+      const ok = await repo.setHidden(id, hidden);
+      if (!ok) {
+        res.status(404).json({ error: 'GROUPBUY_NOT_FOUND', message: '펀드를 찾을 수 없습니다' });
+        return;
+      }
+      logger.info({ id, adminId: req.userId, hidden }, `관리자 펀드 ${label}`);
+      void logAudit(pool, { level: 'info', source: 'admin', message: `펀드 ${label}`, meta: { fundId: id, hidden }, userId: req.userId ?? null });
+      res.json({ id, hidden });
+    } catch (err) {
+      logger.error({ err, id }, `관리자 펀드 ${label} 실패`);
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+export const createAdminFundHideHandler = (repo: GroupBuyRepository) => createVisibilityHandler(repo, true, '숨김');
+export const createAdminFundShowHandler = (repo: GroupBuyRepository) => createVisibilityHandler(repo, false, '표시');
 
 export const createAdminFundApproveHandler = (repo: GroupBuyRepository, notificationRepo?: NotificationRepository) =>
   createReviewHandler(repo, 'open', '승인', notificationRepo);

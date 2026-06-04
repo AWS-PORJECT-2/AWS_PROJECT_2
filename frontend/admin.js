@@ -83,6 +83,7 @@
     { key: 'pending',  label: '심사 대기' },
     { key: 'open',     label: '공개됨' },
     { key: 'rejected', label: '반려됨' },
+    { key: 'hidden',   label: '숨김' },
   ];
 
   // 펀드 상태 분포(stats.funds) 표시 순서/라벨/색 (tokens 변수 사용)
@@ -538,7 +539,9 @@
   async function loadFunds(list, status) {
     list.textContent = ''; list.appendChild(loadingNode());
     try {
-      var res = await window.api.get('/admin/funds?status=' + encodeURIComponent(status));
+      // '숨김' 탭은 상태 무관 hidden=true 전부, 그 외는 상태별.
+      var qs = status === 'hidden' ? 'hidden=true' : 'status=' + encodeURIComponent(status);
+      var res = await window.api.get('/admin/funds?' + qs);
       var items = (res && res.items) || [];
       list.textContent = '';
       if (!items.length) { list.appendChild(emptyNode('해당 상태의 펀드가 없습니다.')); return; }
@@ -566,7 +569,13 @@
     var view = el('a', { class: 'wza-btn wza-btn--outline', href: '/detail.html?id=' + encodeURIComponent(f.id), target: '_blank', rel: 'noopener' }, '보기');
     actions.appendChild(view);
 
-    if (f.status === 'pending') {
+    if (f.hidden) {
+      // 숨김 상태 — 어느 탭에서 보이든 '다시 보이게'로 표시·복구.
+      actions.appendChild(el('span', { class: 'wza-badge wza-badge--reject' }, '숨김'));
+      var showBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '다시 보이게');
+      showBtn.addEventListener('click', function () { showFund(f, list, status); });
+      actions.appendChild(showBtn);
+    } else if (f.status === 'pending') {
       var approve = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '승인');
       approve.addEventListener('click', function () { approveFund(f, list, status); });
       actions.appendChild(approve);
@@ -575,11 +584,38 @@
       actions.appendChild(reject);
     } else if (f.status === 'open') {
       actions.appendChild(el('span', { class: 'wza-badge wza-badge--open' }, '공개됨'));
+      var hideBtn = el('button', { class: 'wza-btn wza-btn--danger', type: 'button' }, '숨기기');
+      hideBtn.addEventListener('click', function () { hideFund(f, list, status); });
+      actions.appendChild(hideBtn);
     } else {
       actions.appendChild(el('span', { class: 'wza-badge wza-badge--reject' }, '반려됨'));
     }
     item.appendChild(actions);
     return item;
+  }
+
+  function hideFund(f, list, status) {
+    confirmModal({
+      title: '게시글 숨기기',
+      desc: '“' + (f.title || '') + '” 펀드를 공개에서 숨깁니다. 목록·검색·상세에서 보이지 않게 되며, 언제든 다시 보이게 할 수 있습니다.',
+      okLabel: '숨기기', okClass: 'wza-modal__btn--danger',
+      onOk: async function () {
+        await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/hide', {});
+        loadFunds(list, status);
+      },
+    });
+  }
+
+  function showFund(f, list, status) {
+    confirmModal({
+      title: '다시 보이게',
+      desc: '“' + (f.title || '') + '” 펀드를 다시 공개로 전환합니다.',
+      okLabel: '보이게', okClass: 'wza-modal__btn--primary',
+      onOk: async function () {
+        await window.api.post('/admin/funds/' + encodeURIComponent(f.id) + '/show', {});
+        loadFunds(list, status);
+      },
+    });
   }
 
   function approveFund(f, list, status) {

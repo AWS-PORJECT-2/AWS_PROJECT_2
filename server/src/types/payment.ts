@@ -34,6 +34,7 @@ export interface GroupBuy {
   currentQuantity: number;
   deadline: Date;
   status: GroupBuyStatus;
+  hidden?: boolean;               // 관리자 숨김 — 상태와 독립. true 면 공개 목록/검색/상세에서 비공개(소유자·관리자만 열람) — 044
   designImageUrl?: string | null; // 업로드한 옷 디자인 사진 (base64 data URL)
   tryonImageUrl?: string | null;  // AI 모델 피팅 결과 사진 (base64 data URL)
   contentBlocks?: ContentBlock[] | null; // 게시글 본문 (사용자 작성 텍스트/이미지 블록)
