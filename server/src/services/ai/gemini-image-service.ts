@@ -91,15 +91,20 @@ function buildTryOnPrompt(modelType: string, background: string, category: strin
     );
   }
 
-  // 의류(과잠/후드티/반팔티): 모델이 착용한 앞/뒤 2분할. 얼굴은 안 나오게(어깨 윗부분 크롭).
+  // 의류(과잠/후드티/반팔티): 실제 사람이 착용한 포토리얼 컷. 앞/뒤 2분할. 얼굴은 안 나오게(어깨 윗부분 크롭).
+  // 핵심: 출력은 "사람이 입은 사진"이어야 하며 도면/평면/마네킹이면 안 됨 + 도면의 디자인을 그대로 유지.
   return (
-    'The attached image(s) are reference photos of ONE garment design (clothing). If multiple photos are attached, treat them as different views/details of the SAME garment. Generate ONE photorealistic image of ' + who +
-    ' wearing that exact garment, shown in two halves side-by-side:\n' +
-    '- LEFT half: the body facing the camera (front of the garment visible).\n' +
-    '- RIGHT half: the SAME body with their back to the camera (back of the garment visible).\n\n' +
-    'IMPORTANT: do NOT show the person\'s face or head. Crop the frame just below the shoulders so the head/face is OUT of frame — show only from the shoulders/upper chest down to the waist. No face, no hair, no neck-up.\n' +
+    'You are a virtual TRY-ON generator. The attached image(s) show the DESIGN of ONE garment — they may be a flat technical drawing / 도면 / flat-lay. ' +
+    'These references exist ONLY so you can copy the garment\'s appearance; they are NOT the output and must NOT be reproduced as-is.\n\n' +
+    'TASK: generate ONE photorealistic PHOTOGRAPH of a real human ' + who + ' actually WEARING this exact garment on their body, shown in two halves side-by-side:\n' +
+    '- LEFT half: the model facing the camera (front of the garment visible, worn on the chest/torso).\n' +
+    '- RIGHT half: the SAME model turned with their back to the camera (back of the garment visible).\n\n' +
+    'CRITICAL — the result MUST be a real person wearing the garment as a true 3D worn photo: natural fabric folds, drape, wrinkles and the shape of a human body underneath. ' +
+    'Do NOT output a flat design, a technical flat, a 도면, a flat-lay, a hanging garment, or an empty mannequin. It MUST be worn by a living human body. Never just echo the reference image.\n' +
+    'PRESERVE THE DESIGN EXACTLY as in the references: same base/body color, same sleeve and contrast colors, and every logo, lettering, pattern and graphic at the SAME position, size, proportion and colors. ' +
+    'Do NOT invent, omit, recolor, resize, move or restyle any design element — only wrap the existing design naturally onto the worn garment.\n' +
+    'Do NOT show the person\'s face or head: crop just below the shoulders so the head/face is OUT of frame — show only shoulders/upper chest down to the waist/hips. No face, no hair, no neck-up.\n' +
     'Background: ' + bg + ' — identical in both halves. Same body, lighting and framing in both halves; only the camera angle differs.\n' +
-    'The garment MUST match the attached design EXACTLY: same colors, logos, lettering, patterns, sleeve color contrast — do not invent or omit any detail.\n' +
     'Crop tight, minimal whitespace. Output exactly ONE image.'
   );
 }
@@ -205,10 +210,11 @@ export class GeminiImageService {
     if (garments.length > 5) {
       throw new AppError('MISSING_REQUIRED_FIELD', '이미지는 최대 5장까지 첨부 가능합니다');
     }
-    // 가상피팅은 생성할 때마다 사람·자세가 달라지도록 — 랜덤 seed + 높은 temperature
+    // 가상피팅은 매번 사람·자세가 달라지도록 랜덤 seed 사용(다양성은 seed 가 담당).
+    // temperature 1.0 은 디자인 이탈·도면 환각을 키워 0.7 로 낮춤(충실도↑, seed 로 다양성은 유지).
     return this.callOnce(buildTryOnPrompt(opts.modelType, opts.background, opts.category || 'top'), garments, ctx, {
       seed: randomSeed(),
-      temperature: 1.0,
+      temperature: 0.7,
     });
   }
 
