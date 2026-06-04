@@ -76,3 +76,18 @@ export function createMarkAllNotificationsReadHandler(repo: NotificationReposito
     }
   };
 }
+
+/** DELETE /api/me/notifications → { ok: true } — 본인 알림 전부 삭제 */
+export function createDeleteAllNotificationsHandler(repo: NotificationRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    try {
+      await repo.deleteAllForUser(userId);
+      res.json({ ok: true });
+    } catch (err) {
+      logger.error({ err, userId }, '알림 전체 삭제 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}

@@ -73,6 +73,14 @@ export class PgCommentRepository implements CommentRepository {
     return res.rows.length ? mapRow(res.rows[0]) : null;
   }
 
+  async update(id: string, content: string): Promise<Comment | null> {
+    // comments 테이블에 updated_at 컬럼이 없으므로 content 만 갱신.
+    const upd = await this.pool.query('UPDATE comments SET content = $1 WHERE id = $2 RETURNING id', [content, id]);
+    if (!upd.rows.length) return null;
+    // 작성자 표시 정보(name/picture/slug) 포함을 위해 findById 와 동일한 조인으로 재조회.
+    return this.findById(id);
+  }
+
   async delete(id: string): Promise<void> {
     await this.pool.query('DELETE FROM comments WHERE id = $1', [id]);
   }

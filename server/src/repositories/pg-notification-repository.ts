@@ -64,6 +64,11 @@ export class PgNotificationRepository implements NotificationRepository {
     );
   }
 
+  async deleteAllForUser(userId: string): Promise<number> {
+    const r = await this.pool.query('DELETE FROM notifications WHERE user_id = $1', [userId]);
+    return r.rowCount ?? 0;
+  }
+
   async existsForFund(type: NotificationType, fundId: string): Promise<boolean> {
     const res = await this.pool.query(
       `SELECT 1 FROM notifications WHERE type = $1 AND fund_id = $2 LIMIT 1`,

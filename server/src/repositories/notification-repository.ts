@@ -23,6 +23,8 @@ export interface NotificationRepository {
   markRead(userId: string, id: string): Promise<boolean>;
   /** 본인 안 읽은 알림 전부 읽음 처리. */
   markAllRead(userId: string): Promise<void>;
+  /** 본인 알림 전부 삭제 — 삭제된 행 수 반환. */
+  deleteAllForUser(userId: string): Promise<number>;
   /**
    * 동일 type + fund_id 알림이 (대상 사용자 무관) 이미 존재하는지.
    * 마감임박(deadline_soon) 등 펀드 단위 1회 발송 보장에 사용.

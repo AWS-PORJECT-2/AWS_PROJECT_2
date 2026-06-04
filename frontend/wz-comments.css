@@ -137,7 +137,15 @@ a.wzc-name:hover { color: var(--c-primary-700); text-decoration: underline; }
   white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
 }
 
-/* ---------- 액션(답글/삭제) ---------- */
+/* ---------- 인라인 수정 에디터 ---------- */
+.wzc-edit { margin: 6px 0 2px; }
+.wzc-edit__ta { width: 100%; box-sizing: border-box; min-height: 70px; padding: 9px 11px;
+  border: 1px solid var(--c-border, #e3e3e8); border-radius: 10px; font: inherit; line-height: 1.55; resize: vertical; }
+.wzc-edit__ta:focus { outline: none; border-color: var(--c-primary-500, #8B5CF6); box-shadow: 0 0 0 3px rgba(139,92,246,.12); }
+.wzc-edit__btns { display: flex; justify-content: flex-end; gap: 6px; margin-top: 6px; }
+.wzc-edit__btns .wzc-btn { padding: 7px 14px; }
+
+/* ---------- 액션(답글/수정/삭제) ---------- */
 .wzc-actions { display: flex; align-items: center; gap: 4px; margin-top: 8px; }
 .wzc-act {
   display: inline-flex; align-items: center; gap: 4px;

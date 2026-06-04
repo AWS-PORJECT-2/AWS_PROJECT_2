@@ -148,6 +148,36 @@ export function createCommentCreateHandler(
   };
 }
 
+/** PATCH /api/comments/:id — 작성자 본인만 내용 수정, 아니면 403. */
+export function createCommentUpdateHandler(repo: CommentRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const id = req.params.id;
+
+    const body = (req.body ?? {}) as Record<string, unknown>;
+    const content = typeof body.content === 'string' ? body.content.trim() : '';
+    if (!content || content.length > CONTENT_MAX) {
+      res.status(400).json({ error: 'INVALID', message: '댓글은 1~2000자입니다' });
+      return;
+    }
+
+    try {
+      const existing = await repo.findById(id);
+      if (!existing) { res.status(404).json({ error: 'NOT_FOUND', message: '댓글을 찾을 수 없습니다' }); return; }
+      if (existing.userId !== userId) {
+        res.status(403).json(createErrorResponse(new AppError('FORBIDDEN')));
+        return;
+      }
+      const updated = await repo.update(id, content);
+      res.json(serialize(updated!, userId));
+    } catch (err) {
+      logger.error({ err, id, userId }, '댓글 수정 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
 /** DELETE /api/comments/:id — 작성자 본인만 204, 아니면 403. */
 export function createCommentDeleteHandler(repo: CommentRepository) {
   return async (req: Request, res: Response): Promise<void> => {

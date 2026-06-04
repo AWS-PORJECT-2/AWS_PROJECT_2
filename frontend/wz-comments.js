@@ -50,6 +50,7 @@
     reply: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17l-5-5 5-5"/><path d="M4 12h11a5 5 0 0 1 5 5v1"/></svg>',
     trash: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6"/></svg>',
     send: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4 20-7z"/></svg>',
+    pencil: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/></svg>',
   };
 
   /* ---- 상대시간 (방금 / N분 전 / N시간 전 / N일 전 / YYYY.MM.DD) ---- */
@@ -286,7 +287,48 @@
         body._replyHolder = replyHolder;
       }
 
-      if (c.mine) {
+      // 작성자 본인 판정 — 서버 mine 플래그가 (토큰 만료 등으로) 비어도 클라에서 보강.
+      var isMine = !!c.mine || !!(state.me && c.userId && String(state.me.userId) === String(c.userId));
+
+      if (isMine) {
+        // 수정 — 인라인 에디터 토글
+        var editBtn = el('button', { type: 'button', class: 'wzc-act' });
+        editBtn.innerHTML = IC.pencil + '<span>수정</span>';
+        editBtn.addEventListener('click', function () {
+          if (foot._editing) return;
+          foot._editing = true;
+          var ta = el('textarea', { class: 'wzc-edit__ta', rows: '3', maxlength: '2000' });
+          ta.value = c.content == null ? '' : String(c.content);
+          var saveB = el('button', { type: 'button', class: 'wzc-btn wzc-btn--primary' }, '저장');
+          var cancelB = el('button', { type: 'button', class: 'wzc-btn' }, '취소');
+          var editor = el('div', { class: 'wzc-edit' }, ta, el('div', { class: 'wzc-edit__btns' }, cancelB, saveB));
+          text.style.display = 'none';
+          text.after(editor);
+          try { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); } catch (_) {}
+          function done() { editor.remove(); text.style.display = ''; foot._editing = false; }
+          cancelB.addEventListener('click', done);
+          saveB.addEventListener('click', function () {
+            var v = ta.value.trim();
+            if (!v) { ta.focus(); return; }
+            saveB.disabled = true; cancelB.disabled = true;
+            window.api.patch('/comments/' + encodeURIComponent(c.id), { content: v })
+              .then(function (updated) {
+                c.content = (updated && updated.content != null) ? updated.content : v;
+                for (var i = 0; i < state.items.length; i++) {
+                  if (String(state.items[i].id) === String(c.id)) { state.items[i].content = c.content; break; }
+                }
+                text.textContent = c.content;
+                done();
+              })
+              .catch(function (err) {
+                saveB.disabled = false; cancelB.disabled = false;
+                if (err && err.status === 401) { location.href = '/login.html'; return; }
+                alert((err && err.message) || '수정하지 못했어요. 잠시 후 다시 시도해 주세요.');
+              });
+          });
+        });
+        foot.appendChild(editBtn);
+
         var delBtn = el('button', { type: 'button', class: 'wzc-act wzc-act--danger' });
         delBtn.innerHTML = IC.trash + '<span>삭제</span>';
         delBtn.addEventListener('click', function () {

@@ -11,6 +11,8 @@ export interface CommentRepository {
     parentId: string | null;
   }): Promise<Comment>;
   findById(id: string): Promise<Comment | null>;
+  /** 작성자 본인만 수정 — 권한 검증은 상위에서. 없으면 null. */
+  update(id: string, content: string): Promise<Comment | null>;
   /** 작성자 본인만 삭제 — 삭제된 행 수 반환(권한 검증은 상위에서). */
   delete(id: string): Promise<void>;
 }

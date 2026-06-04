@@ -38,7 +38,7 @@ import {
   createBlockHandler, createUnblockHandler, createBlocksListHandler,
 } from './routes/users-routes.js';
 import {
-  createCommentsListHandler, createCommentCreateHandler, createCommentDeleteHandler,
+  createCommentsListHandler, createCommentCreateHandler, createCommentUpdateHandler, createCommentDeleteHandler,
 } from './routes/comments-routes.js';
 import {
   createGroupBuysListHandler as createGroupBuysListV2Handler,
@@ -77,6 +77,7 @@ import { PgProjectDraftRepository } from './repositories/pg-project-draft-reposi
 import { PgNotificationRepository } from './repositories/pg-notification-repository.js';
 import {
   createMyNotificationsHandler, createMarkNotificationReadHandler, createMarkAllNotificationsReadHandler,
+  createDeleteAllNotificationsHandler,
 } from './routes/notifications-routes.js';
 import { pool } from './db.js';
 import { PgUserRepository } from './repositories/pg-user-repository.js';
@@ -422,6 +423,7 @@ export function createApp(
 
   // --- 서버 기반 알림(024_notifications) — 본인 알림 조회/읽음 처리 ---
   app.get('/api/me/notifications', authRequired, createMyNotificationsHandler(notificationRepository));
+  app.delete('/api/me/notifications', authRequired, createDeleteAllNotificationsHandler(notificationRepository));
   app.post('/api/me/notifications/read-all', authRequired, createMarkAllNotificationsReadHandler(notificationRepository));
   app.post('/api/me/notifications/:id/read', authRequired, createMarkNotificationReadHandler(notificationRepository));
 
@@ -482,6 +484,7 @@ export function createApp(
   app.get('/api/comments', optionalAuth, createCommentsListHandler(commentRepository));
   // 댓글 작성 → 알림(best-effort): 펀드 댓글은 창작자(project_comment), 대댓글은 원댓글 작성자(comment_reply).
   app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository, groupBuyRepository, notificationRepository));
+  app.patch('/api/comments/:id', authRequired, writeRateLimit, createCommentUpdateHandler(commentRepository));
   app.delete('/api/comments/:id', authRequired, createCommentDeleteHandler(commentRepository));
 
   // 유저 검색 — '/search' 는 '/:idOrSlug' 보다 먼저 등록(라우트 섀도잉 방지).

@@ -103,6 +103,9 @@
         + 'font-family:inherit;white-space:nowrap;}'
       + '.wz-notif__readall:hover{background:var(--c-primary-50,#F5F3FF);}'
       + '.wz-notif__readall[disabled]{color:var(--c-text-faint,#9CA3AF);cursor:default;background:none;}'
+      + '.wz-notif__delall{background:none;border:none;cursor:pointer;padding:6px 8px;border-radius:var(--r-sm,8px);'
+        + 'color:var(--c-danger,#DC2626);font-size:var(--fs-caption,12px);font-weight:600;font-family:inherit;white-space:nowrap;}'
+      + '.wz-notif__delall:hover{background:#FEF2F2;}'
       + '.wz-notif__close{background:none;border:none;cursor:pointer;padding:6px;border-radius:var(--r-sm,8px);'
         + 'color:var(--c-text-muted,#6B7280);display:inline-flex;}'
       + '.wz-notif__close:hover{background:var(--c-primary-50,#F5F3FF);color:var(--c-primary-600,#7C3AED);}'
@@ -207,6 +210,14 @@
       .catch(function () { /* 비차단 */ });
   }
 
+  // 전체 삭제 — 로컬 state 즉시 비움 + 서버 DELETE /api/me/notifications.
+  function postDeleteAll() {
+    state.items = [];
+    state.unreadCount = 0;
+    if (!window.api || typeof window.api.del !== 'function') return Promise.resolve();
+    return window.api.del('/me/notifications').catch(function () { /* 비차단 */ });
+  }
+
   function findItem(id) {
     for (var i = 0; i < state.items.length; i++) {
       if (state.items[i] && String(state.items[i].id) === String(id)) return state.items[i];
@@ -234,6 +245,7 @@
       +     '</div>'
       +     '<div class="wz-notif__head-actions">'
       +       '<button type="button" class="wz-notif__readall" id="notifReadAll">모두 읽음</button>'
+      +       '<button type="button" class="wz-notif__delall" id="notifDeleteAll">전체 삭제</button>'
       +       '<button type="button" class="wz-notif__close" data-notif-close aria-label="닫기">'
       +         '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18"/><path d="M6 6l12 12"/></svg>'
       +       '</button>'
@@ -253,6 +265,19 @@
       readAllBtn.addEventListener('click', function () {
         if (state.unreadCount <= 0) return;
         postReadAll().then(function () {
+          renderList();
+          updateNotificationBadges();
+        });
+        renderList();
+        updateNotificationBadges();
+      });
+    }
+    var delAllBtn = panel.querySelector('#notifDeleteAll');
+    if (delAllBtn) {
+      delAllBtn.addEventListener('click', function () {
+        if (!state.items.length) return;
+        if (!window.confirm('알림을 전체 삭제할까요? 되돌릴 수 없어요.')) return;
+        postDeleteAll().then(function () {
           renderList();
           updateNotificationBadges();
         });
