@@ -150,9 +150,13 @@
 
     if (!res.ok) {
       var err4 = new Error((data && data.message) || res.statusText);
-      err4.code = data && data.error;
+      err4.code = data && (data.code || data.error);
       err4.status = res.status;
       err4.data = data;
+      // 서버가 약관·개인정보 미동의로 차단(동의 팝업 우회 시) → 동의 게이트를 강제로 띄워 동의 유도.
+      if (err4.code === 'CONSENT_REQUIRED') {
+        try { if (window.WZConsent && typeof window.WZConsent.ensure === 'function') window.WZConsent.ensure(); } catch (_) {}
+      }
       throw err4;
     }
     return data;

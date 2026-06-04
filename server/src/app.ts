@@ -105,6 +105,7 @@ import { createPaymentMethodService } from './services/payment-method-service-im
 import { createAddressService } from './services/address-service-impl.js';
 import { createPaymentMethodsHandlers } from './routes/payment-methods-routes.js';
 import { createAddressesHandlers } from './routes/addresses-routes.js';
+import { consentRequired } from './middleware/consent-required.js';
 
 // Announcement, Chat, Admin imports
 import { PgAnnouncementRepository } from './repositories/pg-announcement-repository.js';
@@ -327,7 +328,7 @@ export function createApp(
 
   // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
   //   + 알림(best-effort): 작성자 본인(fund_submitted) / 작성자 팔로워(creator_new_fund)
-  app.post('/api/funds', authRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository));
+  app.post('/api/funds', authRequired, consentRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository));
 
   // --- Payment System ---
   const participationRepository = new PgParticipationRepository(pool);
@@ -373,8 +374,8 @@ export function createApp(
   const paymentMethodService = createPaymentMethodService({ paymentMethodRepository });
   const addressService = createAddressService({ addressRepository });
 
-  app.use('/api/payment-methods', authRequired, createPaymentMethodsHandlers(paymentMethodService));
-  app.use('/api/addresses', authRequired, createAddressesHandlers(addressService));
+  app.use('/api/payment-methods', authRequired, consentRequired, createPaymentMethodsHandlers(paymentMethodService));
+  app.use('/api/addresses', authRequired, consentRequired, createAddressesHandlers(addressService));
 
   // --- Announcements & Chat ---
   const announcementRepository = new PgAnnouncementRepository(pool);
@@ -394,7 +395,7 @@ export function createApp(
 
   // --- 리워드 후원(무통장입금) + 관리자 입금확인 ---
   const rewardOrderRepository = new PgRewardOrderRepository(pool);
-  app.post('/api/funds/:id/back', authRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository, paymentMethodRepository, notificationRepository));
+  app.post('/api/funds/:id/back', authRequired, consentRequired, writeRateLimit, createBackingHandler(groupBuyRepository, rewardOrderRepository, addressRepository, paymentMethodRepository, notificationRepository));
   // --- 찜(좋아요, 026_project_likes) — 서버 저장으로 모든 사용자에게 반영 + 기기간 유지 ---
   // /:id/like 는 고정 하위 세그먼트라 /api/funds(POST) · /api/funds/:id/back 과 충돌 없음.
   app.post('/api/funds/:id/like', authRequired, createLikeHandler(groupBuyRepository));

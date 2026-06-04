@@ -10,6 +10,8 @@ declare module 'express-serve-static-core' {
   interface Request {
     userId?: string;
     userEmail?: string;
+    // 가입 시 약관·개인정보 동의 완료 여부(termsAgreedAt 존재). authRequired 가 이미 user 를 조회하므로 여기서 채움.
+    termsAgreed?: boolean;
   }
 }
 
@@ -66,6 +68,7 @@ export function createAuthRequired(tokenService: TokenService, userRepo: UserRep
 
     req.userId = payload.userId;
     req.userEmail = payload.email;
+    req.termsAgreed = !!user.termsAgreedAt;
     next();
   };
 }
