@@ -518,13 +518,13 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
         LEFT JOIN project_likes vl ON vl.groupbuy_id = g.id AND vl.user_id = $4::uuid
-       WHERE g.status = 'open' AND g.deleted_at IS NULL AND g.creator_id = ANY($1::uuid[])
+       WHERE g.status = 'open' AND g.deleted_at IS NULL AND g.hidden = FALSE AND g.creator_id = ANY($1::uuid[])
        ORDER BY g.created_at DESC
        LIMIT $2 OFFSET $3
     `;
     const countQuery = `
       SELECT COUNT(*)::int AS cnt FROM groupbuys g
-       WHERE g.status = 'open' AND g.deleted_at IS NULL AND g.creator_id = ANY($1::uuid[])
+       WHERE g.status = 'open' AND g.deleted_at IS NULL AND g.hidden = FALSE AND g.creator_id = ANY($1::uuid[])
     `;
 
     const [listRes, countRes] = await Promise.all([
