@@ -66,8 +66,11 @@
 .dz-field__l { font-size: 12px; font-weight: 700; color: #555; margin-bottom: 6px; display: block; }
 .dz-select, .dz-input { width: 100%; border: 1.5px solid #e5e5ea; border-radius: 10px; padding: 9px 10px; font-size: 14px; font-weight: 600; background: #fff; color: #1a1a1a; box-sizing: border-box; }
 .dz-select:focus, .dz-input:focus { outline: none; border-color: #8B5CF6; }
-.dz-row { display: flex; gap: 8px; }
-.dz-row > * { flex: 1; }
+.dz-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.dz-row > * { flex: 1 1 120px; min-width: 0; }
+/* 텍스트/이미지 설정 — 이미지 아래(스테이지 하단) 전체 너비. 좁은 칸에서 잘리지 않게. */
+.dz-props { width: 100%; margin-top: 12px; }
+.dz-props:empty { display: none; }
 
 .dz-swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .dz-sw { width: 30px; height: 30px; border-radius: 50%; border: 2px solid #fff; box-shadow: 0 0 0 1.5px #e0e0e6; cursor: pointer; }

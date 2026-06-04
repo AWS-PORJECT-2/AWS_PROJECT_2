@@ -348,14 +348,16 @@
     toolbarEl = el('div', { class: 'dz-tb' });
     renderToolbar();
     stage.appendChild(toolbarEl);
+    // 텍스트/이미지 설정 — 이미지 바로 아래(스테이지 하단)에 배치.
+    // (좁은 우측 패널 320px 에서 컨트롤이 가로로 잘려 화면 밖으로 나가던 문제 해결)
+    propsBox = el('div', { class: 'dz-props' });
+    stage.appendChild(propsBox);
     grid.appendChild(stage);
 
     // 우: 패널
     var panel = el('div', { class: 'dz-panel' });
     panel.appendChild(toolsCard());
     panel.appendChild(optionsCard());
-    propsBox = el('div', {});
-    panel.appendChild(propsBox);
     layerListBox = el('div', { class: 'dz-card' });
     panel.appendChild(layerListBox);
     // 완성 버튼
@@ -575,6 +577,8 @@
       layersWrap.appendChild(node);
     });
     renderSel();
+    // 텍스트 박스를 실제 줄바꿈된 내용 높이에 맞춤(선택박스 높이/위치도 동기화)
+    cvLayers().forEach(function (L) { if (L.type === 'text') fitTextH(L); });
   }
   // 선택 박스 + 핸들(마스크 밖 오버레이). 디자인 내용(layersWrap)과 분리해 가장자리에서도 안 잘림.
   function renderSel() {
@@ -605,6 +609,27 @@
       var t = cn && cn.querySelector('.dz-layer__txt');
       if (t) t.style.fontSize = (L.font * canvasPxH() / 100) + 'px';
     }
+  }
+  // 텍스트 박스의 실제 높이를 측정해 L.h 에 반영(줄바꿈/글자크기 변경 후 박스가 내용에 딱 맞도록).
+  // 박스 너비(L.w)는 그대로 두고 — 너비=줄 길이, 높이=내용에 맞춤.
+  function fitTextH(L) {
+    if (!L || L.type !== 'text') return;
+    var sel = '[data-id="' + L.id + '"]';
+    var cn = layersWrap && layersWrap.querySelector(sel);
+    var t = cn && cn.querySelector('.dz-layer__txt');
+    if (!cn || !t) return;
+    var ch = canvasPxH(); if (!ch) return;
+    var prev = t.style.height;
+    t.style.height = 'auto';            // 내용 실제 높이 측정(현재 너비 기준 줄바꿈 반영)
+    var px = t.offsetHeight;
+    t.style.height = prev || '';
+    if (!px) return;
+    var h = px / ch * 100;
+    L.h = h;
+    cn.style.height = h + '%';
+    cn.style.top = (L.y - h / 2) + '%';
+    var sn = selWrap && selWrap.querySelector(sel);
+    if (sn) { sn.style.height = h + '%'; sn.style.top = (L.y - h / 2) + '%'; }
   }
   // 텍스트 노드 스타일 적용(글꼴/색/스타일/정렬/간격/패턴). 회전·반전은 layerStyle 의 transform.
   function styleText(tx, L) {
@@ -664,16 +689,17 @@
   function startResize(e, L) {
     e.preventDefault(); e.stopPropagation();
     var rect = canvasEl.getBoundingClientRect();
-    var startX = e.clientX, sw = L.w, sh = L.h, sf = L.font || 0, pushed = false;
+    var startX = e.clientX, sw = L.w, sh = L.h, pushed = false;
     function move(ev) {
       if (!pushed) { pushHistory(); pushed = true; }
       var dxp = (ev.clientX - startX) / rect.width * 100;
       var nw = clamp(sw + dxp, 6, 96);
       var scale = nw / sw;
       L.w = nw;
-      if (L.type === 'image') { L.h = clamp(sh * scale, 4, 140); }
-      else { L.font = Math.max(2, sf * scale); L.h = textBoxH(L); }
-      posNodes(L);
+      if (L.type === 'image') { L.h = clamp(sh * scale, 4, 140); posNodes(L); }
+      // 텍스트: 박스 너비 = 줄 길이(줄바꿈 폭)만 조절. 글자 크기는 건드리지 않음.
+      // 너비가 바뀌면 텍스트가 다시 줄바꿈되므로 실제 높이를 측정해 박스에 맞춤.
+      else { posNodes(L); fitTextH(L); }
     }
     function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); renderProps(); }
     document.addEventListener('pointermove', move);
@@ -758,6 +784,29 @@
       family: "'Pretendard', sans-serif", italic: false, underline: false, strike: false, align: 'center', ls: 0, lh: 1.2, rot: 0, patc: 1, patr: 1 };
     L.h = textBoxH(L);
     pushHistory(); cvLayers().push(L); S.sel = L.id; render();
+  }
+  // 캔버스 export 용 줄바꿈 — 에디터 CSS(white-space:pre-wrap; word-break:break-word)와 동일하게
+  // 명시적 \n 보존 + 너비 초과 시 단어 경계 우선, 단어가 칸보다 길면 글자 단위로 끊음.
+  function wrapToWidth(ctx, text, maxW) {
+    var out = [];
+    String(text == null ? '' : text).split('\n').forEach(function (para) {
+      var words = para.split(' ');
+      var line = '';
+      for (var i = 0; i < words.length; i++) {
+        var cand = line === '' ? words[i] : line + ' ' + words[i];
+        if (ctx.measureText(cand).width <= maxW || line === '') line = cand;
+        else { out.push(line); line = words[i]; }
+        // 단어 하나가 칸보다 길면 글자 단위로 강제 분해
+        while (ctx.measureText(line).width > maxW && line.length > 1) {
+          var cut = 0;
+          for (var c = 1; c <= line.length; c++) { if (ctx.measureText(line.slice(0, c)).width > maxW) { cut = c - 1; break; } }
+          if (cut <= 0) break;
+          out.push(line.slice(0, cut)); line = line.slice(cut);
+        }
+      }
+      out.push(line);
+    });
+    return out;
   }
   function textBoxH(L) {
     // 대략적 박스 높이(%): 줄 수 * 폰트 * 행간 * 패턴세로.
@@ -857,9 +906,10 @@
     pal.appendChild(custom);
     card.appendChild(field('글씨 색상', pal));
 
-    // 문자/행 간격
+    // 글자 크기 + 문자/행 간격 (글자 크기는 박스 너비와 독립 — 박스 너비는 줄 길이, 크기는 여기서)
     var g = el('div', { class: 'dz-row' });
     g.append(
+      fieldInline('글자 크기', stepper(L.font || 7, 0.5, 2, 30, function (v) { L.font = v; renderLayers(); })),
       fieldInline('문자 간격', stepper(L.ls || 0, 0.05, -0.3, 3, function (v) { L.ls = v; renderLayers(); })),
       fieldInline('행 간격', stepper(L.lh || 1.2, 0.1, 0.6, 3, function (v) { L.lh = v; renderLayers(); })),
     );
@@ -1015,10 +1065,11 @@
             lx.fillStyle = L.color || '#222';
             lx.textAlign = L.align || 'center'; lx.textBaseline = 'middle';
             try { lx.letterSpacing = (L.ls || 0) + 'em'; } catch (_) {}
-            var lines = String(L.text || '').split('\n');
             var lh = fs * (L.lh || 1.2);
             var boxW = L.w / 100 * CW, boxH = L.h / 100 * CH;
             var pc = Math.max(1, Math.min(5, L.patc || 1)), prr = Math.max(1, Math.min(5, L.patr || 1));
+            // 에디터(CSS pre-wrap)와 동일하게 박스 너비에 맞춰 줄바꿈(칸 너비 = 줄 길이)
+            var lines = wrapToWidth(lx, L.text, Math.max(8, boxW / pc - 2));
             for (var ri = 0; ri < prr; ri++) {
               for (var ci = 0; ci < pc; ci++) {
                 var cellX = pc > 1 ? (-boxW / 2 + boxW * (ci + 0.5) / pc) : 0;
