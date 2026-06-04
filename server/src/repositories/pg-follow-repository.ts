@@ -23,15 +23,6 @@ export class PgFollowRepository implements FollowRepository {
     return r.rows.length > 0;
   }
 
-  // 기존 호출부(follows.ts 라우트) 호환용 별칭.
-  async followerCount(creatorId: string): Promise<number> {
-    return this.countFollowers(creatorId);
-  }
-
-  async followingCount(followerId: string): Promise<number> {
-    return this.countFollowing(followerId);
-  }
-
   async countFollowers(creatorId: string): Promise<number> {
     const r = await this.pool.query('SELECT COUNT(*)::int c FROM follows WHERE creator_id = $1', [creatorId]);
     return r.rows[0]?.c ?? 0;

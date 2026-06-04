@@ -12,7 +12,7 @@ export function createFollowStatusHandler(repo: PgFollowRepository) {
     const creatorId = req.params.id;
     if (!UUID_RE.test(creatorId)) { res.json({ followerCount: 0, following: false }); return; }
     try {
-      const followerCount = await repo.followerCount(creatorId);
+      const followerCount = await repo.countFollowers(creatorId);
       const following = req.userId ? await repo.isFollowing(req.userId, creatorId) : false;
       res.json({ followerCount, following });
     } catch (err) {

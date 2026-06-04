@@ -28,7 +28,8 @@ function mapRow(row: Record<string, unknown>): RewardOrder {
     cancelReason: (row.cancel_reason as string | null) ?? null,
     cancelRequestedAt: row.cancel_requested_at ? new Date(row.cancel_requested_at as string) : null,
     refundedAt: row.refunded_at ? new Date(row.refunded_at as string) : null,
-    // 모의결제/재시도(030). 컬럼이 없는 환경(마이그레이션 전)에서도 undefined 로 안전.
+    // 모의결제/재시도(030). 읽기는 row.charge_attempts 가 없으면 0 으로 폴백하지만,
+    // 쓰기 경로(charge_attempts = charge_attempts + 1)는 이 컬럼이 존재한다고 가정한다(마이그레이션 적용 필수).
     chargeAttempts: row.charge_attempts != null ? Number(row.charge_attempts) : 0,
     nextChargeAt: row.next_charge_at ? new Date(row.next_charge_at as string) : null,
     failReason: (row.fail_reason as string | null) ?? null,
@@ -579,21 +580,6 @@ export class PgRewardOrderRepository {
   // ─────────────────────────────────────────────────────────────────────────
   // 텀블벅식 마감 처리 + 모의결제 잡 지원(030). 모두 멱등(매 tick 재실행 안전).
   // ─────────────────────────────────────────────────────────────────────────
-
-  /**
-   * 마감 성공한 펀드의 pledged 주문들에 next_charge_at(=마감+1일) 예약.
-   * 이미 예약된 건(next_charge_at 있음)은 건드리지 않음 → 멱등(스케줄 한 번만 잡힘).
-   * 반환: 새로 예약된 건 수.
-   */
-  async schedulePledgedCharges(fundId: string, nextChargeAt: Date): Promise<number> {
-    const res = await this.pool.query(
-      `UPDATE reward_orders
-          SET next_charge_at = $2
-        WHERE fund_id = $1 AND status = 'pledged' AND next_charge_at IS NULL`,
-      [fundId, nextChargeAt],
-    );
-    return res.rowCount ?? 0;
-  }
 
   /**
    * 무통장입금 모델: 마감 성공한 펀드의 pledged 주문 → 'awaiting_deposit'(입금 대기).

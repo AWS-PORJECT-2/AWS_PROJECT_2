@@ -2,7 +2,6 @@ import type {
   GroupBuy, GroupBuyStatus, ContentBlock, CreatorInfo,
   ContentTextVariant, ContentAlign, ContentImageWidth, ContentImageSide,
 } from '../types/index.js';
-import type { PoolClient } from 'pg';
 
 // 공개 상세 응답의 스토리 블록 계약(리치 스키마 보존). 내부 ContentBlock 을 계약 키로 옮긴 형태.
 // text: {type:'text', text, variant, align} / image: {type:'image', url, width, align}
@@ -117,8 +116,6 @@ export interface GroupBuyRepository {
   findById(id: string): Promise<GroupBuy | null>;
   findExpiredOpen(now: Date): Promise<GroupBuy[]>;
   updateStatus(id: string, status: GroupBuyStatus): Promise<void>;
-  incrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void>;
-  decrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void>;
   list(options: GroupBuyListOptions): Promise<{ items: GroupBuyListItem[]; total: number }>;
   requestDelete(id: string, userId: string, reason: string): Promise<boolean>;
   // 회원 탈퇴 가드(#3) — 해당 창작자가 개설한 살아있는(deleted_at IS NULL) 펀드 수.

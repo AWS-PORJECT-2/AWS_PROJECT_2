@@ -439,7 +439,7 @@ export function createApp(
   app.get('/api/library', createLibraryListHandler(pool));
   app.post('/api/admin/library', authRequired, requireAdmin, writeRateLimit, createLibraryAddHandler(pool));
   app.delete('/api/admin/library/:id', authRequired, requireAdmin, createLibraryDeleteHandler(pool));
-  app.post('/api/me/backings/:orderId/report', authRequired, createReportDepositorHandler(rewardOrderRepository));
+  app.post('/api/me/backings/:orderId/report', authRequired, writeRateLimit, createReportDepositorHandler(rewardOrderRepository));
   app.get('/api/admin/deposits', authRequired, requireAdmin, createAdminDepositsListHandler(rewardOrderRepository));
   app.post('/api/admin/deposits/:id/confirm', authRequired, requireAdmin, createAdminConfirmDepositHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
   // 펀딩(주문) 취소 신청 처리(#4) — 관리자: 목록 조회 → 환불 표시 → 최종 취소.

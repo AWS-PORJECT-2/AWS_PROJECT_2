@@ -3,7 +3,7 @@
  * 운영 환경(NODE_ENV=production)에서는 절대 등록되지 않는다.
  * app.ts 에서 if (process.env.NODE_ENV !== 'production') 가드 안에서만 마운트.
  *
- * 프론트엔드의 login-dev.html 이 이 엔드포인트를 사용(개발 전용 로그인 페이지).
+ * 개발 환경에서 OAuth 없이 토큰을 발급받기 위한 엔드포인트(운영에선 마운트 안 됨). 별도 프론트 페이지 없음.
  */
 import { Router } from 'express';
 import type { Request, Response } from 'express';

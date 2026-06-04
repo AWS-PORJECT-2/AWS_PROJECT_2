@@ -25,23 +25,6 @@ export class PgOrderRepository implements OrderRepository {
     return this.mapRow(result.rows[0]);
   }
 
-  async findByUserId(userId: string): Promise<Order[]> {
-    const result = await this.pool.query(
-      'SELECT * FROM orders WHERE user_id = $1 ORDER BY created_at DESC',
-      [userId],
-    );
-    return result.rows.map(row => this.mapRow(row));
-  }
-
-  async findByPgPaymentId(pgPaymentId: string): Promise<Order | null> {
-    const result = await this.pool.query(
-      'SELECT * FROM orders WHERE pg_payment_id = $1',
-      [pgPaymentId],
-    );
-    if (result.rows.length === 0) return null;
-    return this.mapRow(result.rows[0]);
-  }
-
   async updateStatus(id: string, status: OrderStatus, pgPaymentId?: string): Promise<void> {
     if (pgPaymentId !== undefined) {
       await this.pool.query(
@@ -54,13 +37,6 @@ export class PgOrderRepository implements OrderRepository {
         [status, id],
       );
     }
-  }
-
-  async updateTracking(id: string, carrierId: string, trackingNumber: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE orders SET carrier_id = $1, tracking_number = $2, updated_at = NOW() WHERE id = $3',
-      [carrierId, trackingNumber, id],
-    );
   }
 
   async findFailedForRetry(maxAttempts: number): Promise<Order[]> {

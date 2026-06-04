@@ -6,6 +6,9 @@ export class PgOAuthStateRepository implements OAuthStateRepository {
   constructor(private readonly pool: pg.Pool) {}
 
   async save(state: OAuthState): Promise<void> {
+    // 만료된 state 정리 — 별도 스윕 잡 없이 로그인 시점에 best-effort 로 청소(미완료 로그인 누적 방지).
+    // 실패해도 로그인 흐름은 막지 않도록 fire-and-forget(.catch).
+    this.pool.query(`DELETE FROM oauth_state WHERE expires_at < NOW()`).catch(() => { /* best-effort */ });
     await this.pool.query(
       `INSERT INTO oauth_state (state, remember_me, created_at, expires_at)
        VALUES ($1, $2, $3, $4)
@@ -31,9 +34,5 @@ export class PgOAuthStateRepository implements OAuthStateRepository {
 
   async delete(state: string): Promise<void> {
     await this.pool.query(`DELETE FROM oauth_state WHERE state = $1`, [state]);
-  }
-
-  async deleteExpired(): Promise<void> {
-    await this.pool.query(`DELETE FROM oauth_state WHERE expires_at <= NOW()`);
   }
 }

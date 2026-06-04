@@ -19,14 +19,6 @@ export class PgPaymentRepository implements PaymentRepository {
     return this.mapRow(result.rows[0]);
   }
 
-  async findByOrderId(orderId: string): Promise<Payment[]> {
-    const result = await this.pool.query(
-      'SELECT * FROM payments WHERE order_id = $1 ORDER BY attempted_at DESC',
-      [orderId],
-    );
-    return result.rows.map(row => this.mapRow(row));
-  }
-
   async findByPgTransactionId(pgTransactionId: string): Promise<Payment | null> {
     const result = await this.pool.query(
       'SELECT * FROM payments WHERE pg_transaction_id = $1',

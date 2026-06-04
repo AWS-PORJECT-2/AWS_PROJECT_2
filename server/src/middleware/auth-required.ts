@@ -64,7 +64,8 @@ export function createAuthRequired(tokenService: TokenService, userRepo: UserRep
       res.status(err.httpStatus).json(createErrorResponse(new AppError(block.code, msg)));
       return;
     }
-    if (isSuspensionExpired(user)) { void userRepo.clearExpiredSuspension(user.id); } // 만료된 정지 자동 복구(best-effort)
+    // 만료된 정지 자동 복구(best-effort) — 실패해도 요청 흐름엔 영향 없게 .catch 로 흡수(unhandledRejection 방지).
+    if (isSuspensionExpired(user)) { userRepo.clearExpiredSuspension(user.id).catch((err) => logger.warn({ err, userId: user.id }, '만료 정지 자동복구 실패')); }
 
     req.userId = payload.userId;
     req.userEmail = payload.email;

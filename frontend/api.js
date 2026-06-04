@@ -148,15 +148,21 @@
     var text = await res.text();
     var data = text ? safeJson(text) : null;
 
+    // 서버가 약관·개인정보 미동의로 차단(동의 팝업 우회 시) → 닫기불가 동의 게이트를 띄워 동의를 받은 뒤
+    // 원요청을 1회 자동 재시도(_consentRetry). 사용자는 "제출 실패" 토스트 없이 동의→원작업이 그대로 이어짐.
+    if (res.status === 403 && data && (data.code || data.error) === 'CONSENT_REQUIRED' && !options._consentRetry) {
+      if (window.WZConsent && typeof window.WZConsent.ensure === 'function') {
+        try { await window.WZConsent.ensure(); } catch (_) { /* 게이트 실패 시 아래서 에러 그대로 throw */ }
+        options._consentRetry = true;
+        return request(path, options);
+      }
+    }
+
     if (!res.ok) {
       var err4 = new Error((data && data.message) || res.statusText);
       err4.code = data && (data.code || data.error);
       err4.status = res.status;
       err4.data = data;
-      // 서버가 약관·개인정보 미동의로 차단(동의 팝업 우회 시) → 동의 게이트를 강제로 띄워 동의 유도.
-      if (err4.code === 'CONSENT_REQUIRED') {
-        try { if (window.WZConsent && typeof window.WZConsent.ensure === 'function') window.WZConsent.ensure(); } catch (_) {}
-      }
       throw err4;
     }
     return data;

@@ -92,14 +92,6 @@
     if (isNaN(d.getTime())) return null;
     return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
   }
-  /* 마감 다음날(N일 차) 날짜 — 텀블벅식 "목표 달성 시 마감 다음날 결제". 마감 없으면 null. */
-  function fmtDatePlusDays(v, plus) {
-    if (!v) return null;
-    const d = new Date(v);
-    if (isNaN(d.getTime())) return null;
-    d.setDate(d.getDate() + (Number(plus) || 0));
-    return d.getFullYear() + '.' + String(d.getMonth() + 1).padStart(2, '0') + '.' + String(d.getDate()).padStart(2, '0');
-  }
   /* D-day 라벨/상태 산출. null 이면 기간 정보 없음(배지 미노출).
    *  - 지난 건 '마감'(is-ended), 오늘은 '오늘 마감'(is-urgent), D-3 이하 임박(is-urgent), 그 외 D-n. */
   function ddayInfo(deadline) {
@@ -1712,6 +1704,12 @@
   }
 
   async function backFlow(f) {
+    // 이중 클릭 방지 — 빠른 더블클릭으로 POST /back 이 두 번 나가는 것 차단(서버 stock-guard 가 최종 방어, UX 보강).
+    if (backFlow._busy) return;
+    backFlow._busy = true;
+    try { await backFlowImpl(f); } finally { backFlow._busy = false; }
+  }
+  async function backFlowImpl(f) {
     if (!_tierSelected) {
       alert('후원할 리워드를 먼저 선택해 주세요.');
       const sec = document.querySelector('.wz-d-rewards');

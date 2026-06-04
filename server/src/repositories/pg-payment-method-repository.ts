@@ -33,15 +33,6 @@ export class PgPaymentMethodRepository implements PaymentMethodRepository {
     return result.rows.map(row => this.mapRow(row));
   }
 
-  async findDefault(userId: string): Promise<PaymentMethod | null> {
-    const result = await this.pool.query(
-      `SELECT * FROM payment_methods WHERE user_id = $1 AND is_default = TRUE AND status = 'ACTIVE'`,
-      [userId],
-    );
-    if (result.rows.length === 0) return null;
-    return this.mapRow(result.rows[0]);
-  }
-
   async update(id: string, patch: Partial<PaymentMethod>): Promise<PaymentMethod> {
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -64,13 +55,6 @@ export class PgPaymentMethodRepository implements PaymentMethodRepository {
       throw new Error(`PaymentMethod not found: ${id}`);
     }
     return this.mapRow(result.rows[0]);
-  }
-
-  async unsetAllDefaults(userId: string): Promise<void> {
-    await this.pool.query(
-      `UPDATE payment_methods SET is_default = FALSE, updated_at = NOW() WHERE user_id = $1 AND is_default = TRUE AND status = 'ACTIVE'`,
-      [userId],
-    );
   }
 
   async setDefaultAtomic(userId: string, id: string): Promise<PaymentMethod | null> {

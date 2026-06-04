@@ -15,14 +15,6 @@ export class PgPaymentEventRepository implements PaymentEventRepository {
     return this.mapRow(result.rows[0]);
   }
 
-  async findByPaymentId(paymentId: string): Promise<PaymentEvent[]> {
-    const result = await this.pool.query(
-      'SELECT * FROM payment_events WHERE payment_id = $1 ORDER BY created_at ASC',
-      [paymentId],
-    );
-    return result.rows.map(row => this.mapRow(row));
-  }
-
   private mapRow(row: Record<string, unknown>): PaymentEvent {
     return {
       id: row.id as string,

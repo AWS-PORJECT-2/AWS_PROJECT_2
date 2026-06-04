@@ -33,15 +33,6 @@ export class PgAddressRepository implements AddressRepository {
     return result.rows.map(row => this.mapRow(row));
   }
 
-  async findDefault(userId: string): Promise<Address | null> {
-    const result = await this.pool.query(
-      'SELECT * FROM addresses WHERE user_id = $1 AND is_default = TRUE',
-      [userId],
-    );
-    if (result.rows.length === 0) return null;
-    return this.mapRow(result.rows[0]);
-  }
-
   async update(id: string, patch: Partial<Address>): Promise<Address> {
     const fields: string[] = [];
     const values: unknown[] = [];
@@ -72,13 +63,6 @@ export class PgAddressRepository implements AddressRepository {
 
   async delete(id: string): Promise<void> {
     await this.pool.query('DELETE FROM addresses WHERE id = $1', [id]);
-  }
-
-  async unsetAllDefaults(userId: string): Promise<void> {
-    await this.pool.query(
-      'UPDATE addresses SET is_default = FALSE, updated_at = NOW() WHERE user_id = $1 AND is_default = TRUE',
-      [userId],
-    );
   }
 
   async setDefaultAtomic(userId: string, id: string): Promise<Address | null> {

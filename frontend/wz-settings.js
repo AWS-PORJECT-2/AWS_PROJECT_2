@@ -66,17 +66,6 @@
     if (d.length < 11) return d.slice(0, 3) + '-' + d.slice(3, 6) + '-' + d.slice(6);
     return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7, 11);
   }
-  // 일반 번호(02 지역번호 포함) 길이별 하이픈
-  function formatTel(raw) {
-    var d = digitsOnly(raw).slice(0, 11);
-    if (d.indexOf('02') === 0) {
-      if (d.length < 3) return d;
-      if (d.length < 6) return d.slice(0, 2) + '-' + d.slice(2);
-      if (d.length < 10) return d.slice(0, 2) + '-' + d.slice(2, 5) + '-' + d.slice(5);
-      return d.slice(0, 2) + '-' + d.slice(2, 6) + '-' + d.slice(6, 10);
-    }
-    return formatPhone(d);
-  }
   // 카드번호 4-4-4-4
   function formatCard(raw) {
     var d = digitsOnly(raw).slice(0, 16);

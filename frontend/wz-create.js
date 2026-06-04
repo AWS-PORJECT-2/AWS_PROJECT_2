@@ -137,28 +137,6 @@
     return '';
   }
 
-  /* YouTube/Vimeo 시청 URL → embed URL. 아니면 ''(임베드 불가). */
-  function videoEmbedUrl(url) {
-    var u = String(url || '').trim();
-    if (!u) return '';
-    var m;
-    // youtube watch?v= / youtu.be / shorts / 이미 embed
-    m = u.match(/^https?:\/\/(?:www\.)?youtube\.com\/watch\?(?:[^#]*&)?v=([A-Za-z0-9_-]{6,})/i);
-    if (m) return 'https://www.youtube.com/embed/' + m[1];
-    m = u.match(/^https?:\/\/youtu\.be\/([A-Za-z0-9_-]{6,})/i);
-    if (m) return 'https://www.youtube.com/embed/' + m[1];
-    m = u.match(/^https?:\/\/(?:www\.)?youtube\.com\/shorts\/([A-Za-z0-9_-]{6,})/i);
-    if (m) return 'https://www.youtube.com/embed/' + m[1];
-    m = u.match(/^https?:\/\/(?:www\.)?youtube(?:-nocookie)?\.com\/embed\/([A-Za-z0-9_-]{6,})/i);
-    if (m) return 'https://www.youtube.com/embed/' + m[1];
-    // vimeo
-    m = u.match(/^https?:\/\/(?:www\.)?vimeo\.com\/(\d{4,})/i);
-    if (m) return 'https://player.vimeo.com/video/' + m[1];
-    m = u.match(/^https?:\/\/player\.vimeo\.com\/video\/(\d{4,})/i);
-    if (m) return 'https://player.vimeo.com/video/' + m[1];
-    return '';
-  }
-
   /* 링크 URL 검증(http(s)/mailto 만). 통과하면 그 값, 아니면 ''. */
   function safeLinkUrl(url) {
     var u = String(url || '').trim();
@@ -489,7 +467,6 @@
       creatorIntro: '',
       creatorSido: '',
       creatorSigungu: '',
-      tryonImage: null,
     };
   }
 
@@ -624,7 +601,6 @@
     ];
   }
 
-  function validPrice(v) { var n = Number(v); return Number.isFinite(n) && n >= 0 && String(v).trim() !== ''; }
   function validQty(v) { var n = Number(v); return Number.isFinite(n) && n >= 1 && n <= 500; }
   // 목표 금액(원): 양수. 서버 계약 1,000원 ~ 100억원.
   function validTargetAmount(v) { var n = Number(v); return Number.isFinite(n) && String(v).trim() !== '' && n >= 1000 && n <= 10000000000; }
@@ -637,8 +613,6 @@
     return dt.getTime() > today.getTime();
   }
   function validTier(t) { return !!String(t.title || '').trim() && Number.isFinite(Number(t.price)) && Number(t.price) >= 0; }
-  // 공개 예정일: 마감일과 동일하게 오늘 이후 날짜만 허용(미래 검증).
-  function validOpenAt(s) { return validDeadline(s); }
 
   // ── 금액/날짜 공통 유틸 ──
   // 로컬(국민대 사용자는 KST) 기준 'YYYY-MM-DD' — date 입력 min/검증을 UTC 가 아닌 현지 날짜로(하루 어긋남 방지).
@@ -883,12 +857,6 @@
     });
     return list;
   }
-
-  // 카테고리 타입에 따라 AI 기능을 분기: 의류(apparel)=가상 피팅(모델 착용), 그 외(굿즈/기타)=가상 전시(제품 연출).
-  function aiIsApparel() {
-    return (typeof window.dtCategoryType === 'function') && window.dtCategoryType(nstate.category) === 'apparel';
-  }
-  function aiLabel() { return aiIsApparel() ? 'AI 가상 피팅' : 'AI 가상 전시'; }
 
   function SubmitArea() {
     var wrap = W.el('div', { class: 'wc-submit' });
@@ -2369,116 +2337,6 @@
     });
   }
 
-  /* ---- AI 가상 피팅/전시 모달(별도) — 카테고리에 따라 분기 ---- */
-  function openAiModal() {
-    var apparel = aiIsApparel();
-    var label = aiLabel();
-    var modal = W.el('div', { class: 'wc-modal' });
-    var dim = W.el('div', { class: 'wc-modal__dim' });
-    dim.addEventListener('click', close);
-    var box = W.el('div', { class: 'wc-modal__box', role: 'dialog', 'aria-label': label });
-
-    var head = W.el('div', { class: 'wc-modal__head' });
-    var closeBtn = W.el('button', { class: 'wc-modal__close', type: 'button', 'aria-label': '닫기', html: IC.close });
-    closeBtn.addEventListener('click', close);
-    head.append(W.el('h2', { class: 'wc-modal__title' }, label), closeBtn);
-    box.appendChild(head);
-    box.appendChild(W.el('p', { class: 'wc-modal__sub' }, apparel
-      ? '디자인(의류) 이미지를 업로드하면 모델 착용 사진을 생성합니다. 결과는 대표 이미지로 사용할 수 있습니다.'
-      : '디자인 이미지를 업로드하면 제품 전시·연출 사진을 생성합니다. 결과는 대표 이미지로 사용할 수 있습니다.'));
-
-    var sourceState = null, resultState = null;
-    var previewWrap = W.el('div', {});
-    function renderSource() {
-      previewWrap.replaceChildren();
-      if (sourceState) {
-        var pv = W.el('div', { class: 'wc-preview' });
-        pv.appendChild(W.el('img', { src: sourceState, alt: '디자인 이미지' }));
-        var del = W.el('button', { class: 'wc-preview__del', type: 'button', 'aria-label': '이미지 삭제', html: IC.close });
-        del.addEventListener('click', function () { sourceState = null; renderSource(); });
-        pv.appendChild(del);
-        previewWrap.appendChild(pv);
-      } else {
-        var up = W.el('label', { class: 'wc-upload' });
-        up.appendChild(W.el('div', { html: IC.upload }));
-        up.appendChild(W.el('div', { class: 'wc-upload__text' }, '디자인 이미지 업로드'));
-        up.appendChild(W.el('div', { class: 'wc-upload__hint' }, '클릭 또는 끌어다 놓기 · PNG · JPG · WEBP (최대 8MB)'));
-        var fileIn = W.el('input', { type: 'file', accept: 'image/png,image/jpeg,image/webp', style: 'display:none' });
-        fileIn.addEventListener('change', function () { readImage(fileIn.files && fileIn.files[0], function (d) { sourceState = d; renderSource(); }); });
-        up.appendChild(fileIn);
-        enableDrop(up, function (d) { sourceState = d; renderSource(); });
-        previewWrap.appendChild(up);
-      }
-    }
-    renderSource();
-    box.appendChild(field('디자인 이미지', false, previewWrap));
-
-    var opts = W.el('div', { class: 'wc-opts' });
-    // 모델 선택은 의류(가상 피팅)일 때만. 굿즈(가상 전시)는 배경만 고른다.
-    var modelSel = W.el('select', { class: 'wc-select' });
-    [['female', '여성 모델'], ['male', '남성 모델'], ['female_athletic', '여성(운동)'], ['male_athletic', '남성(운동)']]
-      .forEach(function (o) { modelSel.appendChild(W.el('option', { value: o[0] }, o[1])); });
-    var bgSel = W.el('select', { class: 'wc-select' });
-    [['studio', '스튜디오'], ['campus', '캠퍼스'], ['classroom', '강의실'], ['outdoor', '야외']]
-      .forEach(function (o) { bgSel.appendChild(W.el('option', { value: o[0] }, o[1])); });
-    if (apparel) opts.append(field('모델', false, modelSel), field('배경', false, bgSel));
-    else opts.append(field('배경', false, bgSel));
-    box.appendChild(opts);
-
-    var statusEl = W.el('div', {});
-    var resultWrap = W.el('div', { class: 'wc-modal__result', style: 'display:none' });
-    box.append(statusEl, resultWrap);
-
-    var foot = W.el('div', { class: 'wc-over__foot', style: 'border:0;padding:18px 0 0' });
-    var genBtn = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button' }, apparel ? 'AI 피팅 생성' : 'AI 전시 생성');
-    var useBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button' }, '대표 이미지로 사용');
-    useBtn.disabled = true;
-    genBtn.addEventListener('click', function () {
-      if (!sourceState) { toast('디자인 이미지를 업로드해 주세요'); return; }
-      statusEl.className = 'wc-modal__status';
-      statusEl.replaceChildren(W.el('div', { class: 'wc-spin' }), document.createTextNode('AI가 이미지를 생성하고 있어요. 잠시만 기다려 주세요.'));
-      genBtn.disabled = true;
-      // category 전달 → 서버가 의류=착용 / 굿즈=전시 모드로 생성. 굿즈는 modelType 생략.
-      var aiBody = { imageDataUrls: [sourceState], background: bgSel.value, category: nstate.category };
-      if (apparel) aiBody.modelType = modelSel.value;
-      window.api.post('/ai/try-on', aiBody)
-        .then(function (res) {
-          var url = res && res.tryOnDataUrl;
-          if (!url) throw new Error('NO_RESULT');
-          resultState = url;
-          statusEl.replaceChildren();
-          resultWrap.style.display = '';
-          resultWrap.replaceChildren(W.el('img', { src: url, alt: label + ' 결과' }));
-          useBtn.disabled = false;
-          genBtn.disabled = false;
-        })
-        .catch(function (err) {
-          genBtn.disabled = false;
-          statusEl.className = 'wc-modal__status is-err';
-          var msg = (err && (err.status === 404 || err.status === 503))
-            ? 'AI 기능이 현재 연결되어 있지 않습니다. 나중에 다시 시도해 주세요.'
-            : ((err && err.message) ? err.message : 'AI 생성에 실패했습니다. 잠시 후 다시 시도해 주세요.');
-          statusEl.textContent = msg;
-        });
-    });
-    useBtn.addEventListener('click', function () {
-      if (!resultState) return;
-      nstate.tryonImage = resultState;
-      nstate.coverImage = nstate.coverImage || resultState;
-      close();
-      refreshStudio();
-      toast(label + ' 결과를 대표 이미지로 적용했습니다');
-    });
-    foot.append(genBtn, useBtn);
-    box.appendChild(foot);
-
-    modal.append(dim, box);
-    document.body.appendChild(modal);
-    requestAnimationFrame(function () { modal.classList.add('is-open'); });
-
-    function close() { if (modal.parentNode) modal.parentNode.removeChild(modal); }
-  }
-
   /* ---- 일반 제출 ---- */
   function submitNormal() {
     if (!allRequiredDone()) { toast('필수 항목을 모두 작성해 주세요'); return; }
@@ -2530,10 +2388,10 @@
         if ((nstate.plan === 'run' || nstate.plan === 'boost') && nstate.openScheduled && nstate.openAt) {
           payload.openAt = nstate.openAt;
         }
-        // 대표 이미지: 업로드 data URL 우선 -> AI 피팅 결과 -> 스토리 첫 이미지.
+        // 대표 이미지: 업로드 data URL 우선 -> 스토리 첫 이미지.
         // (서버도 폴백 추출하지만, 명시 후보가 있으면 그대로 사용.) 블록 순서대로 image/split 의
         // 직접 이미지, html 블록의 첫 <img> 순으로 찾는다.
-        var cover = nstate.coverImage || nstate.tryonImage;
+        var cover = nstate.coverImage;
         if (!cover) cover = firstStoryBlockImage(nstate.storyBlocks);
         if (cover) payload.designImageDataUrl = cover;
         // 대표 영상(선택): 서버 검증 형태만
@@ -2546,7 +2404,7 @@
 
         // 관리자 대리완성: 일반 생성(POST /funds) 대신 의뢰 펀드를 편집·공개(의뢰자 명의 유지).
         if (adminProxyId) {
-          var apCover = nstate.coverImage || nstate.tryonImage || firstStoryBlockImage(nstate.storyBlocks);
+          var apCover = nstate.coverImage || firstStoryBlockImage(nstate.storyBlocks);
           var apVideo = normalizeVideo(nstate.videoUrl);
           var patchBody = {
             title: nstate.title,

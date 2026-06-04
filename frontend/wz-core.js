@@ -5,6 +5,19 @@
  * 이모지 금지 — 아이콘은 인라인 SVG(stroke=currentColor).
  * ===================================================================== */
 (function () {
+  /* 로그인 직후(?login=success) 보호경로 복귀 — login.html 이 보관한 wz_login_return 로 이동.
+   * 같은-origin 절대경로만 허용(open-redirect 방지), 1회성(먼저 제거 → 루프 방지). 일반 로그인은 키가 없어 무동작. */
+  (function consumeLoginReturn() {
+    try {
+      if (new URLSearchParams(location.search).get('login') !== 'success') return;
+      var ret = sessionStorage.getItem('wz_login_return');
+      sessionStorage.removeItem('wz_login_return');
+      if (ret && /^\/(?!\/)[^\s:]*$/.test(ret) && ret.indexOf('/login.html') !== 0 && ret.indexOf('/main.html') !== 0) {
+        location.replace(ret);
+      }
+    } catch (e) { /* 무시 — 복귀 실패해도 홈은 정상 표시 */ }
+  })();
+
   /* 앱(Capacitor) 전용: 같은-origin <a> 클릭을 WebView 안에서 이동시킨다.
    * Capacitor 는 .linkActivated(앵커 클릭) 같은-origin 도 일부 환경에서 외부 브라우저로 내보내는데,
    * location.assign 은 navigationType 이 .other 라 항상 WebView 안에서 열린다.
@@ -164,9 +177,6 @@
     homeLink.addEventListener('click', (e) => { e.preventDefault(); go({}); });
 
     const right = el('div', { class: 'wz-hd__right' });
-    function iconLink(name, label, href) {
-      return el('a', { class: 'wz-hd__icon', href, 'aria-label': label, title: label, html: ICON[name] });
-    }
 
     /* 언어 토글(KR/EN) — localStorage 'wz_lang' 저장 후 reload. wz-i18n.js 가 EN 일 때 DOM 을 번역. */
     let curLang = 'ko';

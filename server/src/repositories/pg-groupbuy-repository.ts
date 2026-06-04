@@ -1,5 +1,4 @@
 import type pg from 'pg';
-import type { PoolClient } from 'pg';
 import type { GroupBuy, GroupBuyStatus, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import type {
   GroupBuyRepository, GroupBuyListItem, GroupBuyListOptions,
@@ -254,8 +253,14 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
 
   // 관리자가 대리 펀드의 리워드/대표가격 설정
   async updateRewards(id: string, rewardTiers: RewardTier[], finalPrice: number): Promise<void> {
+    // platform_fee 도 새 final_price × 보관된 fee_rate(%) 로 재계산 — 대리(proxy) 펀드는 개설 시 0/미확정으로
+    // 두고 여기서 확정(funds-create buildProxy 주석의 "관리자 가격 설정 시 재계산" 이행). fee_rate NULL 은 0 처리.
     await this.pool.query(
-      `UPDATE groupbuys SET reward_tiers = $1, final_price = $2, updated_at = NOW() WHERE id = $3`,
+      `UPDATE groupbuys
+         SET reward_tiers = $1, final_price = $2,
+             platform_fee = ROUND($2::numeric * COALESCE(fee_rate, 0) / 100.0),
+             updated_at = NOW()
+       WHERE id = $3`,
       [JSON.stringify(rewardTiers), finalPrice, id],
     );
   }
@@ -316,22 +321,6 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     await this.pool.query(
       `UPDATE groupbuys SET status = 'cancelled', deleted_at = NOW(), delete_requested = FALSE, updated_at = NOW() WHERE id = $1`,
       [id],
-    );
-  }
-
-  async incrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void> {
-    const queryable = client ?? this.pool;
-    await queryable.query(
-      'UPDATE groupbuys SET current_quantity = current_quantity + $1, updated_at = NOW() WHERE id = $2',
-      [amount, id],
-    );
-  }
-
-  async decrementQuantity(id: string, amount: number, client?: PoolClient | null): Promise<void> {
-    const queryable = client ?? this.pool;
-    await queryable.query(
-      'UPDATE groupbuys SET current_quantity = current_quantity - $1, updated_at = NOW() WHERE id = $2',
-      [amount, id],
     );
   }
 
