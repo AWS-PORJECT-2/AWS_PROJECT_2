@@ -82,11 +82,13 @@ function videoField(v: unknown): string | null {
 }
 
 // {name,image,intro,sido,sigungu} 검증. 어느 필드도 없으면 null 반환(저장 생략).
-function creatorInfoField(v: unknown): CreatorInfo | null {
+// forceName 이 있으면 창작자 이름을 그 값(작성자 계정 이름 = nickname ?? name)으로 강제 — 클라가 보낸 name 은 무시.
+// "창작자 정보의 이름은 무조건 그 사람(작성자) 이름을 따라간다" 요구사항의 서버측 강제.
+function creatorInfoField(v: unknown, forceName?: string): CreatorInfo | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   const info: CreatorInfo = {};
-  const name = stringField(o.name).slice(0, CREATOR_NAME_MAX);
+  const name = ((forceName && forceName.trim()) ? forceName : stringField(o.name)).slice(0, CREATOR_NAME_MAX);
   if (name) info.name = name;
   const image = imageField(o.image);
   if (image) info.image = image;
@@ -117,8 +119,8 @@ export function createFundsCreateHandler(
 
     try {
       const groupbuy = mode === 'proxy'
-        ? buildProxy(userId, body, res)
-        : buildNormal(userId, body, res);
+        ? buildProxy(userId, body, res, req.userName)
+        : buildNormal(userId, body, res, req.userName);
       if (!groupbuy) return; // 에러 응답은 build* 에서 이미 보냄
 
       const created = await groupBuyRepository.create(groupbuy);
@@ -159,7 +161,7 @@ export function createFundsCreateHandler(
 }
 
 // ─── 일반(normal) ───
-function buildNormal(userId: string, body: Record<string, unknown>, res: Response): GroupBuy | null {
+function buildNormal(userId: string, body: Record<string, unknown>, res: Response, creatorName?: string): GroupBuy | null {
   const title = stringField(body.title);
   const description = stringField(body.description, '');
   const category = stringField(body.category);
@@ -176,7 +178,7 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   const delegated = body.delegated === true; // 기존 프론트 호환 플래그
   const plan = resolvePlan(body.plan);        // start|run|boost (수수료율 5/9/15%)
   const videoUrl = videoField(body.videoUrl); // 대표 영상(선택)
-  const creatorInfo = creatorInfoField(body.creatorInfo); // 창작자 정보(선택)
+  const creatorInfo = creatorInfoField(body.creatorInfo, creatorName); // 창작자 정보 — 이름은 작성자 계정 이름으로 강제
   // 정책: 스토리(contentBlocks)에 합치지 않고 별도 컬럼에 저장(023). 빈 값 허용(과거 데이터 호환).
   const refundPolicy = policyField(body.refundPolicy); // 교환·반품 정책(선택)
   const legalNotice = policyField(body.legalNotice);   // 정보고시/법적 고지(선택)
@@ -266,7 +268,7 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
 }
 
 // ─── 대리(proxy) — 플랫폼이 비용/리워드 설정 대행 ───
-function buildProxy(userId: string, body: Record<string, unknown>, res: Response): GroupBuy | null {
+function buildProxy(userId: string, body: Record<string, unknown>, res: Response, creatorName?: string): GroupBuy | null {
   const title = stringField(body.title);
   const category = stringField(body.category);
   const contactPhone = stringField(body.contactPhone);
@@ -304,7 +306,7 @@ function buildProxy(userId: string, body: Record<string, unknown>, res: Response
   const contentBlocks: ContentBlock[] | null = blocks.length ? blocks : null;
   // 대리 의뢰에도 대표 영상/창작자 정보/정책은 선택 허용(있으면 저장).
   const videoUrl = videoField(body.videoUrl);
-  const creatorInfo = creatorInfoField(body.creatorInfo);
+  const creatorInfo = creatorInfoField(body.creatorInfo, creatorName); // 이름은 작성자 계정 이름으로 강제
   const refundPolicy = policyField(body.refundPolicy);
   const legalNotice = policyField(body.legalNotice);
 

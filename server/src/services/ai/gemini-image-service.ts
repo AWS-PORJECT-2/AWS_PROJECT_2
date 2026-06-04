@@ -125,33 +125,36 @@ function facesBlock(faces: string[]): { mapping: string; layout: string } | null
 
 function buildProductPhotoPrompt(category: string, faces: string[] = []): string {
   const fb = facesBlock(faces);
+  // 디자인 충실도 — AI 가 재해석하지 않고 업로드한 디자인을 그대로 옮기게 강제.
+  const fidelity =
+    'Reproduce the uploaded design EXACTLY as given: same product/garment color, and every logo, lettering, pattern, embroidery and graphic at its exact position, size, shape and colors. ' +
+    'Do NOT recolor, restyle, add, remove, crop, distort or reinterpret anything. Keep white / light areas exactly as they are (do NOT make them transparent and do NOT change their color). ';
   if (categoryType(category) === 'goods') {
     return (
-      'The attached image(s) are reference views of ONE custom merchandise product (multiple images = front/back/different sides of the SAME product). ' +
+      'The attached image(s) are the designed views of ONE custom merchandise product (multiple images = different faces of the SAME product). ' +
       (fb ? `The images map to faces as follows: ${fb.mapping}. ` : '') +
-      'Generate ONE photorealistic e-commerce product photo of that EXACT product as a REAL, manufactured item:\n' +
-      '- A clean studio product shot — the real product attractively presented (e.g. standing or propped on a clean surface), as if actually photographed for an online store. Realistic material, texture, lighting and a soft shadow.\n' +
-      '- This MUST look like a REAL photographed product, NOT a flat 2D drawing, sketch or technical illustration.\n' +
-      '- No human model. The designed side faces the camera, fully visible and undistorted.\n\n' +
-      (fb ? fb.layout + '\n\n' : '') +
-      'Background: clean light studio. The product MUST match the references EXACTLY: same colors, logos, lettering, patterns, shape — do not invent or omit any detail.\n' +
-      'Output exactly ONE image.'
+      'Produce ONE clean, FLAT product layout ("도면" / technical flat) of that EXACT product:\n' +
+      '- Show the product FLAT and front-on — a clean product flat-lay / technical flat drawing, evenly lit. NO human, NO mannequin, NO 3D perspective, NO dramatic studio styling or strong shadows.\n' +
+      '- ' + fidelity + '\n' +
+      (fb ? fb.layout + '\n' : '') +
+      'Plain solid white background, flat even lighting, minimal shadow. Output exactly ONE image.'
     );
   }
-  // 의류: 고스트 마네킹 — 결과는 무조건 앞|뒤 2패널. 옆면(소매) 디자인은 양쪽 패널의 소매에 반영.
+  // 의류: 앞|뒤 2패널 플랫 도면. 옆면(소매) 디자인은 양쪽 패널의 소매에 반영.
   const labeled = faces.map((f) => FACE_LABEL[f] || '').filter(Boolean);
   const mapping = labeled.length
     ? `The attached images map to garment faces as follows: ${labeled.map((l, i) => `image ${i + 1} = the ${l}`).join(', ')}. `
     : '';
   return (
-    'The attached images are different faces of ONE custom garment. ' + mapping +
-    'Generate ONE photorealistic GHOST / INVISIBLE-MANNEQUIN product photo of that EXACT garment, laid out as EXACTLY TWO panels of the SAME garment side by side, separated by ONE clear thin vertical divider, each with a small caption beneath — "FRONT" on the left and "BACK" on the right:\n' +
-    '- LEFT panel = the FRONT of the garment (print the FRONT-face design on the chest).\n' +
-    '- RIGHT panel = the BACK of the garment (print the BACK-face design).\n' +
-    '- A LEFT-side or RIGHT-side reference image is a SLEEVE design: print it on the matching sleeve, and it MUST be clearly visible on that sleeve in BOTH the front and the back panel (a sleeve shows from both front and back).\n' +
-    '- ALWAYS output exactly these two panels — the FRONT and the BACK of this one garment. NEVER output a side/profile-only view, never a single panel, never omit the FRONT, never relabel the back as a side.\n' +
-    '- A REAL photographed garment with natural fabric folds, texture, stitching and seams — NOT a flat 2D drawing or sketch. No human, no face, no body.\n\n' +
-    'Clean white / light studio background, soft even lighting, gentle shadow. Match the references EXACTLY: garment colors, sleeve/contrast colors, every logo, embroidery, patch, lettering and pattern at its exact placement — do not invent or omit anything. Output exactly ONE image containing the two panels.'
+    'The attached images are the designed faces of ONE custom garment (flat design mockups). ' + mapping +
+    'Produce ONE clean, FLAT garment layout ("도면" / technical flat), laid out as EXACTLY TWO panels of the SAME garment side by side, separated by ONE thin vertical divider, each with a small caption beneath — "FRONT" on the left and "BACK" on the right:\n' +
+    '- LEFT panel = the FRONT of the garment with the FRONT-face design on the chest.\n' +
+    '- RIGHT panel = the BACK of the garment with the BACK-face design.\n' +
+    '- A LEFT-side or RIGHT-side reference image is a SLEEVE design: place it on the matching sleeve, clearly visible on that sleeve in BOTH the front and the back panel.\n' +
+    '- ALWAYS output exactly these two panels (the FRONT and the BACK of this one garment). NEVER output a side/profile-only view, never a single panel, never omit the FRONT, never relabel the back as a side.\n' +
+    '- Draw each garment FLAT and front-on — a clean flat-lay / technical flat of the garment shape. NOT on a person or mannequin, NO 3D perspective, NO heavy fabric folds or dramatic lighting.\n' +
+    '- ' + fidelity + '\n' +
+    'Plain solid white background, flat even lighting, minimal shadow. Output exactly ONE image containing the two FRONT and BACK panels.'
   );
 }
 

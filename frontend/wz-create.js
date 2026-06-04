@@ -462,7 +462,7 @@
       legalNotice: '',
       makerIntro: '',
       makerContact: '',
-      creatorName: '',
+      creatorName: (me && (me.nickname || me.name)) || '', // 창작자 이름 = 계정 이름 고정(수정불가). 서버도 강제.
       creatorImage: null,     // data URL 또는 http(s)
       creatorIntro: '',
       creatorSido: '',
@@ -2221,8 +2221,9 @@
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 16px' },
         '후원자에게 보일 창작자(팀) 정보입니다. 이름과 소개는 필수입니다.'));
 
-      nameIn = input({ type: 'text', value: nstate.creatorName, maxlength: '20', placeholder: '창작자 또는 팀 이름' });
-      body.appendChild(field('창작자 이름', true, nameIn, '후원자에게 표시되는 이름입니다. 최대 20자.'));
+      // 창작자 이름 = 계정 이름 고정(수정 불가). 서버도 작성자 계정 이름으로 강제 저장하므로 입력칸은 잠금.
+      nameIn = input({ type: 'text', value: nstate.creatorName, maxlength: '20', readonly: 'readonly', 'aria-readonly': 'true', tabindex: '-1', style: 'background:#f3f3f5;color:#555;cursor:not-allowed' });
+      body.appendChild(field('창작자 이름', true, nameIn, '계정 이름이 자동으로 적용됩니다(수정 불가). 변경하려면 설정 > 프로필에서 닉네임을 바꾸세요.'));
 
       imageWrap = W.el('div', {});
       function renderImage() {

@@ -12,6 +12,8 @@ declare module 'express-serve-static-core' {
     userEmail?: string;
     // 가입 시 약관·개인정보 동의 완료 여부(termsAgreedAt 존재). authRequired 가 이미 user 를 조회하므로 여기서 채움.
     termsAgreed?: boolean;
+    // 표시 이름(nickname ?? name) — 창작자 정보 이름을 계정 이름으로 강제할 때 사용.
+    userName?: string;
   }
 }
 
@@ -70,6 +72,7 @@ export function createAuthRequired(tokenService: TokenService, userRepo: UserRep
     req.userId = payload.userId;
     req.userEmail = payload.email;
     req.termsAgreed = !!user.termsAgreedAt;
+    req.userName = user.nickname ?? user.name ?? undefined;
     next();
   };
 }

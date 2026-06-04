@@ -1316,43 +1316,6 @@
       return { urls: urls, faces: list };
     });
   }
-  // AI 도면 결과의 흰 배경 → 투명. 테두리에서 연결된 근백색(배경)만 플러드필로 제거하고
-  // 제품 내부의 흰색(흰 옷·로고 등)은 보존. 로드/오염 실패 시 원본을 그대로 반환(안전).
-  function whiteBgToTransparent(dataUrl) {
-    return new Promise(function (resolve) {
-      if (!dataUrl || typeof dataUrl !== 'string') { resolve(dataUrl); return; }
-      var img = new Image();
-      img.onload = function () {
-        try {
-          var w = img.naturalWidth, h = img.naturalHeight;
-          if (!w || !h) { resolve(dataUrl); return; }
-          var c = document.createElement('canvas'); c.width = w; c.height = h;
-          var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0);
-          var id = ctx.getImageData(0, 0, w, h), d = id.data, T = 238; // 근백색 임계(채널 모두 ≥ T)
-          var seen = new Uint8Array(w * h), st = [], x, y;
-          for (x = 0; x < w; x++) { st.push(x); st.push((h - 1) * w + x); }   // 위·아래 테두리 시드
-          for (y = 0; y < h; y++) { st.push(y * w); st.push(y * w + (w - 1)); } // 좌·우 테두리 시드
-          while (st.length) {
-            var idx = st.pop();
-            if (seen[idx]) continue;
-            var p = idx * 4;
-            if (d[p] < T || d[p + 1] < T || d[p + 2] < T) continue; // 근백색 아니면 경계 → 멈춤
-            seen[idx] = 1; d[p + 3] = 0;                            // 투명 처리
-            var px = idx % w, py = (idx - px) / w;
-            if (px > 0) st.push(idx - 1);
-            if (px < w - 1) st.push(idx + 1);
-            if (py > 0) st.push(idx - w);
-            if (py < h - 1) st.push(idx + w);
-          }
-          ctx.putImageData(id, 0, 0);
-          resolve(c.toDataURL('image/png'));
-        } catch (e) { resolve(dataUrl); }
-      };
-      img.onerror = function () { resolve(dataUrl); };
-      img.src = dataUrl;
-    });
-  }
-
   // 좌: 도면 생성 — 디자인 있는 모든 면 합성 → /ai/blueprint. 결과는 dzDesignOut 에 인라인.
   function runAiDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
@@ -1366,10 +1329,8 @@
         .then(function (rr) { if (rr && rr.id) S.designId = rr.id; }).catch(function () {});
       return window.api.post('/ai/blueprint', { imageDataUrls: r.urls, faces: r.faces, category: S.slug, product: S.product });
     }).then(function (res) {
-      var raw = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
-      if (!raw) throw new Error('NO_RESULT');
-      return whiteBgToTransparent(raw); // 흰 배경 → 투명 처리 후 사용/저장/표시
-    }).then(function (url) {
+      var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
+      if (!url) throw new Error('NO_RESULT');
       S.aiDesign = url; setFitLock();
       if (S.designId) window.api.patch('/me/designs/' + S.designId, { aiImage: url }).catch(function () {});
       aiOutResult(dzDesignOut, url, '도면');
