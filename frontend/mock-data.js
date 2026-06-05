@@ -86,26 +86,33 @@ function _applyToggleLike(productId) {
   }
   window.dispatchEvent(new CustomEvent('likes:updated', { detail: { id: productId, liked: nowLiked } }));
 
-  // 백그라운드 서버 동기화
-  const base = window.API_BASE_URL || (window.location.origin + '/api');
-  const path = base + '/funds/' + encodeURIComponent(productId) + '/like';
-  fetch(path, { method: nowLiked ? 'POST' : 'DELETE', credentials: 'include' })
-    .then((res) => {
-      if (res.status === 401) {
-        // 미로그인 — 캐시 갱신 + 낙관적 토글 취소 후 로그인으로 유도
-        window.__WZ_AUTHED = false;
-        _markLiked(productId, wasLiked);
-        if (product) {
-          product.isLiked = wasLiked;
-          product.likeCount = Math.max(0, (Number(product.likeCount) || 0) + (nowLiked ? -1 : 1));
-        }
-        window.dispatchEvent(new CustomEvent('likes:updated', { detail: { id: productId, liked: wasLiked } }));
-        location.href = '/login.html?return=' + _currentReturn();
-        return null;
-      }
-      if (!res.ok) return null;
-      return res.json().catch(() => null);
-    })
+  // 낙관적 토글을 취소(원상복구)하는 헬퍼 — 401(미로그인) 시 호출.
+  const _rollbackOptimistic = () => {
+    _markLiked(productId, wasLiked);
+    if (product) {
+      product.isLiked = wasLiked;
+      product.likeCount = Math.max(0, (Number(product.likeCount) || 0) + (nowLiked ? -1 : 1));
+    }
+    window.dispatchEvent(new CustomEvent('likes:updated', { detail: { id: productId, liked: wasLiked } }));
+  };
+
+  // 백그라운드 서버 동기화 — window.api 로 호출해 401 시 자동 토큰 갱신을 활용.
+  //  · silentAuthFail: 갱신 후에도 미로그인이면 api 가 자동 리다이렉트하지 않고 NOT_AUTHENTICATED 를 throw.
+  //    → 여기서 낙관적 토글을 되돌린 뒤(롤백) 직접 로그인으로 유도(기존 동작 보존).
+  const _syncPromise = (window.api && typeof window.api.post === 'function')
+    ? (nowLiked
+        ? window.api.post('/funds/' + encodeURIComponent(productId) + '/like', null, { silentAuthFail: true })
+        : window.api.del('/funds/' + encodeURIComponent(productId) + '/like', null, { silentAuthFail: true }))
+    // 폴백: window.api 미가용 시 기존 raw fetch 경로(드문 케이스).
+    : fetch((window.API_BASE_URL || (window.location.origin + '/api')) + '/funds/' + encodeURIComponent(productId) + '/like',
+        { method: nowLiked ? 'POST' : 'DELETE', credentials: 'include' })
+        .then((res) => {
+          if (res.status === 401) { const e = new Error('NOT_AUTHENTICATED'); e.status = 401; throw e; }
+          if (!res.ok) return null;
+          return res.json().catch(() => null);
+        });
+
+  _syncPromise
     .then((data) => {
       if (!data) return;
       // 서버 응답으로 정확한 likeCount/liked 동기화(전역 반영)
@@ -116,7 +123,16 @@ function _applyToggleLike(productId) {
       }
       window.dispatchEvent(new CustomEvent('likes:updated', { detail: { id: productId, liked: !!data.liked, likeCount: data.likeCount } }));
     })
-    .catch(() => { /* 네트워크 오류 시 낙관적 상태 유지 */ });
+    .catch((err) => {
+      // 미로그인(401) — 캐시 갱신 + 낙관적 토글 취소 후 로그인으로 유도.
+      if (err && err.status === 401) {
+        window.__WZ_AUTHED = false;
+        _rollbackOptimistic();
+        location.href = '/login.html?return=' + _currentReturn();
+        return;
+      }
+      /* 그 외 네트워크 오류 시 낙관적 상태 유지 */
+    });
 
   return nowLiked;
 }

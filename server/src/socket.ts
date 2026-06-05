@@ -127,6 +127,12 @@ export function initSocketIO(
             socket.emit('error', { message: 'roomId가 필요합니다' });
             return;
           }
+          // 방 존재 확인 — admin:join 과 동일 규칙. 없는 방에 메시지 생성 방지.
+          const room = await chatRepo.findRoomById(data.roomId);
+          if (!room) {
+            socket.emit('error', { message: '채팅방을 찾을 수 없습니다' });
+            return;
+          }
           targetRoomId = data.roomId;
         } else {
           // 유저는 자기 방

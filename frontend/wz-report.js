@@ -280,7 +280,7 @@
             return;
           }
           if (status === 400 && code === 'SELF_REPORT') {
-            toast('본인은 신고할 수 없습니다');
+            toast((e && e.message) || '본인은 신고할 수 없습니다');
             return;
           }
           toast((e && e.message) ? e.message : '신고 접수에 실패했어요. 잠시 후 다시 시도해 주세요.');

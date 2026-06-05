@@ -114,10 +114,12 @@ export function createAdminStatsHandler(pool: pg.Pool) {
           SELECT CASE WHEN to_regclass('public.project_likes') IS NULL THEN 0
                       ELSE (SELECT COUNT(*)::int FROM project_likes) END AS total
         `),
-        // 환불 대기 — refunds.status='requested'(아직 송금 미완료). 미적용 DB 방어.
+        // 환불 대기 — reward_orders 취소 신청(status='cancel_requested') 중 아직 환불표시 안 된 건.
+        //   (구 refunds 테이블은 미사용 결제계열 — 운영 환불 흐름은 reward_orders.refunded_at 기준.)
         pool.query(`
-          SELECT CASE WHEN to_regclass('public.refunds') IS NULL THEN 0
-                      ELSE (SELECT COUNT(*)::int FROM refunds WHERE status = 'requested') END AS pending
+          SELECT COUNT(*)::int AS pending
+            FROM reward_orders
+           WHERE status = 'cancel_requested' AND refunded_at IS NULL
         `),
         // 신고 대기 — reports.status='open'(027). 미적용 DB 방어.
         pool.query(`

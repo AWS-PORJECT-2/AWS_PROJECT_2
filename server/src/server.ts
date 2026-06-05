@@ -6,13 +6,32 @@ import { PgUserRepository } from './repositories/pg-user-repository.js';
 import { pool } from './db.js';
 import { logger } from './logger.js';
 
-// 전역 안전망 — 비요청 경로(스케줄러·소켓 등)의 처리 안 된 거부/예외가 프로세스를 죽이지 않도록 로깅만 하고 유지.
+// 전역 안전망 — 비요청 경로(스케줄러·소켓 등)의 처리 안 된 거부가 프로세스를 죽이지 않도록 로깅만 하고 유지.
 // (Node 15+ 는 unhandledRejection 시 기본 종료. DB 일시 단절 등으로 전체 API 가 내려가는 것을 막는 가용성 방어.)
 process.on('unhandledRejection', (reason) => {
   logger.error({ reason }, '처리되지 않은 Promise 거부 — 프로세스 유지');
 });
+// uncaughtException 은 거부와 달리 프로세스가 손상된(불확정) 상태일 수 있어 계속 실행하는 것이 위험.
+// (Node 공식 가이드: uncaughtException 후 재개는 안전하지 않음.) 따라서 로깅 후 graceful shutdown 으로 종료하고
+// 프로세스 매니저(PM2 등)가 깨끗한 상태로 재시작하도록 한다. 가용성보다 일관성/안정성을 우선.
+let shuttingDown = false;
 process.on('uncaughtException', (err) => {
-  logger.error({ err }, '처리되지 않은 예외 — 프로세스 유지');
+  logger.error({ err }, '처리되지 않은 예외 — graceful shutdown 후 종료');
+  if (shuttingDown) return;
+  shuttingDown = true;
+
+  // 강제 종료 타임아웃 — 정리가 멈춰도 일정 시간 후 무조건 종료.
+  const forceExit = setTimeout(() => process.exit(1), 5_000);
+  forceExit.unref();
+
+  // httpServer 가 아직 생성되기 전(모듈 초기화 중 예외)일 수도 있으므로 안전하게 처리.
+  try {
+    httpServer.close(() => {
+      pool.end().finally(() => process.exit(1));
+    });
+  } catch {
+    pool.end().finally(() => process.exit(1));
+  }
 });
 
 const rawPort = process.env.PORT ?? '3000';

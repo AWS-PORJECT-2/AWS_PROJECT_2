@@ -8,6 +8,17 @@
   const W = window.WZ;
   const state = { sort: 'popular', category: 'all' };
 
+  /* Card 별 'likes:updated' window 리스너 등록부 — 재렌더(replaceChildren) 로 카드가 DOM 에서 빠지면
+   * 그 자리에서 즉시 정리하지 못하고 다음 like 이벤트까지 누적된다. build() 마다 pruneCardLikeSubs() 로
+   * 끊긴 카드의 리스너를 능동 회수해 누수를 막는다(리스너 자체의 isConnected 자가제거는 백업으로 유지). */
+  const cardLikeSubs = [];
+  function pruneCardLikeSubs() {
+    for (let i = cardLikeSubs.length - 1; i >= 0; i--) {
+      const s = cardLikeSubs[i];
+      if (!s.el.isConnected) { s.off(); cardLikeSubs.splice(i, 1); }
+    }
+  }
+
   /* 카드 달성률 — 서버 계약의 금액 기준 achievementRate 우선, 없으면(구펀드) 공용 W.rate(수량 기준) 폴백.
    * loadProductsFromBackend 가 서버 achievementRate 를 product.achievementRate 로 매핑해 둔다.
    * (카드는 .wz-pcard__rate 한 줄만 — 목표/모인 금액 보조 표기는 카드 CSS(wz.css, 미배정) 의존이라 상세에서만 노출) */
@@ -67,6 +78,7 @@
 
     let dataLoaded = false;
     function build() {
+      pruneCardLikeSubs(); // 이전 렌더의 끊긴 카드 리스너 회수(누수 방지)
       const products = Array.isArray(window.MOCK_PRODUCTS) ? window.MOCK_PRODUCTS : [];
       // 데이터 도착 전(아직 빈 배열)에는 빈 상태 대신 스켈레톤을 그려 '빈 화면 → 한꺼번에 팝인' 체감을 줄인다.
       const loading = !dataLoaded && products.length === 0;
@@ -453,6 +465,7 @@
       heart.classList.toggle('is-on', (typeof window.isLiked === 'function') && window.isLiked(p.id));
     }
     window.addEventListener('likes:updated', onLikesUpdated);
+    cardLikeSubs.push({ el: card, off: function () { window.removeEventListener('likes:updated', onLikesUpdated); } });
     th.appendChild(heart);
     card.appendChild(th);
     card.appendChild(RateLine(p));

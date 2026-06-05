@@ -121,17 +121,28 @@ export class PgBoardRepository implements BoardRepository {
   }
 
   async createComment(input: { postId: string; authorId: string; body: string }): Promise<BoardComment | null> {
-    const ins = await this.pool.query(
-      'INSERT INTO board_comments (post_id, author_id, body) VALUES ($1, $2, $3) RETURNING id',
-      [input.postId, input.authorId, input.body],
-    );
-    await this.pool.query('UPDATE board_posts SET comment_count = comment_count + 1 WHERE id = $1', [input.postId]);
-    const r = await this.pool.query(
-      `SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
-         FROM board_comments c JOIN "user" u ON u.id = c.author_id WHERE c.id = $1`,
-      [ins.rows[0].id as string],
-    );
-    return r.rows[0] ? toComment(r.rows[0]) : null;
+    // INSERT 와 comment_count 증가를 하나의 트랜잭션으로 묶어 드리프트 방지(중간 실패 시 둘 다 롤백).
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const ins = await client.query(
+        'INSERT INTO board_comments (post_id, author_id, body) VALUES ($1, $2, $3) RETURNING id',
+        [input.postId, input.authorId, input.body],
+      );
+      await client.query('UPDATE board_posts SET comment_count = comment_count + 1 WHERE id = $1', [input.postId]);
+      const r = await client.query(
+        `SELECT c.id, c.post_id, c.body, c.created_at, ${AUTHOR_COLS}
+           FROM board_comments c JOIN "user" u ON u.id = c.author_id WHERE c.id = $1`,
+        [ins.rows[0].id as string],
+      );
+      await client.query('COMMIT');
+      return r.rows[0] ? toComment(r.rows[0]) : null;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async updateComment(id: string, body: string): Promise<BoardComment | null> {

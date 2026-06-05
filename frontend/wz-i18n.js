@@ -124,7 +124,7 @@
     get lang() { return getLang(); },
     set: set,
     t: function (ko) { return (getLang() === 'en' && DICT[ko]) ? DICT[ko] : ko; },
-    apply: function () { if (getLang() === 'en') applyEn(); },
+    apply: function (root) { if (getLang() === 'en') translate(root || document.body); },
   };
 
   init();

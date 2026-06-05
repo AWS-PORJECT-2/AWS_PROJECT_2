@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import type { CommentRepository } from '../repositories/comment-repository.js';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
+import type { UserRepository } from '../repositories/user-repository.js';
 import type { Comment, CommentTargetType } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -33,6 +34,15 @@ function serialize(c: Comment, viewerId?: string) {
     createdAt: c.createdAt.toISOString(),
     mine: !!viewerId && viewerId === c.userId,
   };
+}
+
+// 작성자 본인이거나 ADMIN 이면 수정/삭제 가능(board.ts canModify 와 동일 정책).
+// userRepo 미주입 시(레거시 호출부)에는 작성자 본인만 허용 — 기존 동작 보존.
+async function canModerate(userId: string, authorId: string, userRepo?: UserRepository): Promise<boolean> {
+  if (userId === authorId) return true;
+  if (!userRepo) return false;
+  const u = await userRepo.findById(userId);
+  return !!u && String(u.role).toUpperCase() === 'ADMIN';
 }
 
 /** GET /api/comments?targetType&targetId — 최신순. soft-auth(viewer 로 mine 채움). */
@@ -148,8 +158,8 @@ export function createCommentCreateHandler(
   };
 }
 
-/** PATCH /api/comments/:id — 작성자 본인만 내용 수정, 아니면 403. */
-export function createCommentUpdateHandler(repo: CommentRepository) {
+/** PATCH /api/comments/:id — 작성자 본인 또는 ADMIN 만 내용 수정, 아니면 403. */
+export function createCommentUpdateHandler(repo: CommentRepository, userRepo?: UserRepository) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
@@ -165,7 +175,7 @@ export function createCommentUpdateHandler(repo: CommentRepository) {
     try {
       const existing = await repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'NOT_FOUND', message: '댓글을 찾을 수 없습니다' }); return; }
-      if (existing.userId !== userId) {
+      if (!(await canModerate(userId, existing.userId, userRepo))) {
         res.status(403).json(createErrorResponse(new AppError('FORBIDDEN')));
         return;
       }
@@ -178,8 +188,8 @@ export function createCommentUpdateHandler(repo: CommentRepository) {
   };
 }
 
-/** DELETE /api/comments/:id — 작성자 본인만 204, 아니면 403. */
-export function createCommentDeleteHandler(repo: CommentRepository) {
+/** DELETE /api/comments/:id — 작성자 본인 또는 ADMIN 만 204, 아니면 403. */
+export function createCommentDeleteHandler(repo: CommentRepository, userRepo?: UserRepository) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
@@ -187,7 +197,7 @@ export function createCommentDeleteHandler(repo: CommentRepository) {
     try {
       const existing = await repo.findById(id);
       if (!existing) { res.status(404).json({ error: 'NOT_FOUND', message: '댓글을 찾을 수 없습니다' }); return; }
-      if (existing.userId !== userId) {
+      if (!(await canModerate(userId, existing.userId, userRepo))) {
         res.status(403).json(createErrorResponse(new AppError('FORBIDDEN')));
         return;
       }

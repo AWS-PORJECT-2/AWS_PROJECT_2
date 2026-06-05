@@ -45,3 +45,7 @@ export { PgProjectDraftRepository } from './pg-project-draft-repository.js';
 // Notifications(서버 기반 알림) — 024_notifications
 export type { NotificationRepository, NotificationCreate } from './notification-repository.js';
 export { PgNotificationRepository } from './pg-notification-repository.js';
+
+// Reports(신고) — 027_reports
+export type { ReportRepository, ReportCreate, ReportAdminItem } from './report-repository.js';
+export { PgReportRepository } from './pg-report-repository.js';

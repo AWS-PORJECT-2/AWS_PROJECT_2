@@ -133,11 +133,13 @@ export class PgUserRepository implements UserRepository {
   }
 
   async searchByNameOrNickname(q: string): Promise<UserSearchItem[]> {
-    const like = `%${q}%`;
+    // LIKE 와일드카드(%, _) 와 이스케이프 문자(\)를 리터럴로 취급하도록 이스케이프 후 ESCAPE 절 명시.
+    const escaped = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
+    const like = `%${escaped}%`;
     const result = await this.pool.query(
       `SELECT id, name, nickname, slug, picture
          FROM "user"
-        WHERE name ILIKE $1 OR nickname ILIKE $1
+        WHERE name ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE '\\'
         ORDER BY name ASC
         LIMIT 20`,
       [like],
@@ -296,7 +298,7 @@ export class PgUserRepository implements UserRepository {
       // 본인이 신고한 건 + 본인(메이커)을 대상으로 한 신고 모두 정리(reports 는 FK 없음, target_id 도 UUID).
       await client.query('DELETE FROM reports WHERE reporter_id = $1 OR target_id = $1', [userId]);
       // 본인 게시판 글(board_posts)은 아래에서 CASCADE 로 지워지므로, 그 글을 대상으로 한 신고 행도 함께 정리(댕글링 방지).
-      await client.query(`DELETE FROM reports WHERE target_type = 'board_post' AND target_id IN (SELECT id::text FROM board_posts WHERE author_id = $1)`, [userId]);
+      await client.query(`DELETE FROM reports WHERE target_type = 'board_post' AND target_id IN (SELECT id FROM board_posts WHERE author_id = $1)`, [userId]);
       await client.query('DELETE FROM project_likes WHERE user_id = $1', [userId]);
       await client.query('DELETE FROM project_subscriptions WHERE user_id = $1', [userId]);
       // 본인 메이커 프로필을 대상으로 한 타인 댓글(target_type='profile', target_id=내 userId)도 정리.

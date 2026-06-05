@@ -61,7 +61,10 @@ export function createBoardRouter(repo: BoardRepository, authRequired: RequestHa
     try {
       const cat = typeof req.query.category === 'string' && isValidBoardCategory(req.query.category) ? req.query.category : undefined;
       const limit = Number(req.query.limit) || 20;
-      const before = typeof req.query.before === 'string' ? req.query.before : undefined;
+      // before 커서는 타임스탬프(ISO/Date 파싱 가능)만 허용 — 무효 문자열이 created_at 비교에 바인딩돼
+      // PostgreSQL 캐스트 에러로 500 나는 것을 차단(무효면 무시).
+      const beforeRaw = typeof req.query.before === 'string' ? req.query.before : undefined;
+      const before = beforeRaw && !Number.isNaN(Date.parse(beforeRaw)) ? beforeRaw : undefined;
       res.json({ items: await repo.listPosts({ category: cat, limit, before }) });
     } catch (e) { fail(res, e, '게시판 목록 조회 실패'); }
   });

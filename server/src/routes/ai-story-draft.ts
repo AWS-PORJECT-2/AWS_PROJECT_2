@@ -69,7 +69,9 @@ export function createAiStoryDraftHandler(gemini: TextAiService | null, timeoutM
       res.json({ blocks });
     } catch (err) {
       // 어떤 실패든(미설정/타임아웃/모델오류) 프론트엔 503 통일 메시지로 안내.
-      res.status(503).json({ error: 'AI_UNAVAILABLE', message: 'AI 초안 생성을 사용할 수 없습니다' });
+      // AppError 면 그 메시지를 노출해 다른 /api/ai/* 라우트와 에러 의미를 일치시킨다.
+      const message = err instanceof AppError ? err.message : 'AI 초안 생성을 사용할 수 없습니다';
+      res.status(503).json({ error: 'AI_UNAVAILABLE', message });
     }
   };
 }

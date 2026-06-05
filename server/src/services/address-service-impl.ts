@@ -77,22 +77,18 @@ export function createAddressService(deps: AddressServiceDeps): AddressService {
 
     async getById(userId, id) {
       const addr = await addressRepository.findById(id);
-      if (!addr) {
+      // 미존재와 타인 소유를 모두 NOT_FOUND 로 통일 — 타인 주소 ID 존재 여부 비노출.
+      if (!addr || addr.userId !== userId) {
         throw new AppError('ADDRESS_NOT_FOUND');
-      }
-      if (addr.userId !== userId) {
-        throw new AppError('FORBIDDEN');
       }
       return addr;
     },
 
     async update(userId, id, data) {
       const addr = await addressRepository.findById(id);
-      if (!addr) {
+      // 미존재와 타인 소유를 모두 NOT_FOUND 로 통일 — 타인 주소 ID 존재 여부 비노출.
+      if (!addr || addr.userId !== userId) {
         throw new AppError('ADDRESS_NOT_FOUND');
-      }
-      if (addr.userId !== userId) {
-        throw new AppError('FORBIDDEN');
       }
 
       return addressRepository.update(id, data);

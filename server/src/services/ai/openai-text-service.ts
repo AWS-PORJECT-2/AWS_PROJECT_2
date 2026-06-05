@@ -23,7 +23,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
 const CATEGORY_LABEL: Record<string, string> = {
   jacket: '과잠', hoodie: '후드티·맨투맨', tshirt: '반팔티', ecobag: '에코백',
   keyring: '키링·스트랩', phonecase: '폰케이스', sticker: '스티커·문구', badge: '뱃지',
-  tumbler: '텀블러·머그', fabric: '담요·패브릭', doll: '인형·마스코트', accessory: '액세서리', etc: '기타',
+  tumbler: '텀블러·머그', fabric: '담요·패브릭', etc: '기타',
 };
 
 function buildPrompt(info: StoryBasicInfo): string {

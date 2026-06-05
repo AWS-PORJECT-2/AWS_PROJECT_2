@@ -20,8 +20,6 @@
     { slug: 'badge',     key: 'badge',     label: '뱃지·배지',     type: 'goods' },
     { slug: 'tumbler',   key: 'tumbler',   label: '텀블러·머그',   type: 'goods' },
     { slug: 'fabric',    key: 'fabric',    label: '담요·패브릭',   type: 'goods' },
-    { slug: 'doll',      key: 'doll',      label: '인형·마스코트', type: 'goods' },
-    { slug: 'accessory', key: 'accessory', label: '액세서리',      type: 'goods' },
     { slug: 'webapp',    key: 'webapp',    label: '웹·앱 프로젝트', type: 'none' },
     { slug: 'etc',       key: 'etc',       label: '기타',          type: 'none' },
   ];

@@ -708,7 +708,7 @@
    *  행 클릭 시 /maker.html?id= 로 이동(버튼 클릭은 이동 차단). */
   function panelFriends() {
     refs.curView = 'friends';
-    var main = panelHead('친구', 'friends');
+    var main = panelHead('사용자 검색', 'friends');
 
     var box = W.el('div', { class: 'wz-mp-friends' });
 
@@ -821,7 +821,6 @@
 
   function friendRow(u, opts) {
     var ctx = (opts && opts.context) || '';   // '' | 'followers' | 'blocked'
-    var idOrSlug = u.slug || u.userId;
     var row = W.el('div', { class: 'wz-mp-friend' });
     // 아바타
     var av = W.el('div', { class: 'wz-mp-friend__av' });
@@ -873,9 +872,12 @@
     }
 
     row.append(av, info, action);
-    // 행 클릭 -> 메이커 페이지
+    // 행 클릭 -> 메이커 페이지. personRow(wz-maker.js)와 동일하게 slug 가 있으면 slug=, 없으면 id= 로
+    // 분기해 파라미터 의미를 일관화(둘 다 백엔드에서 resolve 되지만 이름이 실제 식별자와 맞게).
     row.addEventListener('click', function () {
-      location.href = '/maker.html?id=' + encodeURIComponent(idOrSlug);
+      location.href = '/maker.html?' + (u.slug
+        ? 'slug=' + encodeURIComponent(u.slug)
+        : 'id=' + encodeURIComponent(u.userId));
     });
     row.style.cursor = 'pointer';
     return row;

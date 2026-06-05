@@ -97,15 +97,50 @@
     root.appendChild(tabs);
 
     var slot = el('div', { class: 'bd-list' }); root.appendChild(slot);
-    slot.appendChild(el('div', { class: 'bd-loading' }, '불러오는 중…'));
-    api.get('/board/posts' + (cur ? '?category=' + encodeURIComponent(cur) : ''))
-      .then(function (res) {
-        var items = (res && res.items) || [];
-        slot.replaceChildren();
-        if (!items.length) { slot.appendChild(el('div', { class: 'bd-empty' }, '아직 글이 없어요. 첫 글을 남겨보세요!')); return; }
-        items.forEach(function (p) { slot.appendChild(postCard(p)); });
-      })
-      .catch(function () { slot.replaceChildren(el('div', { class: 'bd-empty' }, '목록을 불러오지 못했습니다.')); });
+    var more = el('div', { class: 'bd-more' }); root.appendChild(more);
+
+    // 커서(생성시각) 기반 더보기. 한 페이지(PAGE_SIZE)만큼 받고, 가득 차면 '더보기'로 더 오래된 글을 이어 붙임.
+    var PAGE_SIZE = 20, lastCursor = null, loading = false, firstPage = true;
+    function buildUrl() {
+      var qs = [];
+      if (cur) qs.push('category=' + encodeURIComponent(cur));
+      qs.push('limit=' + PAGE_SIZE);
+      if (lastCursor) qs.push('before=' + encodeURIComponent(lastCursor));
+      return '/board/posts' + (qs.length ? '?' + qs.join('&') : '');
+    }
+    function loadPage() {
+      if (loading) return; loading = true;
+      more.replaceChildren(el('div', { class: 'bd-loading' }, '불러오는 중…'));
+      api.get(buildUrl())
+        .then(function (res) {
+          loading = false;
+          var items = (res && res.items) || [];
+          more.replaceChildren();
+          if (firstPage) {
+            firstPage = false;
+            if (!items.length) { slot.appendChild(el('div', { class: 'bd-empty' }, '아직 글이 없어요. 첫 글을 남겨보세요!')); return; }
+          }
+          items.forEach(function (p) { slot.appendChild(postCard(p)); });
+          if (items.length) lastCursor = items[items.length - 1].createdAt || lastCursor;
+          // 가득 찬 페이지면 더 있을 수 있음 → '더보기' 노출.
+          if (items.length >= PAGE_SIZE && lastCursor) {
+            var btn = el('button', { class: 'wz-btn bd-more__btn', type: 'button' }, '더보기');
+            btn.addEventListener('click', function () { btn.remove(); loadPage(); });
+            more.appendChild(btn);
+          }
+        })
+        .catch(function () {
+          loading = false;
+          more.replaceChildren();
+          if (firstPage) { slot.replaceChildren(el('div', { class: 'bd-empty' }, '목록을 불러오지 못했습니다.')); }
+          else {
+            var retry = el('button', { class: 'wz-btn bd-more__btn', type: 'button' }, '다시 시도');
+            retry.addEventListener('click', function () { retry.remove(); loadPage(); });
+            more.appendChild(retry);
+          }
+        });
+    }
+    loadPage();
   }
 
   var THUMB_PLACEHOLDER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>';
@@ -194,6 +229,8 @@
           rep.addEventListener('click', function () {
             if (window.WZReport && typeof window.WZReport.open === 'function') {
               window.WZReport.open({ targetType: 'board_post', targetId: p.id, targetLabel: p.title || '게시글' });
+            } else {
+              toast('신고 기능을 불러오지 못했습니다. 새로고침 후 다시 시도해 주세요.');
             }
           });
           meta.appendChild(rep);
@@ -376,6 +413,10 @@
       catSel.value = post.category || 'general';
       titleIn.value = post.title || '';
       var existing = firstHtml(post);
+      // 레거시 평문 본문(contentBlocks 없음)도 프리필해 수정 시 본문이 유실되지 않게 함.
+      if (!existing && post.body) {
+        existing = String(post.body).split('\n').map(function (line) { return '<p>' + (esc(line) || '<br>') + '</p>'; }).join('');
+      }
       if (existing) ed.area.innerHTML = sanitize(existing); // 기존 본문 프리필(렌더 시 재새니타이즈)
     }
 

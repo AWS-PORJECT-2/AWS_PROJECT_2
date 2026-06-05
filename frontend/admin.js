@@ -88,9 +88,10 @@
 
   // 펀드 상태 분포(stats.funds) 표시 순서/라벨/색 (tokens 변수 사용)
   var DIST = [
-    { k: 'open',            label: '공개',     color: 'var(--c-primary-500)' },
-    { k: 'pending_review',  label: '심사대기', color: 'var(--c-primary-300)' },
-    { k: 'achieved',        label: '달성',     color: 'var(--c-accent-mint)' },
+    { k: 'open',            label: '공개',       color: 'var(--c-primary-500)' },
+    { k: 'pending_review',  label: '심사대기',   color: 'var(--c-primary-300)' },
+    { k: 'proxyReview',     label: '대리 심사', color: 'var(--c-accent-sky)' },
+    { k: 'achieved',        label: '달성',       color: 'var(--c-accent-mint)' },
     { k: 'completed',       label: '완료',     color: 'var(--c-success)' },
     { k: 'failed',          label: '실패',     color: 'var(--c-accent-peach)' },
     { k: 'rejected',        label: '반려',     color: 'var(--c-text-faint)' },
@@ -111,13 +112,6 @@
     { id: 'logs',      label: '로그·오류', icon: 'logs',    render: renderLogs },
   ];
 
-  // 카테고리 옵션(대리 개설 편집용) — categories.js 단일 소스. 미로드 시 etc 만.
-  function categoryOptions() {
-    return (window.DT_CATEGORIES || [{ slug: 'etc', label: '기타' }]).map(function (c) {
-      return { slug: c.slug, label: c.label };
-    });
-  }
-
   var root, sideEl, panelEl;
   var current = 'dashboard';
   // 사이드바 대기 배지 — 섹션 id → 배지 DOM. 매핑은 pending-counts 키 ↔ 섹션 id.
@@ -125,9 +119,6 @@
   // deletes←deletes, reports←reports, chat←chatUnread, logs←logsNew
   var badgeEls = {};           // { funds, proxy, deposits, deletes, reports, chat, logs } → <span>
   var badgeState = {};         // 동일 키 → 현재 숫자(로컬 state, 처리 시 -1)
-  var pendingBadgeEl = null;   // (구) 펀드 심사 탭 배지 — badgeEls.funds 와 동일
-  var proxyBadgeEl = null;     // (구) 대리 개설 탭 배지 — badgeEls.proxy 와 동일
-  var deleteBadgeEl = null;    // (구) 삭제 요청 탭 배지 — badgeEls.deletes 와 동일
   var leaveSection = null;     // 현재 섹션 정리 콜백(채팅 폴링/소켓 해제 등)
 
   // pending-counts 응답 키 → 배지를 붙일 섹션 id
@@ -205,10 +196,6 @@
       btn.addEventListener('click', function () { select(s.id); });
       sideEl.appendChild(btn);
     });
-    // 구 변수 호환(기존 코드 경로가 참조)
-    pendingBadgeEl = badgeEls.funds || null;
-    proxyBadgeEl = badgeEls.proxy || null;
-    deleteBadgeEl = badgeEls.deletes || null;
     shell.appendChild(sideEl);
 
     panelEl = el('section', { class: 'wza-panel' });
@@ -1346,7 +1333,7 @@
       var room = roomById(roomId);
       convoHead.textContent = (room && room.userName ? room.userName + ' 님과의 대화' : '대화');
       msgsEl.textContent = ''; msgsEl.appendChild(loadingNode());
-      await loadMessages(roomId, true);
+      await loadMessages(roomId);
       // 읽음 처리 + 목록 unread 클리어 + 사이드바 chat 배지 감소(읽은 만큼)
       var wasUnread = (function () { var rr = roomById(roomId); return rr ? (Number(rr.unreadAdminCount) || 0) : 0; })();
       try { await window.api.post('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/read', {}); } catch (_) {}
@@ -1355,10 +1342,10 @@
       if (wasUnread > 0) bumpBadge('chat', -wasUnread);
       // 소켓 join + 활성 방 메시지 폴링(소켓 미연결 대비)
       if (state.socket) { try { state.socket.emit('admin:join', roomId); } catch (_) {} }
-      state.msgPollTimer = setInterval(function () { if (state.activeId === roomId) loadMessages(roomId, true); }, 5000);
+      state.msgPollTimer = setInterval(function () { if (state.activeId === roomId) loadMessages(roomId); }, 5000);
     }
 
-    async function loadMessages(roomId, keepScroll) {
+    async function loadMessages(roomId) {
       try {
         var msgs = await window.api.get('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/messages?limit=200');
         if (state.activeId !== roomId) return;
@@ -1415,7 +1402,7 @@
       if (!sentViaSocket) {
         try {
           await window.api.post('/chat/admin/rooms/' + encodeURIComponent(roomId) + '/messages', { message: msg });
-          await loadMessages(roomId, true);
+          await loadMessages(roomId);
         } catch (e) { alertModal('전송 실패', (e && e.message) || '메시지를 보내지 못했습니다.'); txt.value = msg; }
       }
       loadRooms(true);
@@ -1432,7 +1419,7 @@
         socket.on('connect', function () { if (state.activeId) { try { socket.emit('admin:join', state.activeId); } catch (_) {} } });
         socket.on('message:new', function (m) {
           if (!m) return;
-          if (state.activeId && m.roomId === state.activeId) loadMessages(state.activeId, true);
+          if (state.activeId && m.roomId === state.activeId) loadMessages(state.activeId);
           loadRooms(true);
         });
         socket.on('connect_error', function () { /* 폴링으로 충분 — 표시 안 함 */ });
@@ -1492,17 +1479,17 @@
     var addBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '추가');
     addBtn.addEventListener('click', function () {
       var f = fileIn.files && fileIn.files[0];
-      if (!f) { alert('이미지를 선택해 주세요'); return; }
-      if (f.size > 5 * 1024 * 1024) { alert('이미지는 5MB 미만만 가능합니다'); return; }
+      if (!f) { alertModal('알림', '이미지를 선택해 주세요'); return; }
+      if (f.size > 5 * 1024 * 1024) { alertModal('알림', '이미지는 5MB 미만만 가능합니다'); return; }
       var fr = new FileReader();
       fr.onload = function () {
         addBtn.disabled = true;
         window.api.post('/admin/library', { kind: state.kind, name: nameIn.value.trim(), image: fr.result })
           .then(function () { nameIn.value = ''; fileIn.value = ''; load(); })
-          .catch(function (e) { alert('추가 실패: ' + ((e && e.message) || '오류')); })
+          .catch(function (e) { alertModal('추가 실패', (e && e.message) || '오류'); })
           .finally(function () { addBtn.disabled = false; });
       };
-      fr.onerror = function () { alert('이미지를 읽지 못했습니다'); };
+      fr.onerror = function () { alertModal('알림', '이미지를 읽지 못했습니다'); };
       fr.readAsDataURL(f);
     });
     form.append(nameIn, fileIn, addBtn);
@@ -1520,7 +1507,14 @@
           var cell = el('div', { class: 'wza-libitem' });
           cell.append(el('div', { class: 'wza-libimg' }, el('img', { src: it.image, alt: it.name || '', loading: 'lazy' })), el('div', { class: 'wza-libname' }, it.name || ''));
           var del = el('button', { class: 'wza-libdel', type: 'button', title: '삭제' }, '×');
-          del.addEventListener('click', function () { if (!confirm('「' + (it.name || '') + '」 삭제할까요?')) return; window.api.del('/admin/library/' + it.id).then(load).catch(function () { alert('삭제 실패'); }); });
+          del.addEventListener('click', function () {
+            confirmModal({
+              title: '삭제',
+              desc: '「' + (it.name || '') + '」 삭제할까요?',
+              okLabel: '삭제', okClass: 'wza-modal__btn--danger',
+              onOk: function () { return window.api.del('/admin/library/' + it.id).then(load); },
+            });
+          });
           cell.appendChild(del);
           grid.appendChild(cell);
         });

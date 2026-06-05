@@ -11,6 +11,7 @@ import type { UserRepository } from '../repositories/user-repository.js';
 import type { TokenService } from '../interfaces/token-service.js';
 import type { EmailValidator } from '../interfaces/email-validator.js';
 import { logger } from '../logger.js';
+import { setAuthCookies } from '../utils/auth-cookies.js';
 
 export function createDevAuthRouter(userRepo: UserRepository, tokenService: TokenService, emailValidator?: EmailValidator) {
   const router = Router();
@@ -58,18 +59,9 @@ export function createDevAuthRouter(userRepo: UserRepository, tokenService: Toke
       const accessToken = tokenService.generateAccessToken(user);
       const refreshToken = tokenService.generateRefreshToken(user, false);
 
-      res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        secure: false, // dev 전용
-        sameSite: 'lax',
-        maxAge: 15 * 60 * 1000,
-      });
-      res.cookie('refreshToken', refreshToken, {
-        httpOnly: true,
-        secure: false,
-        sameSite: 'lax',
-        maxAge: 7 * 24 * 60 * 60 * 1000,
-      });
+      // 운영 콜백(callback.ts)과 동일한 쿠키 정책 재사용 — refreshToken path:'/api/auth' 등.
+      // dev-auth 는 NODE_ENV!=='production' 에서만 마운트되므로 secure:false 동작은 그대로 유지됨.
+      setAuthCookies(res, { accessToken, refreshToken, rememberMe: false });
 
       res.json({ user: { id: user.id, email: user.email, name: user.name, role: user.role } });
     } catch (err) {
@@ -105,8 +97,9 @@ export function createDevAuthRouter(userRepo: UserRepository, tokenService: Toke
 
   // 로그아웃
   router.post('/logout', (_req: Request, res: Response) => {
-    res.clearCookie('accessToken');
-    res.clearCookie('refreshToken');
+    // 설정한 path 와 동일하게 지워야 실제로 쿠키가 제거됨(refreshToken 은 path:'/api/auth').
+    res.clearCookie('accessToken', { path: '/' });
+    res.clearCookie('refreshToken', { path: '/api/auth' });
     res.json({ success: true });
   });
 

@@ -1,6 +1,11 @@
+// 'achieved' 는 DB CHECK 에는 있으나 현재 어떤 코드 경로도 기록하지 않음(데드 상태값) — 상태 흐름은
+//   open → executing → completed(성공) / open → failed(실패). 통계/필터의 achieved 항목은 항상 0/무매치.
 export type GroupBuyStatus = 'pending' | 'pending_review' | 'rejected' | 'open' | 'scheduled' | 'achieved' | 'failed' | 'executing' | 'completed' | 'cancelled';
-export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled';
-export type OrderStatus = 'pending' | 'paid' | 'shipping_ready' | 'shipping' | 'delivered' | 'failed' | 'refunded' | 'cancelled';
+// participations.status DB CHECK 와 동기화: pending/confirmed/cancelled/failed (003_create_business_tables).
+export type ParticipationStatus = 'pending' | 'confirmed' | 'cancelled' | 'failed';
+// orders.status DB CHECK 와 동기화: pending/paid/failed/refunded/cancelled/awaiting_deposit (009_deposit_payment_extension).
+//   (배송 상태 shipping_ready/shipping/delivered 는 CHECK 에 없어 제거 — 레거시 orders 는 미사용 경로.)
+export type OrderStatus = 'pending' | 'paid' | 'failed' | 'refunded' | 'cancelled' | 'awaiting_deposit';
 export type PaymentStatus = 'requested' | 'paid' | 'failed' | 'cancelled';
 
 export interface ProductOption {
@@ -19,7 +24,7 @@ export interface GroupBuy {
   category?: string | null; // 카테고리 slug (jacket/ecobag/.../etc) — categories 단일소스 기준
   rewardTiers?: RewardTier[] | null; // 리워드(선물) 구성 — 창작자가 직접 정의
   delegated?: boolean;      // 대리 펀딩(플랫폼 위임) 여부 — 관리자가 리워드/가격 설정
-  feeRate?: number;         // 플랫폼 수수료율(%) — 대리 20, 직접 5
+  feeRate?: number;         // 플랫폼 수수료율(%) — 대리 12, 직접 start5/run9/boost15
   basePrice: number;
   designFee: number;
   platformFee: number;
@@ -122,7 +127,8 @@ export interface Participation {
   updatedAt: Date;
 }
 
-export type OrderKind = 'groupbuy' | 'one_off';
+// orders.kind DB CHECK 와 동기화: groupbuy/one_off/deposit (009_deposit_payment_extension).
+export type OrderKind = 'groupbuy' | 'one_off' | 'deposit';
 
 export interface Order {
   id: string;

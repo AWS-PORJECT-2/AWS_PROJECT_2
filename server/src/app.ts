@@ -161,10 +161,13 @@ const refreshRateLimit = rateLimit({
   legacyHeaders: false,
 });
 
-// AI(과금) 보호 — 1분당 8회. Gemini 일일한도·dedup 위에 HTTP 레벨 방어 추가.
+// AI(과금) 보호 — 사용자당 1분당 8회 버스트 가드. Gemini 일일한도·dedup·라우터 시간당 한도 위에 HTTP 레벨 방어 추가.
+//  키를 userId 로 잡는다(IP 가 아니라). 공유 IP(캠퍼스 NAT)에서 한 사람의 사용이 같은 IP 의 모두를 막던 문제 차단.
+//  이 미들웨어 앞에는 항상 authRequired 가 먼저 실행되므로 req.userId 는 채워져 있다(라우터 buildAiRateLimit 과 동일 키 정책).
 const aiRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 8,
+  keyGenerator: (req) => req.userId ?? 'anonymous',
   message: { error: 'RATE_LIMITED', message: 'AI 생성 요청이 너무 잦습니다. 잠시 후 다시 시도해주세요' },
   standardHeaders: true,
   legacyHeaders: false,
@@ -388,7 +391,7 @@ export function createApp(
   const requireAdmin = createRequireAdmin(userRepository);
 
   app.use('/api/announcements', createAnnouncementsRouter(announcementRepository, authRequired, requireAdmin));
-  app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin, notificationRepository));
+  app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin, notificationRepository, writeRateLimit));
 
   // --- 관리자 펀드 심사 (승인/반려) ---
   app.get('/api/admin/funds', authRequired, requireAdmin, createAdminFundsListHandler(groupBuyRepository));
@@ -489,11 +492,12 @@ export function createApp(
   app.get('/api/comments', optionalAuth, createCommentsListHandler(commentRepository));
   // 댓글 작성 → 알림(best-effort): 펀드 댓글은 창작자(project_comment), 대댓글은 원댓글 작성자(comment_reply).
   app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository, groupBuyRepository, notificationRepository));
-  app.patch('/api/comments/:id', authRequired, writeRateLimit, createCommentUpdateHandler(commentRepository));
-  app.delete('/api/comments/:id', authRequired, createCommentDeleteHandler(commentRepository));
+  app.patch('/api/comments/:id', authRequired, writeRateLimit, createCommentUpdateHandler(commentRepository, userRepository));
+  app.delete('/api/comments/:id', authRequired, createCommentDeleteHandler(commentRepository, userRepository));
 
   // 유저 검색 — '/search' 는 '/:idOrSlug' 보다 먼저 등록(라우트 섀도잉 방지).
-  app.get('/api/users/search', createUserSearchHandler(userRepository));
+  //  soft-auth 로 viewer 를 채워, 검색 결과에 isFollowing 플래그를 함께 내려준다(팔로워/팔로잉 목록과 동일 정책).
+  app.get('/api/users/search', optionalAuth, createUserSearchHandler(userRepository));
 
   // 팔로우 (구 상태조회 GET /api/users/:id/follow 호환 유지) + POST/DELETE
   app.get('/api/users/:id/follow', optionalAuth, createFollowStatusHandler(followRepository));

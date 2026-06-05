@@ -109,7 +109,7 @@ export function createAdminUsersRouter(
       let suspendedUntil: Date | null = null;
       if (status === 'SUSPENDED') {
         // until(ISO) 우선, 없으면 days 로 계산. 미래 시각이어야 함.
-        if (typeof req.body?.until === 'string') { const d = new Date(req.body.until); if (!isNaN(d.getTime())) suspendedUntil = d; }
+        if (typeof req.body?.until === 'string') { const d = new Date(req.body.until); if (!isNaN(d.getTime())) { const cap = Date.now() + MAX_SUSPEND_DAYS * 86400_000; suspendedUntil = d.getTime() > cap ? new Date(cap) : d; } }
         else if (Number(req.body?.days) > 0) suspendedUntil = new Date(Date.now() + Math.min(Number(req.body.days), MAX_SUSPEND_DAYS) * 86400_000);
         if (!suspendedUntil || suspendedUntil.getTime() <= Date.now()) { badReq(res, '정지 기간(일수 또는 해제일)을 올바르게 입력해 주세요'); return; }
       }

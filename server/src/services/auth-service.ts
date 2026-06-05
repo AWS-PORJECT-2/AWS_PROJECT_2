@@ -16,6 +16,12 @@ import { logger } from '../logger.js';
 
 const OAUTH_STATE_TTL_MS = 5 * 60 * 1000;
 
+// 리프레시 회전 grace 윈도우 — 동시/재시도 갱신으로 같은 토큰이 거의 동시에 들어와도
+// 정상 사용자를 전체 로그아웃시키지 않기 위함. 회전 직후 N초 동안 직전 토큰 해시 →
+// 이미 발급된 새 토큰쌍을 기억해두고, 그 사이 같은 토큰으로 다시 오면 같은 결과를 멱등하게 돌려준다.
+// (단일 프로세스 운영 기준. 윈도우를 벗어난/한 번도 본 적 없는 토큰 재사용은 여전히 도난으로 간주해 전체 폐기.)
+const REFRESH_GRACE_MS = 10 * 1000;
+
 export interface AuthServiceDeps {
   emailValidator: EmailValidator;
   oauthClient: GoogleOAuthClient;
@@ -35,6 +41,8 @@ export class AuthServiceImpl implements AuthService {
   private readonly oauthStateRepo: OAuthStateRepository;
   private readonly refreshTokenRepo: RefreshTokenRepository;
   private readonly notificationRepo?: NotificationRepository;
+  // 회전 grace 캐시: 직전(이미 폐기된) 토큰 해시 → 그 회전으로 발급된 새 토큰쌍 + 만료시각.
+  private readonly recentRotations = new Map<string, { result: { accessToken: string; refreshToken: string }; expiresAt: number }>();
 
   constructor(deps: AuthServiceDeps) {
     this.emailValidator = deps.emailValidator;
@@ -93,6 +101,10 @@ export class AuthServiceImpl implements AuthService {
     const tokenHash = TokenServiceImpl.hashToken(refreshToken);
     const storedToken = await this.refreshTokenRepo.findByTokenHash(tokenHash);
     if (!storedToken) {
+      // 직전에 정상 회전된 토큰이 동시/재시도로 다시 들어온 경우(짧은 grace 윈도우 내) →
+      // 도난이 아니라 경합. 이미 발급한 새 토큰쌍을 그대로 멱등하게 돌려준다(전체 폐기 X).
+      const graced = this.takeRecentRotation(tokenHash);
+      if (graced) return graced;
       logger.warn({ userId: payload.userId }, '토큰 재사용 감지 - 전체 토큰 폐기');
       await this.refreshTokenRepo.deleteByUserId(payload.userId);
       throw new AppError('INVALID_REFRESH_TOKEN');
@@ -126,7 +138,30 @@ export class AuthServiceImpl implements AuthService {
       expiresAt: new Date(now.getTime() + (storedToken.rememberMe ? 30*24*60*60*1000 : 24*60*60*1000)),
       createdAt: now,
     });
-    return { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    const result = { accessToken: newAccessToken, refreshToken: newRefreshToken };
+    // 회전 직후 grace 윈도우에 기록 — 직전 토큰으로의 동시/재시도 갱신을 멱등 처리하기 위함.
+    this.rememberRotation(tokenHash, result);
+    return result;
+  }
+
+  // grace 캐시에서 직전 회전 결과를 1회성으로 꺼낸다(만료분은 정리). 없으면 null.
+  private takeRecentRotation(oldTokenHash: string): { accessToken: string; refreshToken: string } | null {
+    const entry = this.recentRotations.get(oldTokenHash);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+      this.recentRotations.delete(oldTokenHash);
+      return null;
+    }
+    return entry.result;
+  }
+
+  private rememberRotation(oldTokenHash: string, result: { accessToken: string; refreshToken: string }): void {
+    const nowMs = Date.now();
+    // 만료 항목 정리(맵 무한 증가 방지) — 회전마다 1회 스윕.
+    for (const [hash, entry] of this.recentRotations) {
+      if (nowMs > entry.expiresAt) this.recentRotations.delete(hash);
+    }
+    this.recentRotations.set(oldTokenHash, { result, expiresAt: nowMs + REFRESH_GRACE_MS });
   }
 
   async logout(userId: string): Promise<void> {

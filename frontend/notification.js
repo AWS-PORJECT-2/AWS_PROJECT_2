@@ -318,7 +318,7 @@
    * 항목의 type/link/fundId 로 이동 경로를 결정한다. 이동 불가면 '' 반환(읽음만).
    *  - fund_deleted → 항상 '' (펀딩이 삭제돼 상세가 404 — CTA·이동 모두 없음)
    *  - project_comment·comment_reply → /detail.html?id=fundId
-   *  - inquiry_reply → item.link(문의/채팅 화면). 없으면 미이동.
+   *  - inquiry_reply → item.link(문의/채팅 화면). 없으면 /support.html 폴백.
    *  - report_received → 이동 없음(없으면 무이동)
    *  - 기타/레거시 → item.link 우선, 없으면 fundId 로 상세.
    */
@@ -337,7 +337,8 @@
       return link; // fundId 없으면 link 폴백(있으면)
     }
     if (type === 'inquiry_reply') {
-      return link; // 문의/채팅 화면 — 서버가 준 link 그대로
+      // 서버가 link 를 주면 그대로, 없으면 고객지원 페이지로 고정(클릭해도 이동 못하는 문제 방지).
+      return link || '/support.html';
     }
     if (type === 'report_received') {
       return link; // 보통 없음 → 무이동
@@ -583,7 +584,6 @@
   /* ===== 전역 노출 ===== */
   window.openNotification = openNotification;
   window.closeNotification = closeNotification;
-  window.renderNotificationList = renderList;
   window.updateNotificationBadges = updateNotificationBadges;
   window.injectNotificationBadges = injectNotificationBadges;
 

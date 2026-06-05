@@ -21,8 +21,6 @@ const CATEGORY_ASSETS = {
   badge: '/assets/badge.png',
   tumbler: '/assets/tumbler.png',
   fabric: '/assets/fabric.png',
-  doll: '/assets/doll.png',
-  accessory: '/assets/accessory.png',
   etc: '/assets/etc.png',
 };
 
@@ -62,8 +60,6 @@ function categoryFallbackSvg(key) {
     badge:    '<circle cx="60" cy="58" r="26"/><circle cx="60" cy="58" r="10"/><path d="M60 84v14"/>',
     tumbler:  '<path d="M44 30h32l-4 64q-.5 6-6 6H54q-5.5 0-6-6z"/><path d="M42 44h36"/>',
     fabric:   '<rect x="28" y="40" width="64" height="44" rx="6"/><path d="M28 56q16 8 32 0t32 0"/>',
-    doll:     '<circle cx="60" cy="46" r="18"/><path d="M40 100v-8q0-16 20-16t20 16v8z"/><circle cx="53" cy="44" r="2.5" fill="' + P + '"/><circle cx="67" cy="44" r="2.5" fill="' + P + '"/>',
-    accessory:'<circle cx="46" cy="50" r="12"/><path d="M46 62v14"/><path d="M70 44q14 0 14 16t-14 16" /><circle cx="70" cy="60" r="3" fill="' + P + '"/>',
     etc:      '<circle cx="40" cy="60" r="5" fill="' + P + '"/><circle cx="60" cy="60" r="5" fill="' + P + '"/><circle cx="80" cy="60" r="5" fill="' + P + '"/>',
     webapp:   '<rect x="26" y="30" width="68" height="46" rx="5"/><path d="M26 42h68"/><circle cx="34" cy="36" r="1.6" fill="' + P + '"/><path d="M48 90h24M60 76v14"/>',
   };

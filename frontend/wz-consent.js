@@ -35,10 +35,6 @@
   var ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>';
   var ICON_CLOSE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12"/></svg>';
   var ICON_SHIELD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.4-3 7.6-7 9-4-1.4-7-4.6-7-9V6l7-3z"/><path d="M9.5 12l1.8 1.8 3.4-3.6"/></svg>';
-  var ICON_SPARK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9L12 3z"/></svg>';
-  var ICON_CAMERA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l1.6-2.4h6.8L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.4"/></svg>';
-  var ICON_USER = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.6"/><path d="M5 20c0-3.6 3.1-5.6 7-5.6s7 2 7 5.6"/></svg>';
-  var MAX_PIC_BYTES = 4 * 1024 * 1024;
 
   /* el 헬퍼 — WZ.el 있으면 재사용, 없으면 자체 구현(동일 시그니처) */
   function el(tag, props) {
@@ -191,203 +187,10 @@
     });
   }
 
-  /* ===== 온보딩(신규 회원 프로필 완성) 모달 =====
-   * open() 과 동일한 .wzc-over/.wzc-box 골격 + finish 패턴 재사용.
-   * 닉네임(필수 2~20자) 유효 시 완료 활성 -> PATCH /api/me({name,nickname,picture}).
-   * resolve(true)=저장 성공 / resolve(false)=스킵(나중에 하기) 또는 저장 실패. */
-  function openOnboarding(me) {
-    me = me || {};
-
-    return new Promise(function (resolve) {
-      var settled = false;
-      var prevHtmlOverflow = document.documentElement.style.overflow;
-
-      function finish(ok) {
-        if (settled) return;
-        settled = true;
-        over.classList.remove('is-open');
-        document.removeEventListener('keydown', onKey);
-        setTimeout(function () { if (over.parentNode) over.parentNode.removeChild(over); }, 200);
-        document.documentElement.style.overflow = prevHtmlOverflow || '';
-        if (document.body.style.overflow === 'hidden') document.body.style.overflow = '';
-        resolve(!!ok);
-      }
-
-      /* picture 상태: dataURL(파일선택) 또는 기존 http(me.picture) */
-      var pictureVal = (typeof me.picture === 'string' && me.picture) ? me.picture : '';
-
-      var over = el('div', { class: 'wzc-over wzc-over--gate', role: 'dialog', 'aria-modal': 'true', 'aria-label': '프로필 완성' });
-      var box = el('div', { class: 'wzc-box wzc-box--onb' });
-
-      /* --- 헤더 --- */
-      var head = el('div', { class: 'wzc-head' });
-      head.appendChild(el('span', { class: 'wzc-head__badge' }, el('span', { html: ICON_SPARK }), '환영합니다'));
-      head.appendChild(el('h2', { class: 'wzc-title' }, '두띵에 오신 걸 환영해요'));
-      head.appendChild(el('p', { class: 'wzc-sub' }, '프로필을 완성해 주세요'));
-      box.appendChild(head);
-
-      /* --- 본문 --- */
-      var body = el('div', { class: 'wzc-body' });
-
-      /* 아바타 업로더 (원형 미리보기 + 파일 선택) */
-      var fileInput = el('input', { type: 'file', accept: 'image/*', class: 'wzc-onb-file', id: 'wzc-onb-pic' });
-      var avatarImg = el('img', { class: 'wzc-onb-avatar__img', alt: '' });
-      var avatarFallback = el('span', { class: 'wzc-onb-avatar__fallback', html: ICON_USER });
-      function renderAvatar() {
-        if (pictureVal) {
-          avatarImg.setAttribute('src', pictureVal);
-          avatarImg.style.display = 'block';
-          avatarFallback.style.display = 'none';
-        } else {
-          avatarImg.removeAttribute('src');
-          avatarImg.style.display = 'none';
-          avatarFallback.style.display = 'flex';
-        }
-      }
-      var avatar = el('div', { class: 'wzc-onb-avatar' }, avatarImg, avatarFallback,
-        el('span', { class: 'wzc-onb-avatar__cam', html: ICON_CAMERA }));
-      var picWarn = el('p', { class: 'wzc-onb-warn', role: 'alert' });
-      picWarn.style.display = 'none';
-
-      var avatarLabel = el('label', { class: 'wzc-onb-avatar__btn', for: 'wzc-onb-pic' }, '사진 선택');
-
-      fileInput.addEventListener('change', function () {
-        var f = fileInput.files && fileInput.files[0];
-        picWarn.style.display = 'none';
-        picWarn.textContent = '';
-        if (!f) return;
-        if (!/^image\//.test(f.type || '')) {
-          picWarn.textContent = '이미지 파일만 선택할 수 있어요.';
-          picWarn.style.display = 'block';
-          fileInput.value = '';
-          return;
-        }
-        if (f.size > MAX_PIC_BYTES) {
-          picWarn.textContent = '이미지가 너무 커요. 4MB 이하 파일을 선택해 주세요.';
-          picWarn.style.display = 'block';
-          fileInput.value = '';
-          return;
-        }
-        var reader = new FileReader();
-        reader.onload = function () {
-          pictureVal = typeof reader.result === 'string' ? reader.result : '';
-          renderAvatar();
-        };
-        reader.onerror = function () {
-          picWarn.textContent = '이미지를 불러오지 못했어요. 다시 시도해 주세요.';
-          picWarn.style.display = 'block';
-        };
-        reader.readAsDataURL(f);
-      });
-
-      var avatarWrap = el('div', { class: 'wzc-onb-avatarwrap' },
-        avatar, fileInput, avatarLabel,
-        el('span', { class: 'wzc-onb-avatar__hint' }, '선택 사항이에요')
-      );
-      body.appendChild(avatarWrap);
-      body.appendChild(picWarn);
-
-      /* 이름 (선택) */
-      var nameInput = el('input', {
-        type: 'text', class: 'wzc-onb-input', id: 'wzc-onb-name',
-        maxlength: '40', placeholder: '실명 또는 활동명', autocomplete: 'name'
-      });
-      if (typeof me.name === 'string' && me.name) nameInput.value = me.name;
-      body.appendChild(el('div', { class: 'wzc-onb-field' },
-        el('label', { class: 'wzc-onb-label', for: 'wzc-onb-name' }, '이름 ',
-          el('span', { class: 'wzc-onb-opt' }, '(선택)')),
-        nameInput
-      ));
-
-      /* 닉네임 (필수 2~20자) */
-      var nickInput = el('input', {
-        type: 'text', class: 'wzc-onb-input', id: 'wzc-onb-nick',
-        maxlength: '20', placeholder: '두띵에서 표시될 이름', autocomplete: 'nickname'
-      });
-      if (typeof me.nickname === 'string' && me.nickname) nickInput.value = me.nickname;
-      var nickHint = el('p', { class: 'wzc-onb-hint' }, '2~20자로 입력해 주세요. 두띵에서 표시될 이름이에요.');
-      body.appendChild(el('div', { class: 'wzc-onb-field' },
-        el('label', { class: 'wzc-onb-label', for: 'wzc-onb-nick' }, '닉네임 ',
-          el('span', { class: 'wzc-onb-req' }, '(필수)')),
-        nickInput, nickHint
-      ));
-
-      box.appendChild(body);
-
-      /* --- 푸터 --- */
-      var foot = el('div', { class: 'wzc-foot' });
-      var doneBtn = el('button', { class: 'dt-btn dt-btn--primary dt-btn--lg wzc-onb-done', type: 'button' }, '완료');
-      var laterBtn = el('button', { class: 'wzc-onb-later', type: 'button' }, '나중에 하기');
-      foot.appendChild(doneBtn);
-      foot.appendChild(laterBtn);
-      box.appendChild(foot);
-
-      over.appendChild(box);
-
-      /* 닉네임 유효성 -> 완료 버튼 활성 */
-      function nickValid() {
-        var v = (nickInput.value || '').trim();
-        return v.length >= 2 && v.length <= 20;
-      }
-      function sync() { doneBtn.disabled = !nickValid(); }
-      nickInput.addEventListener('input', sync);
-
-      doneBtn.addEventListener('click', async function () {
-        if (doneBtn.disabled) return;
-        var nick = (nickInput.value || '').trim();
-        if (!(nick.length >= 2 && nick.length <= 20)) { sync(); return; }
-        doneBtn.disabled = true;
-        var prevLabel = doneBtn.textContent;
-        doneBtn.textContent = '저장 중...';
-        var payload = { nickname: nick };
-        var nm = (nameInput.value || '').trim();
-        if (nm) payload.name = nm;
-        if (pictureVal) payload.picture = pictureVal;
-        try {
-          var saved = await window.api.patch('/me', payload);
-          if (saved) {
-            me.onboarded = true;
-            me.nickname = saved.nickname || nick;
-            if (saved.name) me.name = saved.name;
-            if (typeof saved.picture === 'string') me.picture = saved.picture;
-            else if (pictureVal) me.picture = pictureVal;
-          } else {
-            me.onboarded = true;
-            me.nickname = nick;
-          }
-          finish(true);
-        } catch (_) {
-          /* 저장 실패: 흐름 유지(다음 진입 시 재시도). 버튼 복구. */
-          doneBtn.textContent = prevLabel;
-          doneBtn.disabled = false;
-          picWarn.textContent = '저장에 실패했어요. 잠시 후 다시 시도해 주세요.';
-          picWarn.style.display = 'block';
-        }
-      });
-
-      laterBtn.addEventListener('click', function () {
-        try { sessionStorage.setItem('wz_onboard_skip', '1'); } catch (_) {}
-        finish(false);
-      });
-
-      function onKey(e) {
-        if (e.key === 'Enter' && nickValid() && document.activeElement !== laterBtn) {
-          e.preventDefault();
-          doneBtn.click();
-        }
-      }
-      document.addEventListener('keydown', onKey);
-
-      document.documentElement.style.overflow = 'hidden';
-      document.body.appendChild(over);
-      renderAvatar();
-      sync();
-      requestAnimationFrame(function () { over.classList.add('is-open'); });
-    });
-  }
-
-  /* 온보딩 모달 비활성화 — 깨진 레이아웃 + 매 세션 스크롤 잠금 문제로 제거(사용자 요청).
-   * 프로필(이름/닉네임/사진)은 설정 > 프로필에서 직접 수정 가능. 추후 비차단 방식으로 재도입 검토. */
+  /* ===== 온보딩(신규 회원 프로필 완성) 게이트 =====
+   * 온보딩 모달은 비활성화됨 — 깨진 레이아웃 + 매 세션 스크롤 잠금 문제로 제거(사용자 요청).
+   * 프로필(이름/닉네임/사진)은 설정 > 프로필에서 직접 수정 가능.
+   * 추후 비차단 방식으로 재도입 시 이 함수에서 모달을 호출하도록 복구한다. */
   async function ensureOnboarding(me) {
     return me;
   }
@@ -482,7 +285,6 @@
   window.WZConsent = {
     open: open,
     ensure: ensure,
-    openOnboarding: openOnboarding,
     ensureOnboarding: ensureOnboarding,
     requirePrivacy: requirePrivacy,
     requireCreator: requireCreator

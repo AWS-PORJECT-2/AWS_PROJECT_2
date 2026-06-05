@@ -181,7 +181,13 @@
     /* 언어 토글(KR/EN) — localStorage 'wz_lang' 저장 후 reload. wz-i18n.js 가 EN 일 때 DOM 을 번역. */
     let curLang = 'ko';
     try { curLang = localStorage.getItem('wz_lang') === 'en' ? 'en' : 'ko'; } catch (_) { /* */ }
-    function switchLang(v) { try { localStorage.setItem('wz_lang', v); } catch (_) {} location.reload(); }
+    // 언어 전환은 WZI18N.set 에 위임해 'wz_lang' 키 관리를 한 곳으로 통일(이중 소스 제거).
+    // WZI18N 미로드 시에만 동일 동작으로 폴백(저장 후 reload) — 동작 보존.
+    function switchLang(v) {
+      if (window.WZI18N && typeof window.WZI18N.set === 'function') { window.WZI18N.set(v); return; }
+      try { localStorage.setItem('wz_lang', v); } catch (_) {}
+      location.reload();
+    }
     const langWrap = el('div', { class: 'wz-hd__lang', role: 'group', 'aria-label': '언어 선택' });
     const koBtn = el('button', { class: 'wz-hd__langbtn' + (curLang === 'ko' ? ' is-on' : ''), type: 'button', 'data-no-i18n': '' }, 'KR');
     const enBtn = el('button', { class: 'wz-hd__langbtn' + (curLang === 'en' ? ' is-on' : ''), type: 'button', 'data-no-i18n': '' }, 'EN');

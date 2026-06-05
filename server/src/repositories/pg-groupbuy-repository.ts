@@ -129,6 +129,7 @@ function toCardItem(row: Record<string, unknown>): GroupBuyCardItem {
     likeCount: Number(row.like_count) || 0,
     isLiked: Boolean(row.is_liked),
     subscriberCount: Number(row.subscriber_count) || 0,
+    openAt: row.open_at ? new Date(row.open_at as string).toISOString() : null,  // 공개예정 D-day 배지용(scheduled 목록)
   };
 }
 
@@ -637,7 +638,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     const listQuery = `
       SELECT g.id, g.title, g.creator_id, g.category, g.current_quantity, g.target_quantity,
              g.target_amount, g.current_amount, g.final_price,
-             g.deadline, g.status, g.created_at,
+             g.deadline, g.status, g.created_at, g.open_at,
              COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS cover_image_url,
              u.name AS creator_name, u.slug AS creator_slug,
              (SELECT COUNT(*)::int FROM project_subscriptions ps WHERE ps.groupbuy_id = g.id) AS subscriber_count

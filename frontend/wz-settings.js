@@ -892,10 +892,10 @@
         });
       });
 
-      var detailInput = input({ placeholder: '상세주소 (동·호수 등)', value: existing.detail });
+      var detailInput = input({ placeholder: '상세주소 (동·호수 등)', value: existing.detail, maxlength: 100 });
       var fDetail = field({ label: '상세주소', control: detailInput });
 
-      var memoInput = input({ placeholder: '부재 시 경비실에 맡겨주세요 등', value: existing.memo });
+      var memoInput = input({ placeholder: '부재 시 경비실에 맡겨주세요 등', value: existing.memo, maxlength: 100 });
       var fMemo = field({ label: '배송 특이사항', control: memoInput });
 
       // 레이아웃: 짧은 필드는 2열 그리드(모바일 1열)로 공간을 채우고, 도로명은 전체폭.
@@ -935,6 +935,7 @@
           var memo = memoInput.value.trim();
           // 서버 스키마에 메모 필드 없음 -> detailAddress 에 "상세주소 / 메모" 형태로 합쳐 저장
           var mergedDetail = memo ? (detail ? detail + ' / ' + memo : '/ ' + memo) : detail;
+          if (mergedDetail && mergedDetail.length > 200) mergedDetail = mergedDetail.slice(0, 200); // detail_address VARCHAR(200) 초과 방지(addresses.js 와 동일)
 
           var payload = {
             label: '기본', // 화면엔 안 보이되 API 필수 — "기본" 으로 채움

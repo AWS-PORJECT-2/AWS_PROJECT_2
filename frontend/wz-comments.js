@@ -41,7 +41,7 @@
     return n;
   };
 
-  var MAX_LEN = 1000;
+  var MAX_LEN = 2000; // 서버 CONTENT_MAX(2000) 및 수정창 maxlength 와 일치
 
   /* ---- 전용 아이콘 (SVG, stroke=currentColor) ---- */
   var IC = {
@@ -86,13 +86,16 @@
     return av;
   }
 
-  /* ---- 이름 노드(slug 있으면 메이커 프로필 링크) ---- */
+  /* ---- 이름 노드(slug 있으면 slug, 없으면 userId 로 메이커 프로필 링크) ---- */
   function nameNode(c) {
     var nm = (c && c.userName) ? c.userName : '익명';
-    if (c && c.userId) {
+    if (c && (c.userSlug || c.userId)) {
+      var href = c.userSlug
+        ? '/maker.html?slug=' + encodeURIComponent(c.userSlug)
+        : '/maker.html?id=' + encodeURIComponent(c.userId);
       var a = el('a', {
         class: 'wzc-name',
-        href: '/maker.html?id=' + encodeURIComponent(c.userId),
+        href: href,
       });
       a.textContent = nm; // 사용자 데이터 → textContent (XSS 안전)
       return a;

@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import type { Request, Response } from 'express';
+import type { Request, Response, RequestHandler } from 'express';
 import type { ChatRepository } from '../repositories/chat-repository.js';
 import { uuidParamGuard } from '../middleware/uuid-param.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
@@ -27,9 +27,12 @@ export function createChatRouter(
   authRequired: (req: Request, res: Response, next: () => void) => void,
   requireAdmin: (req: Request, res: Response, next: () => void) => void,
   notificationRepo?: NotificationRepository,
+  writeRateLimit?: RequestHandler,
 ) {
   const router = Router();
   router.param('roomId', uuidParamGuard);  // :roomId(chat_rooms UUID) 비-UUID 입력 → 400(22P02→500 방지)
+  // 채팅 쓰기 경로(메시지 전송·읽음 처리) 레이트리밋. 미주입 시 no-op(동작 보존).
+  const writeLimit: RequestHandler = writeRateLimit ?? ((_req, _res, next) => next());
 
   // ─── 유저 라우트 ───
 
@@ -63,7 +66,7 @@ export function createChatRouter(
   });
 
   // 유저 메시지 전송 (REST fallback — Socket.io 불가 시)
-  router.post('/me/messages', authRequired, async (req: Request, res: Response) => {
+  router.post('/me/messages', authRequired, writeLimit, async (req: Request, res: Response) => {
     try {
       const { message } = req.body as { message?: string };
       if (!message?.trim() || message.trim().length > 2000) {
@@ -82,7 +85,7 @@ export function createChatRouter(
   });
 
   // 유저 읽음 처리
-  router.post('/me/read', authRequired, async (req: Request, res: Response) => {
+  router.post('/me/read', authRequired, writeLimit, async (req: Request, res: Response) => {
     try {
       const room = await chatRepo.findRoomByUserId(req.userId!);
       if (!room) {
@@ -128,7 +131,7 @@ export function createChatRouter(
   });
 
   // 관리자 메시지 전송
-  router.post('/admin/rooms/:roomId/messages', authRequired, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/admin/rooms/:roomId/messages', authRequired, requireAdmin, writeLimit, async (req: Request, res: Response) => {
     try {
       const { roomId } = req.params;
       const { message } = req.body as { message?: string };
@@ -167,7 +170,7 @@ export function createChatRouter(
   });
 
   // 관리자 읽음 처리
-  router.post('/admin/rooms/:roomId/read', authRequired, requireAdmin, async (req: Request, res: Response) => {
+  router.post('/admin/rooms/:roomId/read', authRequired, requireAdmin, writeLimit, async (req: Request, res: Response) => {
     try {
       const { roomId } = req.params;
       await chatRepo.markAsRead(roomId, 'ADMIN');

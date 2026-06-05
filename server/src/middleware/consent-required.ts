@@ -1,4 +1,4 @@
-import type { Request, Response, NextFunction, RequestHandler } from 'express';
+import type { Request, Response, NextFunction } from 'express';
 
 /**
  * 약관·개인정보 동의 게이트(서버 강제).
@@ -23,9 +23,4 @@ export function consentRequired(req: Request, res: Response, next: NextFunction)
     code: 'CONSENT_REQUIRED',
     message: '서비스 이용약관과 개인정보 수집·이용에 동의해야 이용할 수 있습니다.',
   });
-}
-
-// 팩토리 형태도 제공(다른 라우트 팩토리에서 주입해 쓰기 편하게).
-export function createConsentRequired(): RequestHandler {
-  return consentRequired;
 }

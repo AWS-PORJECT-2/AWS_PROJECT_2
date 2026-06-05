@@ -126,6 +126,8 @@
         state.funds = (r && r.items) || [];
         // 프로필 탭 미리보기 / 올린 프로젝트 탭이 열려 있으면 갱신
         if (refs.tabBar) syncTabCounts();
+        // 비소유자에게는 /funds 가 공개 펀드만 반환 → 히어로 '올린 프로젝트' 스탯도 공개 수로 보정.
+        refreshProjectStat();
         if (state.tab === 'profile') renderPreviewGrid();
         if (state.tab === 'funds') renderTabBody();
         return state.funds;
@@ -336,6 +338,18 @@
       if (numEl) numEl.textContent = fmt(state.profile.followerCount);
     }
     syncTabCounts();
+  }
+  // 비소유자 페이지에서는 /funds 가 공개 펀드만 내려오므로, 히어로 '올린 프로젝트'(3번째 스탯)를
+  // 실제 로드된 공개 펀드 수로 보정한다. 소유자는 백엔드 projectCount(비공개 포함)를 그대로 둔다.
+  function refreshProjectStat() {
+    if (!refs.root || !state.profile || state.profile.isMe) return;
+    if (!Array.isArray(state.funds)) return;
+    var nums = refs.root.querySelectorAll('.wz-mk-stat');
+    // 세 번째 stat = 올린 프로젝트
+    if (nums[2]) {
+      var numEl = nums[2].querySelector('.wz-mk-stat__num');
+      if (numEl) numEl.textContent = fmt(state.funds.length);
+    }
   }
 
   /* ---------- 공유(카카오/X/페이스북/링크) — 상세(wz-detail) 공유시트와 동일 동작 ---------- */
@@ -639,6 +653,16 @@
     call.then(function (r) {
       u.isFollowing = (r && typeof r.following === 'boolean') ? r.following : willFollow;
       paintPersonFollow(btn, u.isFollowing);
+      // 토글 대상이 이 페이지의 메이커 본인이면 히어로 팔로우 버튼/팔로워 스탯도 동기화.
+      var prof = state.profile;
+      if (prof && String(u.userId) === String(prof.userId)) {
+        prof.isFollowing = u.isFollowing;
+        if (r && typeof r.followerCount === 'number') prof.followerCount = r.followerCount;
+        if (refs.followBtn) paintFollow(refs.followBtn, prof.isFollowing);
+        refreshFollowerStat();
+        // 팔로워 목록 캐시 무효화(다시 진입 시 새로 로드)
+        state.followers = null;
+      }
     }).catch(function () {
       alert('처리 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.');
     }).finally(function () { btn.disabled = false; });

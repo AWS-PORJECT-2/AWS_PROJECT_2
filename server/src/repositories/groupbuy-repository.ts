@@ -72,6 +72,7 @@ export interface GroupBuyCardItem {
   likeCount: number;         // 찜(좋아요) 수 — 모든 사용자 공통(026_project_likes)
   isLiked: boolean;          // viewer 의 찜 여부 — 비로그인/미찜이면 false
   subscriberCount?: number;  // 공개예정 알림 구독자 수 — scheduled 카드에서만 채워짐(그 외 0)
+  openAt?: string | null;    // 공개예정 오픈 예정시각 ISO — scheduled 카드 D-day 배지용(그 외 null)
 }
 
 export interface GroupBuyDetail extends GroupBuyCardItem {

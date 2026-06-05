@@ -502,8 +502,8 @@
     );
     wrap.appendChild(head);
 
-    // 디자인하기 지원 여부 — 웹·앱/기타(type none) + 인형·액세서리는 미지원.
-    var NO_DESIGN = { webapp: 1, etc: 1, doll: 1, accessory: 1 };
+    // 디자인하기 지원 여부 — 웹·앱/기타(type none)는 미지원.
+    var NO_DESIGN = { webapp: 1, etc: 1 };
     function canDesign(slug) { return !!slug && !NO_DESIGN[slug] && (typeof window.dtCategoryType !== 'function' || window.dtCategoryType(slug) !== 'none'); }
     var grid = W.el('div', { class: 'wc-catgrid' });
     var nextBtn, designBtn;

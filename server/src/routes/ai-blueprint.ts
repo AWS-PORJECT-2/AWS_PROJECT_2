@@ -3,6 +3,7 @@ import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { startAiJob } from '../services/ai/ai-jobs.js';
+import { isValidCategory } from '../constants/categories.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const MAX_IMAGES = 5;
@@ -73,7 +74,7 @@ export function createAiBlueprintHandler(gemini: ImageAiService, timeoutMs: numb
       parsedList.push(parsed);
     }
 
-    const category = typeof body.category === 'string' ? body.category : 'etc';
+    const category = isValidCategory(String(body.category)) ? String(body.category) : 'etc';
     // 면 라벨(front/back/left/right/neck …) — 이미지 순서와 1:1. 프롬프트가 각 이미지의 면을 명시해 정확도↑.
     const faces = Array.isArray(body.faces)
       ? body.faces.slice(0, parsedList.length).map((f: unknown) => (typeof f === 'string' ? f : ''))
