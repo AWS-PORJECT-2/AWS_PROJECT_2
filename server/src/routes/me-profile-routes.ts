@@ -122,6 +122,9 @@ export function createUpdateNotificationsHandler(userRepo: UserRepository) {
     }
     try {
       const merged = await userRepo.updateNotificationPrefs(userId, prefs);
+      // '마케팅 메일' 토글은 실제 수신동의(marketing_opt_in)와 단일화 — 토글 변경 시 동의 플래그도 동기화(약관 재동의는 없음).
+      //  (과거엔 토글이 notification_prefs.marketing 에만 저장돼 아무것도 게이트하지 못하고 marketing_opt_in 과 어긋났다.)
+      if (typeof prefs.marketing === 'boolean') await userRepo.setMarketingOptIn(userId, prefs.marketing);
       res.json(resolvePrefs(merged));
     } catch (err) {
       logger.error({ err, userId }, '알림 설정 갱신 실패');

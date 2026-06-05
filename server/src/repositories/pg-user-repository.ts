@@ -132,6 +132,12 @@ export class PgUserRepository implements UserRepository {
     };
   }
 
+  // 설정의 '마케팅 메일' 토글 전용 — 약관 재동의(terms_agreed_at) 없이 마케팅 수신여부만 갱신.
+  //  (설정 토글과 가입 동의 체크박스가 같은 marketing_opt_in 을 단일 진실원으로 공유하도록.)
+  async setMarketingOptIn(userId: string, optIn: boolean): Promise<void> {
+    await this.pool.query('UPDATE "user" SET marketing_opt_in = $1 WHERE id = $2', [optIn, userId]);
+  }
+
   async searchByNameOrNickname(q: string): Promise<UserSearchItem[]> {
     // LIKE 와일드카드(%, _) 와 이스케이프 문자(\)를 리터럴로 취급하도록 이스케이프 후 ESCAPE 절 명시.
     const escaped = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);

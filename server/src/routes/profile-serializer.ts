@@ -33,7 +33,8 @@ export function serializeMe(user: User) {
     coverUrl: user.coverUrl ?? null,
     themeColor: user.themeColor ?? null,
     phone: user.phone ?? null,
-    notificationPrefs: resolvePrefs(user.notificationPrefs),
+    // '마케팅' 토글 표시는 실제 수신동의(marketing_opt_in)를 단일 진실원으로 따른다(설정↔동의 단일화).
+    notificationPrefs: { ...resolvePrefs(user.notificationPrefs), marketing: user.marketingOptIn ?? false },
     termsAgreedAt: user.termsAgreedAt ? user.termsAgreedAt.toISOString() : null,
     marketingOptIn: user.marketingOptIn ?? false,
     // ─── 하위호환(기존 프론트) ───

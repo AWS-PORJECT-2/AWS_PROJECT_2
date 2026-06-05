@@ -51,5 +51,7 @@ export interface UserRepository {
   searchByNameOrNickname(q: string): Promise<UserSearchItem[]>;
   updateNotificationPrefs(userId: string, prefs: NotificationPrefs): Promise<NotificationPrefs>;
   setConsent(userId: string, data: { marketingOptIn: boolean }): Promise<{ termsAgreedAt: Date; marketingOptIn: boolean }>;
+  // 마케팅 토글 전용(약관 재동의 없이 marketing_opt_in 만) — 설정 토글과 동의 플래그 단일화.
+  setMarketingOptIn(userId: string, optIn: boolean): Promise<void>;
   getPublicProfile(idOrSlug: string, viewerId?: string): Promise<PublicProfile | null>;
 }
