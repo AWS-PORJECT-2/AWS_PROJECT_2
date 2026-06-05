@@ -397,6 +397,9 @@
     // 작성자 본인일 때만: 프로젝트 삭제 요청(관리자 처리). 타인/관리자에겐 미노출.
     const delReqEl = OwnerDeleteRequest(f);
     if (delReqEl) mainCol.appendChild(delReqEl);
+    // 관리자: 이 펀딩 게시글 숨기기/다시 보이기(가장 발견하기 쉬운 위치 — 게시글을 보면서 바로)
+    const adminCtl = AdminFundControl(f);
+    if (adminCtl) mainCol.appendChild(adminCtl);
 
     /* ----- 우측 sticky 후원 패널 ----- */
     const sideCol = W.el('aside', { class: 'wz-d-side' });
@@ -1122,6 +1125,33 @@
       W.el('span', { class: 'wz-d-delreq__btn-ic', html: SVG.trash }),
       W.el('span', {}, '이 프로젝트 삭제 요청'));
     btn.addEventListener('click', () => openDeleteRequestModal(f, btn));
+    sec.appendChild(btn);
+    return sec;
+  }
+
+  /* 관리자 전용 — 이 펀딩 게시글을 공개에서 숨기기 / 다시 보이기.
+   * 숨기면 일반 사용자의 목록·검색·찜·최근 어디에도 안 뜨고 상세는 404. 삭제 아님(언제든 복구). */
+  function AdminFundControl(f) {
+    if (!isAdmin()) return null;
+    const hidden = !!f.hidden;
+    const sec = W.el('section', { class: 'wz-d-delreq' });
+    sec.appendChild(W.el('p', { class: 'wz-d-delreq__label' },
+      W.el('span', { class: 'wz-d-delreq__ic', html: SVG.alert }),
+      W.el('span', {}, '관리자 — 게시글 공개 관리')));
+    sec.appendChild(W.el('p', { class: 'wz-d-delreq__desc' },
+      hidden
+        ? '현재 숨김 상태입니다. 일반 사용자에게 목록·검색·찜·최근 어디에도 보이지 않아요. 다시 공개할 수 있습니다.'
+        : '문제가 있는 게시글이면 공개에서 숨길 수 있어요. 삭제와 달리 언제든 다시 보이게 할 수 있습니다.'));
+    const btn = W.el('button', { class: 'wz-d-delreq__btn', type: 'button' },
+      W.el('span', {}, hidden ? '이 프로젝트 다시 보이게' : '이 프로젝트 숨기기'));
+    btn.addEventListener('click', () => {
+      if (!confirm(hidden ? '이 프로젝트를 다시 공개할까요?' : '이 프로젝트를 숨길까요? 일반 사용자에게 보이지 않게 됩니다.')) return;
+      btn.disabled = true;
+      const path = '/admin/funds/' + encodeURIComponent(f.id) + (hidden ? '/show' : '/hide');
+      window.api.post(path, {})
+        .then(() => { toast(hidden ? '다시 공개했어요' : '숨김 처리했어요'); location.reload(); })
+        .catch(() => { btn.disabled = false; toast(hidden ? '공개 전환에 실패했어요' : '숨김 처리에 실패했어요'); });
+    });
     sec.appendChild(btn);
     return sec;
   }

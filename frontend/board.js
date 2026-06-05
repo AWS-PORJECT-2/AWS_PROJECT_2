@@ -175,7 +175,7 @@
         meta.appendChild(el('span', {}, fmtTime(p.createdAt)));
         if (canModify(p.author)) {
           // 수정: 작성자 본인만(관리자라도 남의 글 내용은 수정 안 함 — 삭제만). 본문 편집은 소유자 권한.
-          if (me && p.author && me.id === p.author.id) {
+          if (me && p.author && me.userId === p.author.id) {
             var edit = el('button', { class: 'bd-edit', type: 'button' }, '수정');
             edit.addEventListener('click', function () { openCompose(p); });
             meta.appendChild(edit);
@@ -189,7 +189,7 @@
           meta.appendChild(del);
         }
         // 신고 — 로그인했고 작성자 본인이 아니면(자기 글은 신고 불가).
-        if (me && p.author && me.id !== p.author.id) {
+        if (me && p.author && me.userId !== p.author.id) {
           var rep = el('button', { class: 'bd-report', type: 'button' }, '신고');
           rep.addEventListener('click', function () {
             if (window.WZReport && typeof window.WZReport.open === 'function') {
@@ -431,7 +431,7 @@
     return wrap;
   }
   function catBadge(cat) { return el('span', { class: 'bd-cat bd-cat--' + (cat || 'general') }, CAT_LABEL[cat] || '일반'); }
-  function canModify(author) { return !!me && author && (me.id === author.id || String(me.role || '').toUpperCase() === 'ADMIN'); }
+  function canModify(author) { return !!me && author && (me.userId === author.id || String(me.role || '').toUpperCase() === 'ADMIN'); }
   function linkify(container, text) {
     String(text || '').split('\n').forEach(function (line, li) {
       if (li > 0) container.appendChild(el('br', {}));

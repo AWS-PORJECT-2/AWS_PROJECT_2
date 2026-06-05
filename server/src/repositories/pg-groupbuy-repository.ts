@@ -612,6 +612,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       legalNotice: (r.legal_notice as string | null) ?? null,
       openAt: openAt ? openAt.toISOString() : null,
       viewCount: Number(r.view_count) || 0,
+      hidden: r.hidden === true,   // 관리자 숨김 상태 — 상세에서 관리자 숨기기/표시 토글 노출용
       isSubscribed: Boolean(r.is_subscribed),
       subscriberCount: Number(r.subscriber_count) || 0,
       contentBlocks: contentBlocksToContract(parseContentBlocks(r.content_blocks)),
@@ -750,7 +751,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
   async likedIdsByUser(userId: string): Promise<string[]> {
     const r = await this.pool.query(
       `SELECT pl.groupbuy_id FROM project_likes pl
-         JOIN groupbuys g ON g.id = pl.groupbuy_id AND g.deleted_at IS NULL
+         JOIN groupbuys g ON g.id = pl.groupbuy_id AND g.deleted_at IS NULL AND g.hidden = FALSE
         WHERE pl.user_id = $1 ORDER BY pl.created_at DESC`,
       [userId],
     );

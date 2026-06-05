@@ -88,6 +88,7 @@ export interface GroupBuyDetail extends GroupBuyCardItem {
   legalNotice: string | null;                    // 정보고시/법적 고지(스토리와 분리) — 023_plan_features
   openAt: string | null;                         // 공개예정 오픈 예정시각 ISO — 023_plan_features
   viewCount: number;                             // 상세 조회수(분석) — 023_plan_features
+  hidden?: boolean;                              // 관리자 숨김 상태(관리자만 의미 — 상세 숨기기/표시 토글) — 044
   isSubscribed: boolean;                         // viewer 의 공개예정 알림 구독 여부 — 023_plan_features
   subscriberCount: number;                       // 공개예정 알림 구독자 수 — 023_plan_features
   contentBlocks: ContentBlockContract[];
