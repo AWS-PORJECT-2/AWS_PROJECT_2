@@ -1127,13 +1127,42 @@
   function safeName(s) { return (String(s == null ? '' : s).replace(/[\\/:*?"<>|()]+/g, '').trim().slice(0, 60)) || 'design'; }
 
   // ---- 다운로드 ---------------------------------------------------------------
+  // data:URL → Blob (모바일 저장용). atob 로 디코드해 바이트 배열로.
+  function dataUrlToBlob(url) {
+    var i = url.indexOf(','); var head = url.slice(0, i); var body = url.slice(i + 1);
+    var mime = (head.match(/data:([^;]+)/) || [])[1] || 'image/png';
+    var bin = head.indexOf('base64') !== -1 ? atob(body) : decodeURIComponent(body);
+    var n = bin.length; var u8 = new Uint8Array(n);
+    while (n--) u8[n] = bin.charCodeAt(n);
+    return new Blob([u8], { type: mime });
+  }
+  // 데스크톱: <a download> 클릭. 모바일(iOS 등 download 무시): Web Share 시트로 저장/공유.
   function downloadDesign() {
     composite(S.view, 1200).then(function (url) {
       if (!url) { toast('이미지를 만들지 못했어요'); return; }
-      var a = el('a', { href: url, download: '두띵-디자인-' + safeName(S.title) + '-' + safeName(viewLabel(S.view)) + '.png' });
-      document.body.appendChild(a); a.click(); a.remove();
-      toast('이미지를 다운로드했어요');
+      var fname = '두띵-디자인-' + safeName(S.title) + '-' + safeName(viewLabel(S.view)) + '.png';
+      var blob = dataUrlToBlob(url);
+      // 모바일 우선: 파일 공유 가능하면 네이티브 공유/사진저장 시트.
+      try {
+        if (navigator.canShare && typeof File !== 'undefined') {
+          var file = new File([blob], fname, { type: 'image/png' });
+          if (navigator.canShare({ files: [file] })) {
+            navigator.share({ files: [file], title: '두띵 디자인' })
+              .catch(function () { saveBlobFallback(blob, fname); });
+            return;
+          }
+        }
+      } catch (_) {}
+      saveBlobFallback(blob, fname);
     });
+  }
+  // 폴백: Blob URL 로 다운로드(데이터URL보다 모바일 호환↑). 그래도 안 되면 새 탭으로 열어 길게눌러 저장.
+  function saveBlobFallback(blob, fname) {
+    var obj = URL.createObjectURL(blob);
+    var a = el('a', { href: obj, download: fname });
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function () { URL.revokeObjectURL(obj); }, 8000);
+    toast('이미지를 저장했어요');
   }
 
   // ---- 저장 / 불러오기 --------------------------------------------------------
