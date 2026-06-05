@@ -172,9 +172,10 @@ export class PaymentScheduler {
           if (await notificationRepo.existsForFund('deadline_soon', gb.id)) continue;
 
           // 후원자 + 찜(좋아요)한 사용자 모두에게(중복 제거). likedDeadline 토글이 '후원·관심 프로젝트'를 가리키므로 둘 다 대상.
+          //  창작자는 아래 전용 알림을 따로 받으므로 여기서 제외(자기 펀드를 후원/찜했어도 1건만 받도록).
           const backers = await rewardOrderRepo.backerUserIds(gb.id);
           const likers = await this.groupBuyRepo.likerUserIds(gb.id);
-          const recipients = [...new Set([...backers, ...likers])];
+          const recipients = [...new Set([...backers, ...likers])].filter((id) => id !== gb.creatorId);
           await notifyMany(notificationRepo, recipients, {
             type: 'deadline_soon',
             title: '관심 프로젝트 마감이 임박했어요',

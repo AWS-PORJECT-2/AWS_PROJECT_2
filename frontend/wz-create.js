@@ -461,8 +461,6 @@
       storyBlocks: [],        // [{type:'text'|'image', value}]
       refundPolicy: '',
       legalNotice: '',
-      makerIntro: '',
-      makerContact: '',
       creatorName: (me && (me.nickname || me.name)) || '', // 창작자 이름 = 계정 이름 고정(수정불가). 서버도 강제.
       creatorImage: null,     // data URL 또는 http(s)
       creatorIntro: '',
@@ -614,13 +612,6 @@
         done: function () { return !!nstate.refundPolicy.trim() && !!nstate.legalNotice.trim(); },
         open: openPolicyForm,
       },
-      {
-        // 메이커 정보(makerIntro/makerContact)는 서버 creatorInfo 에 저장되지 않고 폐기되므로 필수에서 제외.
-        // 창작자 정보(name/intro/지역)가 이미 저장·표시되어 메이커 소개를 대체한다. 입력 시 done 표시만 유지.
-        key: 'maker', name: '메이커 정보', required: false,
-        done: function () { return !!nstate.makerIntro.trim() && !!nstate.makerContact.trim(); },
-        open: openMakerForm,
-      },
     ];
   }
 
@@ -765,7 +756,7 @@
   // 섹션 key → 사이드바 아이콘
   var SECTION_ICON = {
     basic: IC.doc, plan: IC.tier, goal: IC.calendar, schedule: IC.calendar, story: IC.pen,
-    reward: IC.wallet, creator: IC.user, policy: IC.shield, maker: IC.mega,
+    reward: IC.wallet, creator: IC.user, policy: IC.shield,
   };
 
   function Sidebar() {
@@ -890,7 +881,7 @@
     wrap.appendChild(btn);
     wrap.appendChild(W.el('p', { class: 'wc-submit__hint' },
       ready ? '제출하면 창작자 약관 동의 후 관리자 심사를 거쳐 프로젝트가 공개됩니다.'
-            : '필수 항목(기본 정보 · 요금제 · 목표 금액/일정 · 스토리 · 리워드 · 창작자 정보 · 정책 · 메이커 정보)을 모두 작성해 주세요.'));
+            : '필수 항목(기본 정보 · 요금제 · 목표 금액/일정 · 스토리 · 리워드 · 창작자 정보 · 정책)을 모두 작성해 주세요.'));
     return wrap;
   }
 
@@ -2339,25 +2330,6 @@
     });
   }
 
-  /* ---- 메이커 정보 ---- */
-  function openMakerForm() {
-    var introIn, contactIn;
-    openOver('메이커 정보', function (body) {
-      body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
-        '메이커 정보는 선택 사항입니다. 창작자 정보로도 충분히 소개할 수 있어요.'));
-      introIn = textarea({ maxlength: '1000', placeholder: '메이커(팀) 소개' });
-      introIn.value = nstate.makerIntro || '';
-      body.appendChild(field('메이커 소개', false, introIn, '어떤 메이커(팀)가 만드는지 후원자에게 소개해 주세요. 최대 1000자.'));
-      contactIn = input({ type: 'text', maxlength: '200', placeholder: '문의 이메일 또는 오픈채팅 링크' });
-      contactIn.value = nstate.makerContact || '';
-      body.appendChild(field('문의처', false, contactIn, '후원자 문의를 받을 연락 수단입니다.'));
-    }, function () {
-      nstate.makerIntro = introIn.value.trim();
-      nstate.makerContact = contactIn.value.trim();
-      return true;
-    });
-  }
-
   /* ---- 일반 제출 ---- */
   function submitNormal() {
     if (!allRequiredDone()) { toast('필수 항목을 모두 작성해 주세요'); return; }
@@ -2483,11 +2455,6 @@
     if (sigungu) out.sigungu = sigungu.slice(0, 30);
     var img = String(nstate.creatorImage || '').trim();
     if (img && (/^data:image\/(png|jpe?g|webp);base64,/.test(img) || /^https?:\/\//.test(img)) && img.length <= 12000000) out.image = img;
-    // 메이커 정보(필수 단계) — 창작자 정보와 동일한 JSONB 에 함께 보관.
-    var makerIntro = String(nstate.makerIntro || '').trim();
-    if (makerIntro) out.makerIntro = makerIntro.slice(0, 1000);
-    var makerContact = String(nstate.makerContact || '').trim();
-    if (makerContact) out.makerContact = makerContact.slice(0, 200);
     return Object.keys(out).length ? out : null;
   }
 

@@ -136,7 +136,7 @@
   }
 
   function applyTheme(color) {
-    // themeColor 가 있으면 페이지 포인트색 일부를 그 색으로(있을 때만). 없으면 토큰 보라 유지.
+    // themeColor 는 커버 그라데이션 색으로만 사용된다(커버 이미지 없을 때 applyCoverGrad). 유효 hex 아니면 미적용.
     if (!color || !/^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(String(color))) { refs.theme = null; return; }
     refs.theme = color;
   }

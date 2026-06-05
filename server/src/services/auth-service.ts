@@ -154,7 +154,9 @@ export class AuthServiceImpl implements AuthService {
     return result;
   }
 
-  // grace 캐시에서 직전 회전 결과를 1회성으로 꺼낸다(만료분은 정리). 없으면 null.
+  // grace 캐시에서 직전 회전 결과를 반환(만료분은 정리). 없으면 null.
+  //  ⚠️ 윈도우(10s) 내에는 삭제하지 않고 멱등 반환한다 — 동시/재시도 N건이 같은 새 토큰쌍을 받아야 정상 사용자가
+  //     강제 로그아웃되지 않기 때문. 보안은 호출부의 user 재조회+accessBlock 재검증 + logout 시 clearGraceForUser 로 보장.
   private takeRecentRotation(oldTokenHash: string): { accessToken: string; refreshToken: string } | null {
     const entry = this.recentRotations.get(oldTokenHash);
     if (!entry) return null;
