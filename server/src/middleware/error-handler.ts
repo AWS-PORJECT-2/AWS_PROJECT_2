@@ -3,11 +3,13 @@ import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { pool } from '../db.js';
 import { logAudit } from '../services/audit-log.js';
+import { logger } from '../logger.js';
 
 export function errorHandler(err: unknown, req: Request, res: Response, _next: NextFunction): void {
   if (err instanceof AppError) {
     // 4xx(클라이언트 오류)는 소음이므로 5xx 만 감사로그에 남긴다.
     if (err.httpStatus >= 500) {
+      logger.error({ err, method: req.method, path: req.originalUrl || req.path, status: err.httpStatus, code: err.code, userId: req.userId ?? null }, 'AppError 5xx');
       void logAudit(pool, {
         level: 'error',
         source: 'http',
@@ -44,6 +46,8 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
   }
 
   const appErr = new AppError('INTERNAL_ERROR');
+  // 예상 못 한 오류 — 스택까지 stdout(pm2 로그)에 남긴다(감사로그 DB 와 별개).
+  logger.error({ err, method: req.method, path: req.originalUrl || req.path, status: 500, userId: req.userId ?? null }, '처리되지 않은 요청 오류');
   void logAudit(pool, {
     level: 'error',
     source: 'http',

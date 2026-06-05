@@ -97,6 +97,7 @@ import { PaymentScheduler } from './services/scheduler.js';
 import { PgDistributedLockProvider } from './services/distributed-lock.js';
 import { createPaymentWebhookHandler } from './routes/payment-webhook.js';
 import { logger } from './logger.js';
+import { requestLogger } from './middleware/request-logger.js';
 
 // Payment method & address imports
 import {
@@ -220,6 +221,8 @@ export function createApp(
   }));
   app.use(compression());
   app.use(cors({ origin: FRONTEND_URL, credentials: true }));
+  // 액세스 로그 — 모든 요청을 한 줄씩(동작 추적 + 에러 가시화). 최대한 앞단에 둬 본문오류·레이트리밋까지 포착.
+  app.use(requestLogger);
 
   // 웹훅은 raw body가 필요하므로 전역 JSON 파서보다 먼저 등록 (아래 express.raw 로 등록)
   // 라우트별 JSON 바디 한도 — 기본은 작게(256kb), data URL(영상/이미지)·임시저장만 크게.
