@@ -180,6 +180,9 @@ const writeRateLimit = rateLimit({
   message: { error: 'RATE_LIMITED', message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요' },
   standardHeaders: true,
   legacyHeaders: false,
+  // 사용자 단위 키 — 모든 쓰기 라우트는 authRequired 뒤라 req.userId 가 항상 채워진다.
+  //  (캠퍼스 공유 NAT 에서 IP 로 묶으면 한 명의 쓰기/후원/채팅이 모두의 버킷을 소진 → 상호 차단되던 문제 방지)
+  keyGenerator: (req) => req.userId ?? 'anonymous',
 });
 
 function requireEnv(name: string): string {
@@ -316,17 +319,18 @@ export function createApp(
     logger.warn('⚠️  개발 전용 /api/dev-auth 라우트 활성화 (ENABLE_DEV_AUTH=true) — 운영에서는 절대 켜지 말 것');
   }
 
+  // AI 스토리 초안 — OpenAI(ChatGPT) 텍스트 모델. 키 미설정 시에도 라우트는 등록하고 핸들러에서 503 응답.
+  //  ⚠️ /api/ai 마운트보다 '먼저' 등록 — 그래야 story-draft 요청이 마운트의 authRequired+aiRateLimit 를
+  //     한 번 더 거치지 않는다(이중 인증 DB조회/레이트리밋 카운팅 방지).
+  const geminiText = OpenAiTextService.fromEnv();
+  app.post('/api/ai/story-draft', authRequired, aiRateLimit, createAiStoryDraftHandler(geminiText, AI_TIMEOUT_MS));
+
   // AI 라우터 (OpenAI gpt-image-1) — OPENAI_API_KEY 가 있어야만 라우트 등록.
   // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
   const gemini = OpenAiImageService.fromEnv();
   if (gemini) {
     app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
   }
-
-  // AI 스토리 초안 — OpenAI(ChatGPT) 텍스트 모델. 키 미설정 시에도 라우트는 등록하고 핸들러에서 503 응답
-  //  (이미지 라우터의 404 미등록과 달리, 프론트가 503 미연결 안내를 받게).
-  const geminiText = OpenAiTextService.fromEnv();
-  app.post('/api/ai/story-draft', authRequired, aiRateLimit, createAiStoryDraftHandler(geminiText, AI_TIMEOUT_MS));
 
   // --- 공동구매(=펀드) 저장소 ---
   const groupBuyRepository = new PgGroupBuyRepository(pool);

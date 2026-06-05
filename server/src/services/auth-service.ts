@@ -42,7 +42,7 @@ export class AuthServiceImpl implements AuthService {
   private readonly refreshTokenRepo: RefreshTokenRepository;
   private readonly notificationRepo?: NotificationRepository;
   // 회전 grace 캐시: 직전(이미 폐기된) 토큰 해시 → 그 회전으로 발급된 새 토큰쌍 + 만료시각.
-  private readonly recentRotations = new Map<string, { result: { accessToken: string; refreshToken: string }; expiresAt: number }>();
+  private readonly recentRotations = new Map<string, { result: { accessToken: string; refreshToken: string }; expiresAt: number; userId: string }>();
 
   constructor(deps: AuthServiceDeps) {
     this.emailValidator = deps.emailValidator;
@@ -101,10 +101,20 @@ export class AuthServiceImpl implements AuthService {
     const tokenHash = TokenServiceImpl.hashToken(refreshToken);
     const storedToken = await this.refreshTokenRepo.findByTokenHash(tokenHash);
     if (!storedToken) {
-      // 직전에 정상 회전된 토큰이 동시/재시도로 다시 들어온 경우(짧은 grace 윈도우 내) →
-      // 도난이 아니라 경합. 이미 발급한 새 토큰쌍을 그대로 멱등하게 돌려준다(전체 폐기 X).
+      // 직전에 정상 회전된 토큰이 동시/재시도로 다시 들어온 경우(짧은 grace 윈도우 내) → 도난이 아니라 경합.
+      //  이미 발급한 새 토큰쌍을 멱등하게 돌려준다(전체 폐기 X). 단 grace 반환 전에도 제재/탈퇴/존재 게이트를
+      //  재확인해, 회전~재요청 사이에 정지/차단/탈퇴된 계정이 grace 로 우회하지 못하게 한다(R2 회귀 보강).
       const graced = this.takeRecentRotation(tokenHash);
-      if (graced) return graced;
+      if (graced) {
+        const gUser = await this.userRepo.findByEmail(payload.email);
+        const gBlock = gUser ? accessBlock(gUser) : null;
+        if (!gUser || gBlock) {
+          this.clearGraceForUser(payload.userId);
+          await this.refreshTokenRepo.deleteByUserId(payload.userId);
+          throw new AppError(gBlock ? gBlock.code : 'INVALID_REFRESH_TOKEN');
+        }
+        return graced;
+      }
       logger.warn({ userId: payload.userId }, '토큰 재사용 감지 - 전체 토큰 폐기');
       await this.refreshTokenRepo.deleteByUserId(payload.userId);
       throw new AppError('INVALID_REFRESH_TOKEN');
@@ -139,8 +149,8 @@ export class AuthServiceImpl implements AuthService {
       createdAt: now,
     });
     const result = { accessToken: newAccessToken, refreshToken: newRefreshToken };
-    // 회전 직후 grace 윈도우에 기록 — 직전 토큰으로의 동시/재시도 갱신을 멱등 처리하기 위함.
-    this.rememberRotation(tokenHash, result);
+    // 회전 직후 grace 윈도우에 기록 — 직전 토큰으로의 동시/재시도 갱신을 멱등 처리하기 위함(userId 동봉: 로그아웃/제재 시 정리).
+    this.rememberRotation(tokenHash, result, user.id);
     return result;
   }
 
@@ -155,16 +165,25 @@ export class AuthServiceImpl implements AuthService {
     return entry.result;
   }
 
-  private rememberRotation(oldTokenHash: string, result: { accessToken: string; refreshToken: string }): void {
+  private rememberRotation(oldTokenHash: string, result: { accessToken: string; refreshToken: string }, userId: string): void {
     const nowMs = Date.now();
     // 만료 항목 정리(맵 무한 증가 방지) — 회전마다 1회 스윕.
     for (const [hash, entry] of this.recentRotations) {
       if (nowMs > entry.expiresAt) this.recentRotations.delete(hash);
     }
-    this.recentRotations.set(oldTokenHash, { result, expiresAt: nowMs + REFRESH_GRACE_MS });
+    this.recentRotations.set(oldTokenHash, { result, expiresAt: nowMs + REFRESH_GRACE_MS, userId });
+  }
+
+  // 해당 사용자의 grace 엔트리 전부 제거 — 로그아웃/제재 시 직전 토큰의 grace 우회를 막는다.
+  //  (제재/탈퇴 경로는 별도 호출이 없어도 refreshToken 의 grace 재검증이 막지만, 로그아웃은 여기서 즉시 무효화한다.)
+  clearGraceForUser(userId: string): void {
+    for (const [hash, entry] of this.recentRotations) {
+      if (entry.userId === userId) this.recentRotations.delete(hash);
+    }
   }
 
   async logout(userId: string): Promise<void> {
+    this.clearGraceForUser(userId);
     await this.refreshTokenRepo.deleteByUserId(userId);
   }
 

@@ -162,12 +162,23 @@ export class PgBoardRepository implements BoardRepository {
   }
 
   async deleteComment(id: string): Promise<boolean> {
-    const r = await this.pool.query('DELETE FROM board_comments WHERE id = $1 RETURNING post_id', [id]);
-    if (!r.rows[0]) return false;
-    await this.pool.query(
-      'UPDATE board_posts SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = $1',
-      [r.rows[0].post_id as string],
-    );
-    return true;
+    // DELETE + 카운트 감소를 한 트랜잭션으로 원자화(중간 단절 시 comment_count 드리프트 방지 — createComment 와 대칭).
+    const client = await this.pool.connect();
+    try {
+      await client.query('BEGIN');
+      const r = await client.query('DELETE FROM board_comments WHERE id = $1 RETURNING post_id', [id]);
+      if (!r.rows[0]) { await client.query('ROLLBACK'); return false; }
+      await client.query(
+        'UPDATE board_posts SET comment_count = GREATEST(comment_count - 1, 0) WHERE id = $1',
+        [r.rows[0].post_id as string],
+      );
+      await client.query('COMMIT');
+      return true;
+    } catch (err) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 }

@@ -338,8 +338,8 @@ export function createAdminOrderCancelRequestsHandler(rewardOrderRepo: PgRewardO
         userNickname: o.userNickname ?? null, // 닉네임만 노출(개인정보 최소화)
         rewardTitle: o.rewardTitle,
         amount: o.amount,
-        // 취소요청 전 confirmed 였는지: confirmed_at(=confirmedAt) 유무로 추정.
-        originalStatus: o.confirmedAt ? 'confirmed' : 'awaiting_deposit',
+        // 취소요청 전 실제 상태: 모의결제(paid_at) > 입금확인(confirmed_at) > 입금대기. (paid 를 awaiting 으로 오표시하던 버그 수정)
+        originalStatus: o.paidAt ? 'paid' : (o.confirmedAt ? 'confirmed' : 'awaiting_deposit'),
         refunded: o.refundedAt != null,
         cancelReason: o.cancelReason ?? null,
         requestedAt: o.cancelRequestedAt ?? null,
