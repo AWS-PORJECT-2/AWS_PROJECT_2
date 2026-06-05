@@ -652,7 +652,7 @@
     Promise.all(top.map((id) => {
       if (byId[id]) return Promise.resolve(byId[id]); // 이미 이미지 포함된 목록 데이터
       return window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true })
-        .then((f) => (f && f.id) ? recentCardData(f) : null)
+        .then((f) => (f && f.id && !f.hidden) ? recentCardData(f) : null) // 숨김 펀드 제외(관리자/소유자에게도 최근목록엔 안 뜨게)
         .catch(() => null); // 삭제/없는 펀드는 제외
     })).then((list) => {
       const items = list.filter(Boolean);

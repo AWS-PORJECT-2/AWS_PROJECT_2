@@ -1272,7 +1272,8 @@
       return window.api.get('/groupbuys/' + encodeURIComponent(it.id), { silentAuthFail: true })
         .then(function (f) {
           // 조회 성공: 저장된 stub 대신 실제 펀드 데이터로 렌더(커버 이미지 포함 — stub 은 data:URL 을 못 담아 비어있음).
-          if (f && f.id != null) {
+          // 단, 관리자 숨김(hidden) 펀드는 최근목록에서 제거(관리자/소유자에게도 안 뜨게 — getDetail 은 우회 허용하므로 여기서 차단).
+          if (f && f.id != null && !f.hidden) {
             // 관심 프로젝트처럼 리치 카드로 렌더하기 위해 달성률/상태/창작자/커버까지 보존.
             return { keep: true, it: {
               id: f.id, title: f.title || it.title || '',
