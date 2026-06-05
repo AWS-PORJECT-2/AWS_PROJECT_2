@@ -339,6 +339,17 @@
         S.sel = null; renderLayers(); renderProps(); renderLayerList();
       }
     });
+    // 모바일: 빈 곳에서 좌우로 스와이프하면 면(앞/뒤/좌/우) 전환. 레이어 위 터치는 드래그(스와이프 제외).
+    var _sw = null;
+    canvasEl.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1 || e.target.closest('.dz-layer') || e.target.closest('.dz-sel')) { _sw = null; return; }
+      _sw = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    }, { passive: true });
+    canvasEl.addEventListener('touchend', function (e) {
+      if (!_sw) return;
+      var t = e.changedTouches[0]; var dx = t.clientX - _sw.x, dy = t.clientY - _sw.y; _sw = null;
+      if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.6) cycleView(dx < 0 ? 1 : -1);
+    }, { passive: true });
     stage.appendChild(canvasEl);
     var hintText = cvLayers().length
       ? '끌어서 이동 · 모서리 점으로 크기 조절. 제품 밖으로 나간 부분은 인쇄되지 않아요.'
@@ -387,6 +398,15 @@
       b.addEventListener('click', function () { if (S.view === v) return; S.view = v; S.sel = null; render(); });
       viewsWrap.appendChild(b);
     });
+  }
+  // 모바일 좌우 스와이프로 면(앞/뒤/좌/우) 전환. dir: +1 다음, -1 이전.
+  function cycleView(dir) {
+    var vs = views();
+    if (vs.length < 2) return;
+    var i = vs.indexOf(S.view); if (i < 0) i = 0;
+    var ni = (i + dir + vs.length) % vs.length;
+    if (vs[ni] === S.view) return;
+    S.view = vs[ni]; S.sel = null; render();
   }
 
   function printRect() {

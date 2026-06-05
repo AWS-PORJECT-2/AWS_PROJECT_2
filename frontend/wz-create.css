@@ -160,7 +160,7 @@
 .wc-over.is-open { display: block; }
 .wc-over__dim { position: absolute; inset: 0; background: rgba(16, 24, 40, .45); opacity: 0; transition: opacity .2s; }
 .wc-over.is-open .wc-over__dim { opacity: 1; }
-.wc-over__panel { position: absolute; top: 0; right: 0; bottom: 0; width: 560px; max-width: 100%; background: #fff; box-shadow: var(--sh-3); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .25s ease; }
+.wc-over__panel { position: absolute; top: 0; right: 0; bottom: 0; width: min(1120px, 94vw); max-width: 100%; background: #fff; box-shadow: var(--sh-3); display: flex; flex-direction: column; transform: translateX(100%); transition: transform .25s ease; }
 .wc-over.is-open .wc-over__panel { transform: translateX(0); }
 .wc-over__head { display: flex; align-items: center; justify-content: space-between; padding: calc(20px + env(safe-area-inset-top, 0px)) 24px 20px; border-bottom: 1px solid var(--c-divider); flex-shrink: 0; }
 .wc-over__title { font-size: 18px; font-weight: 800; margin: 0; }
