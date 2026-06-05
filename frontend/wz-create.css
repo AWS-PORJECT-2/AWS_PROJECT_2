@@ -569,8 +569,9 @@
   .wc-done { padding: 44px 0 60px; }
   .wc-done__actions { flex-direction: column; }
   .wc-done__actions .wz-btn { width: 100%; }
-  .wc-pick__actions { flex-direction: column-reverse; align-items: stretch; }
-  .wc-pick__actions .wz-btn, .wc-pick__actions .wz-btn--primary { width: 100%; min-width: 0; }
+  /* 모바일: 전폭 세로 스택(이전 → 디자인하기 → 다음). base 의 max-width:240px 를 풀어야 좌측에 240px 로 잘려 붙던 문제 해결 */
+  .wc-pick__actions { flex-direction: column; align-items: stretch; gap: 10px; }
+  .wc-pick__actions .wz-btn, .wc-pick__actions .wz-btn--primary { width: 100%; min-width: 0; max-width: none; flex: none; }
 }
 
 /* =================== 보라 채움 버튼 글자·아이콘 흰색 확정 ===================
