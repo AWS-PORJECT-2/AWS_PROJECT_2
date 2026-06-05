@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { GeminiImageService } from '../services/ai/gemini-image-service.js';
+import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { withTimeout } from '../utils/fetch-with-timeout.js';
@@ -30,7 +30,7 @@ function parseDataUrl(dataUrl: unknown): { mimeType: string; base64: string } | 
  */
 const MAX_IMAGES = 5;
 
-export function createAiTryOnHandler(gemini: GeminiImageService, timeoutMs: number) {
+export function createAiTryOnHandler(gemini: ImageAiService, timeoutMs: number) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {

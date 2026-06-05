@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { GeminiImageService } from '../services/ai/gemini-image-service.js';
+import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { withTimeout } from '../utils/fetch-with-timeout.js';
@@ -22,7 +22,7 @@ function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } | n
  *
  * 옷 사진 1~5장 → 앞·뒤·옆 도면 1장. Gemini 호출 1회.
  */
-export function createAiBlueprintHandler(gemini: GeminiImageService, timeoutMs: number) {
+export function createAiBlueprintHandler(gemini: ImageAiService, timeoutMs: number) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {

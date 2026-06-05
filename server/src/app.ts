@@ -64,8 +64,8 @@ import { createFollowStatusHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { uuidParamGuard } from './middleware/uuid-param.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
-import { GeminiImageService } from './services/ai/gemini-image-service.js';
-import { GeminiTextService } from './services/ai/gemini-text-service.js';
+import { OpenAiImageService } from './services/ai/openai-image-service.js';
+import { OpenAiTextService } from './services/ai/openai-text-service.js';
 import { createAiStoryDraftHandler } from './routes/ai-story-draft.js';
 import {
   createMeDraftsListHandler, createMeDraftCreateHandler, createMeDraftGetHandler,
@@ -313,16 +313,16 @@ export function createApp(
     logger.warn('⚠️  개발 전용 /api/dev-auth 라우트 활성화 (ENABLE_DEV_AUTH=true) — 운영에서는 절대 켜지 말 것');
   }
 
-  // AI 라우터 (Gemini nano-banana) — GEMINI_API_KEY 가 있어야만 라우트 등록.
+  // AI 라우터 (OpenAI gpt-image-1) — OPENAI_API_KEY 가 있어야만 라우트 등록.
   // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
-  const gemini = GeminiImageService.fromEnv();
+  const gemini = OpenAiImageService.fromEnv();
   if (gemini) {
     app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
   }
 
-  // AI 스토리 초안 — 텍스트 모델. 키 미설정 시에도 라우트는 등록하고 핸들러에서 503 응답
+  // AI 스토리 초안 — OpenAI(ChatGPT) 텍스트 모델. 키 미설정 시에도 라우트는 등록하고 핸들러에서 503 응답
   //  (이미지 라우터의 404 미등록과 달리, 프론트가 503 미연결 안내를 받게).
-  const geminiText = GeminiTextService.fromEnv();
+  const geminiText = OpenAiTextService.fromEnv();
   app.post('/api/ai/story-draft', authRequired, aiRateLimit, createAiStoryDraftHandler(geminiText, AI_TIMEOUT_MS));
 
   // --- 공동구매(=펀드) 저장소 ---

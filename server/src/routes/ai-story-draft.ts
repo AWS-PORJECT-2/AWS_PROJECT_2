@@ -1,5 +1,5 @@
 import type { Request, Response } from 'express';
-import type { GeminiTextService, StoryBasicInfo } from '../services/ai/gemini-text-service.js';
+import type { TextAiService, StoryBasicInfo } from '../services/ai/ai-interfaces.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { withTimeout } from '../utils/fetch-with-timeout.js';
@@ -21,7 +21,7 @@ function str(v: unknown): string {
  *
  * 두띵=대학생 굿즈 크라우드펀딩 맥락의 스토리 본문 초안을 생성한다.
  */
-export function createAiStoryDraftHandler(gemini: GeminiTextService | null, timeoutMs: number) {
+export function createAiStoryDraftHandler(gemini: TextAiService | null, timeoutMs: number) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {

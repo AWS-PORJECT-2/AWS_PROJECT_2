@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import type { GeminiImageService } from '../services/ai/gemini-image-service.js';
+import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { createAiBlueprintHandler } from './ai-blueprint.js';
 import { createAiTryOnHandler } from './ai-try-on.js';
 
@@ -35,7 +35,7 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return Math.floor(n);
 }
 
-export function createAiRouter(gemini: GeminiImageService, timeoutMs: number): Router {
+export function createAiRouter(gemini: ImageAiService, timeoutMs: number): Router {
   const router = Router();
   const aiRateLimit = buildAiRateLimit();
   router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs));
