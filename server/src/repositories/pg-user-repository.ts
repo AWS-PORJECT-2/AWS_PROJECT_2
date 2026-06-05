@@ -330,8 +330,34 @@ export class PgUserRepository implements UserRepository {
       //    활성 펀드(deleted_at IS NULL)는 절대 건드리지 않음 — 남아 있으면 user 삭제가 FK 로 막혀 상위 라우트가 409 로 흡수.
       await client.query('DELETE FROM groupbuys WHERE creator_id = $1 AND deleted_at IS NOT NULL', [userId]);
 
-      // 5) 마지막으로 user 삭제 — 위 CASCADE FK 들이 함께 발동.
+      // 4-b) 탈퇴자가 '타인 펀드'에 남긴 활성 후원의 fund_id 캡처 — user 삭제(CASCADE)로 그 주문이 사라지면
+      //      해당 펀드의 참여수/금액/리워드 soldCount 캐시가 부풀려진 채 영구 드리프트하므로 삭제 후 재계산한다.
+      const affected = await client.query(
+        'SELECT DISTINCT fund_id FROM reward_orders WHERE user_id = $1 AND fund_id IS NOT NULL', [userId]);
+      const affectedFundIds = affected.rows.map((r) => r.fund_id as string);
+
+      // 5) 마지막으로 user 삭제 — 위 CASCADE FK 들이 함께 발동(reward_orders 포함).
       await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
+
+      // 6) 탈퇴자 후원이 빠진 뒤, 영향받은(잔존) 펀드의 current_quantity/amount + 리워드 soldCount 를 실주문으로 재계산.
+      if (affectedFundIds.length > 0) {
+        const ACTIVE = "'pledged','paid','payment_failed','awaiting_deposit','confirmed','cancel_requested'";
+        await client.query(
+          `UPDATE groupbuys g SET
+             current_quantity = COALESCE((SELECT COUNT(*) FROM reward_orders r WHERE r.fund_id = g.id AND r.status IN (${ACTIVE})), 0),
+             current_amount   = COALESCE((SELECT SUM(amount) FROM reward_orders r WHERE r.fund_id = g.id AND r.status IN (${ACTIVE})), 0),
+             updated_at = NOW()
+           WHERE g.id = ANY($1::uuid[])`, [affectedFundIds]);
+        await client.query(
+          `UPDATE groupbuys g SET reward_tiers = (
+             SELECT jsonb_agg(jsonb_set(tier, '{soldCount}',
+               to_jsonb((SELECT count(*)::int FROM reward_orders r
+                          WHERE r.fund_id = g.id AND r.reward_tier_id = (tier->>'id') AND r.status IN (${ACTIVE})))))
+             FROM jsonb_array_elements(g.reward_tiers::jsonb) tier)
+           WHERE g.id = ANY($1::uuid[]) AND g.reward_tiers IS NOT NULL
+             AND left(btrim(g.reward_tiers), 1) = '[' AND g.reward_tiers::jsonb <> '[]'::jsonb`,
+          [affectedFundIds]);
+      }
 
       await client.query('COMMIT');
     } catch (err) {

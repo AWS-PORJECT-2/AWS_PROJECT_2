@@ -193,7 +193,9 @@ async function loadProductsFromBackend() {
   let items = [];
   try {
     const base = window.API_BASE_URL || (window.location.origin + '/api');
-    const res = await fetch(base + '/groupbuys?sort=popular&limit=20', {
+    // limit=200 — 홈 그리드는 이 캐시를 로컬에서 재정렬/필터(정렬탭·카테고리칩)하므로 충분한 모수를 한 번에 확보.
+    //  (과거 limit=20 이라 신규순·마감임박순·카테고리가 '인기 top20' 안에서만 동작해 부정확했다. 피드와 동일하게 200.)
+    const res = await fetch(base + '/groupbuys?sort=popular&limit=200', {
       credentials: 'include',
     });
     if (res.ok) {

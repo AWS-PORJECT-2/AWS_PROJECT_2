@@ -1929,9 +1929,15 @@
       category: String(f.category || ''),
       coverImage: (f.coverImageUrl && String(f.coverImageUrl)) || '',
       videoUrl: (f.videoUrl && String(f.videoUrl)) || '',
-      blocks: (Array.isArray(f.contentBlocks) ? f.contentBlocks : []).map((b) => (
-        b && b.type === 'image' ? { type: 'image', value: blockImageUrl(b) } : { type: 'text', value: blockText(b) }
-      )).filter((b) => b.type === 'image' ? b.value : true),
+      blocks: (Array.isArray(f.contentBlocks) ? f.contentBlocks : []).map((b) => {
+        if (!b || typeof b !== 'object') return null;
+        if (b.type === 'image') return { type: 'image', value: blockImageUrl(b) };
+        // html/split 은 이 간이 에디터로 인라인 편집 불가 → 원형 보존(읽기전용, 저장 시 그대로 직렬화).
+        //   과거엔 이들을 빈 text 로 평탄화해 저장 시 스토리 전체가 삭제되던 치명 버그가 있었다.
+        if (b.type === 'html') return { type: 'html', html: String(b.html || '') };
+        if (b.type === 'split') return { type: 'split', text: String(b.text || ''), image: splitImageUrl(b), imageSide: b.imageSide, align: b.align };
+        return { type: 'text', value: blockText(b) };
+      }).filter((b) => b && (b.type === 'image' ? b.value : b.type === 'html' ? b.html : b.type === 'split' ? (b.text || b.image) : true)),
       ciName: '', ciImage: '', ciIntro: '', ciSido: '', ciSigungu: '',
     };
     const ci = creatorInfoOf(f);
@@ -2040,15 +2046,23 @@
         const bhead = W.el('div', { class: 'wz-d-eblock__head' });
         const del = W.el('button', { class: 'wz-d-eblock__del', type: 'button' }, '삭제');
         del.addEventListener('click', () => { st.blocks.splice(i, 1); renderBlocks(); });
-        bhead.append(W.el('span', { class: 'wz-d-eblock__type' }, b.type === 'image' ? '이미지' : '글'), del);
+        const typeLabel = b.type === 'image' ? '이미지' : b.type === 'text' ? '글' : '리치 콘텐츠';
+        bhead.append(W.el('span', { class: 'wz-d-eblock__type' }, typeLabel), del);
         blk.appendChild(bhead);
         if (b.type === 'text') {
           const ta = W.el('textarea', { class: 'wz-d-ef__textarea', maxlength: '5000', placeholder: '본문을 입력하세요' });
           ta.value = b.value || '';
           ta.addEventListener('input', () => { b.value = ta.value; });
           blk.appendChild(ta);
-        } else {
+        } else if (b.type === 'image') {
           blk.appendChild(W.el('img', { class: 'wz-d-eblock__img', src: b.value, alt: '스토리 이미지' }));
+        } else {
+          // html/split: 간이 에디터로 편집 불가 → 읽기전용 미리보기로 보존(삭제만 가능). 편집은 개설 화면의 고급 에디터에서.
+          blk.appendChild(W.el('p', { class: 'wz-d-ef__help' }, '리치 스토리 콘텐츠 — 여기선 편집할 수 없지만 그대로 보존됩니다.'));
+          const ro = W.el('div', { class: 'wz-d-eblock__ro' });
+          if (b.type === 'html') ro.innerHTML = wzSanitize(String(b.html || ''));
+          else { if (b.text) ro.appendChild(W.el('p', {}, b.text)); if (b.image) ro.appendChild(W.el('img', { class: 'wz-d-eblock__img', src: b.image, alt: '' })); }
+          blk.appendChild(ro);
         }
         blocksWrap.appendChild(blk);
       });
@@ -2128,6 +2142,9 @@
       st.blocks.forEach((b) => {
         if (b.type === 'text') { const t = String(b.value || '').trim(); if (t) blocks.push({ type: 'text', text: t.slice(0, 5000) }); }
         else if (b.type === 'image' && b.value) blocks.push({ type: 'image', url: b.value });
+        // html/split: 인라인 편집은 안 했어도 원형 그대로 다시 직렬화(보존). 누락 시 스토리 유실.
+        else if (b.type === 'html' && b.html) blocks.push({ type: 'html', html: String(b.html) });
+        else if (b.type === 'split' && (b.text || b.image)) blocks.push({ type: 'split', text: String(b.text || ''), image: b.image || '', imageSide: b.imageSide, align: b.align });
       });
 
       // creatorInfo: 유효 값만. 하나도 없으면 null.

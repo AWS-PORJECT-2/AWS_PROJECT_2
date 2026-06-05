@@ -171,10 +171,13 @@ export class PaymentScheduler {
           // 중복 방지: 이 펀드에 deadline_soon 알림을 이미 보냈으면 건너뜀.
           if (await notificationRepo.existsForFund('deadline_soon', gb.id)) continue;
 
+          // 후원자 + 찜(좋아요)한 사용자 모두에게(중복 제거). likedDeadline 토글이 '후원·관심 프로젝트'를 가리키므로 둘 다 대상.
           const backers = await rewardOrderRepo.backerUserIds(gb.id);
-          await notifyMany(notificationRepo, backers, {
+          const likers = await this.groupBuyRepo.likerUserIds(gb.id);
+          const recipients = [...new Set([...backers, ...likers])];
+          await notifyMany(notificationRepo, recipients, {
             type: 'deadline_soon',
-            title: '후원하신 프로젝트 마감이 임박했어요',
+            title: '관심 프로젝트 마감이 임박했어요',
             body: `'${gb.title}' 프로젝트 마감이 곧 다가와요. 잊지 마세요.`,
             fundId: gb.id,
           });
@@ -188,7 +191,7 @@ export class PaymentScheduler {
               fundId: gb.id,
             });
           }
-          logger.info({ fundId: gb.id, backers: backers.length }, '마감 임박 알림 발송');
+          logger.info({ fundId: gb.id, recipients: recipients.length }, '마감 임박 알림 발송');
         } catch (err) {
           logger.warn({ err, fundId: gb.id }, '마감 임박 알림 실패(무시)');
         }

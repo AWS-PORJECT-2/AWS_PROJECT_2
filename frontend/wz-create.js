@@ -214,6 +214,7 @@
       var mode = q.get('mode');
       if (mode === 'normal') startNormal();
       else if (mode === 'proxy') startProxy();
+      else if (hasDesignHandoff(q)) startFromDesign(q);  // design.html '이 디자인으로 펀딩 만들기'
       else renderPick();
     });
   }
@@ -473,6 +474,26 @@
   function startNormal() {
     nstate = newNState();
     draftId = null; lastSavedJson = '';
+    renderCategoryPick();
+  }
+
+  /* design.html 핸드오프 존재 여부 — sessionStorage(dt_design_handoff) 또는 ?category= */
+  function hasDesignHandoff(q) {
+    try { if (sessionStorage.getItem('dt_design_handoff')) return true; } catch (_) {}
+    return !!(q && q.get('category'));
+  }
+  /* '이 디자인으로 펀딩 만들기' 진입 — 핸드오프(카테고리/제목/디자인 이미지)를 1회 소비해 직접개설 흐름을 프리필.
+   *  과거엔 design.js 가 sessionStorage 에 저장만 하고 fund-create 가 읽지 않아 데이터가 통째로 버려졌다(되는 척만 함). */
+  function startFromDesign(q) {
+    nstate = newNState();
+    draftId = null; lastSavedJson = '';
+    var h = {};
+    try { var raw = sessionStorage.getItem('dt_design_handoff'); if (raw) h = JSON.parse(raw) || {}; } catch (_) { h = {}; }
+    try { sessionStorage.removeItem('dt_design_handoff'); } catch (_) {}  // 1회성 — 새로고침/뒤로가기 재진입 시 재적용 방지
+    var cat = (h && h.category) || (q && q.get('category')) || '';
+    if (cat && window.dtCategory && window.dtCategory(cat)) nstate.category = cat;  // 유효 카테고리만
+    if (h && h.title) nstate.title = String(h.title).slice(0, 80);
+    if (h && h.image) nstate.coverImage = h.image;  // AI 디자인/피팅 결과를 대표 이미지로 프리필
     renderCategoryPick();
   }
 

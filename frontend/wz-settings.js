@@ -29,7 +29,7 @@
     { key: 'message', label: '메시지', desc: '1:1 문의 답변·관리자 메시지 알림' },
     { key: 'projectUpdate', label: '프로젝트 업데이트', desc: '후원한 프로젝트의 새 소식·진행 알림' },
     { key: 'subscribedOpen', label: '알림신청 프로젝트', desc: '알림 신청한 프로젝트가 오픈되면 알려드려요' },
-    { key: 'likedDeadline', label: '좋아한 프로젝트', desc: '좋아요한 프로젝트의 마감 임박 알림' },
+    { key: 'likedDeadline', label: '관심 프로젝트', desc: '후원·좋아요한 프로젝트의 마감 임박 알림' },
     { key: 'follow', label: '팔로우', desc: '나를 팔로우하는 새 소식 알림' },
     { key: 'marketing', label: '마케팅 메일', desc: '두띵 추천 프로젝트·이벤트·혜택 소식' },
   ];

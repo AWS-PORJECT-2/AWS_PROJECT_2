@@ -168,6 +168,9 @@ const aiRateLimit = rateLimit({
   windowMs: 60 * 1000,
   max: 8,
   keyGenerator: (req) => req.userId ?? 'anonymous',
+  // 과금은 POST(생성)에만 발생 — 무료인 작업 폴링 GET(/api/ai/jobs/:id)은 리미터에서 제외한다.
+  //  (3초 간격 폴링이 8회 버킷을 소진해 429 로 생성 결과 회수가 끊기던 장애 방지)
+  skip: (req) => req.method === 'GET',
   message: { error: 'RATE_LIMITED', message: 'AI 생성 요청이 너무 잦습니다. 잠시 후 다시 시도해주세요' },
   standardHeaders: true,
   legacyHeaders: false,

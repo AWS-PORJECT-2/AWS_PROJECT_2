@@ -167,6 +167,8 @@ export interface GroupBuyRepository {
   promoteScheduledToOpen(now: Date): Promise<string[]>;
   // 공개예정 알림 구독자(user_id) 목록 — 오픈 시 scheduled_open 알림 발송 대상.
   subscriberUserIds(groupbuyId: string): Promise<string[]>;
+  // 찜(좋아요)한 사용자 목록 — 마감임박(deadline_soon) 알림을 후원자뿐 아니라 관심 사용자에게도 보내기 위함.
+  likerUserIds(groupbuyId: string): Promise<string[]>;
   // 본인 펀드 분석 — 본인 소유가 아니면 null. reward_orders 실제 컬럼 집계.
   getAnalytics(id: string, ownerId: string): Promise<GroupBuyAnalytics | null>;
 }

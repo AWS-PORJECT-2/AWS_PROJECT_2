@@ -708,6 +708,15 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return r.rows.map((row) => row.user_id as string);
   }
 
+  // 찜(좋아요)한 사용자 — 마감 임박 알림(deadline_soon)을 관심 사용자에게도 보내기 위함(026_project_likes).
+  async likerUserIds(groupbuyId: string): Promise<string[]> {
+    const r = await this.pool.query(
+      'SELECT user_id FROM project_likes WHERE groupbuy_id = $1',
+      [groupbuyId],
+    );
+    return r.rows.map((row) => row.user_id as string);
+  }
+
   private async subscriberCount(groupbuyId: string): Promise<number> {
     const r = await this.pool.query(
       'SELECT COUNT(*)::int AS c FROM project_subscriptions WHERE groupbuy_id = $1',
