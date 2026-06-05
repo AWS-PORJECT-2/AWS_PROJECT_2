@@ -26,7 +26,7 @@
 
   /* ===== 알림 토글 항목 (백엔드 notificationPrefs 키와 1:1) ===== */
   var NOTIF_ITEMS = [
-    { key: 'message', label: '메시지', desc: '메이커·서포터가 보낸 메시지 알림' },
+    { key: 'message', label: '메시지', desc: '1:1 문의 답변·관리자 메시지 알림' },
     { key: 'projectUpdate', label: '프로젝트 업데이트', desc: '후원한 프로젝트의 새 소식·진행 알림' },
     { key: 'subscribedOpen', label: '알림신청 프로젝트', desc: '알림 신청한 프로젝트가 오픈되면 알려드려요' },
     { key: 'likedDeadline', label: '좋아한 프로젝트', desc: '좋아요한 프로젝트의 마감 임박 알림' },

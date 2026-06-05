@@ -14,7 +14,8 @@ export interface NotificationCreate {
  * 본인(user_id) 알림만 다룬다. 읽음 처리는 항상 userId 를 함께 검사해 타 사용자 알림 접근을 차단.
  */
 export interface NotificationRepository {
-  create(input: NotificationCreate): Promise<Notification>;
+  // 사용자가 해당 종류 알림 토글을 껐으면 생성하지 않고 null 반환(필수 알림은 항상 생성).
+  create(input: NotificationCreate): Promise<Notification | null>;
   /** 최신순 목록(limit 개). */
   listByUser(userId: string, limit: number): Promise<Notification[]>;
   /** 안 읽은 알림 수. */
