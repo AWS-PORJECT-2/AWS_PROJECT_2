@@ -1416,6 +1416,33 @@
       return { urls: urls, faces: list };
     });
   }
+  // 비동기 AI 생성 — POST 로 작업 시작(jobId) 후 GET /ai/jobs/:id 폴링으로 결과 회수.
+  //  (이미지 생성이 1분+ 걸려 CloudFront 오리진 타임아웃 60초를 넘기 때문에 단일요청 대신 폴링)
+  function aiJobPoll(postPath, body) {
+    return window.api.post(postPath, body).then(function (start) {
+      // 구버전(동기) 응답 호환: 바로 결과가 오면 그대로 사용.
+      if (start && (start.blueprintDataUrl || start.tryOnDataUrl)) return start;
+      var jobId = start && start.jobId;
+      if (!jobId) throw new Error('AI 생성을 시작하지 못했어요. 잠시 후 다시 시도해 주세요.');
+      var startedAt = Date.now();
+      var MAX_MS = 200000; // 최대 200초까지 폴링
+      return new Promise(function (resolve, reject) {
+        function tick() {
+          window.api.get('/ai/jobs/' + encodeURIComponent(jobId)).then(function (r) {
+            if (r && r.status === 'done') { resolve(r); return; }
+            if (r && r.status === 'error') { reject(new Error(r.message || 'AI 생성에 실패했어요')); return; }
+            if (Date.now() - startedAt > MAX_MS) { reject(new Error('생성이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.')); return; }
+            setTimeout(tick, 3000); // pending → 3초 뒤 재확인
+          }).catch(function (e) {
+            if (Date.now() - startedAt > MAX_MS) { reject(e); return; }
+            setTimeout(tick, 3000); // 일시 네트워크 오류는 재시도
+          });
+        }
+        setTimeout(tick, 2500); // 첫 확인은 2.5초 후
+      });
+    });
+  }
+
   // 좌: 도면 생성 — 디자인 있는 모든 면 합성 → /ai/blueprint. 결과는 dzDesignOut 에 인라인.
   function runAiDesign() {
     if (!hasArt()) { toast('이미지나 텍스트를 먼저 추가해 주세요'); return; }
@@ -1427,7 +1454,7 @@
       var saveBody = { category: S.slug, product: S.product, title: S.title, design: serialize(), preview: r.urls[0] };
       (S.designId ? window.api.patch('/me/designs/' + S.designId, saveBody) : window.api.post('/me/designs', saveBody))
         .then(function (rr) { if (rr && rr.id) S.designId = rr.id; }).catch(function () {});
-      return window.api.post('/ai/blueprint', { imageDataUrls: r.urls, faces: r.faces, category: S.slug, product: S.product });
+      return aiJobPoll('/ai/blueprint', { imageDataUrls: r.urls, faces: r.faces, category: S.slug, product: S.product });
     }).then(function (res) {
       var url = res && (res.blueprintDataUrl || res.imageDataUrl || res.url);
       if (!url) throw new Error('NO_RESULT');
@@ -1446,7 +1473,7 @@
     if (dzFitBtn) dzFitBtn.disabled = true;
     var aiBody = { imageDataUrls: [S.aiDesign], background: dzFitBg ? dzFitBg.value : 'studio', category: S.slug, faceless: true };
     if (apparel) aiBody.modelType = dzFitGender ? dzFitGender.value : 'female';
-    window.api.post('/ai/try-on', aiBody).then(function (res) {
+    aiJobPoll('/ai/try-on', aiBody).then(function (res) {
       var url = res && (res.tryOnDataUrl || res.imageDataUrl || res.url);
       if (!url) throw new Error('NO_RESULT');
       S.aiFitting = url;

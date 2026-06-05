@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
-import { withTimeout } from '../utils/fetch-with-timeout.js';
+import { startAiJob } from '../services/ai/ai-jobs.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const MAX_IMAGES = 5;
@@ -73,23 +73,16 @@ export function createAiBlueprintHandler(gemini: ImageAiService, timeoutMs: numb
       parsedList.push(parsed);
     }
 
-    try {
-      const category = typeof body.category === 'string' ? body.category : 'etc';
-      // 면 라벨(front/back/left/right/neck …) — 이미지 순서와 1:1. 프롬프트가 각 이미지의 면을 명시해 정확도↑.
-      const faces = Array.isArray(body.faces)
-        ? body.faces.slice(0, parsedList.length).map((f: unknown) => (typeof f === 'string' ? f : ''))
-        : [];
-      const result = await withTimeout(
-        gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category, faces),
-        timeoutMs,
-      );
-      res.json({ blueprintDataUrl: `data:${result.mimeType};base64,${result.base64}` });
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.httpStatus).json(createErrorResponse(err));
-        return;
-      }
-      res.status(503).json(createErrorResponse(new AppError('AI_UNAVAILABLE')));
-    }
+    const category = typeof body.category === 'string' ? body.category : 'etc';
+    // 면 라벨(front/back/left/right/neck …) — 이미지 순서와 1:1. 프롬프트가 각 이미지의 면을 명시해 정확도↑.
+    const faces = Array.isArray(body.faces)
+      ? body.faces.slice(0, parsedList.length).map((f: unknown) => (typeof f === 'string' ? f : ''))
+      : [];
+    // 생성은 1분+ 걸릴 수 있어 비동기 작업으로 — jobId 즉시 반환, 프론트가 GET /ai/jobs/:id 폴링으로 회수.
+    const jobId = startAiJob(userId, 'blueprint', async () => {
+      const result = await gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category, faces);
+      return { blueprintDataUrl: `data:${result.mimeType};base64,${result.base64}` };
+    });
+    res.status(202).json({ jobId });
   };
 }

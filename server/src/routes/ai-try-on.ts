@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
-import { withTimeout } from '../utils/fetch-with-timeout.js';
+import { startAiJob } from '../services/ai/ai-jobs.js';
 import { isValidCategory } from '../constants/categories.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
@@ -80,18 +80,11 @@ export function createAiTryOnHandler(gemini: ImageAiService, timeoutMs: number) 
     // category 는 카테고리 slug(jacket/ecobag/...). 서비스가 의류=착용 / 굿즈=전시 모드로 매핑.
     const category = isValidCategory(String(body.category)) ? String(body.category) : 'etc';
 
-    try {
-      const result = await withTimeout(
-        gemini.generateTryOn(garments, { modelType, background, category }, { route: 'try-on', userId }),
-        timeoutMs,
-      );
-      res.json({ tryOnDataUrl: `data:${result.mimeType};base64,${result.base64}` });
-    } catch (err) {
-      if (err instanceof AppError) {
-        res.status(err.httpStatus).json(createErrorResponse(err));
-        return;
-      }
-      res.status(503).json(createErrorResponse(new AppError('AI_UNAVAILABLE')));
-    }
+    // 생성은 1분+ 걸릴 수 있어 비동기 작업으로 — jobId 즉시 반환, 프론트가 폴링으로 회수.
+    const jobId = startAiJob(userId, 'try-on', async () => {
+      const result = await gemini.generateTryOn(garments, { modelType, background, category }, { route: 'try-on', userId });
+      return { tryOnDataUrl: `data:${result.mimeType};base64,${result.base64}` };
+    });
+    res.status(202).json({ jobId });
   };
 }

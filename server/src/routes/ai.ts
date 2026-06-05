@@ -1,8 +1,10 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
+import type { Request, Response } from 'express';
 import type { ImageAiService } from '../services/ai/ai-interfaces.js';
 import { createAiBlueprintHandler } from './ai-blueprint.js';
 import { createAiTryOnHandler } from './ai-try-on.js';
+import { getAiJob } from '../services/ai/ai-jobs.js';
 
 /**
  * AI 라우터 — POST /api/ai/* 의 합본 (Gemini nano-banana 기반).
@@ -40,5 +42,19 @@ export function createAiRouter(gemini: ImageAiService, timeoutMs: number): Route
   const aiRateLimit = buildAiRateLimit();
   router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs));
   router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs));
+  // 비동기 생성 작업 폴링 — 항상 200(상태는 body 의 status 로). 본인 작업만 조회 가능.
+  router.get('/jobs/:jobId', (req: Request, res: Response) => {
+    const userId = req.userId;
+    if (!userId) { res.status(401).json({ status: 'error', message: '로그인이 필요합니다' }); return; }
+    const job = getAiJob(req.params.jobId);
+    if (!job || job.userId !== userId) {
+      res.json({ status: 'error', message: '생성 작업을 찾을 수 없어요(만료됐을 수 있어요). 다시 시도해 주세요.' });
+      return;
+    }
+    if (job.status === 'pending') { res.json({ status: 'pending' }); return; }
+    if (job.status === 'error') { res.json({ status: 'error', message: job.errMessage || 'AI 생성에 실패했어요' }); return; }
+    res.json(Object.assign({ status: 'done' }, job.result));
+    return;
+  });
   return router;
 }
