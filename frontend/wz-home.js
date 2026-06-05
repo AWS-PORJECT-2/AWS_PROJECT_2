@@ -652,7 +652,8 @@
     Promise.all(top.map((id) => {
       if (byId[id]) return Promise.resolve(byId[id]); // 이미 이미지 포함된 목록 데이터
       return window.api.get('/groupbuys/' + encodeURIComponent(id), { silentAuthFail: true })
-        .then((f) => (f && f.id && !f.hidden) ? recentCardData(f) : null) // 숨김 펀드 제외(관리자/소유자에게도 최근목록엔 안 뜨게)
+        // 숨김 + 비공개 상태(심사대기/반려)는 최근목록에서 제외 — getDetail 은 관리자/소유자에게 우회 노출하므로 여기서 차단.
+        .then((f) => (f && f.id && !f.hidden && ['pending', 'pending_review', 'rejected'].indexOf(f.status) === -1) ? recentCardData(f) : null)
         .catch(() => null); // 삭제/없는 펀드는 제외
     })).then((list) => {
       const items = list.filter(Boolean);
