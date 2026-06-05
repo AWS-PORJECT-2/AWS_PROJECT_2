@@ -214,11 +214,10 @@ export class PgRewardOrderRepository {
   }
 
   /**
-   * 관리자 입금확인 — 원자적 트랜잭션:
-   *  1) reward_orders.status awaiting_deposit→confirmed
-   *  2) groupbuys.current_quantity += 1
-   *  3) 해당 reward tier 의 soldCount += 1 (reward_tiers JSON 갱신)
-   * 이미 confirmed 거나 없으면 null 반환(멱등).
+   * 관리자 입금확인 — awaiting_deposit→confirmed 상태 전이만(원자 트랜잭션, 멱등).
+   *  ⚠️ 수량/금액/soldCount 는 예약(createWithStockGuard) 때 이미 +1 됐으므로 여기서 건드리지 않는다
+   *     (과거엔 여기서 또 +1 해 모든 성공 후원이 2배로 계상되던 버그가 있었다).
+   * 이미 confirmed 거나 없으면 null 반환.
    */
   async confirm(id: string): Promise<RewardOrder | null> {
     const client = await this.pool.connect();
@@ -232,13 +231,8 @@ export class PgRewardOrderRepository {
       if (upd.rows.length === 0) { await client.query('ROLLBACK'); return null; }
       const order = mapRow(upd.rows[0]);
 
-      // 입금확인 시 수량 +1 + 달성 금액 캐시 += amount(031).
-      await client.query(
-        `UPDATE groupbuys SET current_quantity = current_quantity + 1, current_amount = current_amount + $2, updated_at = NOW() WHERE id = $1`,
-        [order.fundId, order.amount],
-      );
-      await bumpTierSoldCount(client, order.fundId, order.rewardTierId, +1);
-
+      // ⚠️ 카운트 증분 없음 — 수량/금액/soldCount 는 예약(createWithStockGuard) 시점에 이미 +1 됐다.
+      //   awaiting_deposit→confirmed 는 상태 전이만. 여기서 또 더하면 이중계상(과거 실제 버그: 캐시가 실집계의 2배).
       await client.query('COMMIT');
       return order;
     } catch (err) {
@@ -265,14 +259,10 @@ export class PgRewardOrderRepository {
         [fundId],
       );
       const rows = active.rows.map(mapRow);
-      // 수량(current_quantity)에 반영돼 있던 주문은 모두 복구 대상:
-      //  - pledged/paid/payment_failed: 예약 시점에 +1 했으므로 -1.
-      //  - cancel_requested: 원래 pledged/paid 였던 건(예약 시 +1) — 수량 보유 중이므로 복구.
-      //  - 구 무통장 confirmed(confirmed_at 있음): 입금확인 시 +1 했으므로 복구. awaiting_deposit 은 미반영(스킵).
-      const restore = rows.filter((r) =>
-        r.status === 'pledged' || r.status === 'paid' || r.status === 'payment_failed' ||
-        r.confirmedAt != null,
-      );
+      // 카운트는 예약(createWithStockGuard) 시점에 한 번 +1 되고, 최종 취소 때 비로소 -1 된다.
+      //  → 여기서 정리하는 활성/취소요청 주문은 '전부' 아직 카운트를 보유 중이므로 모두 복구 대상.
+      //  (awaiting_deposit·confirmed·pledged·paid·payment_failed·cancel_requested 모두 예약 때 +1 된 상태)
+      const restore = rows;
       for (const r of restore) {
         // 펀드 삭제: 반영돼 있던 주문 복구 — 수량 -1, 달성 금액 캐시 -= amount(031, GREATEST 로 음수 방지).
         await client.query(
@@ -550,17 +540,17 @@ export class PgRewardOrderRepository {
 
       // 실결제 여부 — 구 무통장(confirmed_at) 또는 모의결제(paid_at) 흔적이 있으면 환불 필요.
       const wasConfirmed = current.confirmedAt != null || current.paidAt != null;
-      if (wasConfirmed) {
-        // 실결제 건은 환불표시(refunded_at) 선행 필수.
-        if (current.refundedAt == null) { await client.query('ROLLBACK'); return { ok: false, code: 'REFUND_REQUIRED' }; }
-        // 재고/수량/달성금액 되돌리기 — 예약/입금확인 시 +1·+amount 의 역연산(031).
-        await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [current.fundId]);
-        await client.query(
-          `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
-          [current.fundId, current.amount],
-        );
-        await bumpTierSoldCount(client, current.fundId, current.rewardTierId, -1);
-      }
+      // 실결제 건은 환불표시(refunded_at) 선행 필수 — 환불 전엔 취소 거부.
+      if (wasConfirmed && current.refundedAt == null) { await client.query('ROLLBACK'); return { ok: false, code: 'REFUND_REQUIRED' }; }
+      // 재고/수량/달성금액 되돌리기 — 모든 활성 주문은 예약(createWithStockGuard) 때 +1·+amount 됐으므로
+      //  awaiting_deposit 이든 confirmed/paid/cancel_requested 든 취소 시 동일하게 -1 복구한다.
+      //  (과거엔 wasConfirmed 일 때만 복구해, awaiting_deposit 취소가 유령 카운트를 남겼다.)
+      await client.query('SELECT 1 FROM groupbuys WHERE id = $1 FOR UPDATE', [current.fundId]);
+      await client.query(
+        `UPDATE groupbuys SET current_quantity = GREATEST(0, current_quantity - 1), current_amount = GREATEST(0, current_amount - $2), updated_at = NOW() WHERE id = $1`,
+        [current.fundId, current.amount],
+      );
+      await bumpTierSoldCount(client, current.fundId, current.rewardTierId, -1);
 
       const finalStatus = wasConfirmed ? 'refunded' : 'cancelled';
       const upd = await client.query(
@@ -694,6 +684,26 @@ export class PgRewardOrderRepository {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * 캐시 드리프트 방어 — 펀드의 current_quantity/current_amount 를 실제 활성 주문 합계로 재계산·동기화.
+   *  활성 = ACTIVE_STATUSES + cancel_requested(최종 취소 전까지 카운트 보유). 마감 성공 판정 직전 호출해 캐시 오차를 무력화.
+   *  반환: 동기화된 {quantity, amount}.
+   */
+  async recomputeFundCounts(fundId: string): Promise<{ quantity: number; amount: number }> {
+    const res = await this.pool.query(
+      `WITH agg AS (
+         SELECT COUNT(*)::int AS cnt, COALESCE(SUM(amount),0)::bigint AS amt
+           FROM reward_orders WHERE fund_id = $1 AND status IN (${ACTIVE_STATUS_SQL}, 'cancel_requested')
+       )
+       UPDATE groupbuys g SET current_quantity = agg.cnt, current_amount = agg.amt, updated_at = NOW()
+       FROM agg WHERE g.id = $1
+       RETURNING g.current_quantity AS q, g.current_amount AS a`,
+      [fundId],
+    );
+    const r = res.rows[0];
+    return { quantity: Number(r?.q) || 0, amount: Number(r?.a) || 0 };
   }
 
 }

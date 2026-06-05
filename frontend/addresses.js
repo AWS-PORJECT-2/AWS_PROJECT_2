@@ -88,9 +88,25 @@
   }
   function openPostcode(onComplete) {
     loadPostcode().then(function () {
+      // WebView(앱) 호환: .open() 팝업은 안드로이드 '연결 프로그램' 호출 + 결과선택 콜백이 안 먹는다.
+      //  → 전체화면 오버레이에 .embed() 로 인라인 렌더(window.open 없음 → 외부앱 호출 없음, 결과 클릭 시 oncomplete 정상).
+      var ov = document.createElement('div');
+      ov.style.cssText = 'position:fixed;inset:0;z-index:100000;background:#fff;display:flex;flex-direction:column;';
+      var bar = document.createElement('div');
+      bar.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px;border-bottom:1px solid #eee;flex:0 0 auto;';
+      var t = document.createElement('strong'); t.textContent = '주소 검색'; t.style.fontSize = '16px';
+      var x = document.createElement('button'); x.type = 'button'; x.textContent = '✕'; x.setAttribute('aria-label', '닫기');
+      x.style.cssText = 'border:0;background:#f1f1f4;width:34px;height:34px;border-radius:50%;font-size:16px;line-height:1;cursor:pointer;';
+      bar.appendChild(t); bar.appendChild(x);
+      var box = document.createElement('div'); box.style.cssText = 'flex:1 1 auto;min-height:0;';
+      ov.appendChild(bar); ov.appendChild(box); document.body.appendChild(ov);
+      var prevOv = document.body.style.overflow; document.body.style.overflow = 'hidden';
+      function close() { try { document.body.removeChild(ov); } catch (_) {} document.body.style.overflow = prevOv; }
+      x.addEventListener('click', close);
       new window.daum.Postcode({
-        oncomplete: function (data) { onComplete(data); },
-      }).open();
+        oncomplete: function (data) { close(); onComplete(data); },
+        width: '100%', height: '100%',
+      }).embed(box, { autoClose: true });
     }).catch(function (e) { toast((e && e.message) || '우편번호 서비스를 불러오지 못했습니다'); });
   }
 

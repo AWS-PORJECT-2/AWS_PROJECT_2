@@ -210,10 +210,17 @@ export class PaymentScheduler {
         const targetAmount = (gb.targetAmount && gb.targetAmount > 0)
           ? gb.targetAmount
           : (gb.targetQuantity ?? 0) * (gb.finalPrice ?? 0);
-        const achievedAmount = gb.currentAmount ?? 0;
+        // 캐시 드리프트 방어 — 마감 판정 직전 실제 활성 주문 합계로 current_amount/quantity 재계산·동기화.
+        //  (과거 이중계상/취소 미복원으로 캐시가 어긋나도 마감 성공/실패 오판을 막는다.)
+        let achievedAmount = gb.currentAmount ?? 0;
+        let achievedQty = gb.currentQuantity ?? 0;
+        if (this.notify) {
+          const rc = await this.notify.rewardOrderRepo.recomputeFundCounts(gb.id);
+          achievedAmount = rc.amount; achievedQty = rc.quantity;
+        }
         const success = targetAmount > 0
           ? achievedAmount >= targetAmount
-          : gb.currentQuantity >= (gb.targetQuantity ?? 0);
+          : achievedQty >= (gb.targetQuantity ?? 0);
         // 상태 전환 전에 후원자 목록을 미리 확보(전환 로직이 참여를 취소할 수 있으므로).
         const backers = this.notify ? await this.notify.rewardOrderRepo.backerUserIds(gb.id) : [];
 

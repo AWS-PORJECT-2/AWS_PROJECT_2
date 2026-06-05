@@ -175,6 +175,7 @@ export function createMyOrdersHandler(rewardOrderRepo: PgRewardOrderRepository) 
         fundStatus: o.fundStatus ?? null,
         fundAchievementRate: o.fundAchievementRate ?? 0,
         creatorName: o.creatorName ?? null,
+        rewardTierId: o.rewardTierId,   // 펀딩 변경 모달에서 현재 리워드 프리셀렉트용(wz-detail.js)
         rewardTitle: o.rewardTitle,
         amount: o.amount,
         status: o.status,
