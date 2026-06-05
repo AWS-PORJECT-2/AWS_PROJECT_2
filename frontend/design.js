@@ -17,7 +17,7 @@
   var el = W.el || function (t) { return document.createElement(t); };
 
   // 목업/마스크 캐시버스터 — 이미지·마스크 갱신할 때마다 올린다(브라우저·CloudFront 캐시 무력화).
-  var ASSET_VER = '12';
+  var ASSET_VER = '13';
   function av(u) { return u ? u + (u.indexOf('?') < 0 ? '?v=' : '&v=') + ASSET_VER : u; }
 
   // ---- 카테고리별 상품 정의 ---------------------------------------------------
