@@ -54,7 +54,9 @@ export function createPaymentWebhookHandler(paymentService: PaymentService, pgCl
     try {
       const eventType = body.type as string;
       const data = body.data as Record<string, unknown> | undefined;
-      const pgTransactionId = (data?.pgTxId ?? data?.transactionId ?? '') as string;
+      // 토스페이먼츠 V2 웹훅은 data.paymentKey를 식별자로 보낸다.
+      // (pg_transaction_id 컬럼에 저장된 값 = res.paymentKey와 매칭)
+      const pgTransactionId = (data?.paymentKey ?? data?.pgTxId ?? data?.transactionId ?? '') as string;
 
       if (eventType && pgTransactionId) {
         await paymentService.handleWebhookEvent(eventType, pgTransactionId, body);

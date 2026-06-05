@@ -1790,6 +1790,12 @@
         showAlreadyBackedGate(f, e && e.message);
         return;
       }
+      // 방금 마감/비공개 펀드(서버 409 NOT_OPEN): 다른 마감 시나리오와 일관되게 toast 안내 + 마감 상태 UI 로 재갱신.
+      if (e && (e.code === 'NOT_OPEN' || (e.data && e.data.error === 'NOT_OPEN'))) {
+        toast((e && e.message) || '방금 마감된 프로젝트예요. 다시 확인해 주세요.');
+        location.reload();
+        return;
+      }
       alert('후원 신청에 실패했어요: ' + ((e && e.message) || '알 수 없는 오류'));
       return;
     }

@@ -48,7 +48,7 @@ export interface UserRepository {
 
   // ─── 소셜/공개 프로필 (006_social_features) ───
   findBySlug(slug: string): Promise<User | null>;
-  searchByNameOrNickname(q: string): Promise<UserSearchItem[]>;
+  searchByNameOrNickname(q: string, viewerId?: string): Promise<UserSearchItem[]>;
   updateNotificationPrefs(userId: string, prefs: NotificationPrefs): Promise<NotificationPrefs>;
   setConsent(userId: string, data: { marketingOptIn: boolean }): Promise<{ termsAgreedAt: Date; marketingOptIn: boolean }>;
   // 마케팅 토글 전용(약관 재동의 없이 marketing_opt_in 만) — 설정 토글과 동의 플래그 단일화.

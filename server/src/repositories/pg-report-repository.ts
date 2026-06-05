@@ -76,15 +76,6 @@ export class PgReportRepository implements ReportRepository {
     }));
   }
 
-  async findById(id: string): Promise<Report | null> {
-    const res = await this.pool.query(
-      `SELECT id, reporter_id, target_type, target_id, reason_category, detail, status, created_at, resolved_at, resolved_by
-         FROM reports WHERE id = $1`,
-      [id],
-    );
-    return res.rows.length ? mapRow(res.rows[0]) : null;
-  }
-
   async resolve(id: string, status: 'resolved' | 'dismissed', adminId: string): Promise<Report | null> {
     // open 상태만 처리 — 이미 처리된 신고 재처리 방지(멱등).
     const res = await this.pool.query(

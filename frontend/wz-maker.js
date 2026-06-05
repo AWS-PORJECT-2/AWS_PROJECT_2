@@ -673,10 +673,16 @@
     open: { label: '진행 중', cls: 'open' },
     pending_review: { label: '심사 중', cls: 'pending' },
     pending: { label: '심사 중', cls: 'pending' },
+    scheduled: { label: '공개 예정', cls: 'pending' },
     rejected: { label: '반려', cls: 'rejected' },
+    cancelled: { label: '취소', cls: 'rejected' },
+    failed: { label: '실패', cls: 'rejected' },
     closed: { label: '종료', cls: 'done' },
     ended: { label: '종료', cls: 'done' },
+    executing: { label: '제작 중', cls: 'done' },
     success: { label: '성공', cls: 'done' },
+    achieved: { label: '성공', cls: 'done' },
+    completed: { label: '성공', cls: 'done' },
   };
   function fundCard(f) {
     var card = W.el('a', { class: 'wz-mk-card', href: '/detail.html?id=' + encodeURIComponent(f.id) });
@@ -787,7 +793,7 @@
 
     // 테마 색
     var themeWrap = W.el('div', { class: 'wz-mk-modal__field' });
-    themeWrap.appendChild(W.el('label', { class: 'dt-field-label' }, '테마 색 (페이지 포인트색)'));
+    themeWrap.appendChild(W.el('label', { class: 'dt-field-label' }, '커버 그라데이션 색 (커버 이미지 없을 때만 적용)'));
     var themeRow = W.el('div', { class: 'wz-mk-modal__themerow' });
     var swatches = W.el('div', { class: 'wz-mk-swatches' });
     var presets = ['#8B5CF6', '#7C3AED', '#F472B6', '#FB7185', '#34D399', '#38BDF8', '#FBBF24', '#A78BFA'];

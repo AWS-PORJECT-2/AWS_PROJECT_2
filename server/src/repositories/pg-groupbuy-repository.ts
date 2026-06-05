@@ -223,11 +223,11 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
-  // 작성자 본인 펀드에 삭제 요청 플래그 설정
+  // 작성자 본인 펀드에 삭제 요청 플래그 설정 — 이미 삭제(soft delete)된 펀드는 재요청 불가(직접 API 호출 차단).
   async requestDelete(id: string, userId: string, reason: string): Promise<boolean> {
     const res = await this.pool.query(
       `UPDATE groupbuys SET delete_requested = TRUE, delete_reason = $1, delete_requested_at = NOW()
-        WHERE id = $2 AND creator_id = $3`,
+        WHERE id = $2 AND creator_id = $3 AND deleted_at IS NULL`,
       [reason || null, id, userId],
     );
     return (res.rowCount ?? 0) > 0;
@@ -247,7 +247,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
       `SELECT g.id, g.title, g.creator_id, g.status, g.delete_reason, g.delete_requested_at,
               COALESCE(g.tryon_image_url, g.design_image_url) AS image_url, u.name AS author_name
          FROM groupbuys g LEFT JOIN "user" u ON u.id = g.creator_id
-        WHERE g.delete_requested = TRUE ORDER BY g.delete_requested_at DESC`,
+        WHERE g.delete_requested = TRUE AND g.deleted_at IS NULL ORDER BY g.delete_requested_at DESC`,
     );
     return res.rows.map((r) => ({
       id: r.id as string,

@@ -73,11 +73,15 @@
     return d.getFullYear() + '.' + p(d.getMonth() + 1) + '.' + p(d.getDate());
   }
 
-  /* ---- 아바타 노드(이미지 or 폴백 SVG) ---- */
+  /* ---- 아바타 노드(이미지 or 폴백 SVG) ----
+   * 댓글 목록(userPicture/userName)과 작성창의 /auth/me(picture/name)
+   * 두 계약을 모두 수용하도록 필드 폴백을 둔다. */
   function avatar(c) {
     var av = el('div', { class: 'wzc-avatar' });
-    if (c && c.userPicture) {
-      var img = el('img', { src: c.userPicture, alt: c.userName || '', loading: 'lazy' });
+    var pic = c && (c.userPicture || c.picture);
+    var nm = (c && (c.userName || c.name || c.nickname)) || '';
+    if (pic) {
+      var img = el('img', { src: pic, alt: nm, loading: 'lazy' });
       img.addEventListener('error', function () { img.remove(); av.innerHTML = IC.user; });
       av.appendChild(img);
     } else {

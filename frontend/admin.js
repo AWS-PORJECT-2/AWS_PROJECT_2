@@ -636,7 +636,8 @@
   /* ============================================================
    * 3) 대리 개설 (proxy / 대행 작성·공개)
    *   GET /api/admin/funds?status=pending_review 로 의뢰 목록.
-   *   각 의뢰: 제목/카테고리/의뢰자/요청메모(contentBlocks text)/첨부이미지(image) 표시.
+   *   각 의뢰 카드: 제목/카테고리/의뢰자/목표수량/대표이미지 요약 + [의뢰 보기](상세 페이지에서
+   *     요청메모=스토리 블록·첨부이미지 열람, 관리자는 비공개 펀드도 조회 가능).
    *   "작성·공개" 패널: 제목·카테고리·대표이미지(업로드+DnD)·스토리 블록(DnD)·
    *     기본가·마감일·목표수량·리워드 티어 입력.
    *   저장: PATCH /api/admin/funds/:id (본문) → POST .../rewards → POST .../approve.
@@ -677,6 +678,9 @@
     head.appendChild(info);
 
     var actions = el('div', { class: 'wza-item__actions' });
+    // 의뢰 내용(요청메모=스토리 블록 / 첨부이미지)은 상세 페이지에서 확인. 관리자는 비공개(pending_review) 펀드도 열람 가능.
+    var view = el('a', { class: 'wza-btn wza-btn--outline', href: '/detail.html?id=' + encodeURIComponent(f.id), target: '_blank', rel: 'noopener' }, '의뢰 보기');
+    actions.appendChild(view);
     var openBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '작성·공개');
     openBtn.addEventListener('click', function () {
       // 인라인 편집 대신 전체 작성 페이지(fund-create)에서 의뢰자 정보 프리필로 작성·공개.

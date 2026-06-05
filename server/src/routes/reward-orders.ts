@@ -133,7 +133,7 @@ export function createBackingHandler(
         orderId: order.id,
         amount: order.amount,
         status: 'pledged',
-        chargeNote: '마감일 다음날부터 순차 결제될 예정이에요(목표 달성 시).',
+        chargeNote: '목표 달성 시 무통장 입금 안내(계좌·금액)를 보내드려요.',
       });
     } catch (err) {
       logger.error({ err, userId }, '리워드 후원 신청 실패');

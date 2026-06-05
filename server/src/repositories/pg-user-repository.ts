@@ -138,17 +138,21 @@ export class PgUserRepository implements UserRepository {
     await this.pool.query('UPDATE "user" SET marketing_opt_in = $1 WHERE id = $2', [optIn, userId]);
   }
 
-  async searchByNameOrNickname(q: string): Promise<UserSearchItem[]> {
+  async searchByNameOrNickname(q: string, viewerId?: string): Promise<UserSearchItem[]> {
     // LIKE 와일드카드(%, _) 와 이스케이프 문자(\)를 리터럴로 취급하도록 이스케이프 후 ESCAPE 절 명시.
     const escaped = q.replace(/[\\%_]/g, (ch) => `\\${ch}`);
     const like = `%${escaped}%`;
+    const params: unknown[] = [like];
+    // viewer 가 있으면 각 결과의 isFollowing 을 EXISTS 로 채운다(검색결과 팔로우버튼 상태). 없으면 false.
+    let followingExpr = 'false';
+    if (viewerId) { params.push(viewerId); followingExpr = 'EXISTS (SELECT 1 FROM follows f WHERE f.follower_id = $2 AND f.creator_id = u.id)'; }
     const result = await this.pool.query(
-      `SELECT id, name, nickname, slug, picture
-         FROM "user"
-        WHERE name ILIKE $1 ESCAPE '\\' OR nickname ILIKE $1 ESCAPE '\\'
-        ORDER BY name ASC
+      `SELECT u.id, u.name, u.nickname, u.slug, u.picture, ${followingExpr} AS is_following
+         FROM "user" u
+        WHERE u.name ILIKE $1 ESCAPE '\\' OR u.nickname ILIKE $1 ESCAPE '\\'
+        ORDER BY u.name ASC
         LIMIT 20`,
-      [like],
+      params,
     );
     return result.rows.map((r) => ({
       userId: r.id as string,
@@ -156,6 +160,7 @@ export class PgUserRepository implements UserRepository {
       nickname: (r.nickname as string | null) ?? null,
       slug: (r.slug as string | null) ?? null,
       picture: (r.picture as string | null) ?? null,
+      isFollowing: Boolean(r.is_following),
     }));
   }
 
@@ -342,7 +347,15 @@ export class PgUserRepository implements UserRepository {
         'SELECT DISTINCT fund_id FROM reward_orders WHERE user_id = $1 AND fund_id IS NOT NULL', [userId]);
       const affectedFundIds = affected.rows.map((r) => r.fund_id as string);
 
-      // 5) 마지막으로 user 삭제 — 위 CASCADE FK 들이 함께 발동(reward_orders 포함).
+      // 4-c) 탈퇴자가 '타인 글(board_posts)'에 남긴 댓글의 post_id 캡처 — board_comments.author_id 는 CASCADE 라
+      //      user 삭제 시 그 댓글들이 DB레벨에서 함께 사라지는데, board_posts.comment_count 캐시는 앱레벨
+      //      createComment/deleteComment 에서만 +/- 유지되므로 보정 없이는 부풀려진 채 영구 드리프트한다.
+      //      → 삭제 전 영향 post_id 를 모아 두고, user 삭제 후 잔존 board_comments 실수로 재계산한다.
+      const commentedPosts = await client.query(
+        'SELECT DISTINCT post_id FROM board_comments WHERE author_id = $1', [userId]);
+      const affectedPostIds = commentedPosts.rows.map((r) => r.post_id as string);
+
+      // 5) 마지막으로 user 삭제 — 위 CASCADE FK 들이 함께 발동(reward_orders, board_comments 포함).
       await client.query('DELETE FROM "user" WHERE id = $1', [userId]);
 
       // 6) 탈퇴자 후원이 빠진 뒤, 영향받은(잔존) 펀드의 current_quantity/amount + 리워드 soldCount 를 실주문으로 재계산.
@@ -363,6 +376,15 @@ export class PgUserRepository implements UserRepository {
            WHERE g.id = ANY($1::uuid[]) AND g.reward_tiers IS NOT NULL
              AND left(btrim(g.reward_tiers), 1) = '[' AND g.reward_tiers::jsonb <> '[]'::jsonb`,
           [affectedFundIds]);
+      }
+
+      // 6-b) 탈퇴자 댓글이 CASCADE 로 빠진 뒤, 영향받은(잔존) 타인 글의 comment_count 를 실제 남은 댓글 수로 재계산.
+      //      자기 글은 위 user 삭제 시 board_posts.author_id CASCADE 로 함께 사라지므로 JOIN 으로 자연히 제외된다.
+      if (affectedPostIds.length > 0) {
+        await client.query(
+          `UPDATE board_posts p SET comment_count =
+             COALESCE((SELECT COUNT(*) FROM board_comments c WHERE c.post_id = p.id), 0)
+           WHERE p.id = ANY($1::uuid[])`, [affectedPostIds]);
       }
 
       await client.query('COMMIT');

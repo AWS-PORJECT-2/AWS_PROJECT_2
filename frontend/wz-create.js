@@ -615,7 +615,9 @@
         open: openPolicyForm,
       },
       {
-        key: 'maker', name: '메이커 정보', required: true,
+        // 메이커 정보(makerIntro/makerContact)는 서버 creatorInfo 에 저장되지 않고 폐기되므로 필수에서 제외.
+        // 창작자 정보(name/intro/지역)가 이미 저장·표시되어 메이커 소개를 대체한다. 입력 시 done 표시만 유지.
+        key: 'maker', name: '메이커 정보', required: false,
         done: function () { return !!nstate.makerIntro.trim() && !!nstate.makerContact.trim(); },
         open: openMakerForm,
       },
@@ -2342,19 +2344,16 @@
     var introIn, contactIn;
     openOver('메이커 정보', function (body) {
       body.appendChild(W.el('div', { class: 'wc-fld__notice wc-fld__notice--info' },
-        '메이커 정보는 스토리와 별도로 저장되어, 상세 페이지 맨 끝에 따로 표시됩니다. 소개와 문의처 모두 필수입니다.'));
+        '메이커 정보는 선택 사항입니다. 창작자 정보로도 충분히 소개할 수 있어요.'));
       introIn = textarea({ maxlength: '1000', placeholder: '메이커(팀) 소개' });
       introIn.value = nstate.makerIntro || '';
-      body.appendChild(field('메이커 소개', true, introIn, '어떤 메이커(팀)가 만드는지 후원자에게 소개해 주세요. 최대 1000자.'));
+      body.appendChild(field('메이커 소개', false, introIn, '어떤 메이커(팀)가 만드는지 후원자에게 소개해 주세요. 최대 1000자.'));
       contactIn = input({ type: 'text', maxlength: '200', placeholder: '문의 이메일 또는 오픈채팅 링크' });
       contactIn.value = nstate.makerContact || '';
-      body.appendChild(field('문의처', true, contactIn, '후원자 문의를 받을 연락 수단입니다.'));
+      body.appendChild(field('문의처', false, contactIn, '후원자 문의를 받을 연락 수단입니다.'));
     }, function () {
-      var intro = introIn.value.trim(), contact = contactIn.value.trim();
-      if (!intro) { toast('메이커 소개를 입력해 주세요'); return false; }
-      if (!contact) { toast('문의처를 입력해 주세요'); return false; }
-      nstate.makerIntro = intro;
-      nstate.makerContact = contact;
+      nstate.makerIntro = introIn.value.trim();
+      nstate.makerContact = contactIn.value.trim();
       return true;
     });
   }

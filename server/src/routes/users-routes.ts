@@ -16,7 +16,7 @@ export function createUserSearchHandler(userRepo: UserRepository) {
     const q = String(req.query.q ?? '').trim();
     if (q.length === 0) { res.json([]); return; }
     try {
-      const items = await userRepo.searchByNameOrNickname(q.slice(0, 50));
+      const items = await userRepo.searchByNameOrNickname(q.slice(0, 50), req.userId);
       res.json(items);
     } catch (err) {
       logger.error({ err }, '유저 검색 실패');
@@ -71,8 +71,10 @@ export function createFollowHandler(followRepo: FollowRepository, notificationRe
     if (targetId === req.userId) { res.status(400).json({ error: 'SELF', message: '자기 자신은 팔로우할 수 없습니다' }); return; }
     try {
       if (await followRepo.isBlocked(targetId, req.userId)) { res.status(403).json({ error: 'BLOCKED', message: '차단되어 팔로우할 수 없습니다' }); return; }
+      // 이미 팔로우 중이면(재시도·멀티탭·중복요청) follow() 는 멱등이지만 알림은 매번 가므로, 신규 팔로우일 때만 알림.
+      const alreadyFollowing = await followRepo.isFollowing(req.userId, targetId);
       await followRepo.follow(req.userId, targetId);
-      if (notificationRepo) {
+      if (notificationRepo && !alreadyFollowing) {
         await notify(notificationRepo, { userId: targetId, type: 'new_follower', title: '새 팔로워', body: `${req.userName ?? '회원'}님이 회원님을 팔로우했어요` });
       }
       res.json({ following: true, followerCount: await followRepo.countFollowers(targetId) });

@@ -215,7 +215,7 @@
     state.items = [];
     state.unreadCount = 0;
     if (!window.api || typeof window.api.del !== 'function') return Promise.resolve();
-    return window.api.del('/me/notifications').catch(function () { /* 비차단 */ });
+    return window.api.del('/me/notifications', undefined, { silentAuthFail: true }).catch(function () { /* 비차단 */ });
   }
 
   function findItem(id) {

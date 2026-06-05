@@ -31,4 +31,5 @@ export interface UserSearchItem {
   nickname: string | null;
   slug: string | null;
   picture: string | null;
+  isFollowing: boolean;   // viewer 가 이 사용자를 팔로우 중인지(비로그인/미팔로우=false) — 검색결과 팔로우버튼 상태
 }

@@ -4,6 +4,9 @@ import type { UserRepository } from '../repositories/user-repository.js';
 import type { User } from '../types/index.js';
 import { logger } from '../logger.js';
 import { serializeMe } from './profile-serializer.js';
+import { accessBlock, isSuspensionExpired } from '../utils/account-status.js';
+
+const IS_PRODUCTION = process.env.NODE_ENV === 'production';
 
 export function createMeHandler(tokenService: TokenService, userRepo: UserRepository) {
   return async (req: Request, res: Response): Promise<void> => {
@@ -37,6 +40,24 @@ export function createMeHandler(tokenService: TokenService, userRepo: UserReposi
       res.status(410).json({ error: 'USER_NOT_FOUND', message: '계정을 찾을 수 없습니다. 다시 로그인해주세요' });
       return;
     }
+
+    // 제재 게이트 — auth-required 와 동일 규칙. 정지/차단/탈퇴 계정은 /me 도 차단해야 프론트가
+    // 세션 종료로 인식한다(미적용 시 유효 토큰 동안 로그인 상태로 계속 렌더됨). 쿠키도 정리해 세션을 끊는다.
+    const block = accessBlock(user);
+    if (block) {
+      res.clearCookie('accessToken', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/' });
+      res.clearCookie('refreshToken', { httpOnly: true, secure: IS_PRODUCTION, sameSite: 'lax', path: '/api/auth' });
+      const suffix = block.code === 'USER_SUSPENDED' && block.until ? ` (해제 예정: ${block.until.toISOString()})` : '';
+      const messages: Record<typeof block.code, string> = {
+        USER_SUSPENDED: '정지된 계정입니다. 관리자에게 문의해 주세요',
+        USER_BANNED: '이용이 영구 제한된 계정입니다. 관리자에게 문의해 주세요',
+        ACCOUNT_WITHDRAWN: '탈퇴 처리된 계정입니다',
+      };
+      res.status(403).json({ error: block.code, message: messages[block.code] + suffix });
+      return;
+    }
+    // 만료된 기간정지 자동 복구(best-effort) — 실패해도 응답엔 영향 없게 .catch 로 흡수.
+    if (isSuspensionExpired(user)) { userRepo.clearExpiredSuspension(user.id).catch((err) => logger.warn({ err, userId: user!.id }, '만료 정지 자동복구 실패')); }
 
     res.json(serializeMe(user));
   };

@@ -147,41 +147,6 @@ function isLiked(productId) {
 }
 
 /**
- * 페이지 로드 시 localStorage와 isReserved/수치 동기화
- * - 좋아요(isLiked/likeCount)는 서버 데이터를 신뢰한다(여기서 건드리지 않음).
- * - 스토리지에 기록이 없으면(null) 기존 값을 유지
- * - reserved delta 값을 읽어 원본 + delta = 최종값 (멱등성 보장)
- */
-function syncUserState() {
-  MOCK_PRODUCTS.forEach((p) => {
-    // 원본 값 보존 (최초 1회만 저장)
-    if (typeof p._baseCurrentQuantity === 'undefined') {
-      p._baseCurrentQuantity = p.currentQuantity;
-    }
-
-    // 플래그 복원 (null이면 seed data 유지)
-    const reserved = localStorage.getItem('reserved_' + p.id);
-    if (reserved !== null) {
-      p.isReserved = reserved === '1';
-    }
-
-    // isPaid 복원
-    const paid = localStorage.getItem('paid_' + p.id);
-    if (paid !== null) {
-      p.isPaid = paid === '1';
-    }
-
-    // 수치: 원본 + delta = 최종값 (누적 아닌 대입)
-    const reservedDelta = Number(localStorage.getItem('reserved_delta_' + p.id)) || 0;
-    p.currentQuantity = p._baseCurrentQuantity + reservedDelta;
-  });
-}
-
-// 초기화
-syncUserState();
-
-
-/**
  * 백엔드(GET /api/groupbuys)에서 공구 목록을 가져와 window.MOCK_PRODUCTS 로 매핑.
  * 백엔드 <목록 아이템> 계약:
  *   { id, title, creatorId, creatorName, creatorSlug, category, coverImageUrl,
@@ -234,8 +199,8 @@ async function loadProductsFromBackend() {
   });
   window.MOCK_PRODUCTS = MOCK_PRODUCTS;
 
-  // localStorage 의 예약/결제 플래그를 실데이터에 반영(좋아요는 서버 데이터를 신뢰)
-  if (typeof syncUserState === 'function') syncUserState();
+  // 예약/결제 상태(isReserved/isPaid)·수량은 서버(GET /api/groupbuys)가 단일 출처.
+  // (과거 localStorage reserved_/paid_/reserved_delta_ 보정 레이어는 setItem 호출이 전무한 데드코드라 제거.)
 
   // 외부 리스너에 데이터 갱신 알림 (빈 배열이어도 발행 → 빈 상태 렌더)
   window.dispatchEvent(new CustomEvent('mockproducts:updated', { detail: { items: MOCK_PRODUCTS } }));

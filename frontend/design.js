@@ -155,7 +155,7 @@
   // ---- 상태 -------------------------------------------------------------------
   var S = {
     slug: '', catObj: null, itemIdx: 0,
-    product: '', color: '', qty: 1,
+    product: '', color: '',
     view: 'front',
     views: {},          // { front: [layer...], back: [layer...] }
     sel: null,          // 선택된 레이어 id
@@ -760,7 +760,7 @@
   // 모바일 호환 이미지 디코드(createObjectURL+canvas, 최대 1600px) → dataURL
   function readImageFile(file) {
     return new Promise(function (resolve, reject) {
-      if (!file || (file.type && file.type.indexOf('image') !== 0 && !/\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(file.name || ''))) {
+      if (!file || (file.type && file.type.indexOf('image') !== 0 && !/\.(png|jpe?g)$/i.test(file.name || ''))) {
         reject(new Error('not image')); return;
       }
       var url = URL.createObjectURL(file);
@@ -1167,7 +1167,7 @@
 
   // ---- 저장 / 불러오기 --------------------------------------------------------
   function serialize() {
-    return { product: S.product, itemIdx: S.itemIdx, color: S.color, qty: S.qty, views: S.views, version: 2 };
+    return { product: S.product, itemIdx: S.itemIdx, color: S.color, views: S.views, version: 2 };
   }
   function saveDesign() {
     var btnEl = document.querySelector('.dz-top .wz-btn--primary');
@@ -1263,7 +1263,6 @@
       S.product = curItem().name;
       // 저장된 색 slug 이 현재 팔레트에 있으면 복원, 아니면(구버전 hex 등) 기본색.
       S.color = (function () { var cs = itemColors(); for (var i = 0; i < cs.length; i++) if (cs[i].s === dz.color) return dz.color; return defaultColor(); })();
-      S.qty = dz.qty || 1;
       S.views = dz.views || {};
       S.view = views()[0];
       S.sel = null;

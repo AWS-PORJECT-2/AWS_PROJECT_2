@@ -65,15 +65,6 @@ async function bumpTierSoldCount(client: pg.PoolClient, fundId: string, rewardTi
 export class PgRewardOrderRepository {
   constructor(private readonly pool: pg.Pool) {}
 
-  async create(o: RewardOrder): Promise<RewardOrder> {
-    const res = await this.pool.query(
-      `INSERT INTO reward_orders (id, fund_id, reward_tier_id, reward_title, user_id, address_id, depositor_name, amount, status, created_at)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING *`,
-      [o.id, o.fundId, o.rewardTierId, o.rewardTitle, o.userId, o.addressId, o.depositorName, o.amount, o.status, o.createdAt],
-    );
-    return mapRow(res.rows[0]);
-  }
-
   /**
    * 텀블벅식 예약 후원: "재고 확인 + 후원 INSERT(pledged) + 수량/카운트 반영" 을 한 트랜잭션으로 원자 처리.
    *  - groupbuys 행을 FOR UPDATE 로 잠가 같은 펀드의 동시 후원 신청을 직렬화(TOCTOU 초과판매 방지).

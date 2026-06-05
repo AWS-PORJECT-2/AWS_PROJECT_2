@@ -33,7 +33,6 @@ export interface ReportRepository {
   create(input: ReportCreate): Promise<Report>;
   /** 관리자 목록(상태 필터 선택, 최신순). 신고자 닉네임/대상 라벨 조인 포함. */
   listForAdmin(status?: ReportStatus): Promise<ReportAdminItem[]>;
-  findById(id: string): Promise<Report | null>;
   /** open 상태 신고를 resolved/dismissed 로 처리. 처리된 행(없으면 null) 반환. */
   resolve(id: string, status: 'resolved' | 'dismissed', adminId: string): Promise<Report | null>;
   /** 미처리(open) 신고 수 — 관리자 배지용. */

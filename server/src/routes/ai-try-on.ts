@@ -4,6 +4,7 @@ import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { startAiJob } from '../services/ai/ai-jobs.js';
 import { isValidCategory } from '../constants/categories.js';
+import { withTimeout } from '../utils/fetch-with-timeout.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const ALLOWED_MODELS = new Set(['female', 'male', 'female_athletic', 'male_athletic']);
@@ -82,7 +83,10 @@ export function createAiTryOnHandler(gemini: ImageAiService, timeoutMs: number) 
 
     // 생성은 1분+ 걸릴 수 있어 비동기 작업으로 — jobId 즉시 반환, 프론트가 폴링으로 회수.
     const jobId = startAiJob(userId, 'try-on', async () => {
-      const result = await gemini.generateTryOn(garments, { modelType, background, category }, { route: 'try-on', userId });
+      const result = await withTimeout(
+        gemini.generateTryOn(garments, { modelType, background, category }, { route: 'try-on', userId }),
+        timeoutMs,
+      );
       return { tryOnDataUrl: `data:${result.mimeType};base64,${result.base64}` };
     });
     res.status(202).json({ jobId });

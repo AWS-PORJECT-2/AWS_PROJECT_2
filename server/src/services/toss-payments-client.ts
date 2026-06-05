@@ -21,7 +21,7 @@ export class TossPaymentsClient implements PgClient {
   private readonly authHeader: string;
 
   constructor(
-    private readonly secretKey: string,
+    secretKey: string,
     private readonly timeoutMs: number = 10000,
   ) {
     // Basic Auth: base64(secretKey + ':')

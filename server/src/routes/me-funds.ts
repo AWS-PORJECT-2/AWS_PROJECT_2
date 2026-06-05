@@ -31,11 +31,14 @@ function isValidVideo(v: string): boolean {
 const parseBlocks = normalizeContentBlocks;
 
 // 창작자 정보 검증 — funds-create.ts creatorInfoField 와 동일 상한. 유효 필드 없으면 null.
-function parseCreatorInfo(v: unknown): CreatorInfo | null {
+// forceName 이 있으면 이름을 그 값(작성자 계정 이름)으로 강제 — 클라가 보낸 name 은 무시.
+// "창작자 이름은 무조건 작성자 계정 이름을 따른다" 불변식을 수정 경로에서도 동일하게 강제(개설 경로와 일치).
+function parseCreatorInfo(v: unknown, forceName?: string): CreatorInfo | null {
   if (!v || typeof v !== 'object' || Array.isArray(v)) return null;
   const o = v as Record<string, unknown>;
   const info: CreatorInfo = {};
-  const name = typeof o.name === 'string' ? o.name.trim().slice(0, CREATOR_NAME_MAX) : '';
+  const rawName = typeof o.name === 'string' ? o.name.trim() : '';
+  const name = ((forceName && forceName.trim()) ? forceName.trim() : rawName).slice(0, CREATOR_NAME_MAX);
   if (name) info.name = name;
   if (typeof o.image === 'string' && isValidImage(o.image)) info.image = o.image;
   const intro = typeof o.intro === 'string' ? o.intro.trim().slice(0, CREATOR_INTRO_MAX) : '';
@@ -144,7 +147,7 @@ export function createMeFundUpdateHandler(groupBuyRepo: GroupBuyRepository) {
     if ('creatorInfo' in body) {
       const v = body.creatorInfo;
       if (v == null) fields.creatorInfo = null;
-      else fields.creatorInfo = parseCreatorInfo(v); // 유효 필드만 추림(없으면 null)
+      else fields.creatorInfo = parseCreatorInfo(v, req.userName); // 유효 필드만 추림(이름은 작성자 계정 이름으로 강제)
     }
 
     if (errors.length > 0) {

@@ -243,7 +243,7 @@
     var sub = W.el('div', { class: 'wz-an__substats' });
     sub.append(
       miniStat(IC.eye, '상세 조회수', String(viewCount)),
-      miniStat(IC.bell, '공개예정 알림 신청', String(subscriberCount) + '명')
+      miniStat(IC.bell, isScheduled ? '공개예정 알림 신청' : '알림 신청(누적)', String(subscriberCount) + '명')
     );
     box.appendChild(sub);
 

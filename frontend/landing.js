@@ -58,8 +58,9 @@
       const viewport = window.innerHeight;
       const total = rect.height - viewport;
       const scrolled = -rect.top;
-      const progress = Math.max(0, Math.min(1, scrolled / total));
+      const progress = total > 0 ? Math.max(0, Math.min(1, scrolled / total)) : 0;
       const idx = Math.min(TOTAL - 1, Math.floor(progress * TOTAL));
+      if (!Number.isFinite(idx)) return;
       if (idx !== currentFrame) {
         currentFrame = idx;
         setActiveFrame(idx);

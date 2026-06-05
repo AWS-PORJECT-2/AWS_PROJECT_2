@@ -868,7 +868,7 @@
     function openAddressForm(editing) {
       var existing = editing ? splitDetailMemo(editing.detailAddress) : { detail: '', memo: '' };
 
-      var nameInput = input({ placeholder: '받는 사람 이름', value: editing ? (editing.recipientName || '') : '' });
+      var nameInput = input({ placeholder: '받는 사람 이름', maxlength: '50', value: editing ? (editing.recipientName || '') : '' });
       var fName = field({ label: '받는 사람', required: true, control: nameInput });
 
       var phoneInput = input({ type: 'tel', inputmode: 'numeric', placeholder: '010-1234-5678', value: editing ? formatPhone(editing.recipientPhone || '') : '' });
@@ -1070,6 +1070,10 @@
     panel.appendChild(el('p', { class: 'wzs-sec__desc' }, '이름이나 닉네임으로 친구를 찾아 팔로우하고, 내 팔로잉·팔로워를 관리하세요.'));
 
     var myId = state.me && state.me.userId;
+    // 내가 팔로우 중인 userId 집합 — loadFollowing()이 채운다. 검색 결과의
+    // isFollowing 은 서버가 안 내려주므로(searchByNameOrNickname 미계산),
+    // 이 집합으로 보정해 '팔로잉/팔로우' 라벨을 정확히 표시한다.
+    var followingIds = Object.create(null);
 
     function makerHref(u) {
       return '/maker.html?' + (u.slug ? 'slug=' + encodeURIComponent(u.slug) : 'id=' + encodeURIComponent(u.userId));
@@ -1135,6 +1139,8 @@
         api.get('/users/search?q=' + encodeURIComponent(q)).then(function (rows) {
           // 본인도 결과에 그대로 노출(친구row 의 followBtn 이 '본인' 라벨로 렌더). 필터하지 않음.
           rows = Array.isArray(rows) ? rows : [];
+          // 서버 검색 응답엔 isFollowing 이 없으므로 팔로잉 집합으로 보정(라벨 정확도).
+          rows.forEach(function (u) { if (u && u.userId != null) u.isFollowing = !!followingIds[u.userId]; });
           if (!rows.length) { resultWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '검색 결과가 없습니다.')); return; }
           resultWrap.replaceChildren.apply(resultWrap, rows.map(friendRow));
         }).catch(function () { resultWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '검색에 실패했습니다.')); });
@@ -1152,6 +1158,9 @@
       if (!myId) return;
       api.get('/users/' + encodeURIComponent(myId) + '/following').then(function (rows) {
         rows = Array.isArray(rows) ? rows : [];
+        // 팔로잉 집합 갱신(검색 결과 라벨 보정에 사용)
+        followingIds = Object.create(null);
+        rows.forEach(function (u) { if (u && u.userId != null) followingIds[u.userId] = true; });
         followingTitle.textContent = '팔로잉 ' + rows.length;
         if (!rows.length) { followingWrap.replaceChildren(el('div', { class: 'wzs-empty' }, '아직 팔로우한 사람이 없어요.')); return; }
         followingWrap.replaceChildren.apply(followingWrap, rows.map(function (u) { u.isFollowing = true; return friendRow(u); }));
