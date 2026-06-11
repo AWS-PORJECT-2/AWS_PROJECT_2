@@ -115,6 +115,49 @@
       color: var(--c-danger);
       display: none;
     }
+    /* 심사·시연용 테스트 로그인 */
+    .wz-login__test {
+      margin-top: 12px;
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 12px 16px;
+      border: 1px dashed var(--c-border, #d8d6e4);
+      border-radius: var(--r-md);
+      background: transparent;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--c-text-sub, #555);
+      cursor: pointer;
+      transition: border-color .15s, background .15s;
+    }
+    .wz-login__test:hover { border-color: var(--c-primary-300); background: var(--c-primary-50); color: var(--c-primary-700); }
+    .wz-login__testpanel { display: none; margin-top: 10px; }
+    .wz-login__testpanel.is-open { display: flex; gap: 8px; }
+    .wz-login__testcode {
+      flex: 1;
+      min-width: 0;
+      padding: 11px 14px;
+      border: 1px solid var(--c-border, #d8d6e4);
+      border-radius: var(--r-md);
+      font-size: 14px;
+      font-family: inherit;
+    }
+    .wz-login__testcode:focus { outline: none; border-color: var(--c-primary-400); box-shadow: 0 0 0 3px var(--c-primary-100, #ece6fb); }
+    .wz-login__testgo {
+      flex-shrink: 0;
+      padding: 11px 18px;
+      border: none;
+      border-radius: var(--r-md);
+      background: var(--c-primary-600, #6d28d9);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .wz-login__testgo:disabled { opacity: .55; cursor: not-allowed; }
     .wz-login__foot {
       margin-top: 22px;
       font-size: 12px;
@@ -146,6 +189,15 @@
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 01-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
         <span id="loginBtnText">Google로 시작하기</span>
       </button>
+
+      <button id="testLoginBtn" class="wz-login__test" type="button">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 15v2m0-10a3 3 0 013 3v2H9v-2a3 3 0 013-3zm-5 5h10a1 1 0 011 1v5a1 1 0 01-1 1H7a1 1 0 01-1-1v-5a1 1 0 011-1z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        테스트유저 로그인
+      </button>
+      <div id="testPanel" class="wz-login__testpanel">
+        <input id="testCode" class="wz-login__testcode" type="password" placeholder="테스트 코드 입력" autocomplete="off" />
+        <button id="testGo" class="wz-login__testgo" type="button">확인</button>
+      </div>
 
       <div class="wz-login__notice">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 11v5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="12" cy="8" r="1.1" fill="currentColor"/></svg>
@@ -255,6 +307,68 @@
             }
           })
           .catch(function () { fail('서버에 연결할 수 없습니다'); });
+      });
+
+      // ─── 심사·시연용 테스트 로그인 ───
+      var testBtn = document.getElementById('testLoginBtn');
+      var testPanel = document.getElementById('testPanel');
+      var testCode = document.getElementById('testCode');
+      var testGo = document.getElementById('testGo');
+
+      testBtn.addEventListener('click', function () {
+        var open = testPanel.classList.toggle('is-open');
+        if (open) testCode.focus();
+      });
+
+      function afterLoginPath() {
+        var saved = '';
+        try { saved = sessionStorage.getItem('wz_login_return') || ''; } catch (e) {}
+        if (saved && saved.charAt(0) === '/' && saved.charAt(1) !== '/') {
+          try { sessionStorage.removeItem('wz_login_return'); } catch (e) {}
+          return saved;
+        }
+        return '/main.html?login=success';
+      }
+
+      function submitTestLogin() {
+        var code = (testCode.value || '').trim();
+        if (!code) { testCode.focus(); return; }
+        testGo.disabled = true;
+        testGo.textContent = '확인 중';
+        errorEl.style.display = 'none';
+
+        fetch('/api/auth/test-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ code: code }),
+        })
+          .then(function (res) { return res.json().then(function (d) { return { ok: res.ok, data: d }; }); })
+          .then(function (r) {
+            if (r.ok && r.data && r.data.user) {
+              window.location.href = afterLoginPath();
+              return;
+            }
+            var msg = r.data && r.data.error === 'INVALID_CODE'
+              ? '코드가 올바르지 않습니다'
+              : (r.data && r.data.message) || '테스트 로그인에 실패했습니다';
+            errorEl.textContent = msg;
+            errorEl.style.display = 'block';
+            testGo.disabled = false;
+            testGo.textContent = '확인';
+            testCode.select();
+          })
+          .catch(function () {
+            errorEl.textContent = '서버에 연결할 수 없습니다';
+            errorEl.style.display = 'block';
+            testGo.disabled = false;
+            testGo.textContent = '확인';
+          });
+      }
+
+      testGo.addEventListener('click', submitTestLogin);
+      testCode.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter') { e.preventDefault(); submitTestLogin(); }
       });
     })();
   </script>
