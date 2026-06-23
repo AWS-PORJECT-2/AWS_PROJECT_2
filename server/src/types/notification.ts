@@ -33,7 +33,11 @@ export type NotificationType =
   | 'account_warning'   // 관리자 경고 — 대상
   | 'profile_renamed'   // 관리자가 이름/닉네임 변경 — 대상
   | 'role_changed'      // 권한(역할) 변경 — 대상
-  | 'admin_message';    // 관리자 직접 알림(임의 메시지) — 대상
+  | 'admin_message'     // 관리자 직접 알림(임의 메시지) — 대상
+  // 포인트/리워드(045) — 항상 발송(설정 토글 대상 아님)
+  | 'point_earn'         // 포인트 적립 — 대상
+  | 'point_spend'        // 포인트 사용(차감) — 대상
+  | 'point_admin_adjust'; // 관리자 포인트 조정 — 대상
 
 export interface Notification {
   id: string;

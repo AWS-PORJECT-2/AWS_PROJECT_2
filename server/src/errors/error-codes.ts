@@ -43,6 +43,9 @@ export const ErrorCodes = {
   ADDRESS_NOT_FOUND: { httpStatus: 404, code: 'ADDRESS_NOT_FOUND', message: '배송지를 찾을 수 없습니다' },
   CANNOT_DELETE_LAST_ADDRESS: { httpStatus: 400, code: 'CANNOT_DELETE_LAST_ADDRESS', message: '마지막 배송지는 삭제할 수 없습니다' },
   FORBIDDEN: { httpStatus: 403, code: 'FORBIDDEN', message: '접근 권한이 없습니다' },
+
+  // Point system error codes
+  INSUFFICIENT_POINTS: { httpStatus: 402, code: 'INSUFFICIENT_POINTS', message: '포인트가 부족하여 생성할 수 없습니다' },
 } as const satisfies Record<string, ErrorCodeDefinition>;
 
 export type ErrorCode = keyof typeof ErrorCodes;

@@ -8,6 +8,7 @@ import type { OAuthStateRepository } from '../repositories/oauth-state-repositor
 import type { RefreshTokenRepository } from '../repositories/refresh-token-repository.js';
 import type { AuthResult, User } from '../types/index.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
+import type { PointService } from '../interfaces/point-service.js';
 import { AppError } from '../errors/app-error.js';
 import { accessBlock, isSuspensionExpired } from '../utils/account-status.js';
 import { TokenServiceImpl } from './token-service.js';
@@ -31,6 +32,8 @@ export interface AuthServiceDeps {
   refreshTokenRepository: RefreshTokenRepository;
   // 선택: 신규 가입 시 환영 알림(best-effort). 미주입 시 알림만 생략(가입 흐름 영향 없음).
   notificationRepository?: NotificationRepository;
+  // 선택: 신규 가입 시 1회성 포인트 적립(best-effort). 미주입 시 적립만 생략(가입 흐름 영향 없음).
+  pointService?: PointService;
 }
 
 export class AuthServiceImpl implements AuthService {
@@ -41,6 +44,7 @@ export class AuthServiceImpl implements AuthService {
   private readonly oauthStateRepo: OAuthStateRepository;
   private readonly refreshTokenRepo: RefreshTokenRepository;
   private readonly notificationRepo?: NotificationRepository;
+  private readonly pointService?: PointService;
   // 회전 grace 캐시: 직전(이미 폐기된) 토큰 해시 → 그 회전으로 발급된 새 토큰쌍 + 만료시각.
   private readonly recentRotations = new Map<string, { result: { accessToken: string; refreshToken: string }; expiresAt: number; userId: string }>();
 
@@ -52,6 +56,7 @@ export class AuthServiceImpl implements AuthService {
     this.oauthStateRepo = deps.oauthStateRepository;
     this.refreshTokenRepo = deps.refreshTokenRepository;
     this.notificationRepo = deps.notificationRepository;
+    this.pointService = deps.pointService;
   }
 
   async initiateLogin(rememberMe: boolean, mobile = false): Promise<{ authUrl: string; state: string }> {
@@ -222,6 +227,15 @@ export class AuthServiceImpl implements AuthService {
         title: '두띵에 오신 것을 환영해요',
         body: '관심 있는 프로젝트를 후원하고, 직접 프로젝트를 열어보세요.',
       });
+    }
+    // 첫 회원가입 1회성 포인트 적립(best-effort, 멱등) — 실패해도 가입 흐름은 막지 않음.
+    //  기존 사용자 로그인에는 호출하지 않음(신규 생성 분기에서만 실행).
+    if (this.pointService) {
+      try {
+        await this.pointService.earnOnce(created.id, 'signup');
+      } catch (err) {
+        logger.warn({ err, userId: created.id }, '가입 포인트 적립 실패(무시)');
+      }
     }
     return created;
   }

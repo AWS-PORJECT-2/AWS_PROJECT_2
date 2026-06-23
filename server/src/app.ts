@@ -91,7 +91,12 @@ import {
   PgOrderRepository,
   PgPaymentRepository,
   PgPaymentEventRepository,
+  PgPointRepository,
 } from './repositories/index.js';
+// 포인트 시스템(045_point_system) — 서비스 + 라우트 핸들러.
+import { PointServiceImpl } from './services/point-service.js';
+import { createMePointsHandler, createMePointsTransactionsHandler } from './routes/me-points.js';
+import { createAdminGetUserPointsHandler, createAdminAdjustUserPointsHandler } from './routes/admin-points.js';
 import { TossPaymentsClient } from './services/toss-payments-client.js';
 import { PaymentServiceImpl } from './services/payment-service.js';
 import { PaymentScheduler } from './services/scheduler.js';
@@ -298,10 +303,15 @@ export function createApp(
   const notificationRepository = new PgNotificationRepository(pool);
   const boardRepository = new PgBoardRepository(pool);
 
+  // 포인트 시스템(045_point_system) — auth/AI/펀드개설/댓글 훅에서 모두 쓰므로 authService·라우트 등록 전에 구성.
+  const pointRepository = new PgPointRepository(pool);
+  const pointService = new PointServiceImpl({ pointRepo: pointRepository, notificationRepo: notificationRepository });
+
   const authService = new AuthServiceImpl({
     emailValidator, oauthClient, tokenService,
     userRepository, oauthStateRepository, refreshTokenRepository,
     notificationRepository,
+    pointService,
   });
 
   app.use('/api/auth/login', loginRateLimit);
@@ -335,7 +345,7 @@ export function createApp(
   // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
   const gemini = OpenAiImageService.fromEnv();
   if (gemini) {
-    app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
+    app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS, pointService));
   }
 
   // --- 공동구매(=펀드) 저장소 ---
@@ -346,7 +356,7 @@ export function createApp(
 
   // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
   //   + 알림(best-effort): 작성자 본인(fund_submitted) / 작성자 팔로워(creator_new_fund)
-  app.post('/api/funds', authRequired, consentRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository));
+  app.post('/api/funds', authRequired, consentRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository, pointService));
 
   // --- Payment System ---
   const participationRepository = new PgParticipationRepository(pool);
@@ -445,6 +455,10 @@ export function createApp(
   app.post('/api/me/notifications/read-all', authRequired, createMarkAllNotificationsReadHandler(notificationRepository));
   app.post('/api/me/notifications/:id/read', authRequired, createMarkNotificationReadHandler(notificationRepository));
 
+  // --- 포인트(045_point_system) — 내 잔액/거래내역 조회 ---
+  app.get('/api/me/points', authRequired, createMePointsHandler(pointService));
+  app.get('/api/me/points/transactions', authRequired, createMePointsTransactionsHandler(pointService));
+
   // --- 만들기 폼 임시저장(project_drafts) — 본인 것만 CRUD ---
   const projectDraftRepository = new PgProjectDraftRepository(pool);
   app.get('/api/me/drafts', authRequired, createMeDraftsListHandler(projectDraftRepository));
@@ -492,6 +506,10 @@ export function createApp(
   app.get('/api/admin/reports', authRequired, requireAdmin, createAdminReportsListHandler(reportRepository));
   app.post('/api/admin/reports/:id/resolve', authRequired, requireAdmin, createAdminReportResolveHandler(reportRepository));
 
+  // --- 관리자 포인트 관리(045_point_system) — 특정 사용자 잔액 조회 + 조정(delta/set) ---
+  app.get('/api/admin/users/:userId/points', authRequired, requireAdmin, createAdminGetUserPointsHandler(pointService));
+  app.post('/api/admin/users/:userId/points', authRequired, requireAdmin, createAdminAdjustUserPointsHandler(pointService));
+
   // --- 유저/메이커 공개 + 팔로우 + 댓글 (소셜 계약) ---
   // followRepository / commentRepository 는 위(펀드 개설 알림 의존)에서 이미 구성됨.
 
@@ -501,7 +519,7 @@ export function createApp(
   // 댓글
   app.get('/api/comments', optionalAuth, createCommentsListHandler(commentRepository));
   // 댓글 작성 → 알림(best-effort): 펀드 댓글은 창작자(project_comment), 대댓글은 원댓글 작성자(comment_reply).
-  app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository, groupBuyRepository, notificationRepository));
+  app.post('/api/comments', authRequired, writeRateLimit, createCommentCreateHandler(commentRepository, groupBuyRepository, notificationRepository, pointService));
   app.patch('/api/comments/:id', authRequired, writeRateLimit, createCommentUpdateHandler(commentRepository, userRepository));
   app.delete('/api/comments/:id', authRequired, createCommentDeleteHandler(commentRepository, userRepository));
 

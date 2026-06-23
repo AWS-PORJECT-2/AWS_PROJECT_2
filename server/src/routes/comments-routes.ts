@@ -3,6 +3,7 @@ import type { CommentRepository } from '../repositories/comment-repository.js';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
 import type { UserRepository } from '../repositories/user-repository.js';
+import type { PointService } from '../interfaces/point-service.js';
 import type { Comment, CommentTargetType } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -69,6 +70,7 @@ export function createCommentCreateHandler(
   repo: CommentRepository,
   groupBuyRepo?: GroupBuyRepository,
   notificationRepo?: NotificationRepository,
+  pointService?: PointService,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
@@ -147,6 +149,16 @@ export function createCommentCreateHandler(
             body: preview,
             fundId: targetType === 'fund' ? targetId : null,
           });
+        }
+      }
+
+      // 첫 댓글 작성 1회성 포인트 적립(best-effort, 멱등) — 실패해도 작성 흐름/응답은 막지 않음.
+      //  earnOnce 가 멱등이므로 최초 댓글 작성에만 실제 지급된다.
+      if (pointService) {
+        try {
+          await pointService.earnOnce(userId, 'first_comment');
+        } catch (err) {
+          logger.warn({ err, userId, commentId: created.id }, '첫 댓글 포인트 적립 실패(무시)');
         }
       }
 

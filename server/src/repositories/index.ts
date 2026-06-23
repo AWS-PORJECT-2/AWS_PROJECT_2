@@ -49,3 +49,9 @@ export { PgNotificationRepository } from './pg-notification-repository.js';
 // Reports(신고) — 027_reports
 export type { ReportRepository, ReportCreate, ReportAdminItem } from './report-repository.js';
 export { PgReportRepository } from './pg-report-repository.js';
+
+// Points(포인트/리워드) — 045_point_system
+export type {
+  PointRepository, EarnResult, SpendResult, RefundResult, AdminAdjustResult,
+} from './point-repository.js';
+export { PgPointRepository } from './pg-point-repository.js';

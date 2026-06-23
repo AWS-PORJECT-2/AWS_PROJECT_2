@@ -22,6 +22,10 @@ export type { Address } from './address.js';
 export type { RewardOrder, RewardOrderStatus } from './reward-order.js';
 export type { ProjectDraft } from './project-draft.js';
 export type { Notification, NotificationType } from './notification.js';
+export type {
+  PointType, EarnReason, SpendReason, TransactionReason, PointTransaction,
+} from './point-transaction.js';
+export { EARN_AMOUNTS, SPEND_COSTS, REASON_LABEL } from './point-transaction.js';
 export type { Announcement, AnnouncementListItem } from './announcement.js';
 export type { ChatRoom, ChatMessage } from './chat.js';
 export type {

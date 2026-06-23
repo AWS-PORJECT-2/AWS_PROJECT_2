@@ -2,6 +2,7 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import type { Request, Response } from 'express';
 import type { ImageAiService } from '../services/ai/ai-interfaces.js';
+import type { PointService } from '../interfaces/point-service.js';
 import { createAiBlueprintHandler } from './ai-blueprint.js';
 import { createAiTryOnHandler } from './ai-try-on.js';
 import { getAiJob } from '../services/ai/ai-jobs.js';
@@ -37,11 +38,11 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return Math.floor(n);
 }
 
-export function createAiRouter(gemini: ImageAiService, timeoutMs: number): Router {
+export function createAiRouter(gemini: ImageAiService, timeoutMs: number, pointService: PointService): Router {
   const router = Router();
   const aiRateLimit = buildAiRateLimit();
-  router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs));
-  router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs));
+  router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs, pointService));
+  router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs, pointService));
   // 비동기 생성 작업 폴링 — 항상 200(상태는 body 의 status 로). 본인 작업만 조회 가능.
   router.get('/jobs/:jobId', (req: Request, res: Response) => {
     const userId = req.userId;

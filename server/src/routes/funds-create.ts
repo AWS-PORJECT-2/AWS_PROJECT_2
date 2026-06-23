@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
 import type { FollowRepository } from '../repositories/follow-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
+import type { PointService } from '../interfaces/point-service.js';
 import type { GroupBuy, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -109,6 +110,7 @@ export function createFundsCreateHandler(
   groupBuyRepository: GroupBuyRepository,
   notificationRepo?: NotificationRepository,
   followRepo?: FollowRepository,
+  pointService?: PointService,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
@@ -149,6 +151,16 @@ export function createFundsCreateHandler(
           } catch (err) {
             logger.warn({ err, userId, fundId: created.id }, '팔로워 새 프로젝트 알림 실패(무시)');
           }
+        }
+      }
+
+      // 첫 프로젝트 개설 1회성 포인트 적립(best-effort, 멱등) — 실패해도 개설 흐름/응답은 막지 않음.
+      //  earnOnce 가 멱등이므로 최초 펀드 개설에만 실제 지급된다.
+      if (pointService) {
+        try {
+          await pointService.earnOnce(userId, 'first_post');
+        } catch (err) {
+          logger.warn({ err, userId, fundId: created.id }, '첫 프로젝트 포인트 적립 실패(무시)');
         }
       }
 

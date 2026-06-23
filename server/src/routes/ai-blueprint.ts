@@ -1,9 +1,12 @@
+import { randomUUID } from 'node:crypto';
 import type { Request, Response } from 'express';
 import type { ImageAiService } from '../services/ai/ai-interfaces.js';
+import type { PointService } from '../interfaces/point-service.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
 import { startAiJob } from '../services/ai/ai-jobs.js';
 import { isValidCategory } from '../constants/categories.js';
+import { SPEND_COSTS } from '../types/index.js';
 
 const ALLOWED_MIME = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp']);
 const MAX_IMAGES = 5;
@@ -23,7 +26,7 @@ function parseDataUrl(dataUrl: string): { mimeType: string; base64: string } | n
  *
  * 옷 사진 1~5장 → 앞·뒤·옆 도면 1장. Gemini 호출 1회.
  */
-export function createAiBlueprintHandler(gemini: ImageAiService, timeoutMs: number) {
+export function createAiBlueprintHandler(gemini: ImageAiService, timeoutMs: number, pointService: PointService) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {
@@ -79,10 +82,29 @@ export function createAiBlueprintHandler(gemini: ImageAiService, timeoutMs: numb
     const faces = Array.isArray(body.faces)
       ? body.faces.slice(0, parsedList.length).map((f: unknown) => (typeof f === 'string' ? f : ''))
       : [];
+
+    // 포인트 차감 — AI 실행 전에 선결제. 잔액 부족이면 402 로 막고 AI 는 실행하지 않음.
+    const requestId = randomUUID();
+    const spend = await pointService.spend(userId, 'ai_blueprint', SPEND_COSTS.ai_blueprint, requestId);
+    if (!spend.ok) {
+      res.status(402).json(createErrorResponse(new AppError('INSUFFICIENT_POINTS')));
+      return;
+    }
+
     // 생성은 1분+ 걸릴 수 있어 비동기 작업으로 — jobId 즉시 반환, 프론트가 GET /ai/jobs/:id 폴링으로 회수.
     const jobId = startAiJob(userId, 'blueprint', async () => {
-      const result = await gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category, faces);
-      return { blueprintDataUrl: `data:${result.mimeType};base64,${result.base64}` };
+      try {
+        const result = await gemini.generateBlueprint(parsedList, { route: 'blueprint', userId }, category, faces);
+        return { blueprintDataUrl: `data:${result.mimeType};base64,${result.base64}` };
+      } catch (err) {
+        // AI 실패/타임아웃 → 차감한 포인트 환불(환불 실패가 원래 에러를 가리지 않도록 자체 try/catch).
+        try {
+          await pointService.refund(userId, 'ai_blueprint', SPEND_COSTS.ai_blueprint);
+        } catch {
+          // 환불 실패는 무시 — 원래 AI 에러를 그대로 전파한다.
+        }
+        throw err;
+      }
     });
     res.status(202).json({ jobId });
   };
