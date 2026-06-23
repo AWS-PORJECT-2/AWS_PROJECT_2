@@ -1,6 +1,8 @@
 import type { Request, Response } from 'express';
+import type { PointService } from '../interfaces/point-service.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
+import { logger } from '../logger.js';
 
 const TITLE_MAX = 80;
 const DESCRIPTION_MAX = 2000;
@@ -20,8 +22,12 @@ const TARGET_QTY_MAX = 500;
  *  - finalPrice 는 클라이언트 입력 무시하고 서버에서만 계산하도록 강제
  *
  * B 담당이 채울 부분은 // TODO 로 명시.
+ *
+ * pointService 는 선택적 의존성이다. 포인트 시스템이 결선된 환경(app.ts 와이어링)에서는
+ * 생애 첫 게시글(펀드) 작성 적립 훅("first_post" +50)을 위해 주입되고, 포인트 시스템이 없는
+ * 환경(일부 테스트/와이어링)에서는 생략 가능하다. (요구사항 2.1~2.4)
  */
-export function createFundsCreateHandler() {
+export function createFundsCreateHandler(pointService?: PointService) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
     if (!userId) {
@@ -64,7 +70,15 @@ export function createFundsCreateHandler() {
     //  4. fund 테이블에 INSERT (status='open', current_quantity=0)
     //  5. tryOnImages 가 있으면 별도 fund_image 테이블 또는 design 레코드에 첨부
     //  6. 알림 자동 생성: 본인에게 "펀드가 개설되었습니다"
-    //  7. 응답: { id }
+    //  7. 첫 게시글 적립 훅: 펀드(게시글) 생성이 확정된 직후, 성공 응답 직전에
+    //       await awardFirstPostPoints(pointService, userId);
+    //     을 호출한다. earnOnce 는 멱등하므로 매 게시글마다 호출돼도 1회만 +50 지급된다.
+    //     (요구사항 2.1~2.4)
+    //  8. 응답: res.json({ id });
+    //
+    // 주의: 위 1~6 의 생성 로직이 아직 결선되지 않았으므로(placeholder),
+    // 실제 생성 성공이 없는 현 시점에는 적립 훅도 실행되지 않는다(게시글 미생성 → 적립 없음).
+    // 생성 로직이 채워지면 7번 위치에서 awardFirstPostPoints 를 호출하면 된다.
 
     // 사용자에게는 친화 메시지만 노출하고, 내부 사유는 서버 로그로 남긴다.
     console.warn('[funds-create] placeholder hit', {
@@ -74,6 +88,31 @@ export function createFundsCreateHandler() {
       new AppError('FEATURE_UNAVAILABLE', '펀드 개설 기능은 곧 열립니다. 잠시만 기다려 주세요.'),
     ));
   };
+}
+
+/**
+ * 첫 게시글(펀드) 작성 적립 훅.
+ *
+ * 펀드(게시글) 생성이 성공적으로 확정된 직후 호출한다. earnOnce 는 멱등하므로
+ * 두 번째 게시글부터는 추가 적립 없이 기존 잔액을 유지한다(요구사항 2.3).
+ *
+ * 적립 실패가 게시글 생성 자체를 실패시키거나 응답을 지연/중단시키지 않도록
+ * try/catch 로 감싸 에러를 로깅 후 삼킨다(swallow). 멱등하므로 이후 트리거에서 안전하게 재시도된다.
+ * pointService 가 주입되지 않은 환경에서는 아무 일도 하지 않는다.
+ */
+export async function awardFirstPostPoints(
+  pointService: PointService | undefined,
+  userId: string,
+): Promise<void> {
+  if (!pointService) return;
+  try {
+    await pointService.earnOnce(userId, 'first_post');
+  } catch (err) {
+    logger.error(
+      { err, userId },
+      '첫 게시글 포인트 적립 실패 - 게시글 생성은 정상 처리됨 (멱등하므로 재시도 가능)',
+    );
+  }
 }
 
 function stringField(v: unknown, fallback?: string): string {

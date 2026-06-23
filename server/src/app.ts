@@ -58,6 +58,14 @@ import { createAddressService } from './services/address-service-impl.js';
 import { createPaymentMethodsHandlers } from './routes/payment-methods-routes.js';
 import { createAddressesHandlers } from './routes/addresses-routes.js';
 
+// Point system imports
+import { PgPointTransactionRepository } from './repositories/pg-point-transaction-repository.js';
+import { PgUserProfileRepository } from './repositories/pg-user-profile-repository.js';
+import { PgNotificationPort } from './repositories/index.js';
+import { PointServiceImpl } from './services/point-service.js';
+import { createMePointsHandler } from './routes/me-points.js';
+import { createMePointsTransactionsHandler } from './routes/me-points-transactions.js';
+
 const defaultAllowedDomains: AllowedDomain[] = [
   { id: '550e8400-e29b-41d4-a716-446655440001', domain: 'kookmin.ac.kr', schoolName: '국민대학교', isActive: true },
 ];
@@ -143,9 +151,22 @@ export function createApp(
   const oauthStateRepository = new PgOAuthStateRepository(pool);
   const refreshTokenRepository = new PgRefreshTokenRepository(pool);
 
+  // --- Point System ---
+  // 적립 훅(회원가입/첫 게시글)·소모(AI)·조회 라우트가 공유하는 단일 PointService 인스턴스.
+  const pointTransactionRepository = new PgPointTransactionRepository(pool);
+  const userProfileRepository = new PgUserProfileRepository(pool);
+  const notificationPort = new PgNotificationPort(pool);
+  const pointService = new PointServiceImpl({
+    pool,
+    pointTransactionRepository,
+    userProfileRepository,
+    notificationPort,
+  });
+
   const authService = new AuthServiceImpl({
     emailValidator, oauthClient, tokenService,
     userRepository, oauthStateRepository, refreshTokenRepository,
+    pointService,
   });
 
   app.use('/api/auth/login', authRateLimit);
@@ -158,14 +179,18 @@ export function createApp(
   // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
   const gemini = GeminiImageService.fromEnv();
   if (gemini) {
-    app.use('/api/ai', authRequired, createAiRouter(gemini, AI_TIMEOUT_MS));
+    app.use('/api/ai', authRequired, createAiRouter(gemini, AI_TIMEOUT_MS, pointService));
   }
 
   // 펀드 개설 (placeholder — 담당 B(B-5) 가 fund Repository 연결 후 활성화)
-  app.post('/api/funds', authRequired, createFundsCreateHandler());
+  app.post('/api/funds', authRequired, createFundsCreateHandler(pointService));
 
   // 상품 URL → 대표 이미지 추출 placeholder
   app.post('/api/garments/fetch-from-url', authRequired, createGarmentsFetchUrlHandler());
+
+  // --- Point System 조회 라우트 (인증 필요) ---
+  app.get('/api/me/points', authRequired, createMePointsHandler(pointService));
+  app.get('/api/me/points/transactions', authRequired, createMePointsTransactionsHandler(pointService));
 
   // --- Payment System ---
   const groupBuyRepository = new PgGroupBuyRepository(pool);

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import type { GeminiImageService } from '../services/ai/gemini-image-service.js';
+import type { PointService } from '../interfaces/point-service.js';
 import { createAiBlueprintHandler } from './ai-blueprint.js';
 import { createAiTryOnHandler } from './ai-try-on.js';
 import { createAiGarmentsExtractHandler } from './ai-garments-extract.js';
@@ -37,11 +38,15 @@ function parsePositiveInt(raw: string | undefined, fallback: number): number {
   return Math.floor(n);
 }
 
-export function createAiRouter(gemini: GeminiImageService, timeoutMs: number): Router {
+export function createAiRouter(
+  gemini: GeminiImageService,
+  timeoutMs: number,
+  pointService: PointService,
+): Router {
   const router = Router();
   const aiRateLimit = buildAiRateLimit();
-  router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs));
-  router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs));
+  router.post('/blueprint', aiRateLimit, createAiBlueprintHandler(gemini, timeoutMs, pointService));
+  router.post('/try-on', aiRateLimit, createAiTryOnHandler(gemini, timeoutMs, pointService));
   router.post('/garments/extract', createAiGarmentsExtractHandler());
   return router;
 }

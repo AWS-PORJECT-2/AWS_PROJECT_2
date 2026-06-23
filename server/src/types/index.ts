@@ -14,3 +14,7 @@ export type {
 } from './payment.js';
 export type { PaymentMethod } from './payment-method.js';
 export type { Address } from './address.js';
+export type {
+  PointType, EarnReason, SpendReason, TransactionReason, PointTransaction,
+} from './point-transaction.js';
+export { EARN_AMOUNTS, SPEND_COSTS, REASON_LABEL } from './point-transaction.js';

@@ -6,6 +6,7 @@ import type { TokenService } from '../interfaces/token-service.js';
 import type { UserRepository } from '../repositories/user-repository.js';
 import type { OAuthStateRepository } from '../repositories/oauth-state-repository.js';
 import type { RefreshTokenRepository } from '../repositories/refresh-token-repository.js';
+import type { PointService } from '../interfaces/point-service.js';
 import type { AuthResult, User } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { TokenServiceImpl } from './token-service.js';
@@ -20,6 +21,8 @@ export interface AuthServiceDeps {
   userRepository: UserRepository;
   oauthStateRepository: OAuthStateRepository;
   refreshTokenRepository: RefreshTokenRepository;
+  // 포인트 시스템이 없는 환경(예: 일부 테스트/와이어링)에서는 생략 가능하도록 선택적 의존성으로 둔다.
+  pointService?: PointService;
 }
 
 export class AuthServiceImpl implements AuthService {
@@ -29,6 +32,7 @@ export class AuthServiceImpl implements AuthService {
   private readonly userRepo: UserRepository;
   private readonly oauthStateRepo: OAuthStateRepository;
   private readonly refreshTokenRepo: RefreshTokenRepository;
+  private readonly pointService?: PointService;
 
   constructor(deps: AuthServiceDeps) {
     this.emailValidator = deps.emailValidator;
@@ -37,6 +41,7 @@ export class AuthServiceImpl implements AuthService {
     this.userRepo = deps.userRepository;
     this.oauthStateRepo = deps.oauthStateRepository;
     this.refreshTokenRepo = deps.refreshTokenRepository;
+    this.pointService = deps.pointService;
   }
 
   async initiateLogin(rememberMe: boolean): Promise<{ authUrl: string; state: string }> {
@@ -125,6 +130,18 @@ export class AuthServiceImpl implements AuthService {
     const domain = email.split('@')[1] ?? '';
     const now = new Date();
     const user: User = { id: randomUUID(), email: email.toLowerCase(), name, schoolDomain: domain.toLowerCase(), picture, createdAt: now, lastLoginAt: now };
-    return this.userRepo.create(user);
+    const createdUser = await this.userRepo.create(user);
+
+    // 신규 사용자 최초 생성 직후 회원가입 적립 훅 (요구사항 1.1~1.4).
+    // 적립 실패가 회원가입 자체를 실패시키지 않도록 swallow 한다. earnOnce 는 멱등하므로 이후 재시도해도 안전하다.
+    if (this.pointService) {
+      try {
+        await this.pointService.earnOnce(createdUser.id, 'signup');
+      } catch (err) {
+        logger.error({ err, userId: createdUser.id }, '회원가입 포인트 적립 실패 - 회원가입은 정상 처리됨 (멱등하므로 재시도 가능)');
+      }
+    }
+
+    return createdUser;
   }
 }

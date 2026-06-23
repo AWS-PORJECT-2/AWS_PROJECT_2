@@ -27,3 +27,16 @@ export { PgPaymentMethodRepository } from './pg-payment-method-repository.js';
 // Address repositories
 export type { AddressRepository } from './address-repository.js';
 export { PgAddressRepository } from './pg-address-repository.js';
+
+// Point system repositories
+export type { UserProfileRepository } from './user-profile-repository.js';
+export {
+  InMemoryUserProfileRepository,
+  InMemoryTransactionClient,
+  withInMemoryTransaction,
+} from './user-profile-repository.js';
+
+// Point system: notification port
+export type { NotificationPort, PointNotificationInput } from './notification-port.js';
+export { InMemoryNotificationPort } from './notification-port.js';
+export { PgNotificationPort } from './pg-notification-port.js';
