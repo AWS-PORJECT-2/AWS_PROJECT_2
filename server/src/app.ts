@@ -64,7 +64,6 @@ import { createFollowStatusHandler } from './routes/follows.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { uuidParamGuard } from './middleware/uuid-param.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
-import { createTestLoginRouter } from './routes/test-login.js';
 import { OpenAiImageService } from './services/ai/openai-image-service.js';
 import { OpenAiTextService } from './services/ai/openai-text-service.js';
 import { createAiStoryDraftHandler } from './routes/ai-story-draft.js';
@@ -306,8 +305,6 @@ export function createApp(
 
   app.use('/api/auth/login', loginRateLimit);
   app.use('/api/auth/refresh', refreshRateLimit);
-  // 심사·시연용 테스트 로그인 — TEST_LOGIN_CODE 미설정 시 404(fail-closed). /api/auth 라우터보다 먼저 마운트.
-  app.use('/api/auth/test-login', loginRateLimit, createTestLoginRouter(userRepository, refreshTokenRepository, tokenService));
   app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
   const authRequired = createAuthRequired(tokenService, userRepository);
