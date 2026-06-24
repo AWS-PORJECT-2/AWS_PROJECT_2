@@ -106,7 +106,6 @@
     { id: 'ordercancels', label: '펀딩 취소', icon: 'cancel', render: renderOrderCancels },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
-    { id: 'coupons',   label: '쿠폰 발급', icon: 'deposit', render: renderCoupons },
     { id: 'library',   label: '디자인·패치', icon: 'lib',   render: renderLibrary },
     { id: 'reports',   label: '신고',      icon: 'flag',    render: renderReports },
     { id: 'chat',      label: '문의 채팅', icon: 'chat',    render: renderChat },
@@ -1086,6 +1085,7 @@
       if (st !== 'WITHDRAWN') abtn('회원 탈퇴', 'wza-btn--danger', actWithdraw);
       if (st === 'WITHDRAWN') abtn('탈퇴 복구', 'wza-btn--primary', actRestore);
       abtn('이름·닉네임 변경', null, actRename);
+      abtn('쿠폰 발급', 'wza-btn--primary', actCoupon);
       abtn('알림 보내기', null, actNotify);
       abtn('경고', null, actWarn);
       abtn('메모', null, actNote);
@@ -1118,6 +1118,33 @@
       function actRestore() { confirmModal({ title: '탈퇴 복구', desc: '탈퇴 처리를 취소하고 계정을 복구하시겠습니까?', okLabel: '복구', okClass: 'wza-modal__btn--primary', onOk: function () { return window.api.post(P + '/restore', {}).then(done); } }); }
       function actRename() { formModal({ title: '이름·닉네임 변경', desc: '변경 시 사용자에게 알림이 전송됩니다.', fields: [{ key: 'name', label: '이름', value: user.name || '' }, { key: 'nickname', label: '닉네임', value: user.nickname || '' }], okLabel: '변경', okClass: 'wza-modal__btn--primary', onOk: function (v) { return window.api.patch(P + '/name', { name: v.name, nickname: v.nickname }).then(done); } }); }
       function actNotify() { formModal({ title: '알림 보내기', desc: '대상 사용자에게 직접 알림을 전송합니다.', fields: [{ key: 'title', label: '제목' }, { key: 'body', label: '내용', type: 'textarea' }], okLabel: '전송', okClass: 'wza-modal__btn--primary', onOk: function (v) { return window.api.post(P + '/notify', { title: v.title, body: v.body }).then(done); } }); }
+      function actCoupon() {
+        formModal({
+          title: '쿠폰 발급',
+          desc: '“' + (user.name || user.email) + '”에게 수수료 할인 쿠폰을 발급합니다. 쿠폰함에 적립되고 알림이 전송됩니다.',
+          fields: [
+            { key: 'discountType', label: '할인 유형', type: 'select', value: 'rate_off', options: [{ value: 'rate_off', label: '수수료 %p 할인' }, { value: 'waive', label: '수수료 전액 면제' }] },
+            { key: 'discountValue', label: '할인 %p (전액 면제 선택 시 무시)', type: 'number', value: '5' },
+            { key: 'expiresInDays', label: '유효기간(일, 비우면 무기한)', type: 'number' },
+            { key: 'note', label: '메모(선택)' },
+          ],
+          okLabel: '발급', okClass: 'wza-modal__btn--primary',
+          onOk: function (v) {
+            var payload = { userId: uid, discountType: v.discountType === 'waive' ? 'waive' : 'rate_off', note: v.note };
+            if (payload.discountType === 'rate_off') {
+              var n = Number(v.discountValue);
+              if (!(n >= 1 && n <= 100)) throw new Error('할인 %p는 1~100 사이로 입력해 주세요');
+              payload.discountValue = n;
+            }
+            if (v.expiresInDays && Number(v.expiresInDays) > 0) payload.expiresInDays = Number(v.expiresInDays);
+            return window.api.post('/admin/coupons', payload).then(function (r) {
+              var c = r && r.coupon;
+              alertModal('발급 완료', c ? (c.label + '\n코드: ' + c.code + '\n대상에게 알림이 전송되었습니다.') : '발급되었습니다.');
+              done();
+            });
+          },
+        });
+      }
       function actWarn() { reasonModal({ title: '경고', desc: '경고 알림을 보내고 이력에 남깁니다(이용 제한 없음).', placeholder: '경고 사유', okLabel: '경고', okClass: 'wza-modal__btn--primary', onOk: function (reason) { if (!reason) throw new Error('경고 사유를 입력해 주세요'); return window.api.post(P + '/warn', { reason: reason }).then(done); } }); }
       function actNote() { reasonModal({ title: '관리자 메모', desc: '대상에게 보이지 않는 내부 메모입니다(이력에만 기록).', placeholder: '메모', okLabel: '저장', okClass: 'wza-modal__btn--primary', onOk: function (note) { if (!note) throw new Error('메모를 입력해 주세요'); return window.api.post(P + '/note', { note: note }).then(done); } }); }
       function actForceLogout() { confirmModal({ title: '강제 로그아웃', desc: '모든 기기에서 로그아웃시킵니다(세션 폐기).', okLabel: '로그아웃', okClass: 'wza-modal__btn--primary', onOk: function () { return window.api.post(P + '/force-logout', {}).then(done); } }); }
@@ -1462,71 +1489,6 @@
    * 8) 로그·오류
    * ============================================================ */
   // 디자인하기 라이브러리 관리 — 무료 디자인 / 자수 패치 추가·삭제.
-  /* 쿠폰 발급 — 특정 사용자에게 수수료 할인 쿠폰을 지급. 발급 시 쿠폰함 적립 + 알림. */
-  function renderCoupons(panel) {
-    panel.appendChild(panelHead('쿠폰 발급', '특정 사용자에게 수수료 할인 쿠폰을 지급합니다. 발급하면 사용자 쿠폰함에 적립되고 알림이 전송됩니다. 사용자는 프로젝트(직접 개설) 작성 시 코드를 입력해 정산 수수료를 할인받습니다.'));
-
-    var form = el('div', { class: 'wza-libform', style: 'flex-wrap:wrap;gap:10px;align-items:flex-end' });
-    var emailIn = el('input', { class: 'wza-input', type: 'text', placeholder: '대상 사용자 이메일 (@kookmin.ac.kr)', style: 'min-width:240px;flex:1' });
-    var typeSel = el('select', { class: 'wza-input', style: 'min-width:150px' });
-    typeSel.appendChild(el('option', { value: 'rate_off' }, '수수료 %p 할인'));
-    typeSel.appendChild(el('option', { value: 'waive' }, '수수료 전액 면제'));
-    var valIn = el('input', { class: 'wza-input', type: 'number', min: '1', max: '100', value: '5', placeholder: '할인 %p', style: 'width:110px' });
-    var daysIn = el('input', { class: 'wza-input', type: 'number', min: '1', placeholder: '유효기간(일, 선택)', style: 'width:150px' });
-    var noteIn = el('input', { class: 'wza-input', type: 'text', placeholder: '메모(선택)', style: 'min-width:180px;flex:1' });
-    var issueBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '발급');
-
-    typeSel.addEventListener('change', function () { valIn.style.display = typeSel.value === 'waive' ? 'none' : ''; });
-
-    issueBtn.addEventListener('click', function () {
-      var email = emailIn.value.trim();
-      if (!email) { alertModal('알림', '대상 사용자 이메일을 입력해 주세요'); return; }
-      var payload = { email: email, discountType: typeSel.value, note: noteIn.value.trim() };
-      if (typeSel.value === 'rate_off') {
-        var v = Number(valIn.value);
-        if (!(v >= 1 && v <= 100)) { alertModal('알림', '할인 %p 는 1~100 사이로 입력해 주세요'); return; }
-        payload.discountValue = v;
-      }
-      if (daysIn.value && Number(daysIn.value) > 0) payload.expiresInDays = Number(daysIn.value);
-      issueBtn.disabled = true;
-      window.api.post('/admin/coupons', payload)
-        .then(function (r) {
-          var c = r && r.coupon;
-          alertModal('발급 완료', c ? (c.label + '\n코드: ' + c.code + '\n대상에게 알림이 전송되었습니다.') : '발급되었습니다.');
-          emailIn.value = ''; noteIn.value = ''; daysIn.value = '';
-          load();
-        })
-        .catch(function (e) { alertModal('발급 실패', (e && e.message) || '오류가 발생했습니다'); })
-        .finally(function () { issueBtn.disabled = false; });
-    });
-    form.append(emailIn, typeSel, valIn, daysIn, noteIn, issueBtn);
-    panel.appendChild(form);
-
-    var slot = el('div', { style: 'margin-top:18px' }); panel.appendChild(slot);
-    function load() {
-      slot.replaceChildren(el('p', { class: 'wza-muted' }, '불러오는 중…'));
-      window.api.get('/admin/coupons').then(function (r) {
-        var list = (r && r.coupons) || [];
-        slot.replaceChildren();
-        if (!list.length) { slot.appendChild(el('p', { class: 'wza-muted' }, '발급된 쿠폰이 없습니다.')); return; }
-        var tbl = el('table', { class: 'wza-table' });
-        var thead = el('tr', {});
-        ['쿠폰', '코드', '상태', '발급일'].forEach(function (h) { thead.appendChild(el('th', {}, h)); });
-        tbl.appendChild(thead);
-        list.forEach(function (c) {
-          var tr = el('tr', {});
-          tr.appendChild(el('td', {}, c.label || '-'));
-          tr.appendChild(el('td', { style: 'font-family:monospace' }, c.code));
-          tr.appendChild(el('td', {}, c.status === 'used' ? '사용됨' : '미사용'));
-          tr.appendChild(el('td', {}, c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR') : '-'));
-          tbl.appendChild(tr);
-        });
-        slot.appendChild(tbl);
-      }).catch(function () { slot.replaceChildren(el('p', { class: 'wza-muted' }, '목록을 불러오지 못했습니다.')); });
-    }
-    load();
-  }
-
   function renderLibrary(panel) {
     panel.appendChild(panelHead('디자인 · 패치 관리', '디자인하기 에디터의 "무료 디자인"·"자수 패치"를 추가/삭제합니다. 배경 투명 PNG 권장(5MB 미만).'));
     var state = { kind: 'free' };
@@ -1733,6 +1695,7 @@
       modal.appendChild(el('label', { class: 'wza-flabel' }, f.label));
       var inp;
       if (f.type === 'textarea') inp = el('textarea', { placeholder: f.placeholder || '', maxlength: String(f.maxlength || 1000) });
+      else if (f.type === 'select') { inp = el('select', { class: 'wza-finput' }); (f.options || []).forEach(function (o) { inp.appendChild(el('option', { value: o.value }, o.label)); }); }
       else inp = el('input', { class: 'wza-finput', type: f.type === 'number' ? 'number' : 'text', placeholder: f.placeholder || '', maxlength: String(f.maxlength || 100) });
       if (f.value != null) inp.value = f.value;
       inputs[f.key] = inp;
