@@ -22,6 +22,9 @@ import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler, createAdminFundHideHandler, createAdminFundShowHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
+import { createAdminCouponIssueHandler, createAdminCouponListHandler } from './routes/admin-coupons.js';
+import { createMeCouponsHandler } from './routes/me-coupons.js';
+import { PgCouponRepository } from './repositories/pg-coupon-repository.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminLogAckHandler, createAdminLogAckAllHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
 import { PgReportRepository } from './repositories/pg-report-repository.js';
 import { createReportCreateHandler, createAdminReportsListHandler, createAdminReportResolveHandler } from './routes/reports-routes.js';
@@ -308,6 +311,8 @@ export function createApp(
   app.use('/api/auth', createAuthRouter(authService, tokenService, userRepository));
 
   const authRequired = createAuthRequired(tokenService, userRepository);
+  // requireAdmin 을 일찍 구성 — 디자인하기/AI 라우트(아래)를 관리자 전용으로 게이팅하기 위해 앞으로 끌어올림.
+  const requireAdmin = createRequireAdmin(userRepository);
 
   // 커뮤니티 게시판 — 목록/상세/댓글 목록은 공개, 작성/삭제는 로그인(삭제는 본인 또는 관리자).
   app.use('/api/board', createBoardRouter(boardRepository, authRequired, userRepository, writeRateLimit));
@@ -332,18 +337,21 @@ export function createApp(
   // 키가 없으면 /api/ai/* 는 그냥 404. 실수로 빈 키 환경에서 호출되는 사고 차단.
   const gemini = OpenAiImageService.fromEnv();
   if (gemini) {
-    app.use('/api/ai', authRequired, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
+    // ⚠️ 디자인하기(가상피팅/도면) AI 는 관리자 전용 — 자체 AI 과금 보호. requireAdmin 으로 완전 차단.
+    //    (스토리 초안 /api/ai/story-draft 는 위에서 별도 마운트되어 일반 사용자도 사용 가능 — 영향 없음.)
+    app.use('/api/ai', authRequired, requireAdmin, aiRateLimit, createAiRouter(gemini, AI_TIMEOUT_MS));
   }
 
   // --- 공동구매(=펀드) 저장소 ---
   const groupBuyRepository = new PgGroupBuyRepository(pool);
   // 팔로우/댓글 저장소 — 펀드 개설 알림(팔로워 대상)에서도 쓰므로 먼저 구성.
   const followRepository = new PgFollowRepository(pool);
+  const couponRepository = new PgCouponRepository(pool);
   const commentRepository = new PgCommentRepository(pool);
 
   // 펀드 개설 → groupbuys INSERT → 피드(GET /api/groupbuys) 노출
   //   + 알림(best-effort): 작성자 본인(fund_submitted) / 작성자 팔로워(creator_new_fund)
-  app.post('/api/funds', authRequired, consentRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository));
+  app.post('/api/funds', authRequired, consentRequired, writeRateLimit, createFundsCreateHandler(groupBuyRepository, notificationRepository, followRepository, couponRepository));
 
   // --- Payment System ---
   const participationRepository = new PgParticipationRepository(pool);
@@ -395,7 +403,7 @@ export function createApp(
   // --- Announcements & Chat ---
   const announcementRepository = new PgAnnouncementRepository(pool);
   const chatRepository = new PgChatRepository(pool);
-  const requireAdmin = createRequireAdmin(userRepository);
+  // (requireAdmin 은 위 authRequired 직후에서 이미 구성됨 — 디자인/AI 게이팅용)
 
   app.use('/api/announcements', createAnnouncementsRouter(announcementRepository, authRequired, requireAdmin));
   app.use('/api/chat', createChatRouter(chatRepository, authRequired, requireAdmin, notificationRepository, writeRateLimit));
@@ -435,6 +443,8 @@ export function createApp(
   app.post('/api/me/orders/:id/cancel-request', authRequired, writeRateLimit, createOrderCancelRequestHandler(rewardOrderRepository, groupBuyRepository, notificationRepository));
   // 내가 찜한 펀드 id 목록 — 기기간 유지(서버 저장).
   app.get('/api/me/likes', authRequired, createMyLikesHandler(groupBuyRepository));
+  // 내 쿠폰함
+  app.get('/api/me/coupons', authRequired, createMeCouponsHandler(couponRepository));
 
   // --- 서버 기반 알림(024_notifications) — 본인 알림 조회/읽음 처리 ---
   app.get('/api/me/notifications', authRequired, createMyNotificationsHandler(notificationRepository));
@@ -450,8 +460,8 @@ export function createApp(
   app.put('/api/me/drafts/:id', authRequired, writeRateLimit, createMeDraftUpdateHandler(projectDraftRepository));
   app.delete('/api/me/drafts/:id', authRequired, createMeDraftDeleteHandler(projectDraftRepository));
 
-  // 디자인하기 에디터 저장소(본인 디자인 CRUD) — 프로필에서 이어서/불러오기/다운로드.
-  app.use('/api/me/designs', createDesignsRouter(pool, authRequired, writeRateLimit));
+  // 디자인하기 에디터 저장소(본인 디자인 CRUD) — ⚠️ 관리자 전용(디자인하기 기능 비공개화, 자체 AI 과금 보호).
+  app.use('/api/me/designs', authRequired, requireAdmin, createDesignsRouter(pool, authRequired, writeRateLimit));
 
   // 디자인하기 라이브러리(무료 디자인 + 자수 패치) — 공개 목록 + 관리자 추가/삭제.
   app.get('/api/library', createLibraryListHandler(pool));
@@ -473,6 +483,9 @@ export function createApp(
   // --- 사용자 관리 (항목 10) ---
   // 관리자 사용자 관리(목록/상세/정지·차단·해제/탈퇴·복구/이름변경/알림·경고/메모/강제로그아웃/권한).
   app.use('/api/admin/users', authRequired, requireAdmin, createAdminUsersRouter(userRepository, refreshTokenRepository, notificationRepository, pool));
+  // 관리자 수수료 할인 쿠폰 발급/조회
+  app.post('/api/admin/coupons', authRequired, requireAdmin, createAdminCouponIssueHandler(couponRepository, userRepository, notificationRepository));
+  app.get('/api/admin/coupons', authRequired, requireAdmin, createAdminCouponListHandler(couponRepository));
 
   // --- 관리자 통계 + 로그/오류 (콘솔 진입 가드 포함) ---
   app.get('/api/admin/me', authRequired, requireAdmin, createAdminMeHandler(userRepository));

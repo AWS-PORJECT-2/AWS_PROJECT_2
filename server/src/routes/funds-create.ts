@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository } from '../repositories/groupbuy-repository.js';
 import type { FollowRepository } from '../repositories/follow-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
+import type { CouponRepository } from '../repositories/coupon-repository.js';
 import type { GroupBuy, ContentBlock, RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -44,6 +45,13 @@ const PLAN_FEE_RATE: Record<string, number> = {
 function resolvePlan(v: unknown): 'start' | 'run' | 'boost' {
   return v === 'run' || v === 'boost' ? v : 'start';
 }
+
+// ─── 기본 정책(면책 고지) — 작성자가 정책을 입력하지 않으면 서버가 자동 첨부 ───
+//  (정책 작성 단계 제거에 따라, 통신판매중개자 면책 고지를 기본값으로 강제.)
+const DEFAULT_LEGAL_NOTICE =
+  '두띵은 통신판매중개자로서 거래 당사자가 아니며, 본 프로젝트의 상품 정보·제작·배송 및 환불에 대한 책임은 프로젝트 창작자에게 있습니다. 두띵은 창작자와 후원자 간 거래에 대하여 어떠한 책임도 지지 않습니다.';
+const DEFAULT_REFUND_POLICY =
+  '목표 금액 미달 시 후원은 결제되지 않습니다. 목표 달성 후에는 제작 특성상 단순 변심에 의한 환불이 제한될 수 있으며, 환불·교환 및 관련 분쟁은 관계 법령에 따라 창작자와 후원자 간 협의로 처리됩니다.';
 
 // 창작자 정보(creatorInfo) 검증 상한
 const CREATOR_NAME_MAX = 20;
@@ -109,6 +117,7 @@ export function createFundsCreateHandler(
   groupBuyRepository: GroupBuyRepository,
   notificationRepo?: NotificationRepository,
   followRepo?: FollowRepository,
+  couponRepo?: CouponRepository,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
     const userId = req.userId;
@@ -123,8 +132,32 @@ export function createFundsCreateHandler(
         : buildNormal(userId, body, res, req.userName);
       if (!groupbuy) return; // 에러 응답은 build* 에서 이미 보냄
 
+      // ── 수수료 할인 쿠폰(직접 개설만) — 검증 후 feeRate/platformFee 재계산 ──
+      //   feeRate 는 percent 로 저장(예: 5). waive=0%, rate_off=max(0, 현재-차감%p).
+      const couponCode = mode === 'normal' && typeof body.couponCode === 'string' ? body.couponCode.trim() : '';
+      let couponApplied: { label: string; feeRate: number } | null = null;
+      if (couponCode && couponRepo) {
+        const coupon = await couponRepo.findByCode(couponCode);
+        const expired = coupon?.expiresAt ? coupon.expiresAt.getTime() <= Date.now() : false;
+        if (!coupon || coupon.ownerUserId !== userId || coupon.status !== 'unused' || expired) {
+          res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '사용할 수 없는 쿠폰이에요. 코드·소유·사용 여부·유효기간을 확인해 주세요.')));
+          return;
+        }
+        const curPercent = groupbuy.feeRate ?? 0; // 이미 percent
+        const newPercent = coupon.discountType === 'waive' ? 0 : Math.max(0, curPercent - coupon.discountValue);
+        groupbuy.feeRate = newPercent;
+        groupbuy.platformFee = Math.round(groupbuy.finalPrice * (newPercent / 100));
+        couponApplied = { label: coupon.label, feeRate: newPercent };
+      }
+
       const created = await groupBuyRepository.create(groupbuy);
-      logger.info({ id: created.id, userId, mode }, '공구 개설 완료');
+      logger.info({ id: created.id, userId, mode, coupon: couponCode || undefined }, '공구 개설 완료');
+
+      // 쿠폰 사용 처리(원자적) — create 성공 후. 실패(경합)해도 생성은 유지.
+      if (couponApplied && couponCode && couponRepo) {
+        const used = await couponRepo.markUsed(couponCode, userId, created.id);
+        if (!used) logger.warn({ userId, couponCode, fundId: created.id }, '쿠폰 사용 처리 실패(경합 가능) — 할인은 적용됨');
+      }
 
       // 알림(best-effort) — 응답 전에 보내되 실패는 흡수(notify/notifyMany 가 throw 안 함).
       if (notificationRepo) {
@@ -152,7 +185,7 @@ export function createFundsCreateHandler(
         }
       }
 
-      res.status(201).json({ id: created.id });
+      res.status(201).json(couponApplied ? { id: created.id, couponApplied } : { id: created.id });
     } catch (err) {
       logger.error({ err, userId, mode }, '공구 개설 INSERT 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
@@ -180,8 +213,9 @@ function buildNormal(userId: string, body: Record<string, unknown>, res: Respons
   const videoUrl = videoField(body.videoUrl); // 대표 영상(선택)
   const creatorInfo = creatorInfoField(body.creatorInfo, creatorName); // 창작자 정보 — 이름은 작성자 계정 이름으로 강제
   // 정책: 스토리(contentBlocks)에 합치지 않고 별도 컬럼에 저장(023). 빈 값 허용(과거 데이터 호환).
-  const refundPolicy = policyField(body.refundPolicy); // 교환·반품 정책(선택)
-  const legalNotice = policyField(body.legalNotice);   // 정보고시/법적 고지(선택)
+  // 정책 단계 제거 — 작성자가 안 보내면 기본 면책 고지를 자동 첨부(서버 권위).
+  const refundPolicy = policyField(body.refundPolicy) ?? DEFAULT_REFUND_POLICY;
+  const legalNotice = policyField(body.legalNotice) ?? DEFAULT_LEGAL_NOTICE;
   // 공개예정 일시(plan 이 run|boost 이고 미래일 때만) — 값은 저장하되, 공개예정 전환은 '관리자 승인 후'에만 일어난다.
   //  (신규 펀드는 무조건 pending 으로 들어가 심사를 거치고, 승인 시 openAt 이 미래면 scheduled, 아니면 open 으로 전환.)
   const openAt = (plan === 'run' || plan === 'boost') ? futureDateField(body.openAt) : null;

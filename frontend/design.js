@@ -1492,6 +1492,17 @@
 
     root = document.getElementById('design-root');
 
+    // ⚠️ 디자인하기는 현재 관리자 전용. 일반 사용자는 에디터 진입 차단(저장·AI 라우트도 서버에서 403).
+    var isAdmin = String((me && me.role) || '').toUpperCase() === 'ADMIN';
+    if (!isAdmin) {
+      root.replaceChildren(el('div', { class: 'dz-wrap' },
+        el('div', { class: 'dz-describe', style: 'text-align:center' },
+          el('div', { class: 'dz-describe__t' }, '준비 중인 기능입니다'),
+          el('div', { class: 'dz-describe__s' }, '디자인하기는 현재 내부 준비 중으로 일반 공개되지 않았어요. 곧 더 나은 모습으로 찾아뵐게요.'),
+          btn('홈으로', 'primary', function () { location.href = '/'; }, 'dz-describe__go'))));
+      return;
+    }
+
     var loadId = qs('id');
     if (loadId) { // 프로필에서 이어서 편집 — 로딩 표시 후, loadDesign 성공 시 전체 렌더(중간 셸 깜빡임 방지)
       S.slug = 'tshirt'; // loadDesign 폴백용 안전 기본값(d.category 가 유효하면 덮어씀)

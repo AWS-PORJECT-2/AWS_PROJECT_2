@@ -106,6 +106,7 @@
     { id: 'ordercancels', label: '펀딩 취소', icon: 'cancel', render: renderOrderCancels },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
+    { id: 'coupons',   label: '쿠폰 발급', icon: 'deposit', render: renderCoupons },
     { id: 'library',   label: '디자인·패치', icon: 'lib',   render: renderLibrary },
     { id: 'reports',   label: '신고',      icon: 'flag',    render: renderReports },
     { id: 'chat',      label: '문의 채팅', icon: 'chat',    render: renderChat },
@@ -1461,6 +1462,71 @@
    * 8) 로그·오류
    * ============================================================ */
   // 디자인하기 라이브러리 관리 — 무료 디자인 / 자수 패치 추가·삭제.
+  /* 쿠폰 발급 — 특정 사용자에게 수수료 할인 쿠폰을 지급. 발급 시 쿠폰함 적립 + 알림. */
+  function renderCoupons(panel) {
+    panel.appendChild(panelHead('쿠폰 발급', '특정 사용자에게 수수료 할인 쿠폰을 지급합니다. 발급하면 사용자 쿠폰함에 적립되고 알림이 전송됩니다. 사용자는 프로젝트(직접 개설) 작성 시 코드를 입력해 정산 수수료를 할인받습니다.'));
+
+    var form = el('div', { class: 'wza-libform', style: 'flex-wrap:wrap;gap:10px;align-items:flex-end' });
+    var emailIn = el('input', { class: 'wza-input', type: 'text', placeholder: '대상 사용자 이메일 (@kookmin.ac.kr)', style: 'min-width:240px;flex:1' });
+    var typeSel = el('select', { class: 'wza-input', style: 'min-width:150px' });
+    typeSel.appendChild(el('option', { value: 'rate_off' }, '수수료 %p 할인'));
+    typeSel.appendChild(el('option', { value: 'waive' }, '수수료 전액 면제'));
+    var valIn = el('input', { class: 'wza-input', type: 'number', min: '1', max: '100', value: '5', placeholder: '할인 %p', style: 'width:110px' });
+    var daysIn = el('input', { class: 'wza-input', type: 'number', min: '1', placeholder: '유효기간(일, 선택)', style: 'width:150px' });
+    var noteIn = el('input', { class: 'wza-input', type: 'text', placeholder: '메모(선택)', style: 'min-width:180px;flex:1' });
+    var issueBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '발급');
+
+    typeSel.addEventListener('change', function () { valIn.style.display = typeSel.value === 'waive' ? 'none' : ''; });
+
+    issueBtn.addEventListener('click', function () {
+      var email = emailIn.value.trim();
+      if (!email) { alertModal('알림', '대상 사용자 이메일을 입력해 주세요'); return; }
+      var payload = { email: email, discountType: typeSel.value, note: noteIn.value.trim() };
+      if (typeSel.value === 'rate_off') {
+        var v = Number(valIn.value);
+        if (!(v >= 1 && v <= 100)) { alertModal('알림', '할인 %p 는 1~100 사이로 입력해 주세요'); return; }
+        payload.discountValue = v;
+      }
+      if (daysIn.value && Number(daysIn.value) > 0) payload.expiresInDays = Number(daysIn.value);
+      issueBtn.disabled = true;
+      window.api.post('/admin/coupons', payload)
+        .then(function (r) {
+          var c = r && r.coupon;
+          alertModal('발급 완료', c ? (c.label + '\n코드: ' + c.code + '\n대상에게 알림이 전송되었습니다.') : '발급되었습니다.');
+          emailIn.value = ''; noteIn.value = ''; daysIn.value = '';
+          load();
+        })
+        .catch(function (e) { alertModal('발급 실패', (e && e.message) || '오류가 발생했습니다'); })
+        .finally(function () { issueBtn.disabled = false; });
+    });
+    form.append(emailIn, typeSel, valIn, daysIn, noteIn, issueBtn);
+    panel.appendChild(form);
+
+    var slot = el('div', { style: 'margin-top:18px' }); panel.appendChild(slot);
+    function load() {
+      slot.replaceChildren(el('p', { class: 'wza-muted' }, '불러오는 중…'));
+      window.api.get('/admin/coupons').then(function (r) {
+        var list = (r && r.coupons) || [];
+        slot.replaceChildren();
+        if (!list.length) { slot.appendChild(el('p', { class: 'wza-muted' }, '발급된 쿠폰이 없습니다.')); return; }
+        var tbl = el('table', { class: 'wza-table' });
+        var thead = el('tr', {});
+        ['쿠폰', '코드', '상태', '발급일'].forEach(function (h) { thead.appendChild(el('th', {}, h)); });
+        tbl.appendChild(thead);
+        list.forEach(function (c) {
+          var tr = el('tr', {});
+          tr.appendChild(el('td', {}, c.label || '-'));
+          tr.appendChild(el('td', { style: 'font-family:monospace' }, c.code));
+          tr.appendChild(el('td', {}, c.status === 'used' ? '사용됨' : '미사용'));
+          tr.appendChild(el('td', {}, c.createdAt ? new Date(c.createdAt).toLocaleDateString('ko-KR') : '-'));
+          tbl.appendChild(tr);
+        });
+        slot.appendChild(tbl);
+      }).catch(function () { slot.replaceChildren(el('p', { class: 'wza-muted' }, '목록을 불러오지 못했습니다.')); });
+    }
+    load();
+  }
+
   function renderLibrary(panel) {
     panel.appendChild(panelHead('디자인 · 패치 관리', '디자인하기 에디터의 "무료 디자인"·"자수 패치"를 추가/삭제합니다. 배경 투명 PNG 권장(5MB 미만).'));
     var state = { kind: 'free' };

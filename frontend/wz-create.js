@@ -315,8 +315,8 @@
         name: '직접 개설',
         tag: '일반',
         feeLine: '정산 수수료 ' + MODE_INFO.normal.feeHint + ' (참고)',
-        desc: '창작자가 제목·이미지·스토리·리워드·일정을 직접 구성합니다. 수수료가 낮은 대신 모든 내용을 직접 입력해야 합니다.',
-        points: ['수수료가 가장 낮음', '리워드·가격·일정 직접 설정', '대표 이미지·스토리 직접 작성'],
+        desc: '창작자가 제목·이미지·스토리·후원 옵션·일정을 직접 구성합니다. 수수료가 낮은 대신 모든 내용을 직접 입력해야 합니다.',
+        points: ['수수료가 가장 낮음', '후원 옵션·가격·일정 직접 설정', '대표 이미지·스토리 직접 작성'],
         cta: '직접 개설하기',
         onClick: startNormal,
       }),
@@ -326,8 +326,8 @@
         name: '대리 개설',
         tag: '대리',
         feeLine: '정산 수수료 ' + MODE_INFO.proxy.feeHint + ' (참고)',
-        desc: '필수 정보 몇 가지만 입력하면 두띵이 상세 기획·이미지·리워드 구성을 대신 진행합니다. 수수료가 더 부과됩니다.',
-        points: ['제목·카테고리·연락처·요청사항만 입력', '상세 기획·이미지·리워드는 두띵이 작성', '검토 후 담당자가 연락', '바쁘거나 처음이라면 추천'],
+        desc: '필수 정보 몇 가지만 입력하면 두띵이 상세 기획·이미지·후원 옵션 구성을 대신 진행합니다. 수수료가 더 부과됩니다.',
+        points: ['제목·카테고리·연락처·요청사항만 입력', '상세 기획·이미지·후원 옵션는 두띵이 작성', '검토 후 담당자가 연락', '바쁘거나 처음이라면 추천'],
         cta: '대리 개설 신청하기',
         onClick: startProxy,
       }),
@@ -466,6 +466,8 @@
       creatorIntro: '',
       creatorSido: '',
       creatorSigungu: '',
+      couponCode: '',         // 적용한 수수료 할인 쿠폰 코드(선택)
+      coupon: null,           // 적용한 쿠폰 객체(표시용)
     };
   }
 
@@ -546,20 +548,14 @@
     var actions = W.el('div', { class: 'wc-pick__actions' });
     var backBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wz-btn--lg', type: 'button' }, '이전');
     backBtn.addEventListener('click', renderPick);
-    // 디자인하기 — 선택 카테고리의 상품 위에 직접 디자인. 웹·앱/기타(type none)는 미지원 → 잠금.
-    designBtn = W.el('button', { class: 'wz-btn wz-btn--outline wz-btn--lg', type: 'button' }, '디자인하기');
-    designBtn.disabled = !canDesign(nstate.category);
-    designBtn.addEventListener('click', function () {
-      if (!canDesign(nstate.category)) { toast(nstate.category ? '이 카테고리는 디자인하기를 지원하지 않아요' : '카테고리를 먼저 선택해 주세요'); return; }
-      location.href = '/design.html?category=' + encodeURIComponent(nstate.category);
-    });
+    // (디자인하기 버튼 제거 — 디자인하기 기능 비공개화)
     nextBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '다음');
     nextBtn.disabled = !nstate.category;
     nextBtn.addEventListener('click', function () {
       if (!nstate.category) { toast('카테고리를 선택해 주세요'); return; }
       renderStudio();
     });
-    actions.append(backBtn, designBtn, nextBtn);
+    actions.append(backBtn, nextBtn);
     wrap.appendChild(actions);
 
     root.appendChild(wrap);
@@ -588,8 +584,12 @@
         open: openScheduleForm,
       },
       {
-        key: 'goal', name: '목표 금액 · 일정', required: true,
-        done: function () { return validTargetAmount(nstate.targetAmount) && validDeadline(nstate.deadline); },
+        // 목표 금액·일정 + 후원 옵션(구 '후원 옵션')을 한 단계로 통합 — 글 올리기 단순화.
+        key: 'goal', name: '목표 금액 · 후원 옵션', required: true,
+        done: function () {
+          return validTargetAmount(nstate.targetAmount) && validDeadline(nstate.deadline)
+            && nstate.rewardTiers.length > 0 && nstate.rewardTiers.every(validTier);
+        },
         open: openGoalForm,
       },
       {
@@ -597,21 +597,7 @@
         done: function () { return nstate.storyBlocks.some(storyBlockHasContent); },
         open: openStoryForm,
       },
-      {
-        key: 'reward', name: '리워드', required: true,
-        done: function () { return nstate.rewardTiers.length > 0 && nstate.rewardTiers.every(validTier); },
-        open: openRewardForm,
-      },
-      {
-        key: 'creator', name: '창작자 정보', required: true,
-        done: function () { return !!nstate.creatorName.trim() && !!nstate.creatorIntro.trim(); },
-        open: openCreatorForm,
-      },
-      {
-        key: 'policy', name: '정책', required: true,
-        done: function () { return !!nstate.refundPolicy.trim() && !!nstate.legalNotice.trim(); },
-        open: openPolicyForm,
-      },
+      // (창작자 정보·정책 단계 제거 — 창작자는 계정 정보로 자동, 정책은 제출 시 기본 면책고지 자동 첨부)
     ];
   }
 
@@ -875,13 +861,57 @@
   function SubmitArea() {
     var wrap = W.el('div', { class: 'wc-submit' });
     var ready = allRequiredDone();
+
+    // ── 쿠폰(선택) — 입력 후 [적용]하면 보유 쿠폰함에서 코드 확인 → 정산 수수료 할인. 서버가 최종 검증. ──
+    var couponBox = W.el('div', { class: 'wc-coupon', style: 'margin-bottom:14px;padding:14px 16px;border:1px dashed var(--c-border,#d8d6e4);border-radius:12px' });
+    couponBox.appendChild(W.el('p', { style: 'font-size:13.5px;font-weight:800;margin:0 0 8px' }, '쿠폰 입력 (선택)'));
+    var couponRow = W.el('div', { style: 'display:flex;gap:8px' });
+    var codeIn = input({ type: 'text', value: nstate.couponCode || '', placeholder: '수수료 할인 쿠폰 코드', autocomplete: 'off' });
+    codeIn.style.flex = '1';
+    codeIn.style.textTransform = 'uppercase';
+    var applyBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', style: 'flex-shrink:0' }, nstate.coupon ? '변경' : '적용');
+    couponRow.append(codeIn, applyBtn);
+    couponBox.appendChild(couponRow);
+    var couponMsg = W.el('p', { style: 'font-size:12.5px;margin:8px 0 0;color:var(--c-text-faint,#888)' });
+    if (nstate.coupon) { couponMsg.textContent = '적용됨 — ' + nstate.coupon.label; couponMsg.style.color = 'var(--c-primary-600,#6d28d9)'; }
+    else couponMsg.textContent = '코드가 있으면 입력 후 적용하세요. 정산 수수료가 할인됩니다.';
+    couponBox.appendChild(couponMsg);
+
+    applyBtn.addEventListener('click', function () {
+      var code = String(codeIn.value || '').trim().toUpperCase();
+      if (!code) {
+        nstate.coupon = null; nstate.couponCode = '';
+        couponMsg.textContent = '쿠폰을 적용하지 않았습니다.'; couponMsg.style.color = 'var(--c-text-faint,#888)';
+        applyBtn.textContent = '적용'; return;
+      }
+      applyBtn.disabled = true; applyBtn.textContent = '확인 중';
+      window.api.get('/me/coupons').then(function (r) {
+        var list = (r && r.coupons) || [];
+        var found = null;
+        for (var i = 0; i < list.length; i++) { if (String(list[i].code).toUpperCase() === code && list[i].status === 'unused') { found = list[i]; break; } }
+        applyBtn.disabled = false;
+        if (!found) {
+          nstate.coupon = null; nstate.couponCode = '';
+          couponMsg.textContent = '사용 가능한 쿠폰이 아니에요. 코드를 확인해 주세요(이미 사용했거나 만료되었을 수 있어요).';
+          couponMsg.style.color = 'var(--c-danger,#d33)'; applyBtn.textContent = '적용'; return;
+        }
+        nstate.coupon = found; nstate.couponCode = found.code;
+        couponMsg.textContent = '적용됨 — ' + found.label; couponMsg.style.color = 'var(--c-primary-600,#6d28d9)';
+        applyBtn.textContent = '변경';
+      }).catch(function () {
+        applyBtn.disabled = false; applyBtn.textContent = '적용';
+        couponMsg.textContent = '쿠폰 확인 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.'; couponMsg.style.color = 'var(--c-danger,#d33)';
+      });
+    });
+    wrap.appendChild(couponBox);
+
     var btn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '오픈 예약하기');
     btn.disabled = !ready;
     btn.addEventListener('click', submitNormal);
     wrap.appendChild(btn);
     wrap.appendChild(W.el('p', { class: 'wc-submit__hint' },
       ready ? '제출하면 창작자 약관 동의 후 관리자 심사를 거쳐 프로젝트가 공개됩니다.'
-            : '필수 항목(기본 정보 · 요금제 · 목표 금액/일정 · 스토리 · 리워드 · 창작자 정보 · 정책)을 모두 작성해 주세요.'));
+            : '필수 항목(기본 정보 · 요금제 · 목표 금액/후원 옵션 · 스토리)을 모두 작성해 주세요.'));
     return wrap;
   }
 
@@ -902,7 +932,7 @@
     [
       '제목과 한 줄 소개는 후원자가 가장 먼저 보는 정보입니다.',
       '목표 금액과 마감일을 명확히 설정해 주세요.',
-      '리워드는 최소 1개 이상 등록해야 합니다.',
+      '후원 옵션는 최소 1개 이상 등록해야 합니다.',
       '스토리에 디자인 의도와 제작 일정을 담아 주세요.',
     ].forEach(function (t) { ul.appendChild(W.el('li', {}, t)); });
     b2.appendChild(ul);
@@ -1182,7 +1212,7 @@
 
       function renderPreview() {
         var info = PLAN_INFO[picked];
-        // 수수료 미리보기는 실제 결제액인 최저 리워드가 기준(목표 금액과 무관).
+        // 수수료 미리보기는 실제 결제액인 최저 옵션 가격 기준(목표 금액과 무관).
         var lowestReward = null;
         (nstate.rewardTiers || []).forEach(function (t) {
           var pr = Number(t.price);
@@ -1193,9 +1223,9 @@
         if (lowestReward !== null && Number.isFinite(lowestReward)) {
           var fee = Math.round(lowestReward * info.feeRate);
           feeLine = info.name + ' 요금제 기준 수수료 ' + info.feePct + '% — '
-            + '최저 리워드가 ' + W.money(lowestReward) + ' 기준 약 ' + W.money(fee) + ' (참고용, 최종 금액은 서버에서 계산됩니다)';
+            + '최저 옵션 가격 ' + W.money(lowestReward) + ' 기준 약 ' + W.money(fee) + ' (참고용, 최종 금액은 서버에서 계산됩니다)';
         } else {
-          feeLine = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 리워드를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
+          feeLine = info.name + ' 요금제 · 플랫폼 수수료 ' + info.feePct + '%. 후원 옵션를 입력하면 예상 수수료가 표시됩니다. 최종 금액은 서버에서 계산됩니다.';
         }
         previewEl.appendChild(W.el('p', { style: 'margin:0' }, feeLine));
         // 공개 예정 등록은 Plus/Professional 전용 — '공개 예정' 단계에서 켤 수 있음을 안내.
@@ -1214,9 +1244,12 @@
 
   /* ---- 목표 금액 · 일정 ---- */
   function openGoalForm() {
-    var amountIn, dlIn;
+    var amountIn, dlIn, listEl;
     var minDate = todayStr();   // 오늘(KST 로컬) 이후만 — 그 이전 날짜는 선택 불가.
-    openOver('목표 금액 · 일정', function (body) {
+    // 후원 옵션(구 '후원 옵션') 임시 편집본.
+    var draft = nstate.rewardTiers.map(function (t) { return Object.assign({}, t); });
+
+    openOver('목표 금액 · 후원 옵션', function (body) {
       amountIn = input({ type: 'number', value: nstate.targetAmount, min: '1000', max: '10000000000', step: '1000', placeholder: '예: 1000000' });
       var goalField = field('목표 금액(원)', true, amountIn);
       goalField.appendChild(attachAmountHint(amountIn));   // 입력칸 아래 실시간 콤마+한글 표기
@@ -1227,9 +1260,57 @@
       body.appendChild(field('마감일', true, dlIn, '이 날짜까지 목표 금액을 달성해야 펀딩이 성사됩니다. 오늘(한국 기준) 이후 날짜만 가능합니다.'));
 
       body.appendChild(W.el('div', { class: 'wc-fld__notice' },
-        '목표 금액 달성 시 후원자 결제와 제작이 진행됩니다. 실제 결제 금액은 후원자가 선택한 리워드 가격이며, 목표 금액과 리워드 가격은 별개입니다. 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)와 최종 금액은 서버에서 계산됩니다.'));
+        '목표 금액 달성 시 후원자 결제와 제작이 진행됩니다. 실제 결제 금액은 후원자가 선택한 후원 옵션 가격이며, 목표 금액과 옵션 가격은 별개입니다. 정산 수수료(직접 개설 ' + MODE_INFO.normal.feeHint + ' 기준, 참고용)와 최종 금액은 서버에서 계산됩니다.'));
 
-      // (공개 예정 등록은 별도 "공개 예정" 단계에서 설정 — 여기선 목표 금액·마감일만.)
+      // ── 후원 옵션(구 '후원 옵션') ──
+      body.appendChild(W.el('h3', { style: 'margin:24px 0 6px;font-size:16px;font-weight:800;padding-top:18px;border-top:1px solid var(--c-border,#e6e3ef)' }, '후원 옵션'));
+      body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 12px' },
+        '후원자가 선택할 후원 옵션(받는 선물 구성)입니다. 가격은 창작자가 직접 정합니다. 최소 1개가 필요합니다.'));
+      listEl = W.el('div', {});
+      renderTiers();
+      body.appendChild(listEl);
+      var addBtn = W.el('button', { class: 'wc-addtier', type: 'button', html: IC.plus + '<span>후원 옵션 추가</span>' });
+      addBtn.addEventListener('click', function () {
+        if (draft.length >= 12) { toast('후원 옵션은 최대 12개까지 추가할 수 있어요'); return; }
+        draft.push({ title: '', price: '', desc: '', stock: '' });
+        renderTiers();
+      });
+      body.appendChild(addBtn);
+
+      function renderTiers() {
+        listEl.replaceChildren();
+        draft.forEach(function (t, i) {
+          var box = W.el('div', { class: 'wc-tier' });
+          var head = W.el('div', { class: 'wc-tier__head' });
+          var del = W.el('button', { class: 'wc-tier__del', type: 'button' }, '삭제');
+          del.addEventListener('click', function () { draft.splice(i, 1); renderTiers(); });
+          head.append(W.el('span', { class: 'wc-tier__no' }, '후원 옵션 ' + (i + 1)), del);
+          box.appendChild(head);
+
+          var g = W.el('div', { class: 'wc-tier__grid' });
+          var titleIn = input({ type: 'text', value: t.title, maxlength: '60', placeholder: '후원 옵션 제목' });
+          titleIn.addEventListener('input', function () { t.title = titleIn.value; });
+          var priceIn = input({ type: 'number', value: t.price, min: '0', placeholder: '가격(원)' });
+          priceIn.addEventListener('input', function () { t.price = priceIn.value; });
+          var priceField = field('가격(원)', true, priceIn);
+          priceField.appendChild(attachAmountHint(priceIn));   // 가격칸 아래 실시간 콤마+한글 표기
+          var stockIn = input({ type: 'number', value: t.stock, min: '1', placeholder: '한정 수량(선택)' });
+          stockIn.addEventListener('input', function () { t.stock = stockIn.value; });
+          var descIn = textarea({ maxlength: '500', placeholder: '옵션 설명(구성품 등)' });
+          descIn.value = t.desc || '';
+          descIn.addEventListener('input', function () { t.desc = descIn.value; });
+
+          g.append(
+            field('제목', true, titleIn),
+            priceField,
+            field('한정 수량', false, stockIn),
+            W.el('div', { class: 'wc-tier__full' }, field('설명', false, descIn)),
+          );
+          box.appendChild(g);
+          listEl.appendChild(box);
+        });
+        if (!draft.length) listEl.appendChild(W.el('p', { class: 'wc-fld__help' }, '아직 추가된 후원 옵션이 없습니다.'));
+      }
     }, function () {
       if (!validTargetAmount(amountIn.value)) { toast('목표 금액은 1,000원 이상으로 입력해 주세요'); return false; }
       if (!validDeadline(dlIn.value)) { toast('마감일은 오늘 이후 날짜로 선택해 주세요'); return false; }
@@ -1240,7 +1321,22 @@
           toast('마감일은 공개 예정일보다 늦은 날짜여야 해요(모집 일정이 더 길어야 함). 공개 예정 단계에서 일정을 확인해 주세요'); return false;
         }
       }
+      // 후원 옵션 정리·검증
+      var cleaned = [];
+      for (var i = 0; i < draft.length; i++) {
+        var t = draft[i];
+        if (!String(t.title || '').trim()) { toast('후원 옵션 ' + (i + 1) + '의 제목을 입력해 주세요'); return false; }
+        if (!Number.isFinite(Number(t.price)) || Number(t.price) < 0) { toast('후원 옵션 ' + (i + 1) + '의 가격을 확인해 주세요'); return false; }
+        cleaned.push({
+          title: String(t.title).trim(),
+          price: Math.floor(Number(t.price)),
+          desc: String(t.desc || '').trim(),
+          stock: (t.stock !== '' && t.stock != null && Number(t.stock) >= 1) ? Math.floor(Number(t.stock)) : null,
+        });
+      }
+      if (cleaned.length === 0) { toast('후원 옵션이 최소 1개 필요합니다'); return false; }
       nstate.targetAmount = amountIn.value; nstate.deadline = dlIn.value;
+      nstate.rewardTiers = cleaned;
       return true;
     });
   }
@@ -1307,19 +1403,19 @@
     });
   }
 
-  /* ---- 리워드 ---- */
+  /* ---- 후원 옵션 ---- */
   function openRewardForm() {
     var draft = nstate.rewardTiers.map(function (t) { return Object.assign({}, t); });
     var listEl;
-    openOver('리워드', function (body) {
+    openOver('후원 옵션', function (body) {
       body.appendChild(W.el('p', { class: 'wc-fld__help', style: 'margin:0 0 14px' },
-        '후원자가 선택할 선물(리워드) 구성입니다. 가격은 창작자가 직접 정합니다. 최소 1개가 필요합니다.'));
+        '후원자가 선택할 선물(후원 옵션) 구성입니다. 가격은 창작자가 직접 정합니다. 최소 1개가 필요합니다.'));
       listEl = W.el('div', {});
       renderTiers();
       body.appendChild(listEl);
-      var addBtn = W.el('button', { class: 'wc-addtier', type: 'button', html: IC.plus + '<span>리워드 추가</span>' });
+      var addBtn = W.el('button', { class: 'wc-addtier', type: 'button', html: IC.plus + '<span>후원 옵션 추가</span>' });
       addBtn.addEventListener('click', function () {
-        if (draft.length >= 12) { toast('리워드는 최대 12개까지 추가할 수 있어요'); return; }
+        if (draft.length >= 12) { toast('후원 옵션는 최대 12개까지 추가할 수 있어요'); return; }
         draft.push({ title: '', price: '', desc: '', stock: '' });
         renderTiers();
       });
@@ -1332,11 +1428,11 @@
           var head = W.el('div', { class: 'wc-tier__head' });
           var del = W.el('button', { class: 'wc-tier__del', type: 'button' }, '삭제');
           del.addEventListener('click', function () { draft.splice(i, 1); renderTiers(); });
-          head.append(W.el('span', { class: 'wc-tier__no' }, '리워드 ' + (i + 1)), del);
+          head.append(W.el('span', { class: 'wc-tier__no' }, '후원 옵션 ' + (i + 1)), del);
           box.appendChild(head);
 
           var g = W.el('div', { class: 'wc-tier__grid' });
-          var titleIn = input({ type: 'text', value: t.title, maxlength: '60', placeholder: '리워드 제목' });
+          var titleIn = input({ type: 'text', value: t.title, maxlength: '60', placeholder: '후원 옵션 제목' });
           titleIn.addEventListener('input', function () { t.title = titleIn.value; });
           var priceIn = input({ type: 'number', value: t.price, min: '0', placeholder: '가격(원)' });
           priceIn.addEventListener('input', function () { t.price = priceIn.value; });
@@ -1344,7 +1440,7 @@
           priceField.appendChild(attachAmountHint(priceIn));   // 가격칸 아래 실시간 콤마+한글 표기
           var stockIn = input({ type: 'number', value: t.stock, min: '1', placeholder: '한정 수량(선택)' });
           stockIn.addEventListener('input', function () { t.stock = stockIn.value; });
-          var descIn = textarea({ maxlength: '500', placeholder: '리워드 설명(구성품 등)' });
+          var descIn = textarea({ maxlength: '500', placeholder: '후원 옵션 설명(구성품 등)' });
           descIn.value = t.desc || '';
           descIn.addEventListener('input', function () { t.desc = descIn.value; });
 
@@ -1357,14 +1453,14 @@
           box.appendChild(g);
           listEl.appendChild(box);
         });
-        if (!draft.length) listEl.appendChild(W.el('p', { class: 'wc-fld__help' }, '아직 추가된 리워드가 없습니다.'));
+        if (!draft.length) listEl.appendChild(W.el('p', { class: 'wc-fld__help' }, '아직 추가된 후원 옵션가 없습니다.'));
       }
     }, function () {
       var cleaned = [];
       for (var i = 0; i < draft.length; i++) {
         var t = draft[i];
-        if (!String(t.title || '').trim()) { toast('리워드 ' + (i + 1) + '의 제목을 입력해 주세요'); return false; }
-        if (!Number.isFinite(Number(t.price)) || Number(t.price) < 0) { toast('리워드 ' + (i + 1) + '의 가격을 확인해 주세요'); return false; }
+        if (!String(t.title || '').trim()) { toast('후원 옵션 ' + (i + 1) + '의 제목을 입력해 주세요'); return false; }
+        if (!Number.isFinite(Number(t.price)) || Number(t.price) < 0) { toast('후원 옵션 ' + (i + 1) + '의 가격을 확인해 주세요'); return false; }
         cleaned.push({
           title: String(t.title).trim(),
           price: Math.floor(Number(t.price)),
@@ -1372,10 +1468,10 @@
           stock: (t.stock !== '' && t.stock != null && Number(t.stock) >= 1) ? Math.floor(Number(t.stock)) : null,
         });
       }
-      if (cleaned.length === 0) { toast('직접 개설은 리워드가 최소 1개 필요합니다'); return false; }
-      // 안전장치 — 리워드로 모을 수 있는 "최대 금액"(가격 × 한정수량 합)이 목표 금액 이상이어야 저장 가능.
+      if (cleaned.length === 0) { toast('직접 개설은 후원 옵션가 최소 1개 필요합니다'); return false; }
+      // 안전장치 — 후원 옵션로 모을 수 있는 "최대 금액"(가격 × 한정수량 합)이 목표 금액 이상이어야 저장 가능.
       //  예) 목표 100만 / 1만원×50개 + 2만원×50개 = 150만 → 통과. (가격만 합치면 3만으로 잘못 막힘.)
-      //  한정수량 미입력(무제한) 리워드가 하나라도 있으면 상한이 없어 어떤 목표든 도달 가능 → 통과.
+      //  한정수량 미입력(무제한) 후원 옵션가 하나라도 있으면 상한이 없어 어떤 목표든 도달 가능 → 통과.
       if (validTargetAmount(nstate.targetAmount)) {
         var goal = Math.floor(Number(nstate.targetAmount));
         var hasUnlimited = cleaned.some(function (t) { return t.stock == null; });
@@ -1383,7 +1479,7 @@
           return s + (t.stock == null ? 0 : (Number(t.price) || 0) * t.stock);
         }, 0);
         if (!hasUnlimited && capacity < goal) {
-          toast('리워드로 모을 수 있는 최대 금액(' + koreanAmount(capacity) + ')이 목표 금액(' + koreanAmount(goal) + ')보다 적어요. 한정 수량을 늘리거나 가격을 조정해 주세요.'); return false;
+          toast('후원 옵션로 모을 수 있는 최대 금액(' + koreanAmount(capacity) + ')이 목표 금액(' + koreanAmount(goal) + ')보다 적어요. 한정 수량을 늘리거나 가격을 조정해 주세요.'); return false;
         }
       }
       nstate.rewardTiers = cleaned;
@@ -1425,11 +1521,11 @@
     },
     {
       key: 'story', name: '스토리텔링형',
-      desc: '문제 → 해결 → 리워드 흐름으로 이야기를 풀어가는 형식입니다.',
+      desc: '문제 → 해결 → 후원 옵션 흐름으로 이야기를 풀어가는 형식입니다.',
       html: '<h2>이야기의 시작</h2>'
         + '<h3>이런 문제가 있었어요</h3><p>해결하고 싶었던 문제나 아쉬웠던 점을 적어 주세요.</p>'
         + '<h3>그래서 이렇게 해결했어요</h3><p>이 굿즈가 문제를 어떻게 해결하는지 설명해 주세요.</p>'
-        + '<h3>이런 리워드를 준비했어요</h3><p>후원자에게 드릴 리워드를 소개해 주세요.</p>',
+        + '<h3>이런 후원 옵션를 준비했어요</h3><p>후원자에게 드릴 후원 옵션를 소개해 주세요.</p>',
     },
     {
       key: 'simple', name: '심플형',
@@ -2377,6 +2473,8 @@
           refundPolicy: String(nstate.refundPolicy || '').trim(),
           legalNotice: String(nstate.legalNotice || '').trim(),
         };
+        // 수수료 할인 쿠폰(선택) — 서버가 최종 검증·적용.
+        if (nstate.couponCode) payload.couponCode = String(nstate.couponCode).trim().toUpperCase();
         // 공개 예정(run·boost 전용): openAt 을 보내면 서버가 status=scheduled 로 처리.
         if ((nstate.plan === 'run' || nstate.plan === 'boost') && nstate.openScheduled && nstate.openAt) {
           payload.openAt = nstate.openAt;
@@ -2475,14 +2573,14 @@
     head.append(
       W.el('p', { class: 'wc-proxy__steplabel' }, '대리 개설 신청'),
       W.el('h1', { class: 'wc-proxy__title' }, '두띵이 대신 프로젝트를 만들어 드립니다'),
-      W.el('p', { class: 'wc-proxy__sub' }, '필수 정보 몇 가지만 알려주시면 담당자가 검토 후 연락드립니다. 상세 기획·이미지·리워드 구성은 두띵이 대신 작성합니다.'),
+      W.el('p', { class: 'wc-proxy__sub' }, '필수 정보 몇 가지만 알려주시면 담당자가 검토 후 연락드립니다. 상세 기획·이미지·후원 옵션 구성은 두띵이 대신 작성합니다.'),
     );
     wrap.appendChild(head);
 
     var notice = W.el('div', { class: 'wc-proxy__notice' });
     notice.append(
       W.el('span', { class: 'wc-proxy__notice-ic', html: IC.info }),
-      W.el('p', {}, '대리 개설은 정산 수수료가 직접 개설보다 더 부과되며(참고: ' + MODE_INFO.proxy.feeHint + ' 수준), 상세 기획·이미지·리워드 구성은 두띵이 대신 작성합니다. 정확한 수수료는 검토 단계에서 안내됩니다.'),
+      W.el('p', {}, '대리 개설은 정산 수수료가 직접 개설보다 더 부과되며(참고: ' + MODE_INFO.proxy.feeHint + ' 수준), 상세 기획·이미지·후원 옵션 구성은 두띵이 대신 작성합니다. 정확한 수수료는 검토 단계에서 안내됩니다.'),
     );
     wrap.appendChild(notice);
 
@@ -2638,7 +2736,7 @@
     var ic = W.el('div', { class: 'wc-done__ic', html: IC.check });
     box.appendChild(ic);
     box.appendChild(W.el('h1', { class: 'wc-done__title' }, '대리 개설 신청이 접수되었습니다'));
-    box.appendChild(W.el('p', { class: 'wc-done__sub' }, '담당자가 요청 내용을 검토한 뒤 입력하신 연락처로 연락드립니다. 상세 기획·이미지·리워드 구성은 두띵이 함께 준비하겠습니다.'));
+    box.appendChild(W.el('p', { class: 'wc-done__sub' }, '담당자가 요청 내용을 검토한 뒤 입력하신 연락처로 연락드립니다. 상세 기획·이미지·후원 옵션 구성은 두띵이 함께 준비하겠습니다.'));
 
     var card = W.el('div', { class: 'wc-done__card' });
     card.appendChild(DoneRow('제목', pstate.title));

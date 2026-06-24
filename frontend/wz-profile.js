@@ -49,7 +49,7 @@
       { key: 'backings',   label: '후원한 프로젝트',  icon: 'box',    view: 'backings',  hash: 'backings' },
       { key: 'funds',      label: '개설한 프로젝트',  icon: 'box',    view: 'funds',     hash: 'funds' },
       { key: 'drafts',     label: '개설 중인 프로젝트', icon: 'edit',  view: 'drafts',    hash: 'drafts' },
-      { key: 'designs',    label: '내 디자인',         icon: 'edit',  view: 'designs',   hash: 'designs' },
+      { key: 'coupons',    label: '쿠폰함',           icon: 'ticket', view: 'coupons',   hash: 'coupons' },
       { key: 'friends',    label: '사용자 검색',       icon: 'users',  view: 'friends',   hash: 'friends' },
       { key: 'maker',      label: '내 메이커 페이지로 가기', icon: 'crown', href: '/maker.html?me=1' },
       { key: 'create',     label: '프로젝트 만들기',   icon: 'plus',   href: '/fund-create.html' },
@@ -103,6 +103,7 @@
     if (tab === 'liked' || tab === 'likes') { selectView('liked', true); return true; }
     if (tab === 'friends') { selectView('friends', true); return true; }
     if (tab === 'drafts') { selectView('drafts', true); return true; }
+    if (tab === 'coupons') { selectView('coupons', true); return true; }
     if (tab === 'designs') { selectView('designs', true); return true; }
     if (tab === 'recent') { selectView('recent', true); return true; }
     return false;
@@ -379,6 +380,7 @@
     if (view === 'backings') return panelBackings();
     if (view === 'funds') return panelFunds();
     if (view === 'drafts') return panelDrafts();
+    if (view === 'coupons') return panelCoupons();
     if (view === 'designs') return panelDesigns();
     if (view === 'friends') return panelFriends();
     showHome();
@@ -619,6 +621,43 @@
 
     row.append(body, actions);
     return row;
+  }
+
+  /* 패널: 쿠폰함 (GET /api/me/coupons) — 수수료 할인 쿠폰. 코드·할인내용·상태 표시. */
+  function panelCoupons() {
+    refs.curView = 'coupons';
+    var main = panelHead('쿠폰함', 'coupons');
+    var list = W.el('div', { class: 'wz-mp-coupons' });
+    main.appendChild(list);
+    whenMeKnown(function (me) {
+      if (refs.curView !== 'coupons') return;
+      if (!me) { list.replaceChildren(loginEmpty('쿠폰함을 보려면 로그인하세요')); return; }
+      window.api.get('/me/coupons')
+        .then(function (r) { if (refs.curView === 'coupons') renderCoupons(list, (r && r.coupons) || []); })
+        .catch(function () { if (refs.curView === 'coupons') list.replaceChildren(W.el('p', { class: 'wz-mp-empty' }, '쿠폰을 불러오지 못했어요.')); });
+    }, list);
+    return main;
+  }
+  function renderCoupons(list, items) {
+    list.replaceChildren();
+    if (!items.length) {
+      list.appendChild(emptyState('ticket', '보유한 쿠폰이 없어요', '프로젝트 만들기', '/fund-create.html'));
+      return;
+    }
+    list.appendChild(W.el('p', { class: 'wz-mp-coupons__guide', style: 'font-size:12.5px;color:var(--c-text-faint,#888);margin:0 0 12px' },
+      '수수료 할인 쿠폰은 프로젝트(직접 개설) 작성 시 코드를 입력해 사용할 수 있어요.'));
+    items.forEach(function (c) {
+      var used = c.status === 'used';
+      var card = W.el('div', { class: 'wz-mp-coupon' + (used ? ' is-used' : ''), style: 'border:1px solid var(--c-border,#e6e3ef);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px' + (used ? ';opacity:.55' : '') });
+      var lt = W.el('div', {});
+      lt.appendChild(W.el('p', { style: 'font-weight:800;font-size:15px;margin:0 0 4px' }, c.label || '수수료 할인 쿠폰'));
+      var codeLine = W.el('p', { style: 'font-family:monospace;font-size:13px;color:var(--c-primary-700,#5b21b6);margin:0' }, c.code);
+      lt.appendChild(codeLine);
+      if (c.expiresAt) lt.appendChild(W.el('p', { style: 'font-size:11.5px;color:var(--c-text-faint,#999);margin:4px 0 0' }, new Date(c.expiresAt).toLocaleDateString('ko-KR') + '까지'));
+      var badge = W.el('span', { style: 'flex-shrink:0;font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;' + (used ? 'background:#eee;color:#888' : 'background:var(--c-primary-50,#f3effe);color:var(--c-primary-700,#5b21b6)') }, used ? '사용 완료' : '사용 가능');
+      card.append(lt, badge);
+      list.appendChild(card);
+    });
   }
 
   /* 패널: 내 디자인 (디자인하기 에디터 저장본, GET /api/me/designs)

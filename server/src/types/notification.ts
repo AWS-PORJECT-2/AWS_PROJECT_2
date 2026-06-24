@@ -33,7 +33,8 @@ export type NotificationType =
   | 'account_warning'   // 관리자 경고 — 대상
   | 'profile_renamed'   // 관리자가 이름/닉네임 변경 — 대상
   | 'role_changed'      // 권한(역할) 변경 — 대상
-  | 'admin_message';    // 관리자 직접 알림(임의 메시지) — 대상
+  | 'admin_message'     // 관리자 직접 알림(임의 메시지) — 대상
+  | 'coupon_received';  // 관리자가 수수료 할인 쿠폰 발급 — 대상(쿠폰함에 추가됨)
 
 export interface Notification {
   id: string;
