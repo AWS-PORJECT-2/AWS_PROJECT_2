@@ -106,6 +106,7 @@
     { id: 'ordercancels', label: '펀딩 취소', icon: 'cancel', render: renderOrderCancels },
     { id: 'deletes',   label: '삭제 요청', icon: 'trash',   render: renderDeletes },
     { id: 'users',     label: '사용자 관리', icon: 'users', render: renderUsers },
+    { id: 'couponcodes', label: '쿠폰 만들기', icon: 'deposit', render: renderCouponCodes },
     { id: 'library',   label: '디자인·패치', icon: 'lib',   render: renderLibrary },
     { id: 'reports',   label: '신고',      icon: 'flag',    render: renderReports },
     { id: 'chat',      label: '문의 채팅', icon: 'chat',    render: renderChat },
@@ -1489,6 +1490,75 @@
    * 8) 로그·오류
    * ============================================================ */
   // 디자인하기 라이브러리 관리 — 무료 디자인 / 자수 패치 추가·삭제.
+  /* 쿠폰 만들기(Mode B) — 공유 쿠폰 코드 생성. 사용자가 코드를 입력해 등록하면 쿠폰함에 적립.
+     특정 사용자에게 바로 주려면 '사용자 관리 > 쿠폰 발급'을 쓴다(코드 없이 즉시 지급). */
+  function renderCouponCodes(panel) {
+    panel.appendChild(panelHead('쿠폰 만들기', '공유 쿠폰 코드를 만듭니다. 발급된 코드를 사용자가 쿠폰함이나 프로젝트 개설 화면에서 입력하면 자동으로 쿠폰함에 적립됩니다. 최대 등록 인원·코드 등록 기간·등록된 쿠폰 유효기간을 설정할 수 있어요. (특정 사용자에게 바로 지급은 사용자 관리에서)'));
+
+    var form = el('div', { class: 'wza-libform', style: 'flex-wrap:wrap;gap:10px;align-items:flex-end' });
+    var typeSel = el('select', { class: 'wza-input', style: 'min-width:150px' });
+    typeSel.appendChild(el('option', { value: 'rate_off' }, '수수료 %p 할인'));
+    typeSel.appendChild(el('option', { value: 'waive' }, '수수료 전액 면제'));
+    var valIn = el('input', { class: 'wza-input', type: 'number', min: '1', max: '100', value: '5', placeholder: '할인 %p', style: 'width:100px' });
+    var maxIn = el('input', { class: 'wza-input', type: 'number', min: '1', placeholder: '최대 등록 인원(비우면 무제한)', style: 'width:200px' });
+    var codeDaysIn = el('input', { class: 'wza-input', type: 'number', min: '1', placeholder: '코드 등록 기간(일)', style: 'width:160px' });
+    var validDaysIn = el('input', { class: 'wza-input', type: 'number', min: '1', placeholder: '등록쿠폰 유효기간(일)', style: 'width:170px' });
+    var labelIn = el('input', { class: 'wza-input', type: 'text', placeholder: '쿠폰 이름(선택, 비우면 자동)', style: 'min-width:200px;flex:1' });
+    var makeBtn = el('button', { class: 'wza-btn wza-btn--primary', type: 'button' }, '코드 만들기');
+
+    typeSel.addEventListener('change', function () { valIn.style.display = typeSel.value === 'waive' ? 'none' : ''; });
+
+    makeBtn.addEventListener('click', function () {
+      var payload = { discountType: typeSel.value, label: labelIn.value.trim() };
+      if (typeSel.value === 'rate_off') {
+        var v = Number(valIn.value);
+        if (!(v >= 1 && v <= 100)) { alertModal('알림', '할인 %p 는 1~100 사이로 입력해 주세요'); return; }
+        payload.discountValue = v;
+      }
+      if (maxIn.value && Number(maxIn.value) > 0) payload.maxRegistrations = Number(maxIn.value);
+      if (codeDaysIn.value && Number(codeDaysIn.value) > 0) payload.codeExpiresInDays = Number(codeDaysIn.value);
+      if (validDaysIn.value && Number(validDaysIn.value) > 0) payload.couponValidDays = Number(validDaysIn.value);
+      makeBtn.disabled = true;
+      window.api.post('/admin/coupon-codes', payload)
+        .then(function (r) {
+          var c = r && r.couponCode;
+          alertModal('코드 생성 완료', c ? (c.label + '\n코드: ' + c.code + '\n이 코드를 공유하면 사용자가 쿠폰함에 등록할 수 있어요.') : '생성되었습니다.');
+          labelIn.value = ''; maxIn.value = ''; codeDaysIn.value = ''; validDaysIn.value = '';
+          load();
+        })
+        .catch(function (e) { alertModal('생성 실패', (e && e.message) || '오류가 발생했습니다'); })
+        .finally(function () { makeBtn.disabled = false; });
+    });
+    form.append(typeSel, valIn, maxIn, codeDaysIn, validDaysIn, labelIn, makeBtn);
+    panel.appendChild(form);
+
+    var slot = el('div', { style: 'margin-top:18px' }); panel.appendChild(slot);
+    function load() {
+      slot.replaceChildren(el('p', { class: 'wza-muted' }, '불러오는 중…'));
+      window.api.get('/admin/coupon-codes').then(function (r) {
+        var list = (r && r.couponCodes) || [];
+        slot.replaceChildren();
+        if (!list.length) { slot.appendChild(el('p', { class: 'wza-muted' }, '만든 쿠폰 코드가 없습니다.')); return; }
+        var tbl = el('table', { class: 'wza-table' });
+        var thead = el('tr', {});
+        ['쿠폰', '코드', '등록/최대', '등록마감', '유효기간', '상태'].forEach(function (h) { thead.appendChild(el('th', {}, h)); });
+        tbl.appendChild(thead);
+        list.forEach(function (c) {
+          var tr = el('tr', {});
+          tr.appendChild(el('td', {}, c.label || '-'));
+          tr.appendChild(el('td', { style: 'font-family:monospace' }, c.code));
+          tr.appendChild(el('td', {}, c.registeredCount + ' / ' + (c.maxRegistrations != null ? c.maxRegistrations : '∞')));
+          tr.appendChild(el('td', {}, c.codeExpiresAt ? new Date(c.codeExpiresAt).toLocaleDateString('ko-KR') : '무기한'));
+          tr.appendChild(el('td', {}, c.couponValidDays != null ? (c.couponValidDays + '일') : '무기한'));
+          tr.appendChild(el('td', {}, c.active ? '활성' : '마감'));
+          tbl.appendChild(tr);
+        });
+        slot.appendChild(tbl);
+      }).catch(function () { slot.replaceChildren(el('p', { class: 'wza-muted' }, '목록을 불러오지 못했습니다.')); });
+    }
+    load();
+  }
+
   function renderLibrary(panel) {
     panel.appendChild(panelHead('디자인 · 패치 관리', '디자인하기 에디터의 "무료 디자인"·"자수 패치"를 추가/삭제합니다. 배경 투명 PNG 권장(5MB 미만).'));
     var state = { kind: 'free' };

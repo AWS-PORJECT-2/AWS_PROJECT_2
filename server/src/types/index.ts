@@ -1,5 +1,5 @@
 export type { User, UserRole, UserStatus, NotificationPrefs } from './user.js';
-export type { Coupon, CouponDiscountType, CouponStatus } from './coupon.js';
+export type { Coupon, CouponCode, CouponDiscountType, CouponStatus } from './coupon.js';
 export type { Comment, CommentTargetType } from './comment.js';
 export type { FollowUser } from './follow.js';
 export type { PublicProfile, ProfileBadge, UserSearchItem } from './public-profile.js';

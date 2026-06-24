@@ -132,15 +132,16 @@ export function createFundsCreateHandler(
         : buildNormal(userId, body, res, req.userName);
       if (!groupbuy) return; // 에러 응답은 build* 에서 이미 보냄
 
-      // ── 수수료 할인 쿠폰(직접 개설만) — 검증 후 feeRate/platformFee 재계산 ──
+      // ── 수수료 할인 쿠폰(직접 개설만) — 보유 쿠폰 id 로 검증 후 feeRate/platformFee 재계산 ──
       //   feeRate 는 percent 로 저장(예: 5). waive=0%, rate_off=max(0, 현재-차감%p).
-      const couponCode = mode === 'normal' && typeof body.couponCode === 'string' ? body.couponCode.trim() : '';
+      const couponId = mode === 'normal' && typeof body.couponId === 'string' ? body.couponId.trim() : '';
       let couponApplied: { label: string; feeRate: number } | null = null;
-      if (couponCode && couponRepo) {
-        const coupon = await couponRepo.findByCode(couponCode);
+      let appliedCouponId = '';
+      if (couponId && couponRepo) {
+        const coupon = await couponRepo.findById(couponId);
         const expired = coupon?.expiresAt ? coupon.expiresAt.getTime() <= Date.now() : false;
         if (!coupon || coupon.ownerUserId !== userId || coupon.status !== 'unused' || expired) {
-          res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '사용할 수 없는 쿠폰이에요. 코드·소유·사용 여부·유효기간을 확인해 주세요.')));
+          res.status(400).json(createErrorResponse(new AppError('INVALID_INPUT', '사용할 수 없는 쿠폰이에요. 보유·사용 여부·유효기간을 확인해 주세요.')));
           return;
         }
         const curPercent = groupbuy.feeRate ?? 0; // 이미 percent
@@ -148,15 +149,16 @@ export function createFundsCreateHandler(
         groupbuy.feeRate = newPercent;
         groupbuy.platformFee = Math.round(groupbuy.finalPrice * (newPercent / 100));
         couponApplied = { label: coupon.label, feeRate: newPercent };
+        appliedCouponId = coupon.id;
       }
 
       const created = await groupBuyRepository.create(groupbuy);
-      logger.info({ id: created.id, userId, mode, coupon: couponCode || undefined }, '공구 개설 완료');
+      logger.info({ id: created.id, userId, mode, coupon: appliedCouponId || undefined }, '공구 개설 완료');
 
       // 쿠폰 사용 처리(원자적) — create 성공 후. 실패(경합)해도 생성은 유지.
-      if (couponApplied && couponCode && couponRepo) {
-        const used = await couponRepo.markUsed(couponCode, userId, created.id);
-        if (!used) logger.warn({ userId, couponCode, fundId: created.id }, '쿠폰 사용 처리 실패(경합 가능) — 할인은 적용됨');
+      if (couponApplied && appliedCouponId && couponRepo) {
+        const used = await couponRepo.markUsedById(appliedCouponId, userId, created.id);
+        if (!used) logger.warn({ userId, couponId: appliedCouponId, fundId: created.id }, '쿠폰 사용 처리 실패(경합 가능) — 할인은 적용됨');
       }
 
       // 알림(best-effort) — 응답 전에 보내되 실패는 흡수(notify/notifyMany 가 throw 안 함).

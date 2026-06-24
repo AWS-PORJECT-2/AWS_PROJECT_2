@@ -22,8 +22,8 @@ import { createFundsCreateHandler } from './routes/funds-create.js';
 import { createAdminFundsListHandler, createAdminFundApproveHandler, createAdminFundRejectHandler, createAdminDeleteRequestsHandler, createAdminFundDeleteHandler, createAdminSetRewardsHandler, createAdminFundUpdateHandler, createAdminFundHideHandler, createAdminFundShowHandler } from './routes/admin-funds.js';
 import { createFundDeleteRequestHandler } from './routes/me-funds.js';
 import { createAdminUsersRouter } from './routes/admin-users.js';
-import { createAdminCouponIssueHandler, createAdminCouponListHandler } from './routes/admin-coupons.js';
-import { createMeCouponsHandler } from './routes/me-coupons.js';
+import { createAdminCouponIssueHandler, createAdminCouponCodeCreateHandler, createAdminCouponCodeListHandler } from './routes/admin-coupons.js';
+import { createMeCouponsHandler, createMeCouponRegisterHandler } from './routes/me-coupons.js';
 import { PgCouponRepository } from './repositories/pg-coupon-repository.js';
 import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, createAdminLogAckHandler, createAdminLogAckAllHandler, createAdminPendingCountsHandler } from './routes/admin-insights.js';
 import { PgReportRepository } from './repositories/pg-report-repository.js';
@@ -413,7 +413,7 @@ export function createApp(
   // 관리자 대리개설 대행 작성/수정 — 제공된 필드만 갱신(creatorId 불변).
   app.patch('/api/admin/funds/:id', authRequired, requireAdmin, createAdminFundUpdateHandler(groupBuyRepository));
   app.post('/api/admin/funds/:id/approve', authRequired, requireAdmin, createAdminFundApproveHandler(groupBuyRepository, notificationRepository));
-  app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository, notificationRepository));
+  app.post('/api/admin/funds/:id/reject', authRequired, requireAdmin, createAdminFundRejectHandler(groupBuyRepository, notificationRepository, couponRepository));
   app.post('/api/admin/funds/:id/hide', authRequired, requireAdmin, createAdminFundHideHandler(groupBuyRepository));   // 게시글 숨김
   app.post('/api/admin/funds/:id/show', authRequired, requireAdmin, createAdminFundShowHandler(groupBuyRepository));   // 다시 보이게
   app.post('/api/admin/funds/:id/rewards', authRequired, requireAdmin, createAdminSetRewardsHandler(groupBuyRepository));
@@ -445,6 +445,7 @@ export function createApp(
   app.get('/api/me/likes', authRequired, createMyLikesHandler(groupBuyRepository));
   // 내 쿠폰함
   app.get('/api/me/coupons', authRequired, createMeCouponsHandler(couponRepository));
+  app.post('/api/me/coupons/register', authRequired, createMeCouponRegisterHandler(couponRepository));
 
   // --- 서버 기반 알림(024_notifications) — 본인 알림 조회/읽음 처리 ---
   app.get('/api/me/notifications', authRequired, createMyNotificationsHandler(notificationRepository));
@@ -485,7 +486,9 @@ export function createApp(
   app.use('/api/admin/users', authRequired, requireAdmin, createAdminUsersRouter(userRepository, refreshTokenRepository, notificationRepository, pool));
   // 관리자 수수료 할인 쿠폰 발급/조회
   app.post('/api/admin/coupons', authRequired, requireAdmin, createAdminCouponIssueHandler(couponRepository, userRepository, notificationRepository));
-  app.get('/api/admin/coupons', authRequired, requireAdmin, createAdminCouponListHandler(couponRepository));
+  // 공유 쿠폰 코드 생성/목록(Mode B)
+  app.post('/api/admin/coupon-codes', authRequired, requireAdmin, createAdminCouponCodeCreateHandler(couponRepository));
+  app.get('/api/admin/coupon-codes', authRequired, requireAdmin, createAdminCouponCodeListHandler(couponRepository));
 
   // --- 관리자 통계 + 로그/오류 (콘솔 진입 가드 포함) ---
   app.get('/api/admin/me', authRequired, requireAdmin, createAdminMeHandler(userRepository));

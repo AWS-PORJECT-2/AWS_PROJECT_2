@@ -623,20 +623,54 @@
     return row;
   }
 
-  /* 패널: 쿠폰함 (GET /api/me/coupons) — 수수료 할인 쿠폰. 코드·할인내용·상태 표시. */
+  /* 패널: 쿠폰함 (GET /api/me/coupons) — 상단 코드 등록 + 세로형 카드(이름/코드/복사). 사용한 건 아래 회색. */
   function panelCoupons() {
     refs.curView = 'coupons';
     var main = panelHead('쿠폰함', 'coupons');
+
+    // 코드 등록 영역
+    var reg = W.el('div', { style: 'display:flex;gap:8px;margin-bottom:6px' });
+    var regIn = W.el('input', { class: 'wz-input', type: 'text', placeholder: '쿠폰 코드 입력', autocomplete: 'off', style: 'flex:1;padding:11px 14px;border:1px solid var(--c-border,#d8d6e4);border-radius:10px;font-size:14px;text-transform:uppercase' });
+    var regBtn = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button', style: 'flex-shrink:0' }, '등록');
+    reg.append(regIn, regBtn);
+    main.appendChild(reg);
+    var regMsg = W.el('p', { style: 'font-size:12px;margin:0 0 14px;min-height:15px' });
+    main.appendChild(regMsg);
+
     var list = W.el('div', { class: 'wz-mp-coupons' });
     main.appendChild(list);
-    whenMeKnown(function (me) {
-      if (refs.curView !== 'coupons') return;
-      if (!me) { list.replaceChildren(loginEmpty('쿠폰함을 보려면 로그인하세요')); return; }
+
+    function reload() {
       window.api.get('/me/coupons')
         .then(function (r) { if (refs.curView === 'coupons') renderCoupons(list, (r && r.coupons) || []); })
         .catch(function () { if (refs.curView === 'coupons') list.replaceChildren(W.el('p', { class: 'wz-mp-empty' }, '쿠폰을 불러오지 못했어요.')); });
+    }
+    regBtn.addEventListener('click', function () {
+      var code = String(regIn.value || '').trim().toUpperCase();
+      if (!code) { regIn.focus(); return; }
+      regBtn.disabled = true; regBtn.textContent = '등록 중';
+      window.api.post('/me/coupons/register', { code: code }).then(function () {
+        regBtn.disabled = false; regBtn.textContent = '등록'; regIn.value = '';
+        regMsg.textContent = '쿠폰이 등록되었어요.'; regMsg.style.color = 'var(--c-primary-600,#6d28d9)';
+        reload();
+      }).catch(function (e) {
+        regBtn.disabled = false; regBtn.textContent = '등록';
+        regMsg.textContent = (e && e.message) || '등록할 수 없는 쿠폰이에요.'; regMsg.style.color = 'var(--c-danger,#d33)';
+      });
+    });
+    regIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); regBtn.click(); } });
+
+    whenMeKnown(function (me) {
+      if (refs.curView !== 'coupons') return;
+      if (!me) { list.replaceChildren(loginEmpty('쿠폰함을 보려면 로그인하세요')); return; }
+      reload();
     }, list);
     return main;
+  }
+  function copyText(t, btn) {
+    function ok() { var o = btn.textContent; btn.textContent = '복사됨'; setTimeout(function () { btn.textContent = o; }, 1200); }
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(t).then(ok).catch(function () {});
+    else { try { var ta = document.createElement('textarea'); ta.value = t; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); ok(); } catch (e) {} }
   }
   function renderCoupons(list, items) {
     list.replaceChildren();
@@ -644,20 +678,42 @@
       list.appendChild(emptyState('ticket', '보유한 쿠폰이 없어요', '프로젝트 만들기', '/fund-create.html'));
       return;
     }
-    list.appendChild(W.el('p', { class: 'wz-mp-coupons__guide', style: 'font-size:12.5px;color:var(--c-text-faint,#888);margin:0 0 12px' },
-      '수수료 할인 쿠폰은 프로젝트(직접 개설) 작성 시 코드를 입력해 사용할 수 있어요.'));
-    items.forEach(function (c) {
-      var used = c.status === 'used';
-      var card = W.el('div', { class: 'wz-mp-coupon' + (used ? ' is-used' : ''), style: 'border:1px solid var(--c-border,#e6e3ef);border-radius:12px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px' + (used ? ';opacity:.55' : '') });
-      var lt = W.el('div', {});
-      lt.appendChild(W.el('p', { style: 'font-weight:800;font-size:15px;margin:0 0 4px' }, c.label || '수수료 할인 쿠폰'));
-      var codeLine = W.el('p', { style: 'font-family:monospace;font-size:13px;color:var(--c-primary-700,#5b21b6);margin:0' }, c.code);
-      lt.appendChild(codeLine);
-      if (c.expiresAt) lt.appendChild(W.el('p', { style: 'font-size:11.5px;color:var(--c-text-faint,#999);margin:4px 0 0' }, new Date(c.expiresAt).toLocaleDateString('ko-KR') + '까지'));
-      var badge = W.el('span', { style: 'flex-shrink:0;font-size:12px;font-weight:800;padding:5px 12px;border-radius:999px;' + (used ? 'background:#eee;color:#888' : 'background:var(--c-primary-50,#f3effe);color:var(--c-primary-700,#5b21b6)') }, used ? '사용 완료' : '사용 가능');
-      card.append(lt, badge);
-      list.appendChild(card);
-    });
+    var unused = items.filter(function (c) { return c.status === 'unused'; });
+    var used = items.filter(function (c) { return c.status === 'used'; });
+    // 세로형(아래로 긴 직사각형) 카드 그리드
+    var grid = W.el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px' });
+    unused.forEach(function (c) { grid.appendChild(couponCardV(c, false)); });
+    list.appendChild(grid);
+    if (used.length) {
+      list.appendChild(W.el('p', { style: 'font-size:12px;color:#aaa;margin:20px 0 8px;font-weight:700' }, '사용한 쿠폰'));
+      var ug = W.el('div', { style: 'display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px' });
+      used.forEach(function (c) { ug.appendChild(couponCardV(c, true)); });
+      list.appendChild(ug);
+    }
+  }
+  function couponCardV(c, isUsed) {
+    var card = W.el('div', { class: 'wz-mp-coupon', style: 'border:1px solid var(--c-border,#e6e3ef);border-radius:14px;padding:16px 16px 14px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between' + (isUsed ? ';opacity:.5;background:#f6f6f8' : ';background:linear-gradient(160deg,#faf7ff,#fff)') });
+    var top = W.el('div', {});
+    top.appendChild(W.el('p', { style: 'font-weight:800;font-size:15.5px;line-height:1.35;margin:0 0 10px;word-break:keep-all' }, c.label || '수수료 할인 쿠폰'));
+    if (c.code) {
+      var codeRow = W.el('div', { style: 'display:flex;align-items:center;gap:6px' });
+      codeRow.appendChild(W.el('span', { style: 'font-family:monospace;font-size:13px;color:var(--c-primary-700,#5b21b6);background:#f1ecfb;padding:3px 7px;border-radius:6px;letter-spacing:.02em' }, c.code));
+      if (!isUsed) {
+        var copyBtn = W.el('button', { type: 'button', style: 'flex-shrink:0;font-size:11.5px;font-weight:700;color:var(--c-primary-600,#6d28d9);background:none;border:1px solid var(--c-primary-200,#ddd0fa);border-radius:6px;padding:3px 8px;cursor:pointer' }, '복사하기');
+        copyBtn.addEventListener('click', function () { copyText(c.code, copyBtn); });
+        codeRow.appendChild(copyBtn);
+      }
+      top.appendChild(codeRow);
+    } else {
+      top.appendChild(W.el('p', { style: 'font-size:11.5px;color:#aaa;margin:0' }, '관리자 지급 쿠폰'));
+    }
+    card.appendChild(top);
+    var bot = W.el('div', { style: 'margin-top:12px;display:flex;align-items:center;justify-content:space-between;gap:8px' });
+    var badge = W.el('span', { style: 'font-size:11.5px;font-weight:800;padding:4px 10px;border-radius:999px;' + (isUsed ? 'background:#eee;color:#999' : 'background:var(--c-primary-50,#f3effe);color:var(--c-primary-700,#5b21b6)') }, isUsed ? '사용 완료' : '사용 가능');
+    bot.appendChild(badge);
+    if (c.expiresAt && !isUsed) bot.appendChild(W.el('span', { style: 'font-size:11px;color:#aaa' }, new Date(c.expiresAt).toLocaleDateString('ko-KR') + '까지'));
+    card.appendChild(bot);
+    return card;
   }
 
   /* 패널: 내 디자인 (디자인하기 에디터 저장본, GET /api/me/designs)

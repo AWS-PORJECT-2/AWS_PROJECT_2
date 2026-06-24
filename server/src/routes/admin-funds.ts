@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import type { GroupBuyRepository, GroupBuyUpdateFields } from '../repositories/groupbuy-repository.js';
 import type { NotificationRepository } from '../repositories/notification-repository.js';
+import type { CouponRepository } from '../repositories/coupon-repository.js';
 import type { RewardTier, CreatorInfo } from '../types/index.js';
 import { AppError } from '../errors/app-error.js';
 import { createErrorResponse } from '../errors/error-response.js';
@@ -83,6 +84,7 @@ function createReviewHandler(
   next: 'open' | 'rejected',
   label: string,
   notificationRepo?: NotificationRepository,
+  couponRepo?: CouponRepository,
 ) {
   return async (req: Request, res: Response): Promise<void> => {
     const id = req.params.id;
@@ -104,6 +106,16 @@ function createReviewHandler(
       await repo.updateStatus(id, effectiveNext);
       logger.info({ id, adminId: req.userId, next: effectiveNext }, `관리자 펀드 ${label}`);
       void logAudit(pool, { level: 'info', source: 'admin', message: `펀드 ${label}`, meta: { fundId: id, next: effectiveNext }, userId: req.userId ?? null });
+
+      // 심사 반려 시, 이 펀드 개설에 사용된 수수료 쿠폰을 미사용으로 되돌린다(다시 사용 가능). best-effort.
+      if (effectiveNext === 'rejected' && couponRepo) {
+        try {
+          const n = await couponRepo.reactivateByGroupbuy(id);
+          if (n > 0) logger.info({ id, reactivated: n }, '반려로 쿠폰 재활성화');
+        } catch (err) {
+          logger.warn({ err, id }, '쿠폰 재활성화 실패(무시)');
+        }
+      }
 
       // 알림(best-effort) — 심사 결과를 창작자에게. notify()/실패는 흡수돼 메인 응답에 영향 없음.
       if (notificationRepo && fund.creatorId) {
@@ -166,8 +178,8 @@ export const createAdminFundShowHandler = (repo: GroupBuyRepository) => createVi
 
 export const createAdminFundApproveHandler = (repo: GroupBuyRepository, notificationRepo?: NotificationRepository) =>
   createReviewHandler(repo, 'open', '승인', notificationRepo);
-export const createAdminFundRejectHandler = (repo: GroupBuyRepository, notificationRepo?: NotificationRepository) =>
-  createReviewHandler(repo, 'rejected', '반려', notificationRepo);
+export const createAdminFundRejectHandler = (repo: GroupBuyRepository, notificationRepo?: NotificationRepository, couponRepo?: CouponRepository) =>
+  createReviewHandler(repo, 'rejected', '반려', notificationRepo, couponRepo);
 
 // ─── 관리자 펀드 편집(대리개설 대행 작성) 검증 상수 — funds-create.ts 와 동일 기준 유지 ───
 const TITLE_MAX = 80;

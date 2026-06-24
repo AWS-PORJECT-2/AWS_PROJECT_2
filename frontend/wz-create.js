@@ -466,8 +466,8 @@
       creatorIntro: '',
       creatorSido: '',
       creatorSigungu: '',
-      couponCode: '',         // 적용한 수수료 할인 쿠폰 코드(선택)
-      coupon: null,           // 적용한 쿠폰 객체(표시용)
+      couponId: '',           // 사용할 보유 쿠폰 id(선택)
+      coupon: null,           // 사용할 쿠폰 객체(표시용 {id,label})
     };
   }
 
@@ -858,51 +858,109 @@
     return list;
   }
 
+  /* 쿠폰 사용 모달 — 상단 코드 등록 + 보유 쿠폰 목록(사용 버튼). 사용한 쿠폰은 아래 회색 비활성. */
+  function openCouponModal() {
+    var back = W.el('div', { class: 'wc-modalback', style: 'position:fixed;inset:0;background:rgba(20,16,40,.45);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px' });
+    var modal = W.el('div', { style: 'background:#fff;border-radius:16px;max-width:440px;width:100%;max-height:84vh;overflow:auto;padding:22px' });
+    function close() { back.remove(); }
+    back.addEventListener('click', function (e) { if (e.target === back) close(); });
+
+    var head = W.el('div', { style: 'display:flex;align-items:center;justify-content:space-between;margin-bottom:6px' });
+    head.append(W.el('h3', { style: 'font-size:18px;font-weight:800;margin:0' }, '쿠폰 사용'),
+      (function () { var x = W.el('button', { class: 'wz-btn wz-btn--ghost', type: 'button', style: 'padding:4px 10px' }, '닫기'); x.addEventListener('click', close); return x; })());
+    modal.appendChild(head);
+    modal.appendChild(W.el('p', { style: 'font-size:12.5px;color:var(--c-text-faint,#888);margin:0 0 14px' }, '보유 쿠폰을 선택해 사용하거나, 받은 쿠폰 코드를 등록하세요. 정산 수수료가 할인됩니다.'));
+
+    // 코드 등록
+    var regRow = W.el('div', { style: 'display:flex;gap:8px;margin-bottom:6px' });
+    var regIn = input({ type: 'text', placeholder: '쿠폰 코드 입력', autocomplete: 'off' });
+    regIn.style.flex = '1'; regIn.style.textTransform = 'uppercase';
+    var regBtn = W.el('button', { class: 'wz-btn wz-btn--primary', type: 'button', style: 'flex-shrink:0' }, '등록');
+    regRow.append(regIn, regBtn);
+    modal.appendChild(regRow);
+    var regMsg = W.el('p', { style: 'font-size:12px;margin:0 0 14px;min-height:16px' });
+    modal.appendChild(regMsg);
+
+    var listWrap = W.el('div', {});
+    modal.appendChild(listWrap);
+
+    function pick(c) {
+      nstate.coupon = { id: c.id, label: c.label }; nstate.couponId = c.id;
+      close(); refreshStudio();
+    }
+    function renderList(items) {
+      listWrap.replaceChildren();
+      var unused = items.filter(function (c) { return c.status === 'unused'; });
+      var used = items.filter(function (c) { return c.status === 'used'; });
+      if (!items.length) { listWrap.appendChild(W.el('p', { style: 'font-size:13px;color:var(--c-text-faint,#999);text-align:center;padding:18px 0' }, '보유한 쿠폰이 없어요. 코드를 등록해 보세요.')); return; }
+      unused.forEach(function (c) { listWrap.appendChild(couponRow(c, false)); });
+      if (used.length) {
+        listWrap.appendChild(W.el('p', { style: 'font-size:11.5px;color:#aaa;margin:14px 0 6px' }, '사용한 쿠폰'));
+        used.forEach(function (c) { listWrap.appendChild(couponRow(c, true)); });
+      }
+    }
+    function couponRow(c, isUsed) {
+      var sel = nstate.couponId === c.id;
+      var row = W.el('div', { style: 'display:flex;align-items:center;justify-content:space-between;gap:10px;border:1px solid ' + (sel ? 'var(--c-primary-400,#a78bfa)' : 'var(--c-border,#e6e3ef)') + ';border-radius:12px;padding:12px 14px;margin-bottom:8px' + (isUsed ? ';opacity:.5;background:#f6f6f8' : '') });
+      var lt = W.el('div', {});
+      lt.appendChild(W.el('p', { style: 'font-weight:800;font-size:14px;margin:0' }, c.label || '수수료 할인 쿠폰'));
+      if (c.code) lt.appendChild(W.el('p', { style: 'font-family:monospace;font-size:12px;color:#888;margin:3px 0 0' }, c.code));
+      if (c.expiresAt && !isUsed) lt.appendChild(W.el('p', { style: 'font-size:11px;color:#aaa;margin:3px 0 0' }, new Date(c.expiresAt).toLocaleDateString('ko-KR') + '까지'));
+      row.appendChild(lt);
+      if (isUsed) { row.appendChild(W.el('span', { style: 'font-size:12px;color:#999;flex-shrink:0' }, '사용함')); }
+      else {
+        var useBtn = W.el('button', { class: 'wz-btn ' + (sel ? 'wz-btn--outline' : 'wz-btn--primary'), type: 'button', style: 'flex-shrink:0' }, sel ? '선택됨' : '사용');
+        useBtn.addEventListener('click', function () { pick(c); });
+        row.appendChild(useBtn);
+      }
+      return row;
+    }
+    function load() {
+      listWrap.replaceChildren(W.el('p', { style: 'font-size:13px;color:#999;text-align:center;padding:18px 0' }, '불러오는 중…'));
+      window.api.get('/me/coupons').then(function (r) { renderList((r && r.coupons) || []); })
+        .catch(function () { listWrap.replaceChildren(W.el('p', { style: 'font-size:13px;color:var(--c-danger,#d33);text-align:center;padding:18px 0' }, '쿠폰을 불러오지 못했어요.')); });
+    }
+    regBtn.addEventListener('click', function () {
+      var code = String(regIn.value || '').trim().toUpperCase();
+      if (!code) { regIn.focus(); return; }
+      regBtn.disabled = true; regBtn.textContent = '등록 중';
+      window.api.post('/me/coupons/register', { code: code }).then(function () {
+        regBtn.disabled = false; regBtn.textContent = '등록'; regIn.value = '';
+        regMsg.textContent = '쿠폰이 등록되었어요.'; regMsg.style.color = 'var(--c-primary-600,#6d28d9)';
+        load();
+      }).catch(function (e) {
+        regBtn.disabled = false; regBtn.textContent = '등록';
+        regMsg.textContent = (e && e.message) || '등록할 수 없는 쿠폰이에요.'; regMsg.style.color = 'var(--c-danger,#d33)';
+      });
+    });
+    regIn.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); regBtn.click(); } });
+
+    // 사용 안 함(선택 해제)
+    if (nstate.couponId) {
+      var clearBtn = W.el('button', { class: 'wz-btn wz-btn--ghost wz-btn--block', type: 'button', style: 'margin-top:8px' }, '쿠폰 사용 안 함');
+      clearBtn.addEventListener('click', function () { nstate.coupon = null; nstate.couponId = ''; close(); refreshStudio(); });
+      modal.appendChild(clearBtn);
+    }
+
+    back.appendChild(modal); document.body.appendChild(back);
+    load();
+  }
+
   function SubmitArea() {
     var wrap = W.el('div', { class: 'wc-submit' });
     var ready = allRequiredDone();
 
-    // ── 쿠폰(선택) — 입력 후 [적용]하면 보유 쿠폰함에서 코드 확인 → 정산 수수료 할인. 서버가 최종 검증. ──
-    var couponBox = W.el('div', { class: 'wc-coupon', style: 'margin-bottom:14px;padding:14px 16px;border:1px dashed var(--c-border,#d8d6e4);border-radius:12px' });
-    couponBox.appendChild(W.el('p', { style: 'font-size:13.5px;font-weight:800;margin:0 0 8px' }, '쿠폰 입력 (선택)'));
-    var couponRow = W.el('div', { style: 'display:flex;gap:8px' });
-    var codeIn = input({ type: 'text', value: nstate.couponCode || '', placeholder: '수수료 할인 쿠폰 코드', autocomplete: 'off' });
-    codeIn.style.flex = '1';
-    codeIn.style.textTransform = 'uppercase';
-    var applyBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', style: 'flex-shrink:0' }, nstate.coupon ? '변경' : '적용');
-    couponRow.append(codeIn, applyBtn);
-    couponBox.appendChild(couponRow);
-    var couponMsg = W.el('p', { style: 'font-size:12.5px;margin:8px 0 0;color:var(--c-text-faint,#888)' });
-    if (nstate.coupon) { couponMsg.textContent = '적용됨 — ' + nstate.coupon.label; couponMsg.style.color = 'var(--c-primary-600,#6d28d9)'; }
-    else couponMsg.textContent = '코드가 있으면 입력 후 적용하세요. 정산 수수료가 할인됩니다.';
-    couponBox.appendChild(couponMsg);
-
-    applyBtn.addEventListener('click', function () {
-      var code = String(codeIn.value || '').trim().toUpperCase();
-      if (!code) {
-        nstate.coupon = null; nstate.couponCode = '';
-        couponMsg.textContent = '쿠폰을 적용하지 않았습니다.'; couponMsg.style.color = 'var(--c-text-faint,#888)';
-        applyBtn.textContent = '적용'; return;
-      }
-      applyBtn.disabled = true; applyBtn.textContent = '확인 중';
-      window.api.get('/me/coupons').then(function (r) {
-        var list = (r && r.coupons) || [];
-        var found = null;
-        for (var i = 0; i < list.length; i++) { if (String(list[i].code).toUpperCase() === code && list[i].status === 'unused') { found = list[i]; break; } }
-        applyBtn.disabled = false;
-        if (!found) {
-          nstate.coupon = null; nstate.couponCode = '';
-          couponMsg.textContent = '사용 가능한 쿠폰이 아니에요. 코드를 확인해 주세요(이미 사용했거나 만료되었을 수 있어요).';
-          couponMsg.style.color = 'var(--c-danger,#d33)'; applyBtn.textContent = '적용'; return;
-        }
-        nstate.coupon = found; nstate.couponCode = found.code;
-        couponMsg.textContent = '적용됨 — ' + found.label; couponMsg.style.color = 'var(--c-primary-600,#6d28d9)';
-        applyBtn.textContent = '변경';
-      }).catch(function () {
-        applyBtn.disabled = false; applyBtn.textContent = '적용';
-        couponMsg.textContent = '쿠폰 확인 중 오류가 발생했어요. 잠시 후 다시 시도해 주세요.'; couponMsg.style.color = 'var(--c-danger,#d33)';
-      });
-    });
+    // ── 쿠폰(선택) — [쿠폰 사용] 버튼 → 모달(코드 등록 + 보유 쿠폰 선택). 서버가 최종 검증. ──
+    var couponBox = W.el('div', { class: 'wc-coupon', style: 'margin-bottom:14px;padding:14px 16px;border:1px dashed var(--c-border,#d8d6e4);border-radius:12px;display:flex;align-items:center;justify-content:space-between;gap:12px' });
+    var ctxt = W.el('div', {});
+    ctxt.appendChild(W.el('p', { style: 'font-size:13.5px;font-weight:800;margin:0' }, '수수료 할인 쿠폰'));
+    var cstat = W.el('p', { style: 'font-size:12.5px;margin:4px 0 0' });
+    if (nstate.coupon) { cstat.textContent = '적용됨 — ' + nstate.coupon.label; cstat.style.color = 'var(--c-primary-600,#6d28d9)'; }
+    else { cstat.textContent = '보유 쿠폰을 사용하거나 코드를 등록할 수 있어요.'; cstat.style.color = 'var(--c-text-faint,#888)'; }
+    ctxt.appendChild(cstat);
+    var openBtn = W.el('button', { class: 'wz-btn wz-btn--outline', type: 'button', style: 'flex-shrink:0' }, nstate.coupon ? '변경' : '쿠폰 사용');
+    openBtn.addEventListener('click', openCouponModal);
+    couponBox.append(ctxt, openBtn);
     wrap.appendChild(couponBox);
 
     var btn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block', type: 'button' }, '오픈 예약하기');
@@ -2473,8 +2531,8 @@
           refundPolicy: String(nstate.refundPolicy || '').trim(),
           legalNotice: String(nstate.legalNotice || '').trim(),
         };
-        // 수수료 할인 쿠폰(선택) — 서버가 최종 검증·적용.
-        if (nstate.couponCode) payload.couponCode = String(nstate.couponCode).trim().toUpperCase();
+        // 수수료 할인 쿠폰(선택) — 보유 쿠폰 id. 서버가 최종 검증·적용.
+        if (nstate.couponId) payload.couponId = String(nstate.couponId);
         // 공개 예정(run·boost 전용): openAt 을 보내면 서버가 status=scheduled 로 처리.
         if ((nstate.plan === 'run' || nstate.plan === 'boost') && nstate.openScheduled && nstate.openAt) {
           payload.openAt = nstate.openAt;
