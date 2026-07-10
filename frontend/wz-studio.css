@@ -1,0 +1,150 @@
+/* =====================================================================
+ * DOOTHING — 샘플 스튜디오 (마플 Marpple 클론, studio.html 전용).
+ * 라이트 테마. [좌측 툴 힌트] · [중앙 캔버스] · [우측 세로 툴바] · [우측 상품 패널]
+ * ===================================================================== */
+.dt-mp, .dt-mp * { box-sizing: border-box; }
+body.dt-studio { background: #fff; color: #1A1A1A; margin: 0; }
+body.dt-studio #wz-footer, body.dt-studio .dt-fabnav { display: none !important; }
+
+/* 상단 툴바(마플 상단 아이콘 행 느낌) */
+.dt-mp__top {
+  position: sticky; top: 0; z-index: 50;
+  display: flex; align-items: center; gap: 16px;
+  height: 52px; padding: 0 18px;
+  background: #fff; border-bottom: 1px solid #EEE;
+}
+.dt-mp__logo { font-family: var(--font-street, cursive); font-size: 22px; color: #1A1A1A; letter-spacing: -1px; transform: skewX(-6deg); background: none; border: 0; cursor: pointer; }
+.dt-mp__topspacer { flex: 1; }
+.dt-mp__facetag { display: inline-flex; align-items: center; gap: 8px; background: #fff; border: 1px solid #E5E5E5; border-radius: 999px; padding: 6px 6px 6px 14px; font-size: 13px; font-weight: 700; }
+.dt-mp__facetag b { font-weight: 800; }
+.dt-mp__facetag-ic { width: 28px; height: 28px; border-radius: 50%; background: #1A1A1A; color: #fff; display: inline-flex; align-items: center; justify-content: center; }
+.dt-mp__facetag-ic svg { width: 15px; height: 15px; }
+
+/* 3열 레이아웃 */
+.dt-mp {
+  display: grid;
+  grid-template-columns: 180px 1fr 360px;
+  min-height: calc(100vh - 52px);
+}
+
+/* 좌측: 안내 버튼 */
+.dt-mp__left { padding: 22px 16px; }
+.dt-mp__leftbtn {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  background: #fff; border: 1px solid #E5E5E5; border-radius: 999px;
+  padding: 12px 16px; margin-bottom: 12px;
+  font-size: 13.5px; font-weight: 700; color: #333; cursor: pointer; font-family: inherit;
+}
+.dt-mp__leftbtn:hover { border-color: #1A1A1A; }
+.dt-mp__leftbtn svg { width: 18px; height: 18px; }
+
+/* 중앙: 캔버스 */
+.dt-mp__stage { position: relative; display: flex; align-items: center; justify-content: center; padding: 30px; background: #fff; }
+.dt-mp__canvas {
+  position: relative; width: 100%; max-width: 460px; aspect-ratio: 1/1;
+  background: #fff; touch-action: none; user-select: none;
+}
+.dt-mp__mock { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; }
+/* 프린트 가능 영역(가이드) */
+.dt-mp__printarea {
+  position: absolute; left: 30%; top: 26%; width: 40%; height: 46%;
+  border: 1px dashed #CBB; pointer-events: none; opacity: 0;
+}
+.dt-mp__canvas.show-guide .dt-mp__printarea { opacity: .5; }
+.dt-mp__art {
+  position: absolute; left: 50%; top: 44%; width: 130px; height: 130px;
+  transform: translate(-50%, -50%); cursor: grab;
+  background-size: contain; background-repeat: no-repeat; background-position: center;
+  outline: 1px dashed rgba(0,0,0,0);
+}
+.dt-mp__art.is-sel { outline-color: rgba(26,26,26,.5); }
+.dt-mp__art.is-drag { cursor: grabbing; }
+.dt-mp__handle { position: absolute; right: -10px; bottom: -10px; width: 22px; height: 22px; border-radius: 50%; background: #1A1A1A; border: 2px solid #fff; cursor: nwse-resize; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+.dt-mp__del { position: absolute; left: -10px; top: -10px; width: 22px; height: 22px; border-radius: 50%; background: #fff; border: 1px solid #DDD; color: #333; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dt-mp__del svg { width: 12px; height: 12px; }
+.dt-mp__emptyhint { position: absolute; left: 0; right: 0; bottom: 8%; text-align: center; color: #BBB; font-size: 13px; pointer-events: none; }
+
+/* 우측 세로 툴바 (캔버스와 상품패널 사이) */
+.dt-mp__rail {
+  position: absolute; right: 0; top: 50%; transform: translateY(-50%);
+  display: flex; flex-direction: column; gap: 4px;
+}
+.dt-mp__tool {
+  display: flex; flex-direction: column; align-items: center; gap: 5px;
+  width: 78px; padding: 12px 4px; border: 0; background: none; cursor: pointer;
+  font-size: 11.5px; font-weight: 600; color: #555; font-family: inherit; border-radius: 12px; position: relative;
+}
+.dt-mp__tool:hover { background: #F6F6F6; color: #1A1A1A; }
+.dt-mp__tool.is-active { color: #1A1A1A; }
+.dt-mp__tool-ic { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; }
+.dt-mp__tool-ic svg { width: 26px; height: 26px; }
+.dt-mp__tool-new { position: absolute; top: 6px; right: 14px; font-size: 8px; font-weight: 800; color: #fff; background: #FF5A5A; border-radius: 4px; padding: 1px 3px; letter-spacing: .02em; }
+
+/* 우측 상품 패널 */
+.dt-mp__panel { border-left: 1px solid #EEE; padding: 22px 22px 0; display: flex; flex-direction: column; }
+.dt-mp__ptop { display: flex; align-items: flex-start; justify-content: space-between; }
+.dt-mp__brand { font-size: 13px; color: #999; }
+.dt-mp__pname { font-size: 18px; font-weight: 800; margin: 2px 0 0; }
+.dt-mp__punit { font-size: 15px; font-weight: 800; margin: 8px 0 0; }
+.dt-mp__punit small { font-size: 13px; color: #999; font-weight: 600; }
+.dt-mp__prev { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #666; margin-top: 6px; }
+.dt-mp__prev b { color: #1A1A1A; }
+.dt-mp__pico { display: flex; gap: 14px; color: #999; }
+.dt-mp__pico svg { width: 20px; height: 20px; cursor: pointer; }
+
+.dt-mp__label { font-size: 13px; font-weight: 700; color: #333; margin: 22px 0 10px; }
+.dt-mp__label span { color: #999; font-weight: 600; }
+
+/* 색상 스와치 */
+.dt-mp__colors { display: flex; flex-wrap: wrap; gap: 9px; }
+.dt-mp__color { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #E0E0E0; cursor: pointer; position: relative; }
+.dt-mp__color.is-active { box-shadow: 0 0 0 2px #fff, 0 0 0 3.5px #1A1A1A; }
+
+/* 사이즈 */
+.dt-mp__sizes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.dt-mp__size {
+  height: 44px; border: 1px solid #E0E0E0; border-radius: 8px; background: #fff; cursor: pointer;
+  font-size: 14px; font-weight: 700; color: #333; font-family: inherit; position: relative;
+}
+.dt-mp__size:hover { border-color: #999; }
+.dt-mp__size.is-active { border-color: #FF6A3D; color: #FF6A3D; }
+.dt-mp__size small { position: absolute; top: 4px; right: 6px; font-size: 9px; color: #FF6A3D; font-weight: 700; }
+
+/* 수량 */
+.dt-mp__qtyrow { display: flex; align-items: center; gap: 10px; }
+.dt-mp__qty { flex: 1; display: flex; align-items: center; border: 1px solid #E0E0E0; border-radius: 8px; height: 44px; }
+.dt-mp__qty button { width: 44px; height: 100%; border: 0; background: none; font-size: 20px; cursor: pointer; color: #333; }
+.dt-mp__qty input { flex: 1; border: 0; text-align: center; font-size: 15px; font-weight: 700; font-family: inherit; outline: none; width: 100%; }
+.dt-mp__pricetable { height: 44px; padding: 0 14px; border: 1px solid #E0E0E0; border-radius: 8px; background: #fff; font-size: 13px; font-weight: 700; color: #333; cursor: pointer; font-family: inherit; white-space: nowrap; }
+
+.dt-mp__ship { display: flex; align-items: center; justify-content: space-between; margin-top: 22px; padding-top: 18px; border-top: 1px solid #F0F0F0; font-size: 14px; }
+.dt-mp__ship span { color: #666; }
+.dt-mp__ship b { font-weight: 700; }
+
+/* 하단 결제 바 (패널 하단 고정) */
+.dt-mp__buy { margin-top: auto; position: sticky; bottom: 0; background: #fff; padding: 16px 0; border-top: 1px solid #EEE; }
+.dt-mp__buy-sum { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.dt-mp__buy-sum span { font-size: 13px; color: #666; }
+.dt-mp__buy-sum b { font-size: 19px; font-weight: 800; }
+.dt-mp__buybtn {
+  width: 100%; height: 54px; border: 0; border-radius: 10px; cursor: pointer;
+  background: #1A1A1A; color: #fff; font-size: 16px; font-weight: 800; font-family: inherit;
+  transition: background .15s, transform .12s;
+}
+.dt-mp__buybtn:hover { background: #000; }
+.dt-mp__buybtn.is-fired { transform: scale(.98); }
+
+/* 숨김 파일 input */
+.dt-mp__file { display: none; }
+
+/* ===== 반응형: 모바일은 세로 스택 ===== */
+@media (max-width: 900px) {
+  .dt-mp { grid-template-columns: 1fr; }
+  .dt-mp__left { display: none; }
+  .dt-mp__rail { position: static; transform: none; flex-direction: row; justify-content: center; border-top: 1px solid #EEE; }
+  .dt-mp__tool { width: auto; flex: 1; }
+  .dt-mp__panel { border-left: 0; border-top: 1px solid #EEE; }
+  .dt-mp__stage { padding: 20px; }
+  .dt-mp__buy { position: fixed; left: 0; right: 0; bottom: 0; padding: 12px 18px calc(12px + env(safe-area-inset-bottom,0px)); box-shadow: 0 -4px 20px rgba(0,0,0,.06); }
+  .dt-mp__panel { padding-bottom: 120px; }
+}

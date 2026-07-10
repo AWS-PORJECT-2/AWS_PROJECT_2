@@ -19,4 +19,14 @@ export interface FollowRepository {
   unblock(blockerId: string, blockedId: string): Promise<void>;
   isBlocked(blockerId: string, blockedId: string): Promise<boolean>;
   listBlocked(blockerId: string): Promise<FollowUser[]>;
+
+  // ─── 프렌드십 (상호 수락) — 047_friendship ───
+  /** from→to 관계를 지정 status 로 upsert(멱등). */
+  upsertFollow(fromId: string, toId: string, status: 'pending' | 'accepted'): Promise<void>;
+  /** from→to 관계의 status 갱신(행 없으면 무동작). */
+  setStatus(fromId: string, toId: string, status: 'pending' | 'accepted'): Promise<void>;
+  /** from→to 관계의 status 조회(없으면 null). */
+  getStatus(fromId: string, toId: string): Promise<'pending' | 'accepted' | null>;
+  /** 친구 여부 = 양방향 accepted(대칭). */
+  areFriends(a: string, b: string): Promise<boolean>;
 }

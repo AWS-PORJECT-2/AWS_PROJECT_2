@@ -129,6 +129,121 @@ export function createFollowingHandler(followRepo: FollowRepository) {
   };
 }
 
+// ─── 프렌드십 (상호 수락) — 047_friendship ───
+
+/** 관계 상태 계산: none | requested(내가 보냄) | incoming(상대가 보냄) | friends. */
+async function friendState(followRepo: FollowRepository, meId: string, otherId: string): Promise<'none' | 'requested' | 'incoming' | 'friends'> {
+  if (await followRepo.areFriends(meId, otherId)) return 'friends';
+  const mine = await followRepo.getStatus(meId, otherId);   // 나→상대
+  const theirs = await followRepo.getStatus(otherId, meId); // 상대→나
+  if (mine === 'pending') return 'requested';
+  if (theirs === 'pending') return 'incoming';
+  return 'none';
+}
+
+/** GET /api/users/:id/friend — 관계 상태 조회(인증 선택). */
+export function createFriendStatusHandler(followRepo: FollowRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    const targetId = req.params.id;
+    if (!UUID_RE.test(targetId)) { res.json({ state: 'none' }); return; }
+    if (!req.userId || req.userId === targetId) { res.json({ state: 'none' }); return; }
+    try {
+      res.json({ state: await friendState(followRepo, req.userId, targetId) });
+    } catch (err) {
+      logger.error({ err, targetId }, '프렌드십 상태 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** POST /api/users/:id/friend — 친구 요청(pending). 인증 필수. */
+export function createFriendRequestHandler(followRepo: FollowRepository, notificationRepo?: NotificationRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const targetId = req.params.id;
+    if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
+    if (targetId === req.userId) { res.status(400).json({ error: 'SELF', message: '자기 자신에게 친구 요청할 수 없습니다' }); return; }
+    try {
+      if (await followRepo.isBlocked(targetId, req.userId)) { res.status(403).json({ error: 'BLOCKED', message: '차단되어 요청할 수 없습니다' }); return; }
+      // 상대가 이미 나에게 pending 을 보냈다면 → 요청이 아니라 즉시 수락 처리(양방향 accepted).
+      const theirs = await followRepo.getStatus(targetId, req.userId);
+      if (theirs === 'pending') {
+        await followRepo.setStatus(targetId, req.userId, 'accepted');
+        await followRepo.upsertFollow(req.userId, targetId, 'accepted');
+        if (notificationRepo) await notify(notificationRepo, { userId: targetId, type: 'new_follower', title: '친구 수락', body: `${req.userName ?? '회원'}님과 친구가 되었어요` });
+        res.json({ state: 'friends' });
+        return;
+      }
+      await followRepo.upsertFollow(req.userId, targetId, 'pending');
+      if (notificationRepo) await notify(notificationRepo, { userId: targetId, type: 'new_follower', title: '친구 요청', body: `${req.userName ?? '회원'}님이 친구 요청을 보냈어요` });
+      res.json({ state: 'requested' });
+    } catch (err) {
+      logger.error({ err, targetId }, '친구 요청 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** POST /api/users/:id/friend/accept — 상대(:id)의 요청 수락 → 양방향 accepted. 인증 필수. */
+export function createFriendAcceptHandler(followRepo: FollowRepository, notificationRepo?: NotificationRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const requesterId = req.params.id;
+    if (!UUID_RE.test(requesterId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
+    if (requesterId === req.userId) { res.status(400).json({ error: 'SELF', message: '잘못된 요청입니다' }); return; }
+    try {
+      // 상대→나 pending 이 있어야 수락 가능.
+      const theirs = await followRepo.getStatus(requesterId, req.userId);
+      if (theirs !== 'pending') { res.status(409).json({ error: 'NO_REQUEST', message: '수락할 친구 요청이 없습니다' }); return; }
+      await followRepo.setStatus(requesterId, req.userId, 'accepted');
+      await followRepo.upsertFollow(req.userId, requesterId, 'accepted');
+      if (notificationRepo) await notify(notificationRepo, { userId: requesterId, type: 'new_follower', title: '친구 수락', body: `${req.userName ?? '회원'}님이 친구 요청을 수락했어요` });
+      res.json({ state: 'friends' });
+    } catch (err) {
+      logger.error({ err, requesterId }, '친구 수락 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** GET /api/me/friend-requests — 나에게 온 크루 요청 목록(incoming pending). 인증 필수. */
+export function createIncomingFriendRequestsHandler(followRepo: FollowRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.json([]); return; }
+    try {
+      // 나를 향한 follows 중 status='pending' 인 요청자 목록.
+      const followers = await followRepo.listFollowers(req.userId);
+      const incoming: typeof followers = [];
+      for (const f of followers) {
+        const st = await followRepo.getStatus(f.userId, req.userId);
+        if (st === 'pending') incoming.push(f);
+      }
+      res.json(incoming);
+    } catch (err) {
+      logger.error({ err }, '크루 요청 목록 조회 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
+/** DELETE /api/users/:id/friend — 요청 취소 / 거절 / 친구 끊기(양방향 관계 해제). 인증 필수. */
+export function createFriendRemoveHandler(followRepo: FollowRepository) {
+  return async (req: Request, res: Response): Promise<void> => {
+    if (!req.userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
+    const targetId = req.params.id;
+    if (!UUID_RE.test(targetId)) { res.status(400).json({ error: 'INVALID', message: '잘못된 대상입니다' }); return; }
+    try {
+      // 양방향 모두 해제 — 요청취소(나→상대 pending), 거절(상대→나 pending), 친구끊기(양쪽 accepted) 모두 커버.
+      await followRepo.unfollow(req.userId, targetId);
+      await followRepo.unfollow(targetId, req.userId);
+      res.json({ state: 'none' });
+    } catch (err) {
+      logger.error({ err, targetId }, '프렌드십 해제 실패');
+      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
+    }
+  };
+}
+
 /** POST /api/users/:id/block — 차단(인증 필수). req.userId 가 :id 를 차단. */
 export function createBlockHandler(followRepo: FollowRepository) {
   return async (req: Request, res: Response): Promise<void> => {

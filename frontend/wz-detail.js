@@ -845,7 +845,8 @@
     function paintLike() {
       const on = (typeof window.isLiked === 'function') ? window.isLiked(f.id) : !!f.isLiked;
       likeBtn.classList.toggle('is-on', on);
-      likeLabel.textContent = '찜 ' + Math.max(0, Number(f.likeCount) || 0);
+      // 표시 캡: 100 이상은 '99+' (WZ.formatLikeCount). 저장값 f.likeCount 는 그대로 유지.
+      likeLabel.textContent = '찜 ' + (W.formatLikeCount ? W.formatLikeCount(f.likeCount) : Math.max(0, Number(f.likeCount) || 0));
     }
     likeBtn.append(W.el('span', { html: SVG.heart }), likeLabel);
     paintLike();
@@ -921,10 +922,29 @@
       /* 관리자 승인 전(심사 중/반려): 펀딩 불가 — 잠금 버튼. */
       sideCol.appendChild(W.el('button', { class: 'wz-btn wz-btn--lg wz-btn--block wz-d-cta wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '심사 중 — 승인 후 펀딩 가능'));
     } else {
-      /* 펀딩하기 큰 버튼 */
-      const fundBtn = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg wz-btn--block wz-d-cta', type: 'button' }, '펀딩하기');
-      fundBtn.addEventListener('click', () => backFlow(f));
+      /* GET DROP 큰 버튼 (DOOTHING) — 클릭 시 까맣게 반전 + 햅틱 후 결제 플로우 진입 */
+      const fundBtn = W.el('button', { class: 'wz-btn wz-btn--lg wz-btn--block wz-d-cta dt-btn dt-btn--drop', type: 'button' }, 'GET DROP');
+      fundBtn.addEventListener('click', () => {
+        fundBtn.classList.add('is-fired');
+        try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+        setTimeout(() => { fundBtn.classList.remove('is-fired'); backFlow(f); }, 180);
+      });
       sideCol.appendChild(fundBtn);
+      // 릴스 피드에서 GET DROP 으로 진입(?back=1) 시 기존 펀딩 참여 흐름 자동 실행.
+      try {
+        if (new URLSearchParams(location.search).get('back') === '1') {
+          const tiersNow = Array.isArray(f.rewardTiers) ? f.rewardTiers : [];
+          setTimeout(() => {
+            // 리워드가 하나면 자동 선택 후 바로 참여 흐름. 여러 개면 리워드 섹션으로 스크롤(선택 유도).
+            if (!_tierSelected && tiersNow.length === 1) {
+              _selectedTierId = (tiersNow[0].id != null) ? tiersNow[0].id : 0;
+              _tierSelected = true;
+            }
+            if (_tierSelected) backFlow(f);
+            else { const sec = document.querySelector('.wz-d-rewards'); if (sec) sec.scrollIntoView({ behavior: 'smooth' }); }
+          }, 350);
+        }
+      } catch (_) {}
     }
 
     /* ===== 8) 안심후원 안내 (짧게, 한 줄) — CTA 아래 단정하게 ===== */
@@ -1597,8 +1617,12 @@
       /* 관리자 승인 전: 펀딩 불가 — 잠금. */
       bar.append(like, W.el('button', { class: 'wz-btn wz-btn--lg wz-d-cta--ended', type: 'button', disabled: 'disabled' }, '심사 중'));
     } else {
-      const fund = W.el('button', { class: 'wz-btn wz-btn--primary wz-btn--lg', type: 'button' }, '펀딩하기');
-      fund.addEventListener('click', () => backFlow(f));
+      const fund = W.el('button', { class: 'wz-btn wz-btn--lg dt-btn dt-btn--drop', type: 'button' }, 'GET DROP');
+      fund.addEventListener('click', () => {
+        fund.classList.add('is-fired');
+        try { if (navigator.vibrate) navigator.vibrate(12); } catch (_) {}
+        setTimeout(() => { fund.classList.remove('is-fired'); backFlow(f); }, 180);
+      });
       bar.append(like, fund);
     }
     return bar;

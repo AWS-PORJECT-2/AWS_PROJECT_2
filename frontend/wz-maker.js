@@ -285,44 +285,55 @@
   }
   function fmt(n) { return (Number(n) || 0).toLocaleString(); }
 
-  /* ---- 팔로우 버튼 ---- */
+  /* ---- 크루십(Crewship) 버튼 — 상호 수락 기반 (팔로우 API 대체) ----
+   * 상태: none(크루 요청) · requested(요청됨) · incoming(수락하기) · friends(크루 ✓) */
   function FollowBtn() {
+    var btn = W.el('button', { class: 'wz-btn wz-mk-follow', type: 'button' });
+    state.crewState = 'none';
+    paintCrew(btn, 'none');
+    btn.addEventListener('click', function () { onCrewClick(btn); });
+    // 현재 관계 상태 조회
     var prof = state.profile;
-    var following = !!prof.isFollowing;
-    var btn = W.el('button', { class: 'wz-btn wz-mk-follow ' + (following ? 'wz-btn--ghost is-following' : 'wz-btn--primary'), type: 'button' });
-    paintFollow(btn, following);
-    btn.addEventListener('click', function () { onToggleFollow(btn); });
+    window.api.get('/users/' + encodeURIComponent(prof.userId) + '/friend', { silentAuthFail: true })
+      .then(function (r) { state.crewState = (r && r.state) || 'none'; paintCrew(btn, state.crewState); })
+      .catch(function () {});
     return btn;
   }
-  function paintFollow(btn, following) {
+  function paintCrew(btn, s) {
     btn.replaceChildren();
-    if (following) {
-      btn.classList.remove('wz-btn--primary'); btn.classList.add('wz-btn--ghost', 'is-following');
+    btn.classList.remove('wz-btn--primary', 'wz-btn--ghost', 'is-following');
+    if (s === 'friends') {
+      btn.classList.add('wz-btn--ghost', 'is-following');
       btn.appendChild(W.el('span', { class: 'wz-mk-follow__ic', html: IC.check }));
-      btn.appendChild(W.el('span', {}, '팔로잉'));
+      btn.appendChild(W.el('span', {}, '크루 ✓'));
+    } else if (s === 'requested') {
+      btn.classList.add('wz-btn--ghost');
+      btn.appendChild(W.el('span', {}, '요청됨'));
+    } else if (s === 'incoming') {
+      btn.classList.add('wz-btn--primary');
+      btn.appendChild(W.el('span', { class: 'wz-mk-follow__ic', html: IC.check }));
+      btn.appendChild(W.el('span', {}, '크루 수락'));
     } else {
-      btn.classList.remove('wz-btn--ghost', 'is-following'); btn.classList.add('wz-btn--primary');
+      btn.classList.add('wz-btn--primary');
       btn.appendChild(W.el('span', { class: 'wz-mk-follow__ic', html: IC.plus }));
-      btn.appendChild(W.el('span', {}, '팔로우'));
+      btn.appendChild(W.el('span', {}, '크루 요청'));
     }
   }
-  function onToggleFollow(btn) {
+  function onCrewClick(btn) {
     var prof = state.profile;
     if (!state.me) { location.href = '/login.html'; return; }
     if (state.busyFollow) return;
     state.busyFollow = true;
     btn.disabled = true;
-    var willFollow = !prof.isFollowing;
-    var call = willFollow
-      ? window.api.post('/users/' + encodeURIComponent(prof.userId) + '/follow', {})
-      : window.api.del('/users/' + encodeURIComponent(prof.userId) + '/follow');
+    var uid = encodeURIComponent(prof.userId);
+    var s = state.crewState;
+    var call;
+    if (s === 'incoming') call = window.api.post('/users/' + uid + '/friend/accept', {});
+    else if (s === 'none') call = window.api.post('/users/' + uid + '/friend', {});
+    else call = window.api.del('/users/' + uid + '/friend'); // requested(취소) / friends(끊기)
     call.then(function (r) {
-      prof.isFollowing = (r && typeof r.following === 'boolean') ? r.following : willFollow;
-      if (r && typeof r.followerCount === 'number') prof.followerCount = r.followerCount;
-      paintFollow(btn, prof.isFollowing);
-      refreshFollowerStat();
-      // 팔로워 목록 캐시 무효화(다시 진입 시 새로 로드)
-      state.followers = null;
+      state.crewState = (r && r.state) || 'none';
+      paintCrew(btn, state.crewState);
     }).catch(function () {
       alert('처리 중 문제가 발생했어요. 잠시 후 다시 시도해 주세요.');
     }).finally(function () {
@@ -670,19 +681,18 @@
 
   /* =================== 공구 카드 (WZ.fillThumb) =================== */
   var FUND_STATUS = {
-    open: { label: '진행 중', cls: 'open' },
+    open: { label: 'LIVE DROP', cls: 'open' },
     pending_review: { label: '심사 중', cls: 'pending' },
     pending: { label: '심사 중', cls: 'pending' },
-    scheduled: { label: '공개 예정', cls: 'pending' },
     rejected: { label: '반려', cls: 'rejected' },
     cancelled: { label: '취소', cls: 'rejected' },
-    failed: { label: '실패', cls: 'rejected' },
-    closed: { label: '종료', cls: 'done' },
-    ended: { label: '종료', cls: 'done' },
+    failed: { label: 'FAIL', cls: 'rejected' },
+    closed: { label: 'DONE', cls: 'done' },
+    ended: { label: 'DONE', cls: 'done' },
     executing: { label: '제작 중', cls: 'done' },
-    success: { label: '성공', cls: 'done' },
-    achieved: { label: '성공', cls: 'done' },
-    completed: { label: '성공', cls: 'done' },
+    success: { label: 'DONE', cls: 'done' },
+    achieved: { label: 'DONE', cls: 'done' },
+    completed: { label: 'DONE', cls: 'done' },
   };
   function fundCard(f) {
     var card = W.el('a', { class: 'wz-mk-card', href: '/detail.html?id=' + encodeURIComponent(f.id) });

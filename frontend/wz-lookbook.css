@@ -1,0 +1,151 @@
+/* =====================================================================
+ * DOOTHING — 룩북 릴스 피드 (다크 테마 풀블리드).
+ * main.html 전용. 인스타/틱톡 릴스형 착장샷 세로 스크롤.
+ * 헤더·플로팅 내비도 다크로 오버라이드.
+ * ===================================================================== */
+
+/* ===== 홈 다크 셸 ===== */
+body.dt-dark {
+  background: #0A0A0A;
+  color: #fff;
+}
+body.dt-dark .wz-body { background: #0A0A0A; }
+
+/* 기본 헤더/푸터/검색/카테고리 숨김 — 릴스 피드는 자체 헤더 사용 */
+body.dt-dark #wz-footer,
+body.dt-dark .wz-searchrow,
+body.dt-dark .wz-cats,
+body.dt-dark .wz-catmenu { display: none !important; }
+
+/* ===== 다크 헤더 ===== */
+.dt-lbhd {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 18px;
+  background: #0A0A0A;
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.dt-lbhd__logo {
+  font-family: var(--font-street, cursive);
+  font-size: 26px; font-weight: 400; color: #fff;
+  letter-spacing: -1px; line-height: 1;
+  transform: skewX(-6deg);
+}
+.dt-lbhd__actions { display: flex; align-items: center; gap: 20px; }
+.dt-lbhd__ic { width: 24px; height: 24px; color: #fff; background: none; border: 0; cursor: pointer; display: inline-flex; }
+.dt-lbhd__ic svg { width: 24px; height: 24px; }
+
+/* ===== 피드 ===== */
+.dt-feed { display: block; }
+
+/* 카드 = 한 화면(스크롤 스냅) */
+.dt-drop {
+  position: relative;
+  background: #0A0A0A;
+  border-bottom: 1px solid #161616;
+  padding-bottom: 8px;
+}
+
+/* 카드 상단: 크루 프로필 행 */
+.dt-drop__cruw {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 16px;
+}
+.dt-drop__avatar {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: #262626; color: #fff;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 13px; flex-shrink: 0;
+  overflow: hidden;
+}
+.dt-drop__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dt-drop__crew { min-width: 0; flex: 1; }
+.dt-drop__name {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 15px; font-weight: 800; color: #fff; line-height: 1.2;
+}
+.dt-drop__tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .1em;
+  color: #9CA3AF; border: 1px solid #333; border-radius: 4px;
+  padding: 2px 6px; text-transform: uppercase;
+}
+.dt-drop__handle { font-size: 12.5px; color: #8A8A8A; margin-top: 2px; }
+.dt-drop__share { margin-left: auto; color: #fff; background: none; border: 0; cursor: pointer; }
+.dt-drop__share svg { width: 20px; height: 20px; }
+
+/* 카드 이미지 (풀블리드 착장샷) */
+.dt-drop__media { position: relative; width: 100%; background: #111; }
+.dt-drop__media img { width: 100%; display: block; object-fit: cover; }
+
+/* LIVE DROP 뱃지 (좌상단 오버레이) */
+.dt-drop__live {
+  position: absolute; top: 14px; left: 14px; z-index: 3;
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(10,10,10,.72); backdrop-filter: blur(6px);
+  color: #fff; font-size: 12px; font-weight: 800; letter-spacing: .06em;
+  padding: 7px 12px; border-radius: 999px;
+}
+.dt-drop__live::before {
+  content: ""; width: 7px; height: 7px; border-radius: 50%;
+  background: #fff; /* 라이브 도트 */
+}
+.dt-drop__live--soon { color: #C9C9C9; }
+.dt-drop__live--soon::before { background: #6B7280; }
+
+/* GET DROP 알약 버튼 (이미지 하단 중앙 오버레이) */
+.dt-drop__cta {
+  position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 3;
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 210px; height: 48px; padding: 0 26px;
+  background: rgba(255,255,255,.92); color: #0A0A0A;
+  border: 0; border-radius: 999px; cursor: pointer;
+  font-size: 15px; font-weight: 800; letter-spacing: .06em;
+  box-shadow: 0 6px 20px rgba(0,0,0,.35);
+  transition: background .16s, color .16s, transform .12s;
+}
+.dt-drop__cta.is-fired { background: #0A0A0A; color: #fff; transform: translateX(-50%) scale(.97); }
+.dt-drop__cta--soon { background: rgba(255,255,255,.16); color: #fff; }
+
+/* 액션 행: 좋아요 · 댓글 · 북마크 */
+.dt-drop__acts {
+  display: flex; align-items: center; gap: 20px;
+  padding: 12px 16px 4px;
+}
+.dt-drop__act {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: none; border: 0; cursor: pointer;
+  color: #fff; font-size: 15px; font-weight: 700;
+}
+.dt-drop__act svg { width: 24px; height: 24px; }
+.dt-drop__act.is-on { color: #fff; }
+.dt-drop__act.is-on svg { fill: #fff; }
+.dt-drop__bookmark { margin-left: auto; color: #fff; background: none; border: 0; cursor: pointer; }
+.dt-drop__bookmark svg { width: 22px; height: 22px; }
+
+/* 캡션 */
+.dt-drop__cap {
+  padding: 4px 16px 14px;
+  font-size: 14px; color: #C9C9C9; line-height: 1.5;
+}
+.dt-drop__cap b { color: #fff; font-weight: 700; }
+
+/* ===== 플로팅 내비 다크 오버라이드 ===== */
+body.dt-dark .dt-fabnav {
+  background: #141414;
+  border-color: #262626;
+  box-shadow: 0 8px 28px rgba(0,0,0,.5);
+}
+body.dt-dark .dt-fabnav__item { color: #6B6B6B; }
+body.dt-dark .dt-fabnav__item.is-active,
+body.dt-dark .dt-fabnav__item:hover { color: #fff; }
+/* 중앙 + 버튼: 흰 원형 + 검은 아이콘 (목업) */
+body.dt-dark .dt-fabnav__plus { background: #fff; color: #0A0A0A; }
+
+/* 로딩/빈 상태 */
+.dt-feed__load { text-align: center; color: #6B6B6B; padding: 40px 0; font-size: 14px; }
+
+/* PC: 피드를 가운데 컬럼으로 제한(릴스 세로 비율 유지) */
+@media (min-width: 768px) {
+  .dt-feed { max-width: 480px; margin: 0 auto; }
+  .dt-lbhd { max-width: 480px; margin: 0 auto; }
+}
