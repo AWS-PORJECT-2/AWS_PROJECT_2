@@ -39,6 +39,8 @@ import {
   createFollowHandler as createUserFollowHandler, createUnfollowHandler as createUserUnfollowHandler,
   createFollowersHandler, createFollowingHandler,
   createBlockHandler, createUnblockHandler, createBlocksListHandler,
+  createFriendStatusHandler, createFriendRequestHandler, createFriendAcceptHandler, createFriendRemoveHandler,
+  createIncomingFriendRequestsHandler,
 } from './routes/users-routes.js';
 import {
   createCommentsListHandler, createCommentCreateHandler, createCommentUpdateHandler, createCommentDeleteHandler,
@@ -64,6 +66,8 @@ import {
 import { createAuthRequired, createOptionalAuth } from './middleware/auth-required.js';
 import { PgFollowRepository } from './repositories/pg-follow-repository.js';
 import { createFollowStatusHandler } from './routes/follows.js';
+import { PgStoryRepository } from './repositories/pg-story-repository.js';
+import { createStoriesListHandler, createStoryCreateHandler, createStoryVoteHandler } from './routes/stories.js';
 import { errorHandler } from './middleware/error-handler.js';
 import { uuidParamGuard } from './middleware/uuid-param.js';
 import { createDevAuthRouter } from './routes/dev-auth.js';
@@ -249,6 +253,7 @@ export function createApp(
     || p.startsWith('/api/me/funds') || p.startsWith('/api/me/drafts') || p.startsWith('/api/admin/funds')
     || p.startsWith('/api/me/designs') // 디자인하기 저장(레이어 이미지 data URL + 미리보기)로 커질 수 있음
     || p.startsWith('/api/admin/library') // 라이브러리 관리자 업로드(data URL)
+    || p === '/api/stories' // 스토리 업로드(이미지/영상 data URL)
     || p.startsWith('/api/ai'); // AI 가상피팅/전시: 디자인 합성 이미지(data URL) 업로드 — 256kb 초과 가능
   // 게시판 글 작성(POST /posts) + 수정(PATCH /posts/:id) 은 인라인 압축 이미지로 커질 수 있어 12mb.
   //  단 댓글(/posts/:id/comments)은 256kb 유지 — 글 본문 경로만 매칭(:id 뒤 추가 세그먼트 없음).
@@ -528,6 +533,24 @@ export function createApp(
   app.delete('/api/users/:id/follow', authRequired, createUserUnfollowHandler(followRepository));
   app.get('/api/users/:id/followers', optionalAuth, createFollowersHandler(followRepository));
   app.get('/api/users/:id/following', optionalAuth, createFollowingHandler(followRepository));
+
+  // 프렌드십 (상호 수락) — 요청/수락/취소·거절·끊기 + 상태조회. (047_friendship)
+  //  고정 하위 세그먼트(/friend, /friend/accept)라 :id 충돌 없음.
+  app.get('/api/users/:id/friend', optionalAuth, createFriendStatusHandler(followRepository));
+  app.post('/api/users/:id/friend', authRequired, createFriendRequestHandler(followRepository, notificationRepository));
+  app.post('/api/users/:id/friend/accept', authRequired, createFriendAcceptHandler(followRepository, notificationRepository));
+  app.delete('/api/users/:id/friend', authRequired, createFriendRemoveHandler(followRepository));
+  // 나에게 온 크루 요청 목록(하트 알림 센터의 '요청' 섹션)
+  app.get('/api/me/friend-requests', authRequired, createIncomingFriendRequestsHandler(followRepository));
+
+  // 스토리 & 투표 (24시간 휘발성) — 048_stories. 크루끼리 공유.
+  const storyRepository = new PgStoryRepository(pool);
+  app.get('/api/stories', authRequired, createStoriesListHandler(storyRepository));
+  app.post('/api/stories', authRequired, writeRateLimit, createStoryCreateHandler(storyRepository));
+  app.post('/api/stories/:id/vote', authRequired, createStoryVoteHandler(storyRepository));
+  // 만료 스토리 정리 — 부팅 시 1회 + 1시간마다.
+  storyRepository.purgeExpired().catch(() => {});
+  setInterval(() => { storyRepository.purgeExpired().catch(() => {}); }, 3600_000).unref?.();
 
   // 팔로우 차단 — 차단하면 상대는 나를 팔로우할 수 없고 기존 양방향 팔로우도 해제.
   app.post('/api/users/:id/block', authRequired, createBlockHandler(followRepository));

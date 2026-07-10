@@ -1,0 +1,92 @@
+/* =====================================================================
+ * DOOTHING — 마이페이지 Archive (다크 테마, 목업 기준).
+ * profile.html 전용. @핸들 + 스탯(크루/드롭/탑승) + MADE/BOARDED 2탭 + 카드 그리드.
+ * ===================================================================== */
+body.dt-dark { background: #0A0A0A; color: #fff; }
+body.dt-dark .wz-body { background: #0A0A0A; }
+body.dt-dark #wz-footer,
+body.dt-dark .wz-searchrow,
+body.dt-dark .wz-cats,
+body.dt-dark .wz-catmenu { display: none !important; }
+
+/* 다크 헤더 (릴스와 동일 톤) */
+.dt-lbhd {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 18px;
+  background: #0A0A0A; padding-top: env(safe-area-inset-top, 0px);
+}
+.dt-lbhd__logo { font-family: var(--font-street, cursive); font-size: 26px; color: #fff; letter-spacing: -1px; transform: skewX(-6deg); }
+.dt-lbhd__actions { display: flex; align-items: center; gap: 20px; }
+.dt-lbhd__ic { width: 24px; height: 24px; color: #fff; background: none; border: 0; cursor: pointer; display: inline-flex; }
+.dt-lbhd__ic svg { width: 24px; height: 24px; }
+
+/* 컨테이너 */
+.dt-ar { max-width: 640px; margin: 0 auto; padding: 0 0 110px; }
+
+/* 프로필 헤더 */
+.dt-ar__head { display: flex; align-items: flex-start; gap: 18px; padding: 20px 18px 6px; }
+.dt-ar__avatar {
+  width: 74px; height: 74px; border-radius: 50%; flex-shrink: 0;
+  background: #1E1E1E; overflow: hidden;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #666; font-weight: 800;
+}
+.dt-ar__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.dt-ar__id { flex: 1; min-width: 0; }
+.dt-ar__handle { font-size: 20px; font-weight: 800; color: #fff; margin: 4px 0 0; }
+.dt-ar__stats { display: flex; gap: 22px; margin-top: 12px; }
+.dt-ar__stat { display: flex; align-items: baseline; gap: 5px; font-size: 14px; color: #8A8A8A; }
+.dt-ar__stat b { font-size: 15px; font-weight: 800; color: #fff; }
+.dt-ar__edit {
+  flex-shrink: 0; height: 38px; padding: 0 16px;
+  background: none; color: #fff; border: 1px solid #333; border-radius: 8px;
+  font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit;
+}
+.dt-ar__edit:hover { border-color: #666; }
+
+/* 바이오(한 줄 인용) */
+.dt-ar__bio { padding: 12px 18px 18px; font-size: 14px; color: #C9C9C9; line-height: 1.5; }
+
+/* 2탭 */
+.dt-ar__tabs { display: flex; border-bottom: 1px solid #1C1C1C; }
+.dt-ar__tab {
+  flex: 1; height: 48px; background: none; border: 0; cursor: pointer;
+  color: #6B6B6B; font-size: 15px; font-weight: 700; font-family: inherit;
+  position: relative;
+}
+.dt-ar__tab.is-active { color: #fff; }
+.dt-ar__tab.is-active::after {
+  content: ""; position: absolute; left: 0; right: 0; bottom: -1px; height: 2px; background: #fff;
+}
+
+/* 카드 그리드 (2열) */
+.dt-ar__grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+  padding: 4px;
+}
+.dt-arcard { position: relative; display: block; background: #111; }
+.dt-arcard__thumb { position: relative; aspect-ratio: 3/4; background: #161616; overflow: hidden; }
+.dt-arcard__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dt-arcard__badge {
+  position: absolute; top: 10px; left: 10px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(10,10,10,.72); backdrop-filter: blur(6px);
+  color: #fff; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+  padding: 5px 9px; border-radius: 6px; text-transform: uppercase;
+}
+.dt-arcard__badge--live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+.dt-arcard__badge--done { color: #9CA3AF; }
+.dt-arcard__badge--fail { color: #E88; }
+.dt-arcard__meta { padding: 8px 10px 14px; }
+.dt-arcard__title { font-size: 14px; font-weight: 700; color: #fff; margin: 0; }
+.dt-arcard__sub { font-size: 12px; color: #7A7A7A; margin: 3px 0 0; }
+
+/* 빈/로딩 상태 */
+.dt-ar__empty, .dt-ar__load { grid-column: 1 / -1; text-align: center; color: #6B6B6B; padding: 50px 20px; font-size: 14px; }
+
+/* 플로팅 내비 다크 (릴스와 공유) */
+body.dt-dark .dt-fabnav { background: #141414; border-color: #262626; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+body.dt-dark .dt-fabnav__item { color: #6B6B6B; }
+body.dt-dark .dt-fabnav__item.is-active, body.dt-dark .dt-fabnav__item:hover { color: #fff; }
+body.dt-dark .dt-fabnav__plus { background: #fff; color: #0A0A0A; }

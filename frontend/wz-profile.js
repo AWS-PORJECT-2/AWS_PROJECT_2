@@ -1060,19 +1060,19 @@
   }
 
   var FUND_STATUS = {
-    open:           { label: '진행 중',   cls: 'open' },
+    open:           { label: 'LIVE DROP', cls: 'open' },
     pending:        { label: '심사 중',   cls: 'pending' },
     pending_review: { label: '심사 중',   cls: 'pending' },
-    scheduled:      { label: '공개 예정', cls: 'pending' },
+    scheduled:      { label: 'UPCOMING',  cls: 'pending' },
     rejected:       { label: '반려',      cls: 'rejected' },
     cancelled:      { label: '취소',      cls: 'rejected' },
-    failed:         { label: '실패',      cls: 'rejected' },
-    closed:         { label: '종료',      cls: 'done' },
-    ended:          { label: '종료',      cls: 'done' },
+    failed:         { label: 'FAIL',      cls: 'rejected' },
+    closed:         { label: 'DONE',      cls: 'done' },
+    ended:          { label: 'DONE',      cls: 'done' },
     executing:      { label: '제작 중',   cls: 'done' },
-    success:        { label: '성공',      cls: 'done' },
-    achieved:       { label: '성공',      cls: 'done' },
-    completed:      { label: '성공',      cls: 'done' },
+    success:        { label: 'DONE',      cls: 'done' },
+    achieved:       { label: 'DONE',      cls: 'done' },
+    completed:      { label: 'DONE',      cls: 'done' },
   };
   function fundCard(f) {
     var card = W.el('a', { class: 'wz-mp-card', href: '/detail.html?id=' + encodeURIComponent(f.id) });
@@ -1128,7 +1128,7 @@
     sum.append(
       cardSumItem('후원자', String(backerCount) + '명'),
       cardSumItem('달성률', rate + '%'),
-      cardSumItem('관심', String(likeCount))
+      cardSumItem('관심', (W.formatLikeCount ? W.formatLikeCount(likeCount) : String(likeCount)))
     );
     hook.appendChild(sum);
   }

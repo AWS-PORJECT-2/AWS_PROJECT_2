@@ -1,0 +1,261 @@
+/* =====================================================================
+ * DOOTHING (Campus Creator Archive) — 스킨 레이어 (최종 override)
+ * 로드 순서: tokens.css → wz.css → (페이지 CSS) → doothing.css
+ * 원칙: 기존 wz-/dt- 마크업은 건드리지 않고 색/곡률/폰트만 최종 override.
+ *   색은 tokens.css 변수만 사용(하드코딩 hex 금지, 단 보라 잔재 제거용 override 제외).
+ *   톤앤매너: Raw & Sleek — 무광 블랙(#1A1A1A) & 화이트 모노톤, 알약 곡률, 스트릿 폰트.
+ * ===================================================================== */
+
+/* ===== 마이너스 엔지니어링: 복구 가능한 숨김 =====
+ * 삭제 대신 이 클래스만 부착. 나중에 클래스 제거만으로 복구. */
+.dt-hidden { display: none !important; }
+
+/* ===== 곡률 통일: 모든 버튼을 알약(50px+)으로 ===== */
+.wz-btn, .dt-btn {
+  border-radius: var(--r-btn);
+  font-weight: 800;
+  letter-spacing: .2px;
+}
+/* 작은 버튼 변형도 알약 유지 */
+.wz-btn--sm { border-radius: var(--r-btn); }
+
+/* ===== 스트릿 타이포그래피 ===== */
+/* 로고: 거친 마커펜 폰트 + 좁은 자간 */
+.wz-hd__logo--text, .dt-logo {
+  font-family: var(--font-street);
+  letter-spacing: -1px;
+  color: var(--c-text);
+}
+/* 서브 텍스트: 작게 + 자간 넓게(하이엔드 무드) + 대문자 */
+.dt-sub {
+  font-size: 12px;
+  letter-spacing: .12em;
+  color: var(--c-text-muted);
+  text-transform: uppercase;
+}
+
+/* ===== 그라데이션/보라 잔재 제거 (단색 모노톤 override) ===== */
+/* 히어로 배너 배경 그라데이션 → 단색 연회색 */
+.wz-hero { background: var(--c-bg) !important; }
+/* Boost 태그·만들기 버튼의 보라 그림자 → 무채색 */
+.wz-hero__boosttag { box-shadow: 0 2px 8px rgba(0,0,0,.28) !important; }
+.wz-hd__create { box-shadow: 0 2px 8px rgba(0,0,0,.20) !important; }
+/* 검색바 포커스 링(보라 계열) → 토큰 기반(이미 모노톤 토큰이라 자동, 명시적 보강) */
+.wz-search:focus-within { box-shadow: 0 0 0 4px var(--c-primary-100) !important; }
+
+/* 채움형 CTA 위 글자 흰색 보장(모노톤에서도 유지) */
+.wz-btn--primary, .wz-btn--primary:hover,
+.dt-btn--primary, .dt-btn--primary:hover,
+.wz-hd__create, .wz-hd__create:hover { color: #fff !important; }
+
+/* =====================================================================
+ * 모바일 플로팅 알약 내비게이션 (신규) — 공중에 뜬 둥근 pill.
+ * PC(≥768px)는 숨기고 기존 헤더/LNB 사용.
+ * ===================================================================== */
+.dt-fabnav {
+  position: fixed;
+  left: 16px; right: 16px;
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  height: 60px;
+  display: flex; align-items: center; justify-content: space-around;
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: 30px;                      /* 높이(60)의 50% — 완벽한 반원 */
+  box-shadow: 0 8px 24px rgba(0,0,0,.12);   /* Y축 은은한 투명 그림자 */
+  z-index: 300;
+  padding: 0 10px;
+}
+@media (min-width: 768px) { .dt-fabnav { display: none; } }
+
+.dt-fabnav__item {
+  flex: 1;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--c-text-faint);
+  background: none; border: 0; cursor: pointer;
+  height: 100%;
+  transition: color .15s;
+}
+.dt-fabnav__item svg { width: 24px; height: 24px; }
+.dt-fabnav__item.is-active { color: var(--c-text); }
+.dt-fabnav__item:hover { color: var(--c-text); }
+
+/* 정중앙 + 버튼 — 살짝 떠오른 무광 블랙 원형 */
+.dt-fabnav__plus {
+  flex: 0 0 auto;
+  width: 52px; height: 52px;
+  border-radius: var(--r-pill);
+  background: var(--c-primary-500);
+  color: #fff; border: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transform: translateY(-8px);
+  box-shadow: 0 6px 18px rgba(0,0,0,.24);
+  transition: transform .12s, background .15s;
+}
+.dt-fabnav__plus svg { width: 26px; height: 26px; }
+.dt-fabnav__plus:active { transform: translateY(-8px) scale(.94); }
+
+/* 모바일에서 플로팅 내비에 가리지 않도록 본문 하단 여백 확보 */
+@media (max-width: 767px) {
+  .wz-body { padding-bottom: 96px; }
+}
+
+/* =====================================================================
+ * + 버튼 바텀 시트 (2모드 진입) — 스와이프 업
+ * ===================================================================== */
+.dt-sheet[hidden] { display: none; }
+.dt-sheet {
+  position: fixed; inset: 0; z-index: 400;
+}
+.dt-sheet__backdrop {
+  position: absolute; inset: 0;
+  background: rgba(0,0,0,.42);
+  opacity: 0; transition: opacity .28s;
+}
+.dt-sheet.is-open .dt-sheet__backdrop { opacity: 1; }
+.dt-sheet__panel {
+  position: absolute; left: 0; right: 0; bottom: 0;
+  background: var(--c-surface);
+  border-radius: 24px 24px 0 0;
+  padding: 12px 20px calc(24px + env(safe-area-inset-bottom, 0px));
+  transform: translateY(100%);
+  transition: transform .28s cubic-bezier(.22,1,.36,1);
+}
+.dt-sheet.is-open .dt-sheet__panel { transform: translateY(0); }
+.dt-sheet__grabber {
+  width: 40px; height: 4px; border-radius: 2px;
+  background: var(--c-border);
+  margin: 4px auto 18px;
+}
+.dt-mode {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  width: 100%; text-align: left;
+  padding: 18px 20px;
+  margin-bottom: 12px;
+  background: var(--c-bg);
+  border: 1.5px solid var(--c-border);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  font-family: inherit;
+}
+.dt-mode:hover { border-color: var(--c-text); }
+.dt-mode strong {
+  font-size: 17px; font-weight: 800; color: var(--c-text);
+  letter-spacing: .5px;
+}
+
+/* =====================================================================
+ * [GET DROP] CTA 반전 피드백
+ * ===================================================================== */
+.dt-btn--drop {
+  background: var(--c-surface); color: var(--c-text);
+  border: 1.5px solid var(--c-text);
+  transition: background .16s, color .16s, transform .12s;
+}
+.dt-btn--drop.is-fired {
+  background: var(--c-text); color: var(--c-surface);
+  transform: scale(.97);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dt-btn--drop, .dt-sheet__panel, .dt-sheet__backdrop { transition: none; }
+}
+
+/* =====================================================================
+ * 마이너스 엔지니어링 & 네이밍 override
+ * ===================================================================== */
+/* 헤더 만들기 버튼: 모바일에서 wz.css 가 content:'만들기'/'Create' 로 덮어쓰던 것을 MAKE IT 로 통일 */
+@media (max-width: 767px) {
+  .wz-hd__create::after { content: 'MAKE IT' !important; }
+  html[lang="en"] .wz-hd__create::after { content: 'MAKE IT' !important; }
+}
+
+/* 로고 텍스트 폴백 시 스트릿 폰트가 확실히 크게 보이도록 */
+.wz-hd__logo--text { font-size: 26px; }
+
+/* GET DROP 버튼은 보라 채움(wz-btn--primary) 대신 반전형이므로, 큰 버튼 높이/블록 유지 */
+.wz-d-cta.dt-btn--drop { height: 54px; font-size: 16px; font-weight: 800; letter-spacing: 1px; }
+
+/* =====================================================================
+ * 마이너스 엔지니어링: 복잡한 필터/장식 숨김 (복구 가능 — 이 규칙만 제거하면 복원)
+ *   미니멀리즘: 이미지(룩북) 위주로. 복잡한 원형 카테고리·정렬/칩 필터는 숨김.
+ * ===================================================================== */
+/* 홈 상단 원형 카테고리 줄 숨김 (헤더의 카테고리 메가패널은 유지) */
+.wz-cats { display: none !important; }
+/* 홈 둘러보기 정렬 탭 + 카테고리 칩 숨김 (그리드는 유지) */
+.wz-browse__sorts, .wz-browse__chips { display: none !important; }
+/* 상세 페이지의 텍스트 카테고리 메뉴(장식) 숨김 */
+.wz-catmenu { display: none !important; }
+
+/* =====================================================================
+ * 룩북 피드 카드 리스킨 (이미지 우선 · 텍스트 축소 · 스트릿 무드)
+ * ===================================================================== */
+/* 카드 썸네일: 세로형(4:5)로 룩북 느낌 강조, 모서리 각지게(스트릿) */
+.wz-pcard__thumb { aspect-ratio: 4/5; border-radius: 4px; }
+/* 하트 버튼도 모노톤 */
+.wz-pcard__heart.is-on { color: var(--c-text); }
+/* 텍스트 축소 — 이미지가 주인공. 제목만 담백하게, 부가정보 절제 */
+.wz-pcard__title { font-size: 14px; font-weight: 600; margin-top: 8px; }
+.wz-pcard__author { font-size: 12px; letter-spacing: .04em; color: var(--c-text-muted); }
+.wz-pcard__rate { font-size: 14px; font-weight: 800; color: var(--c-text); }
+.wz-pcard__amount { color: var(--c-text-muted); }
+
+/* 달성률 진행바도 모노톤 */
+.dt-progress__fill, .wz-d-progress__fill { background: var(--c-text) !important; }
+
+/* =====================================================================
+ * 반응형 룩북 피드
+ * ===================================================================== */
+/* PC(≥1024px): 홈 상단 좌(피드)·우(랭킹 LNB) 그리드는 기존 wz-home__top 재활용.
+ *   랭킹/사이드를 sticky 로 고정해 LNB 느낌. */
+@media (min-width: 1024px) {
+  .wz-home__rank { position: sticky; top: calc(var(--wz-hd-h, 110px) + 16px); align-self: start; }
+}
+
+/* 모바일(<768px): 룩북 피드를 큼직하게 — 그리드 1열로 풀폭 착장샷 강조(릴스 느낌) */
+@media (max-width: 767px) {
+  .wz-grid { grid-template-columns: 1fr; gap: 20px; }
+  .wz-pcard__thumb { aspect-ratio: 4/5; border-radius: 6px; }
+  /* 큐레이션 선반은 가로 스크롤 유지하되 카드 폭 확대 */
+  .wz-shelf__scroll { grid-auto-columns: 72vw; }
+}
+
+/* =====================================================================
+ * 하트 알림 센터 (크루 요청 + 활동)
+ * ===================================================================== */
+.dt-hc { position: fixed; inset: 0; z-index: 500; background: rgba(0,0,0,.5); display: flex; justify-content: center; align-items: flex-start; }
+.dt-hc__panel { width: 100%; max-width: 420px; margin-top: 64px; max-height: 80vh; display: flex; flex-direction: column; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: var(--sh-3); }
+.dt-hc__head { display: flex; align-items: center; justify-content: space-between; padding: 16px 18px; border-bottom: 1px solid var(--c-divider); }
+.dt-hc__head strong { font-size: 15px; font-weight: 800; letter-spacing: .06em; }
+.dt-hc__close { background: none; border: 0; cursor: pointer; color: var(--c-text-muted); width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; }
+.dt-hc__close svg { width: 20px; height: 20px; }
+.dt-hc__body { overflow-y: auto; padding: 8px 0 14px; }
+.dt-hc__loading, .dt-hc__empty { text-align: center; color: var(--c-text-muted); font-size: 13px; padding: 20px; margin: 0; }
+.dt-hc__sectitle { font-size: 12px; font-weight: 800; letter-spacing: .1em; color: var(--c-text-faint); text-transform: uppercase; padding: 14px 18px 8px; }
+.dt-hc__req { display: flex; align-items: center; gap: 12px; padding: 10px 18px; }
+.dt-hc__av { width: 40px; height: 40px; border-radius: 50%; background: var(--c-divider); overflow: hidden; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; color: var(--c-text-sub); flex-shrink: 0; }
+.dt-hc__av img { width: 100%; height: 100%; object-fit: cover; }
+.dt-hc__reqinfo { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dt-hc__reqinfo strong { font-size: 14px; font-weight: 700; }
+.dt-hc__reqinfo span { font-size: 12px; color: var(--c-text-muted); }
+.dt-hc__reqacts { display: flex; align-items: center; gap: 6px; }
+.dt-hc__accept { height: 32px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--c-text); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.dt-hc__accept:disabled { background: var(--c-divider); color: var(--c-text-faint); }
+.dt-hc__reject { width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--c-border); background: #fff; color: var(--c-text-muted); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+.dt-hc__reject svg { width: 14px; height: 14px; }
+.dt-hc__act { display: flex; align-items: center; gap: 10px; padding: 9px 18px; }
+.dt-hc__actdot { width: 7px; height: 7px; border-radius: 50%; background: var(--c-text); flex-shrink: 0; }
+.dt-hc__acttxt { font-size: 13px; color: var(--c-text-sub); line-height: 1.4; }
+
+/* =====================================================================
+ * 다크 헤더 로고 이미지 + 아이콘 크기 통일
+ * ===================================================================== */
+/* 로고 이미지 (제목 없는 디자인 6) — 다크 배경이라 색 반전(흰색) + 크게 */
+.dt-lbhd__logoimg { height: 48px; width: auto; display: block; filter: invert(1) brightness(2); }
+@media (max-width: 767px) { .dt-lbhd__logoimg { height: 40px; } }
+/* 로고 높이가 커지므로 헤더도 넉넉히 */
+.dt-lbhd { height: 64px; }
+
+/* 상단 아이콘(돋보기·하트) 동일 크기로 통일 */
+.dt-lbhd__ic { width: 26px; height: 26px; align-items: center; justify-content: center; }
+.dt-lbhd__ic svg { width: 24px; height: 24px; }

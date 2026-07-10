@@ -23,6 +23,47 @@ export class PgFollowRepository implements FollowRepository {
     return r.rows.length > 0;
   }
 
+  // ─── 프렌드십 (상호 수락) — 047_friendship 확장 ───
+
+  /** from→to 관계를 지정 status 로 upsert. 이미 있으면 status 갱신(멱등). */
+  async upsertFollow(fromId: string, toId: string, status: 'pending' | 'accepted'): Promise<void> {
+    if (fromId === toId) return;
+    await this.pool.query(
+      `INSERT INTO follows (follower_id, creator_id, status) VALUES ($1, $2, $3)
+       ON CONFLICT (follower_id, creator_id) DO UPDATE SET status = EXCLUDED.status`,
+      [fromId, toId, status],
+    );
+  }
+
+  /** from→to 관계의 status 를 갱신. 행이 없으면 아무것도 안 함. */
+  async setStatus(fromId: string, toId: string, status: 'pending' | 'accepted'): Promise<void> {
+    await this.pool.query(
+      'UPDATE follows SET status = $3 WHERE follower_id = $1 AND creator_id = $2',
+      [fromId, toId, status],
+    );
+  }
+
+  /** from→to 관계의 status 조회. 없으면 null. */
+  async getStatus(fromId: string, toId: string): Promise<'pending' | 'accepted' | null> {
+    const r = await this.pool.query(
+      'SELECT status FROM follows WHERE follower_id = $1 AND creator_id = $2',
+      [fromId, toId],
+    );
+    return (r.rows[0]?.status as 'pending' | 'accepted') ?? null;
+  }
+
+  /** 친구 여부 = 양방향 accepted 존재(대칭). */
+  async areFriends(a: string, b: string): Promise<boolean> {
+    if (a === b) return false;
+    const r = await this.pool.query(
+      `SELECT
+         (SELECT status FROM follows WHERE follower_id = $1 AND creator_id = $2) AS ab,
+         (SELECT status FROM follows WHERE follower_id = $2 AND creator_id = $1) AS ba`,
+      [a, b],
+    );
+    return r.rows[0]?.ab === 'accepted' && r.rows[0]?.ba === 'accepted';
+  }
+
   async countFollowers(creatorId: string): Promise<number> {
     const r = await this.pool.query('SELECT COUNT(*)::int c FROM follows WHERE creator_id = $1', [creatorId]);
     return r.rows[0]?.c ?? 0;

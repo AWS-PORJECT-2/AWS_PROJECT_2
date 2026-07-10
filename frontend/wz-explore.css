@@ -1,0 +1,76 @@
+/* =====================================================================
+ * DOOTHING — 탐색/검색 (feed.html 전용, 다크 테마, 목업 기준).
+ * 다크 헤더 + 검색바 + 필터칩 + ALL DROPS 사진 2열 그리드.
+ * ===================================================================== */
+body.dt-dark { background: #0A0A0A; color: #fff; }
+body.dt-dark .wz-body { background: #0A0A0A; }
+body.dt-dark #wz-footer { display: none !important; }
+
+/* 다크 헤더 */
+.dt-lbhd {
+  position: sticky; top: 0; z-index: 200;
+  display: flex; align-items: center; justify-content: space-between;
+  height: 56px; padding: 0 18px;
+  background: #0A0A0A; padding-top: env(safe-area-inset-top, 0px);
+}
+.dt-lbhd__logo { font-family: var(--font-street, cursive); font-size: 26px; color: #fff; letter-spacing: -1px; transform: skewX(-6deg); }
+.dt-lbhd__actions { display: flex; align-items: center; gap: 20px; }
+.dt-lbhd__ic { width: 24px; height: 24px; color: #fff; background: none; border: 0; cursor: pointer; display: inline-flex; }
+.dt-lbhd__ic svg { width: 24px; height: 24px; }
+
+/* 컨테이너 */
+.dt-ex { max-width: 640px; margin: 0 auto; padding: 8px 0 110px; }
+
+/* 검색바 */
+.dt-ex__searchwrap { padding: 10px 16px 6px; }
+.dt-ex__search {
+  display: flex; align-items: center; gap: 10px;
+  height: 46px; padding: 0 16px;
+  background: #161616; border: 1px solid #262626; border-radius: 12px;
+}
+.dt-ex__search svg { width: 20px; height: 20px; color: #7A7A7A; flex-shrink: 0; }
+.dt-ex__search input {
+  flex: 1; border: 0; outline: none; background: transparent;
+  color: #fff; font-size: 15px; font-family: inherit;
+}
+.dt-ex__search input::placeholder { color: #6B6B6B; }
+
+/* 필터 칩 */
+.dt-ex__chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px 6px; }
+.dt-ex__chip {
+  background: none; border: 1px solid #333; border-radius: 999px;
+  color: #C9C9C9; font-size: 13px; font-weight: 700; font-family: inherit;
+  padding: 7px 14px; cursor: pointer; white-space: nowrap;
+  letter-spacing: .02em;
+}
+.dt-ex__chip:hover { border-color: #666; color: #fff; }
+.dt-ex__chip.is-active { background: #fff; border-color: #fff; color: #0A0A0A; }
+
+/* 섹션 라벨 */
+.dt-ex__label {
+  padding: 16px 16px 10px; font-size: 12px; font-weight: 800;
+  letter-spacing: .14em; color: #6B6B6B; text-transform: uppercase;
+}
+
+/* 사진 그리드 (2열) */
+.dt-ex__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 0 4px; }
+.dt-excard { position: relative; display: block; background: #111; }
+.dt-excard__thumb { position: relative; aspect-ratio: 3/4; overflow: hidden; background: #161616; }
+.dt-excard__thumb img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s; }
+.dt-excard:hover .dt-excard__thumb img { transform: scale(1.04); }
+.dt-excard__badge {
+  position: absolute; top: 10px; left: 10px; z-index: 2;
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(10,10,10,.7); backdrop-filter: blur(6px);
+  color: #fff; font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+  padding: 4px 8px; border-radius: 5px; text-transform: uppercase;
+}
+.dt-excard__badge--live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+
+.dt-ex__empty, .dt-ex__load { grid-column: 1 / -1; text-align: center; color: #6B6B6B; padding: 50px 20px; font-size: 14px; }
+
+/* 플로팅 내비 다크 */
+body.dt-dark .dt-fabnav { background: #141414; border-color: #262626; box-shadow: 0 8px 28px rgba(0,0,0,.5); }
+body.dt-dark .dt-fabnav__item { color: #6B6B6B; }
+body.dt-dark .dt-fabnav__item.is-active, body.dt-dark .dt-fabnav__item:hover { color: #fff; }
+body.dt-dark .dt-fabnav__plus { background: #fff; color: #0A0A0A; }

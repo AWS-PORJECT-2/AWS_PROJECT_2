@@ -1,0 +1,70 @@
+/* =====================================================================
+ * DOOTHING — 스토리 & 투표 (24시간 휘발성). 다크.
+ * 상단 스토리 링(가로 스크롤) + 풀스크린 뷰어(타이머/탭/스와이프) + 업로드(투표 스티커).
+ * ===================================================================== */
+
+/* ── 상단 스토리 링 ── */
+.dt-stories { display: flex; gap: 14px; overflow-x: auto; padding: 14px 16px; background: #0A0A0A; scrollbar-width: none; }
+.dt-stories::-webkit-scrollbar { display: none; }
+.dt-story-ring { flex: 0 0 auto; width: 66px; text-align: center; background: none; border: 0; cursor: pointer; font-family: inherit; }
+.dt-story-ring__av { width: 62px; height: 62px; border-radius: 50%; padding: 2px; background: #262626; display: flex; align-items: center; justify-content: center; }
+.dt-story-ring--unread .dt-story-ring__av { background: linear-gradient(#fff, #fff) padding-box, #fff border-box; border: 2px solid #fff; padding: 2px; }
+.dt-story-ring--read .dt-story-ring__av { border: 2px solid #333; }
+.dt-story-ring__av img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.dt-story-ring__av-fallback { width: 100%; height: 100%; border-radius: 50%; background: #1E1E1E; color: #777; display: flex; align-items: center; justify-content: center; font-weight: 800; }
+.dt-story-ring__name { display: block; font-size: 11px; color: #C9C9C9; margin-top: 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 내 스토리 추가(+) */
+.dt-story-ring--add .dt-story-ring__av { background: #141414; border: 2px dashed #333; color: #fff; }
+.dt-story-ring--add .dt-story-ring__plus { font-size: 28px; line-height: 1; color: #fff; }
+
+/* ── 풀스크린 뷰어 ── */
+.dt-sv { position: fixed; inset: 0; z-index: 700; background: #000; display: flex; flex-direction: column; }
+.dt-sv__bars { display: flex; gap: 4px; padding: 12px 12px 6px; padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+.dt-sv__bar { flex: 1; height: 3px; border-radius: 2px; background: rgba(255,255,255,.3); overflow: hidden; }
+.dt-sv__bar-fill { height: 100%; width: 0; background: #fff; }
+.dt-sv__bar.is-done .dt-sv__bar-fill { width: 100%; }
+.dt-sv__top { display: flex; align-items: center; gap: 10px; padding: 6px 14px 10px; }
+.dt-sv__av { width: 34px; height: 34px; border-radius: 50%; object-fit: cover; background: #333; }
+.dt-sv__author { font-size: 14px; font-weight: 700; color: #fff; }
+.dt-sv__time { font-size: 12px; color: rgba(255,255,255,.6); }
+.dt-sv__close { margin-left: auto; background: none; border: 0; color: #fff; font-size: 26px; cursor: pointer; line-height: 1; }
+.dt-sv__stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.dt-sv__media { max-width: 100%; max-height: 100%; object-fit: contain; }
+/* 탭 영역(좌: 이전 / 우: 다음) */
+.dt-sv__tap { position: absolute; top: 0; bottom: 0; width: 40%; z-index: 2; }
+.dt-sv__tap--prev { left: 0; }
+.dt-sv__tap--next { right: 0; }
+
+/* 투표 스티커(뷰어 위) */
+.dt-sv__vote { position: absolute; z-index: 3; transform: translate(-50%, -50%); width: 260px; max-width: 80%; background: rgba(20,20,20,.72); backdrop-filter: blur(10px); border-radius: 16px; padding: 16px; }
+.dt-sv__vote-q { font-size: 15px; font-weight: 800; color: #fff; text-align: center; margin: 0 0 14px; }
+.dt-sv__vote-opts { display: flex; gap: 10px; }
+.dt-sv__vote-opt { flex: 1; position: relative; height: 46px; border-radius: 12px; border: 0; background: rgba(255,255,255,.16); color: #fff; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; overflow: hidden; }
+.dt-sv__vote-opt.is-mine { background: #fff; color: #0A0A0A; }
+.dt-sv__vote-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; background: rgba(255,255,255,.28); transition: width .5s cubic-bezier(.22,1,.36,1); z-index: 0; }
+.dt-sv__vote-opt.is-mine .dt-sv__vote-fill { background: rgba(0,0,0,.12); }
+.dt-sv__vote-label { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; padding: 0 14px; height: 100%; }
+.dt-sv__vote-pct { font-size: 13px; font-weight: 800; }
+
+/* ── 업로드 화면 ── */
+.dt-su { position: fixed; inset: 0; z-index: 700; background: #0A0A0A; display: flex; flex-direction: column; }
+.dt-su__top { display: flex; align-items: center; justify-content: space-between; height: 54px; padding: 0 16px; padding-top: env(safe-area-inset-top, 0px); border-bottom: 1px solid #1A1A1A; }
+.dt-su__back, .dt-su__share { background: none; border: 0; cursor: pointer; font-family: inherit; font-size: 15px; font-weight: 700; }
+.dt-su__back { color: #fff; }
+.dt-su__share { color: #4DA3FF; }
+.dt-su__share:disabled { color: #3A4A5A; }
+.dt-su__title { font-size: 16px; font-weight: 800; color: #fff; }
+.dt-su__stage { flex: 1; position: relative; display: flex; align-items: center; justify-content: center; background: #111; overflow: hidden; touch-action: none; }
+.dt-su__media { max-width: 100%; max-height: 100%; object-fit: contain; }
+.dt-su__empty { display: flex; flex-direction: column; align-items: center; gap: 14px; color: #666; }
+.dt-su__pick { height: 46px; padding: 0 22px; border-radius: 999px; border: 1px solid #333; background: #161616; color: #fff; font-weight: 700; cursor: pointer; font-family: inherit; }
+/* 배치된 투표 스티커(편집) */
+.dt-su__sticker { position: absolute; z-index: 4; transform: translate(-50%, -50%); width: 240px; max-width: 80%; background: rgba(20,20,20,.8); backdrop-filter: blur(8px); border-radius: 14px; padding: 14px; cursor: grab; }
+.dt-su__sticker.is-drag { cursor: grabbing; }
+.dt-su__sticker input { width: 100%; background: rgba(255,255,255,.1); border: 0; border-radius: 8px; color: #fff; font-size: 13px; padding: 8px 10px; margin-bottom: 8px; font-family: inherit; outline: none; }
+.dt-su__sticker input::placeholder { color: rgba(255,255,255,.45); }
+.dt-su__sticker-opts { display: flex; gap: 8px; }
+.dt-su__sticker-opts input { margin-bottom: 0; text-align: center; }
+.dt-su__tools { display: flex; gap: 10px; padding: 12px 16px calc(16px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid #1A1A1A; }
+.dt-su__tool { flex: 1; height: 46px; border-radius: 12px; border: 1px solid #333; background: #141414; color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; font-family: inherit; }
+.dt-su__tool.is-on { border-color: #fff; background: #fff; color: #0A0A0A; }

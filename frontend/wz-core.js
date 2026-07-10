@@ -79,6 +79,14 @@
     return dayOf(ms) - dayOf(Date.now());
   }
 
+  /* 좋아요 카운트 표시 캡 — 저장값은 정확히 유지하고 '표시'만 캡.
+   * 100 이상 → '99+' 고정(숫자 경쟁 피로감 방지). 0~99 → 그대로. 음수/NaN → '0' 방어. */
+  function formatLikeCount(n) {
+    const v = Math.floor(Number(n));
+    if (!isFinite(v) || v <= 0) return '0';
+    return v > 99 ? '99+' : String(v);
+  }
+
   /* ===== 홈 단일 둘러보기 허브 라우팅 =====
    * 홈에서 인기/신규/마감임박/카테고리 클릭 → 새 페이지로 가지 않고 홈 그리드만 그 자리에서 갱신.
    * 홈이 아닌 페이지에서 클릭 → 홈(/main.html)으로 파라미터 들고 이동. */
@@ -164,7 +172,7 @@
 
     /* 로고 (두띵 공식 로고 /assets/logo.png, 실패 시 텍스트 폴백) */
     const logo = el('a', { class: 'wz-hd__logo', href: '/main.html', 'aria-label': '두띵 홈' });
-    const logoImg = el('img', { src: '/assets/logo.png', alt: 'doothing' });
+    const logoImg = el('img', { src: '/assets/logo-doothing.png', alt: 'doothing' });
     logoImg.addEventListener('error', () => { logo.textContent = 'doothing'; logo.classList.add('wz-hd__logo--text'); });
     logo.appendChild(logoImg);
 
@@ -196,7 +204,7 @@
     langWrap.append(koBtn, enBtn);
     right.appendChild(langWrap);
     /* 헤더 하트 = 관심목록 팝오버(페이지 이동 X). 클릭 시 드롭다운 열기/닫기. */
-    const heartBtn = el('button', { class: 'wz-hd__icon wz-hd__heart', type: 'button', 'aria-label': '관심 목록', title: '관심 목록', 'aria-expanded': 'false', html: ICON.heart });
+    const heartBtn = el('button', { class: 'wz-hd__icon wz-hd__heart', type: 'button', 'aria-label': '좋아요', title: '좋아요', 'aria-expanded': 'false', html: ICON.heart });
     heartBtn.addEventListener('click', (e) => { e.stopPropagation(); openLikedPop(heartBtn); });
     right.appendChild(heartBtn);
     /* 종(알림) — 버튼(페이지 이동 없음). id=wz-bell 로 notification.js 가 클릭 시 wz 알림 패널 오픈.
@@ -214,7 +222,7 @@
     }
     right.appendChild(authSlot);
     right.appendChild(el('span', { class: 'wz-hd__divider' }));
-    right.appendChild(el('a', { class: 'wz-hd__create', href: '/fund-create.html' }, '프로젝트 만들기'));
+    right.appendChild(el('a', { class: 'wz-hd__create', href: '/fund-create.html' }, 'MAKE IT'));
 
     top.append(logo, menuBtn, homeLink, right);
     hd.appendChild(top);
@@ -237,8 +245,8 @@
     const soonLink = el('a', { class: 'wz-hd__nav2link wz-hd__nav2link--soon', href: '/feed.html?feed=scheduled' }, '공개예정');
     soonLink.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); location.href = '/feed.html?feed=scheduled'; });
     nav2inner.appendChild(soonLink);
-    // 커뮤니티 게시판 진입(공개예정 옆)
-    const boardLink = el('a', { class: 'wz-hd__nav2link wz-hd__nav2link--board', href: '/board.html' }, '게시판');
+    // 커뮤니티 게시판 진입(공개예정 옆) — DOOTHING: Lookbook 아카이브로 재해석
+    const boardLink = el('a', { class: 'wz-hd__nav2link wz-hd__nav2link--board', href: '/board.html' }, 'Lookbook');
     boardLink.addEventListener('click', (e) => { e.preventDefault(); closeAllPops(); location.href = '/board.html'; });
     nav2inner.appendChild(boardLink);
     nav2.appendChild(nav2inner);
@@ -603,11 +611,167 @@
     sync(); // 초기(이미 내려가 있는 상태 대비)
   }
 
+  /* ============ 모바일 플로팅 알약 내비 + 바텀 시트 (DOOTHING) ============
+   * 화면 하단에 공중에 뜬 pill 내비. 정중앙 [+] → 바텀 시트(2모드) 스와이프 업.
+   * PC(≥768px)는 CSS 로 숨김. 페이지당 1회만 주입. */
+  const FAB_ICON = {
+    plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>',
+    friends: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-3-3.87"/><path d="M9 21v-2a4 4 0 0 1 3-3.87"/><circle cx="9" cy="7" r="3"/><circle cx="16.5" cy="8.5" r="2.5"/></svg>',
+    feed: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M3 9h18M9 21V9"/></svg>',
+  };
+  function openDropSheet() {
+    let sheet = document.querySelector('.dt-sheet');
+    if (!sheet) return;
+    sheet.hidden = false;
+    // 강제 리플로우 후 클래스 부여 → 트랜지션 재생
+    requestAnimationFrame(() => sheet.classList.add('is-open'));
+  }
+  function closeDropSheet() {
+    const sheet = document.querySelector('.dt-sheet');
+    if (!sheet) return;
+    sheet.classList.remove('is-open');
+    setTimeout(() => { sheet.hidden = true; }, 280);
+  }
+  function injectFabNav() {
+    if (document.querySelector('.dt-fabnav')) return;
+    const nav = el('nav', { class: 'dt-fabnav', 'aria-label': '주요 내비게이션' });
+    function item(icon, label, href, active) {
+      const a = el('a', { class: 'dt-fabnav__item' + (active ? ' is-active' : ''), href: href, 'aria-label': label, html: icon });
+      return a;
+    }
+    const path = location.pathname;
+    // 하단 내비 = 4개: 홈 · 검색 · [+] · 프로필
+    nav.appendChild(item(FAB_ICON.feed, 'Feed', '/main.html', isHome()));
+    nav.appendChild(item(ICON.search, 'Search', '/feed.html', path.indexOf('/feed') === 0));
+    const plus = el('button', { class: 'dt-fabnav__plus', type: 'button', 'aria-label': '드롭/샘플 만들기', 'aria-haspopup': 'dialog', html: FAB_ICON.plus });
+    plus.addEventListener('click', openDropSheet);
+    nav.appendChild(plus);
+    nav.appendChild(item(ICON.user, 'Archive', '/profile.html', path.indexOf('/profile') === 0));
+    document.body.appendChild(nav);
+  }
+  function injectDropSheet() {
+    if (document.querySelector('.dt-sheet')) return;
+    const sheet = el('div', { class: 'dt-sheet', role: 'dialog', 'aria-modal': 'true', 'aria-label': '만들기', hidden: '' });
+    const backdrop = el('div', { class: 'dt-sheet__backdrop', 'data-close': '' });
+    const panel = el('div', { class: 'dt-sheet__panel' });
+    panel.appendChild(el('div', { class: 'dt-sheet__grabber' }));
+
+    const studio = el('button', { class: 'dt-mode', type: 'button', 'data-mode': 'studio' });
+    studio.append(el('strong', {}, 'SAMPLE STUDIO'), el('span', { class: 'dt-sub' }, '원가 샘플 제작'));
+    const drop = el('button', { class: 'dt-mode', type: 'button', 'data-mode': 'drop' });
+    drop.append(el('strong', {}, 'DROP OPEN'), el('span', { class: 'dt-sub' }, '룩북 발행 + 펀딩'));
+    const story = el('button', { class: 'dt-mode', type: 'button', 'data-mode': 'story' });
+    story.append(el('strong', {}, 'STORY'), el('span', { class: 'dt-sub' }, '24시간 스토리 + 투표'));
+    panel.append(studio, drop, story);
+    sheet.append(backdrop, panel);
+
+    // 모드 라우팅 — studio=샘플 스튜디오, drop=드롭 오픈, story=스토리 업로드(모달).
+    const ROUTE = { studio: '/studio.html', drop: '/drop.html' };
+    sheet.addEventListener('click', (e) => {
+      if (e.target.closest('[data-close]')) { closeDropSheet(); return; }
+      const modeBtn = e.target.closest('.dt-mode');
+      if (!modeBtn) return;
+      const mode = modeBtn.dataset.mode;
+      closeDropSheet();
+      if (mode === 'story') {
+        // 스토리는 현재 페이지에서 모달로. 스토리 모듈 없으면 홈으로 이동해 실행.
+        if (window.WZStory && typeof window.WZStory.openUploader === 'function') window.WZStory.openUploader();
+        else location.href = '/main.html#story';
+        return;
+      }
+      const dest = ROUTE[mode];
+      if (dest) { location.href = dest; }
+      else { location.href = '/main.html'; }
+    });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDropSheet(); });
+    document.body.appendChild(sheet);
+  }
+
+  /* ============ 하트 알림 센터 (DOOTHING) ============
+   * 상단: 크루 요청(수락/거절) · 하단: 활동(좋아요/펀딩 등 서버 알림).
+   * 전역 window.openHeartCenter 로 노출 — 다크 헤더의 하트 아이콘이 호출. */
+  function openHeartCenter() {
+    closeAllPops();
+    var overlay = el('div', { class: 'dt-hc' });
+    var panel = el('div', { class: 'dt-hc__panel' });
+    var head = el('div', { class: 'dt-hc__head' });
+    head.append(el('strong', {}, 'ACTIVITY'), (function () {
+      var x = el('button', { class: 'dt-hc__close', type: 'button', 'aria-label': '닫기', html: ICON.close });
+      x.addEventListener('click', function () { overlay.remove(); });
+      return x;
+    })());
+    panel.appendChild(head);
+
+    var body = el('div', { class: 'dt-hc__body' });
+    body.appendChild(el('p', { class: 'dt-hc__loading' }, '불러오는 중…'));
+    panel.appendChild(body);
+    overlay.appendChild(panel);
+    overlay.addEventListener('click', function (e) { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+
+    fetchMe().then(function (me) {
+      if (!me) { body.replaceChildren(el('p', { class: 'dt-hc__empty' }, '로그인이 필요해요')); return; }
+      Promise.all([
+        window.api.get('/me/friend-requests', { silentAuthFail: true }).catch(function () { return []; }),
+        window.api.get('/me/notifications', { silentAuthFail: true }).catch(function () { return null; }),
+      ]).then(function (res) {
+        var reqs = Array.isArray(res[0]) ? res[0] : [];
+        var notifData = res[1];
+        var acts = (notifData && Array.isArray(notifData.items)) ? notifData.items : (Array.isArray(notifData) ? notifData : []);
+        renderHeartCenter(body, reqs, acts);
+      });
+    });
+  }
+  function renderHeartCenter(body, reqs, acts) {
+    body.replaceChildren();
+    // 요청 섹션
+    body.appendChild(el('div', { class: 'dt-hc__sectitle' }, '크루 요청'));
+    if (!reqs.length) {
+      body.appendChild(el('p', { class: 'dt-hc__empty' }, '새 요청이 없어요'));
+    } else {
+      reqs.forEach(function (u) {
+        var row = el('div', { class: 'dt-hc__req' });
+        var av = el('div', { class: 'dt-hc__av' });
+        if (u.picture) { var im = el('img', { src: u.picture, alt: '' }); av.appendChild(im); }
+        else av.textContent = (u.name || u.nickname || '?').slice(0, 1);
+        var info = el('div', { class: 'dt-hc__reqinfo' });
+        info.append(el('strong', {}, u.nickname || u.name || '회원'), el('span', {}, '크루 요청을 보냈어요'));
+        var actions = el('div', { class: 'dt-hc__reqacts' });
+        var ok = el('button', { class: 'dt-hc__accept', type: 'button' }, '수락');
+        var no = el('button', { class: 'dt-hc__reject', type: 'button', html: ICON.close });
+        ok.addEventListener('click', function () {
+          ok.disabled = true;
+          window.api.post('/users/' + encodeURIComponent(u.userId) + '/friend/accept', {}).then(function () { row.remove(); }).catch(function () { ok.disabled = false; });
+        });
+        no.addEventListener('click', function () {
+          window.api.del('/users/' + encodeURIComponent(u.userId) + '/friend').then(function () { row.remove(); }).catch(function () {});
+        });
+        actions.append(ok, no);
+        row.append(av, info, actions);
+        body.appendChild(row);
+      });
+    }
+    // 활동 섹션
+    body.appendChild(el('div', { class: 'dt-hc__sectitle' }, '활동'));
+    if (!acts.length) {
+      body.appendChild(el('p', { class: 'dt-hc__empty' }, '아직 활동 알림이 없어요'));
+    } else {
+      acts.slice(0, 30).forEach(function (n) {
+        var row = el('div', { class: 'dt-hc__act' });
+        row.append(el('span', { class: 'dt-hc__actdot' }), el('div', { class: 'dt-hc__acttxt' }, (n.title || '') + (n.body ? (' · ' + n.body) : '')));
+        body.appendChild(row);
+      });
+    }
+  }
+  window.openHeartCenter = openHeartCenter;
+
   function mount() {
     document.body.classList.add('wz-body');
     injectFavicon();
     installScrollGuard();
     injectScrollTop();
+    injectFabNav();
+    injectDropSheet();
     const h = document.getElementById('wz-header'); if (h && !h.dataset.done) { h.dataset.done = '1'; h.appendChild(Header()); }
     // 2줄 헤더의 실제 높이를 CSS 변수로 노출 — 상세 등 sticky 오프셋 계산에 사용(겹침 방지)
     function setHeaderH() { const hh = document.getElementById('wz-header'); if (hh) document.documentElement.style.setProperty('--wz-hd-h', hh.offsetHeight + 'px'); }
@@ -651,5 +815,5 @@
   // 가로/세로 박스 한 개(임의 크기) — 상세 커버, 측면 패널 등.
   function skelBox(cls) { return el('div', { class: 'wz-skel ' + (cls || '') }); }
 
-  window.WZ = { el, esc, money, rate, dday, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome, skelLines, skelCard, skelGrid, skelCardsFrag, skelBox };
+  window.WZ = { el, esc, money, rate, dday, formatLikeCount, ICON, fetchMe, logout, fillThumb, Header, Footer, SearchRow, CategoryCircles, CategoryMenu, go, isHome, skelLines, skelCard, skelGrid, skelCardsFrag, skelBox };
 })();
