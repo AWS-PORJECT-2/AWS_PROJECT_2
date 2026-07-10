@@ -148,13 +148,7 @@
   }
 
   function render(root, items) {
-    // 상단 스토리 링(크루 24h 스토리)
-    const ring = W.el('div', { class: 'dt-stories' });
-    root.appendChild(ring);
-    if (window.WZStory) {
-      window.WZStory.renderRing(ring, () => window.WZStory.openUploader());
-      window.WZStory._onPublish = () => window.WZStory.renderRing(ring, () => window.WZStory.openUploader());
-    }
+    // 스토리 링은 run()에서 이미 렌더됨 — 여기서는 피드만 추가(중복 방지).
     const feed = W.el('div', { class: 'dt-feed' });
     items.forEach((d) => feed.appendChild(Drop(d)));
     root.appendChild(feed);
