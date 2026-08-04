@@ -263,3 +263,32 @@ body.dt-dark .dz-describe__t { color: #fff; }
 
 /* ── detail: 헤더 아래 흰 검색/카테고리 바 정리 ── */
 body.dt-dark .wz-detail__searchbar, body.dt-dark .wz-d-topbar { background: #0A0A0A !important; border-color: #1E1E1E !important; }
+
+/* ── 법적/콘텐츠 페이지(약관·개인정보·심사정책) wzc-* 다크 ── */
+body.dt-dark .wzc-callout, body.dt-dark .wzc-box, body.dt-dark .wzc-note,
+body.dt-dark .wzc-card, body.dt-dark .wzc-table, body.dt-dark .wzc-table th,
+body.dt-dark .wzc-toc, body.dt-dark .wzc-sec { background: #141414 !important; border-color: #262626 !important; color: #EDEDED; }
+body.dt-dark .wzc-table td { border-color: #1E1E1E; }
+body.dt-dark .wzc-h1, body.dt-dark .wzc-h2, body.dt-dark .wzc-title { color: #fff; }
+body.dt-dark .wzc-meta, body.dt-dark .wzc-sub { color: #8A8A8A; }
+
+/* ── 맨위로 버튼 다크 ── */
+body.dt-dark .wz-totop { background: #141414 !important; color: #fff !important; border: 1px solid #333 !important; }
+
+/* ── 게시판 탭/작성 ── */
+body.dt-dark .bd-tab { background: #141414; border-color: #262626; color: #B5B5B5; }
+body.dt-dark .bd-tab.is-active { background: #fff; color: #0A0A0A; }
+body.dt-dark .bd-item, body.dt-dark .bd-post, body.dt-dark .bd-card { background: #141414; border-color: #262626; }
+
+/* ── detail 탭바(스토리/댓글) 다크 ── */
+body.dt-dark .wz-d-tabs, body.dt-dark .wz-d-tabbar { background: #0A0A0A !important; border-color: #1E1E1E !important; }
+body.dt-dark .wz-d-tab { color: #8A8A8A; }
+body.dt-dark .wz-d-tab.is-active { color: #fff; border-color: #fff; }
+body.dt-dark .wz-d-sec, body.dt-dark .wz-d-story, body.dt-dark .wz-d-side { background: transparent; }
+body.dt-dark .wz-d-buy, body.dt-dark .wz-d-info { background: #141414; border-color: #262626; }
+
+/* ── detail 보조 액션 버튼(찜/공유/수정 등) 다크 아웃라인 ── */
+body.dt-dark .wz-d-act, body.dt-dark .wz-d-share, body.dt-dark .wz-d-like {
+  background: #141414 !important; border-color: #2E2E2E !important; color: #EDEDED !important;
+}
+body.dt-dark .wz-d-act:hover { background: #1F1F1F !important; border-color: #fff !important; }
