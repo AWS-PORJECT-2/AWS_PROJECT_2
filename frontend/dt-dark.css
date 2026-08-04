@@ -292,3 +292,28 @@ body.dt-dark .wz-d-act, body.dt-dark .wz-d-share, body.dt-dark .wz-d-like {
   background: #141414 !important; border-color: #2E2E2E !important; color: #EDEDED !important;
 }
 body.dt-dark .wz-d-act:hover { background: #1F1F1F !important; border-color: #fff !important; }
+
+/* ── fund-create wc-* 카드/배너/패널/입력 다크 ── */
+body.dt-dark .wc-banner, body.dt-dark .wc-banner--accent, body.dt-dark .wc-card,
+body.dt-dark .wc-plan, body.dt-dark .wc-prog, body.dt-dark .wc-done__card,
+body.dt-dark .wc-proxy__card, body.dt-dark .wc-tplcard, body.dt-dark .wc-over__panel,
+body.dt-dark .wc-draft, body.dt-dark .wc-draftbar, body.dt-dark .wc-modal__box,
+body.dt-dark .wc-select, body.dt-dark .wc-textarea, body.dt-dark .wc-chip,
+body.dt-dark .wc-bl__toolbar, body.dt-dark .wc-bl__tselect, body.dt-dark .wc-catcard {
+  background: #141414 !important; border-color: #262626 !important; color: #EDEDED;
+}
+body.dt-dark .wc-banner__title, body.dt-dark .wc-card__title { color: #fff; }
+body.dt-dark .wc-banner__text, body.dt-dark .wc-banner__list { color: #B5B5B5; }
+body.dt-dark .wc-chip.is-active { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .wc-catcard:hover { border-color: #fff !important; }
+body.dt-dark .wc-catcard__label { color: #EDEDED; }
+/* 카테고리 아이콘 stroke 모노톤 보강(혹시 남은 색) */
+body.dt-dark .wc-catcard svg [stroke], body.dt-dark .wz-mega svg [stroke] { stroke: #B5B5B5; }
+
+/* ── 카테고리 아이콘(PNG 상품 렌더) 모노톤화 — grayscale 필터 ── */
+body.dt-dark .wc-catcard__ic img, body.dt-dark .wc-catcard__ic svg,
+body.dt-dark .wz-mega__ic img, body.dt-dark .wz-mega__ic svg,
+body.dt-dark .wz-cat__ic img, body.dt-dark .wz-cat__ic svg,
+body.dt-dark .wz-cats__ic img, body.dt-dark .wz-cats__ic svg {
+  filter: grayscale(1) brightness(1.15) contrast(1.02) !important;
+}
