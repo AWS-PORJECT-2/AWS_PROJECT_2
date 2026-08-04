@@ -1,0 +1,265 @@
+/* =====================================================================
+ * DOOTHING 전역 다크 테마 (dt-dark) — 전 페이지 통일 다크/스트릿 스킨.
+ * 로드 순서: tokens.css → wz.css → (페이지 CSS) → doothing.css → dt-dark.css (최종)
+ * 적용: <body class="dt-dark">. 원칙:
+ *   1) body.dt-dark 에서 토큰을 다크로 재정의 → var() 쓰는 컴포넌트 자동 전환.
+ *   2) 하드코딩 흰 배경(#fff)·CTA·보더는 명시적 override.
+ *   3) 무광 블랙(#0A0A0A) 배경 · #141414 서피스 · #262626 보더 · 흰 텍스트 · 반전 CTA(흰 바탕/검은 글자).
+ * ===================================================================== */
+
+/* ── 1) 토큰 다크 재정의 ── */
+body.dt-dark {
+  --c-bg:        #0A0A0A;
+  --c-surface:   #141414;
+  --c-surface-2: #1C1C1C;
+  --c-text:      #FAFAFA;
+  --c-text-sub:  #B5B5B5;
+  --c-text-muted:#8A8A8A;
+  --c-text-faint:#6B6B6B;
+  --c-border:    #262626;
+  --c-divider:   #1E1E1E;
+
+  /* primary tint 계열 → 어두운 서피스로 (연회색 배경이 다크에서 검게) */
+  --c-primary-50:  #1C1C1C;
+  --c-primary-100: #262626;
+  --c-primary-200: #333333;
+  --c-primary-300: #4D4D4D;
+  --c-primary-400: #808080;
+  --c-primary-500: #FFFFFF;  /* 반전 CTA: 흰 바탕 */
+  --c-primary-600: #E5E5E5;
+  --c-primary-700: #FFFFFF;  /* 다크 위 강조 텍스트 = 흰색 */
+
+  --c-accent-coral-50:#1C1C1C; --c-accent-mint-50:#1C1C1C; --c-accent-peach-50:#1C1C1C;
+  --c-accent-sky-50:#1C1C1C; --c-accent-pink-50:#1C1C1C;
+
+  --sh-1: 0 1px 2px rgba(0,0,0,.5);
+  --sh-2: 0 4px 14px rgba(0,0,0,.55);
+  --sh-3: 0 10px 30px rgba(0,0,0,.65);
+  --sh-primary: 0 6px 18px rgba(0,0,0,.5);
+
+  background: #0A0A0A;
+  color: var(--c-text);
+}
+html:has(body.dt-dark) { background: #0A0A0A; }
+body.dt-dark .wz-body,
+body.dt-dark main,
+body.dt-dark #wz-main { background: #0A0A0A; }
+
+/* 선택/스크롤바 */
+body.dt-dark ::selection { background: #fff; color: #0A0A0A; }
+body.dt-dark ::-webkit-scrollbar { width: 10px; height: 10px; }
+body.dt-dark ::-webkit-scrollbar-thumb { background: #2A2A2A; border-radius: 6px; }
+body.dt-dark ::-webkit-scrollbar-track { background: #0A0A0A; }
+
+/* ── 2) 헤더 (wz-hd) ── */
+body.dt-dark .wz-hd,
+body.dt-dark .wz-hd__inner,
+body.dt-dark .wz-hd__bar { background: #0A0A0A; border-color: #1E1E1E; }
+body.dt-dark .wz-hd__logo--text, body.dt-dark .dt-logo { color: #fff; }
+body.dt-dark .wz-hd a,
+body.dt-dark .wz-hd__navlink,
+body.dt-dark .wz-hd__nav2link,
+body.dt-dark .wz-hd__home,
+body.dt-dark .wz-hd__menubtn,
+body.dt-dark .wz-hd__catbtn,
+body.dt-dark .wz-hd__langbtn,
+body.dt-dark .wz-hd__ic { color: #EDEDED; }
+body.dt-dark .wz-hd__navlink:hover,
+body.dt-dark .wz-hd__nav2link:hover { color: #fff; }
+body.dt-dark .wz-hd__langbtn.is-on { background: #fff; color: #0A0A0A; }
+body.dt-dark .wz-hd__nav2, body.dt-dark .wz-hd__nav { border-color: #1E1E1E; }
+/* 헤더 검색바 */
+body.dt-dark .wz-search { background: #141414; border-color: #262626; }
+body.dt-dark .wz-search input { background: transparent; color: #fff; }
+body.dt-dark .wz-search input::placeholder { color: #6B6B6B; }
+
+/* 메가패널/드롭다운/유저메뉴 */
+body.dt-dark .wz-mega,
+body.dt-dark .wz-menu,
+body.dt-dark .wz-usermenu,
+body.dt-dark .wz-catmenu,
+body.dt-dark .wz-likedpop { background: #141414; border-color: #262626; color: #EDEDED; box-shadow: var(--sh-3); }
+body.dt-dark .wz-menu a, body.dt-dark .wz-usermenu a, body.dt-dark .wz-mega a { color: #EDEDED; }
+body.dt-dark .wz-menu a:hover, body.dt-dark .wz-usermenu a:hover { background: #1F1F1F; }
+
+/* ── 3) 푸터 ── */
+body.dt-dark #wz-footer,
+body.dt-dark .wz-footer { background: #0A0A0A; border-color: #1E1E1E; color: #8A8A8A; }
+body.dt-dark .wz-footer a { color: #A3A3A3; }
+body.dt-dark .wz-footer a:hover { color: #fff; }
+
+/* ── 4) 서피스/카드 (하드코딩 #fff 계열 전부 다크) ── */
+body.dt-dark .dt-card,
+body.dt-dark .wz-card,
+body.dt-dark .wz-panel,
+body.dt-dark .wz-box,
+body.dt-dark .wz-section,
+body.dt-dark .wz-mp-card,
+body.dt-dark .wz-tier,
+body.dt-dark .wz-cc,
+body.dt-dark .wz-plan,
+body.dt-dark .wza-card,
+body.dt-dark .wza-item,
+body.dt-dark .wz-report-card,
+body.dt-dark .wz-comment,
+body.dt-dark .wz-ann,
+body.dt-dark .wz-set__row,
+body.dt-dark .wz-addr,
+body.dt-dark .wc-cc,
+body.dt-dark .wc-card,
+body.dt-dark .wc-tier,
+body.dt-dark .wc-over,
+body.dt-dark .wz-login__card { background: #141414; border-color: #262626; color: var(--c-text); }
+body.dt-dark .dt-card--hover:hover, body.dt-dark .wz-card:hover { box-shadow: var(--sh-2); }
+
+/* ── 5) 입력/폼/셀렉트/텍스트에어리어 ── */
+body.dt-dark .dt-input,
+body.dt-dark input[type="text"],
+body.dt-dark input[type="email"],
+body.dt-dark input[type="password"],
+body.dt-dark input[type="number"],
+body.dt-dark input[type="search"],
+body.dt-dark input[type="tel"],
+body.dt-dark input[type="url"],
+body.dt-dark input[type="date"],
+body.dt-dark input[type="datetime-local"],
+body.dt-dark textarea,
+body.dt-dark select,
+body.dt-dark .wz-input,
+body.dt-dark .wza-input,
+body.dt-dark .wc-input,
+body.dt-dark .wz-finput { background: #141414; color: var(--c-text); border-color: #2E2E2E; }
+body.dt-dark input::placeholder, body.dt-dark textarea::placeholder { color: #6B6B6B; }
+body.dt-dark .dt-input:focus,
+body.dt-dark input:focus, body.dt-dark textarea:focus, body.dt-dark select:focus {
+  border-color: #fff; box-shadow: 0 0 0 3px rgba(255,255,255,.12); outline: none;
+}
+body.dt-dark .dt-field-label, body.dt-dark .wz-field__label, body.dt-dark label { color: #B5B5B5; }
+body.dt-dark option { background: #141414; color: #fff; }
+
+/* ── 6) 버튼 (반전 CTA) ── */
+body.dt-dark .dt-btn--primary, body.dt-dark .wz-btn--primary,
+body.dt-dark .wz-hd__create, body.dt-dark .wza-btn--primary {
+  background: #fff !important; color: #0A0A0A !important; border-color: #fff;
+}
+body.dt-dark .dt-btn--primary:hover, body.dt-dark .wz-btn--primary:hover,
+body.dt-dark .wz-hd__create:hover { background: #E0E0E0 !important; color: #0A0A0A !important; }
+body.dt-dark .dt-btn--outline, body.dt-dark .wz-btn--outline {
+  background: transparent; color: #fff; border-color: #3A3A3A;
+}
+body.dt-dark .dt-btn--outline:hover, body.dt-dark .wz-btn--outline:hover { background: #1C1C1C; border-color: #fff; }
+body.dt-dark .dt-btn--ghost, body.dt-dark .wz-btn--ghost { color: #B5B5B5; }
+body.dt-dark .dt-btn--ghost:hover, body.dt-dark .wz-btn--ghost:hover { background: #1C1C1C; color: #fff; }
+body.dt-dark .dt-btn:disabled, body.dt-dark .wz-btn:disabled { background: #1F1F1F; color: #555; border-color: transparent; }
+
+/* ── 7) 텍스트/링크/구분선/뱃지 ── */
+body.dt-dark h1, body.dt-dark h2, body.dt-dark h3, body.dt-dark h4, body.dt-dark strong { color: #FAFAFA; }
+body.dt-dark p, body.dt-dark span, body.dt-dark li, body.dt-dark td, body.dt-dark div { color: inherit; }
+body.dt-dark a { color: #EDEDED; }
+body.dt-dark hr, body.dt-dark .wz-divider { border-color: #262626; background: #262626; }
+body.dt-dark .dt-badge--cat, body.dt-dark .dt-badge--open { background: #262626; color: #EDEDED; }
+body.dt-dark .dt-badge--proxy { background: #1F1F1F; color: #A3A3A3; }
+
+/* 진행바 */
+body.dt-dark .dt-progress, body.dt-dark .wz-d-progress { background: #262626; }
+body.dt-dark .dt-progress__fill, body.dt-dark .wz-d-progress__fill { background: #fff !important; }
+
+/* ── 8) 관리자 테이블 ── */
+body.dt-dark .wza-table, body.dt-dark table { color: var(--c-text); }
+body.dt-dark .wza-table th, body.dt-dark th { color: #B5B5B5; border-color: #262626; }
+body.dt-dark .wza-table td, body.dt-dark td { border-color: #1E1E1E; }
+body.dt-dark .wza-table tr:hover td { background: #1A1A1A; }
+body.dt-dark .wza-side, body.dt-dark .wza-topbar { background: #0F0F0F; border-color: #1E1E1E; }
+body.dt-dark .wza-side a, body.dt-dark .wza-side button { color: #B5B5B5; }
+body.dt-dark .wza-side .is-active { background: #1F1F1F; color: #fff; }
+
+/* ── 9) 모달/시트/오버레이 ── */
+body.dt-dark .wz-modal, body.dt-dark .wza-modal, body.dt-dark .dt-sheet__panel,
+body.dt-dark .wz-consent__panel, body.dt-dark .wc-modal, body.dt-dark .dt-hc__panel {
+  background: #141414; color: var(--c-text); border-color: #262626;
+}
+body.dt-dark .wz-modal__title, body.dt-dark .wza-modal__title { color: #fff; }
+
+/* ── 10) 잡다 (탭/칩/토스트/빈상태) ── */
+body.dt-dark .wz-tab, body.dt-dark .wz-chip, body.dt-dark .wza-chip { background: #141414; border-color: #262626; color: #B5B5B5; }
+body.dt-dark .wz-tab.is-active, body.dt-dark .wz-chip.is-active, body.dt-dark .wza-chip.is-active { background: #fff; color: #0A0A0A; border-color: #fff; }
+body.dt-dark .wz-empty, body.dt-dark .wz-mp-empty { color: #8A8A8A; }
+body.dt-dark .wz-toast { background: #fff; color: #0A0A0A; }
+body.dt-dark .wz-avatar, body.dt-dark .wz-mp-av { background: #262626; color: #B5B5B5; }
+
+/* ============================================================
+ * 페이지별 하드코딩 색/흰배경 override (2차 — 스크린샷 검수 반영)
+ * ============================================================ */
+
+/* ── fund-create: 대리개설 주황 → 모노톤 ── */
+body.dt-dark .wc-cc--proxy:hover { border-color: #fff; }
+body.dt-dark .wc-cc--proxy .wc-cc__ic,
+body.dt-dark .wc-cc--proxy .wc-cc__tag,
+body.dt-dark .wc-cc--proxy .wc-cc__dot,
+body.dt-dark .wc-proxy__notice { background: #1F1F1F !important; color: #EDEDED !important; border-color: #2E2E2E !important; }
+body.dt-dark .wc-cc--proxy .wc-cc__fee,
+body.dt-dark .wc-proxy__steplabel { color: #EDEDED !important; }
+body.dt-dark .wc-cc--proxy .wc-cc__cta,
+body.dt-dark .wc-cc--proxy:hover .wc-cc__cta { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .wc-cc__ic { background: #1F1F1F; color: #EDEDED; }
+body.dt-dark .wc-studio, body.dt-dark .wc-main, body.dt-dark .wc-choose,
+body.dt-dark .wc-pick, body.dt-dark .wc-aside { background: transparent; }
+body.dt-dark .wc-main__title, body.dt-dark .wc-choose__title { color: #fff; }
+body.dt-dark .wc-submit__hint, body.dt-dark .wc-fld__notice { background: #141414; border-color: #262626; color: #B5B5B5; }
+
+/* ── studio(마플 클론): UI 크롬 다크화 (상품 색상 스와치는 유지) ── */
+body.dt-studio.dt-dark, body.dt-dark.dt-studio { background: #0A0A0A !important; color: #FAFAFA; }
+body.dt-dark .dt-mp__top, body.dt-dark .dt-mp__panel, body.dt-dark .dt-mp__side,
+body.dt-dark .dt-mp__foot, body.dt-dark .dt-mp__tool, body.dt-dark .dt-mp__seg,
+body.dt-dark .dt-mp__facetag, body.dt-dark .dt-mp__row { background: #141414 !important; border-color: #262626 !important; color: #EDEDED; }
+body.dt-dark .dt-mp__stage { background: #1C1C1C !important; }
+body.dt-dark .dt-mp__tool:hover { background: #262626 !important; color: #fff; }
+body.dt-dark .dt-mp__del { background: #262626; border-color: #3A3A3A; color: #fff; }
+body.dt-dark .dt-mp__label, body.dt-dark .dt-mp__price { color: #FAFAFA; }
+
+/* ── maker 커버: 파스텔 그라데이션 → 무광 다크 ── */
+body.dt-dark .wz-mk-cover--grad {
+  background:
+    radial-gradient(800px 340px at 78% -10%, rgba(255,255,255,.06), transparent 60%),
+    linear-gradient(120deg, #1A1A1A, #0A0A0A) !important;
+}
+body.dt-dark .wz-mk-cover { background: #111 !important; }
+
+/* ── login: 옛 보라 로고 → 흰 반전 + 스트릿 브랜드텍스트, 카드 다크 ── */
+body.dt-dark .wz-login { background: #0A0A0A; }
+body.dt-dark .wz-login__logo { filter: brightness(0) invert(1); }
+body.dt-dark .dt-lbhd__logoimg, body.dt-dark .wz-hd__logo img { filter: brightness(0) invert(1); }
+body.dt-dark .wz-login__brandtext { font-family: var(--font-street); color: #fff; letter-spacing: -1px; }
+body.dt-dark .wz-login__card { background: #141414; border-color: #262626; box-shadow: var(--sh-3); }
+body.dt-dark .wz-login__title { color: #fff; }
+body.dt-dark .wz-login__sub, body.dt-dark .wz-login__foot { color: #8A8A8A; }
+body.dt-dark .wz-login__notice { background: #1C1C1C; border-color: #262626; }
+body.dt-dark .wz-login__notice p, body.dt-dark .wz-login__notice svg { color: #B5B5B5; }
+body.dt-dark .wz-login__google { background: #fff; color: #0A0A0A; border-color: #fff; }
+body.dt-dark .wz-login__google:hover { background: #E5E5E5; }
+body.dt-dark .wz-login__divider { border-color: #262626; }
+
+/* ── support/board/announcements: 흰 잔여 입력/채팅 다크 ── */
+body.dt-dark .wz-chat__input, body.dt-dark .wz-chat__bar, body.dt-dark .wz-msgbar,
+body.dt-dark .wz-report__input, body.dt-dark [class*="chatbar"] { background: #141414 !important; border-color: #262626 !important; }
+body.dt-dark .wz-bubble--me { background: #fff; color: #0A0A0A; }
+body.dt-dark .wz-bubble--them, body.dt-dark .wz-bubble { background: #1F1F1F; color: #EDEDED; }
+
+/* ── analytics: 흰 카드/차트/게이지 다크 ── */
+body.dt-dark .wz-an__section, body.dt-dark .wz-an__mini, body.dt-dark .wz-an__gauge,
+body.dt-dark .wz-an__barswrap, body.dt-dark .wz-an__state, body.dt-dark .wz-an__back,
+body.dt-dark .wz-an__navitem, body.dt-dark .wz-an__toggle, body.dt-dark .wz-an__chartsum,
+body.dt-dark .wz-an__rwrow { background: #141414 !important; border-color: #262626 !important; color: var(--c-text); }
+body.dt-dark .wz-an__toggle-btn.is-active { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .wz-an__rwtrack { background: #262626; }
+body.dt-dark .wz-an__bar, body.dt-dark .wz-an__rwfill { background: #fff; }
+
+/* ── design 에디터(관리자 전용): 크롬 다크 ── */
+body.dt-dark .dz-wrap, body.dt-dark .dz-top, body.dt-dark .dz-panel, body.dt-dark .dz-side,
+body.dt-dark .dz-tool, body.dt-dark .dz-describe, body.dt-dark .dz-row, body.dt-dark .dz-seg,
+body.dt-dark .dz-opt, body.dt-dark .dz-foot { background: #141414 !important; border-color: #262626 !important; color: #EDEDED; }
+body.dt-dark .dz-stage, body.dt-dark .dz-canvas { background: #1C1C1C !important; }
+body.dt-dark .dz-describe__t { color: #fff; }
+
+/* ── detail: 헤더 아래 흰 검색/카테고리 바 정리 ── */
+body.dt-dark .wz-detail__searchbar, body.dt-dark .wz-d-topbar { background: #0A0A0A !important; border-color: #1E1E1E !important; }

@@ -2,11 +2,13 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="color-scheme" content="light">
-  <style>html,body{background:#fff}</style>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <link rel="stylesheet" href="tokens.css">
+  <title>DOOTHING — 캠퍼스 크리에이터 드롭 아카이브</title>
+  <meta name="description" content="우리 학교 크리에이터들의 한정 드롭 아카이브. 굿즈를 디자인하고, 크루와 공유하고, 세상에 하나뿐인 드롭을 오픈하세요.">
   <script>
-    /* 앱(Capacitor)에서 루트로 열리면 마케팅 랜딩 대신 메인으로 즉시 이동.
-       웹 브라우저(비-Capacitor)는 그대로 랜딩 유지. 스플래시가 이 전환을 덮어줌. */
+    /* 앱(Capacitor)에서 루트로 열리면 마케팅 랜딩 대신 메인으로 즉시 이동. */
     (function () {
       try {
         if (window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform()) {
@@ -15,187 +17,87 @@
       } catch (e) {}
     })();
   </script>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>doothing — 우리의 상상을 현실로</title>
-  <meta name="description" content="과잠·키링·에코백·폰케이스까지, 학생 굿즈를 한곳에 모아 공동구매로 함께 만드는 크라우드펀딩 플랫폼.">
-  <link rel="stylesheet" href="landing.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { background: #0A0A0A; color: #FAFAFA; font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
+    a { text-decoration: none; color: inherit; }
+    .ld { min-height: 100dvh; display: flex; flex-direction: column; position: relative; overflow: hidden; }
+    .ld__grid { position: fixed; inset: 0; z-index: 0; pointer-events: none;
+      background-image: linear-gradient(#141414 1px, transparent 1px), linear-gradient(90deg, #141414 1px, transparent 1px);
+      background-size: 64px 64px; -webkit-mask-image: radial-gradient(circle at 50% 34%, #000 0%, transparent 78%);
+      mask-image: radial-gradient(circle at 50% 34%, #000 0%, transparent 78%); opacity: .55; }
+
+    .ld__nav { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; }
+    .ld__logo { font-family: var(--font-street); font-size: 28px; letter-spacing: -1px; color: #fff; }
+    .ld__navr { display: flex; align-items: center; gap: 6px; }
+    .ld__link { font-size: 14px; font-weight: 700; color: #B5B5B5; padding: 10px 14px; border-radius: 999px; }
+    .ld__link:hover { color: #fff; }
+    .ld__cta { font-size: 14px; font-weight: 800; color: #0A0A0A; background: #fff; padding: 10px 18px; border-radius: 999px; }
+    .ld__cta:hover { background: #E0E0E0; }
+
+    .ld__hero { position: relative; z-index: 2; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 40px 24px 24px; }
+    .ld__pill { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: #B5B5B5; border: 1px solid #262626; border-radius: 999px; padding: 7px 14px; margin-bottom: 28px; }
+    .ld__pill i { width: 6px; height: 6px; border-radius: 50%; background: #fff; display: inline-block; animation: pulse 1.8s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
+    .ld__h1 { font-size: clamp(42px, 9vw, 98px); line-height: .97; font-weight: 900; letter-spacing: -2px; }
+    .ld__h1 em { font-family: var(--font-street); font-style: normal; font-weight: 400; letter-spacing: -1px; display: block; }
+    .ld__sub { margin-top: 26px; font-size: clamp(15px, 2.4vw, 18px); line-height: 1.65; color: #A3A3A3; max-width: 540px; }
+    .ld__acts { margin-top: 36px; display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+    .ld__btn { height: 54px; padding: 0 30px; border-radius: 999px; font-size: 16px; font-weight: 800; display: inline-flex; align-items: center; gap: 8px; letter-spacing: .3px; transition: transform .12s, background .15s, border-color .15s; }
+    .ld__btn--fill { background: #fff; color: #0A0A0A; }
+    .ld__btn--fill:hover { transform: translateY(-2px); }
+    .ld__btn--line { background: transparent; color: #fff; border: 1.5px solid #3A3A3A; }
+    .ld__btn--line:hover { border-color: #fff; }
+
+    .ld__marquee { position: relative; z-index: 2; border-top: 1px solid #1A1A1A; padding: 18px 0; overflow: hidden;
+      -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
+      mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent); }
+    .ld__mtrack { display: inline-flex; gap: 40px; white-space: nowrap; animation: marq 26s linear infinite; }
+    .ld__mtrack span { font-family: var(--font-street); font-size: 22px; color: #333; letter-spacing: -.5px; }
+    .ld__mtrack span:nth-child(3n) { color: #fff; }
+    @keyframes marq { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+
+    @media (max-width: 767px) {
+      .ld__nav { padding: 16px 18px; }
+      .ld__logo { font-size: 24px; }
+      .ld__link { display: none; }
+      .ld__acts { width: 100%; max-width: 340px; }
+      .ld__btn { flex: 1; justify-content: center; padding: 0 18px; }
+    }
+    @media (prefers-reduced-motion: reduce) { .ld__mtrack, .ld__pill i { animation: none; } }
+  </style>
 </head>
-<body>
+<body class="dt-dark">
+  <div class="ld">
+    <div class="ld__grid" aria-hidden="true"></div>
 
-  <!-- ===== 정적 배경 그리드 ===== -->
-  <div class="ambient-grid" aria-hidden="true"></div>
-
-  <!-- ===== 상단 네비 ===== -->
-  <nav class="nav" id="nav">
-    <div class="nav-inner">
-      <a href="/main.html" class="nav-brand">
-        <img src="assets/logo.png" alt="" class="nav-logo" onerror="this.remove()">
-        <span class="nav-brand-text">doothing</span>
-      </a>
-      <div class="nav-links">
-        <a href="#top">메인</a>
-        <a href="#how">사용 흐름</a>
-        <a href="#start">시작하기</a>
+    <nav class="ld__nav">
+      <a href="/landing.html" class="ld__logo">DOOTHING</a>
+      <div class="ld__navr">
+        <a href="/main.html" class="ld__link">둘러보기</a>
+        <a href="/board.html" class="ld__link">커뮤니티</a>
+        <a href="/login.html" class="ld__cta">시작하기</a>
       </div>
-      <a href="/main.html" class="nav-cta">바로가기</a>
-    </div>
-  </nav>
+    </nav>
 
-  <!-- ===== HERO ===== -->
-  <section class="hero" id="top">
-    <div class="hero-inner">
-      <div class="hero-copy">
-        <span class="hero-pill">
-          <span class="hero-pill-dot"></span>
-          학생 굿즈 크라우드펀딩 플랫폼
-        </span>
-
-        <h1 class="hero-title">
-          <span class="reveal-word">우리의</span>
-          <span class="reveal-word">상상을</span><br>
-          <span class="reveal-word gradient-text">현실로.</span>
-        </h1>
-
-        <p class="hero-sub">
-          과잠·키링·에코백·폰케이스까지. <br>
-          흩어져 있던 학생 굿즈를 한곳에 모아<br>
-          목표 수량이 모이면 함께 만드는 공동구매 펀딩.
-        </p>
-
-        <div class="hero-actions">
-          <a href="/main.html" class="btn-primary">
-            <span>지금 둘러보기</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M5 12h14M13 5l7 7-7 7"/>
-            </svg>
-          </a>
-          <a href="#how" class="btn-ghost">사용법 보기</a>
-        </div>
-
-        <p class="hero-foot">로그인 없이 둘러보기 · 펀딩 참여 시에만 로그인</p>
+    <main class="ld__hero">
+      <span class="ld__pill"><i></i> CAMPUS CREATOR ARCHIVE</span>
+      <h1 class="ld__h1">만들고, 입고,<em>DROP IT.</em></h1>
+      <p class="ld__sub">우리 학교 크리에이터들의 한정 드롭 아카이브. 굿즈를 디자인하고, 크루와 공유하고, 세상에 하나뿐인 드롭을 오픈하세요.</p>
+      <div class="ld__acts">
+        <a href="/main.html" class="ld__btn ld__btn--fill">GET DROP →</a>
+        <a href="/login.html" class="ld__btn ld__btn--line">로그인</a>
       </div>
+    </main>
 
-      <div class="hero-visual">
-        <div class="hero-visual-stage">
-          <img src="assets/right text renew.png" alt="doothing" class="hero-photo">
-        </div>
+    <div class="ld__marquee" aria-hidden="true">
+      <div class="ld__mtrack">
+        <span>STREET</span><span>후드</span><span>DROP</span><span>키링</span><span>에코백</span><span>CREW</span>
+        <span>아우터</span><span>LOOKBOOK</span><span>스티커</span><span>텀블러</span><span>ARCHIVE</span><span>과잠</span>
+        <span>STREET</span><span>후드</span><span>DROP</span><span>키링</span><span>에코백</span><span>CREW</span>
+        <span>아우터</span><span>LOOKBOOK</span><span>스티커</span><span>텀블러</span><span>ARCHIVE</span><span>과잠</span>
       </div>
     </div>
-  </section>
-
-  <!-- ===== STORY (단계별 풀스크린) ===== -->
-  <section class="story" id="how">
-    <div class="story-track" id="storyTrack">
-      <div class="story-stage">
-        <div class="story-bg" id="storyBg"></div>
-
-        <div class="story-rail">
-          <div class="story-rail-bar"><span class="story-rail-fill" id="storyRailFill"></span></div>
-          <div class="story-rail-label"><span id="storyRailNum">01</span> / 05</div>
-        </div>
-
-        <div class="story-frames">
-          <div class="story-frame active" data-frame="1">
-            <h2 class="story-headline">
-              <span>만들고</span> <span>싶은</span> <span>굿즈를</span>
-              <span class="story-headline-accent">올립니다.</span>
-            </h2>
-            <p class="story-body">
-              과잠·키링·에코백·폰케이스 무엇이든.<br>
-              대표 영상과 상세 소개로 프로젝트를 등록하세요.
-            </p>
-          </div>
-
-          <div class="story-frame" data-frame="2">
-            <h2 class="story-headline">
-              <span>천천히</span>
-              <span class="story-headline-accent">다듬습니다.</span>
-            </h2>
-            <p class="story-body">
-              임시저장으로 언제든 이어서 작성.<br>
-              창작자 정보와 옵션·가격까지 차근차근 준비해요.
-            </p>
-          </div>
-
-          <div class="story-frame" data-frame="3">
-            <h2 class="story-headline">
-              <span>메이커</span> <span>페이지로</span>
-              <span class="story-headline-accent">소개합니다.</span>
-            </h2>
-            <p class="story-body">
-              나의 모든 프로젝트가 모이는 메이커 페이지.<br>
-              팔로우로 새 펀딩 소식을 가장 먼저 받아봐요.
-            </p>
-          </div>
-
-          <div class="story-frame" data-frame="4">
-            <h2 class="story-headline">
-              <span>사람들이</span>
-              <span class="story-headline-accent">함께 모입니다.</span>
-            </h2>
-            <p class="story-body">
-              마음에 든 굿즈를 골라 펀딩에 참여.<br>
-              목표 수량이 모일수록 진행률이 채워집니다.
-            </p>
-          </div>
-
-          <div class="story-frame" data-frame="5">
-            <h2 class="story-headline">
-              <span>목표가</span> <span>모이면</span>
-              <span class="story-headline-accent">제작합니다.</span>
-            </h2>
-            <p class="story-body">
-              목표 수량 도달 시에만 결제·제작 진행.<br>
-              미달이면 부담 없이 종료, 재고 리스크는 0.
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== START — 마지막 CTA (라이트 톤, 펀드 카드 mockup) ===== -->
-  <section class="start" id="start">
-    <div class="start-bg" aria-hidden="true">
-      <div class="start-orb start-orb-1"></div>
-      <div class="start-orb start-orb-2"></div>
-    </div>
-
-    <div class="start-inner">
-      <div class="start-copy">
-        <span class="start-eyebrow">READY?</span>
-        <h2 class="start-title">
-          내가 만든 굿즈,<br>
-          <span class="start-title-accent">함께 펀딩한다.</span>
-        </h2>
-        <p class="start-sub">
-          프로젝트 등록부터 공동구매 펀딩까지.<br>
-          지금 두띵을 둘러보고 마음에 드는 굿즈를 만나보세요.
-        </p>
-        <a href="/main.html" class="btn-cta-big">
-          <span>두띵 시작하기</span>
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M5 12h14M13 5l7 7-7 7"/>
-          </svg>
-        </a>
-        <p class="start-tag">로그인 없이 바로 둘러보기</p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ===== FOOTER ===== -->
-  <footer class="footer">
-    <div class="footer-inner">
-      <div>
-        <div class="footer-brand">doothing</div>
-        <p class="footer-tag">학생 굿즈 크라우드펀딩 플랫폼</p>
-      </div>
-      <div class="footer-meta">
-        <p>© 2026 doothing</p>
-      </div>
-    </div>
-  </footer>
-
-  <script src="landing.js"></script>
+  </div>
 </body>
 </html>
