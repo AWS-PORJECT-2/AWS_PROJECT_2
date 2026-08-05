@@ -63,6 +63,7 @@ body.dt-dark .wz-catmenu { display: none !important; }
 .dt-drop__name {
   display: flex; align-items: center; gap: 8px;
   font-size: 15px; font-weight: 800; color: #fff; line-height: 1.2;
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .dt-drop__tag {
   font-size: 10px; font-weight: 700; letter-spacing: .1em;
@@ -126,6 +127,7 @@ body.dt-dark .wz-catmenu { display: none !important; }
 .dt-drop__cap {
   padding: 4px 16px 14px;
   font-size: 14px; color: #C9C9C9; line-height: 1.5;
+  overflow-wrap: anywhere; word-break: break-word;
 }
 .dt-drop__cap b { color: #fff; font-weight: 700; }
 
