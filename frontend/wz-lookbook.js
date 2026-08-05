@@ -83,10 +83,14 @@
     crewRow.append(av, crew, share);
     card.appendChild(crewRow);
 
-    // 미디어 + 오버레이
+    const isDemo = String(d.id).indexOf('demo') === 0;
+    const goDetail = (hash) => { if (!isDemo) location.href = '/detail.html?id=' + encodeURIComponent(d.id) + (hash || ''); };
+
+    // 미디어 + 오버레이 — 사진 탭 시 상세로
     const media = W.el('div', { class: 'dt-drop__media' });
     if (d.image) { const im = W.el('img', { src: d.image, alt: d.caption || d.crew, loading: 'lazy' }); media.appendChild(im); }
     media.appendChild(W.el('span', { class: 'dt-drop__live' }, 'LIVE DROP'));
+    if (!isDemo) { media.style.cursor = 'pointer'; media.addEventListener('click', (e) => { if (e.target.closest('.dt-drop__cta')) return; goDetail(); }); }
 
     const cta = W.el('button', { class: 'dt-drop__cta', type: 'button' }, 'GET DROP — ' + money(d.price));
     cta.addEventListener('click', () => {
@@ -104,21 +108,34 @@
     media.appendChild(cta);
     card.appendChild(media);
 
-    // 액션 행
+    // 액션 행 — 좋아요(실제 API 지속), 댓글(상세 이동), 북마크(상세 이동)
     const acts = W.el('div', { class: 'dt-drop__acts' });
-    let liked = false, likeN = Number(d.like) || 0;
-    const likeBtn = W.el('button', { class: 'dt-drop__act', type: 'button', 'aria-label': '좋아요' });
+    let liked = !!d.liked, likeN = Number(d.like) || 0, busy = false;
+    const likeBtn = W.el('button', { class: 'dt-drop__act' + (liked ? ' is-on' : ''), type: 'button', 'aria-label': '좋아요' });
     const likeIco = W.el('span', { html: SVG.heart });
     const likeLbl = W.el('span', {}, likeText(likeN));
     likeBtn.append(likeIco, likeLbl);
     likeBtn.addEventListener('click', () => {
-      liked = !liked; likeN += liked ? 1 : -1;
-      likeBtn.classList.toggle('is-on', liked);
-      likeLbl.textContent = likeText(likeN);
+      if (busy) return;
+      const next = !liked;
+      // 낙관적 갱신
+      liked = next; likeN = Math.max(0, likeN + (next ? 1 : -1));
+      likeBtn.classList.toggle('is-on', liked); likeLbl.textContent = likeText(likeN);
+      if (isDemo) return;
+      busy = true;
+      const req = next ? window.api.post('/funds/' + d.id + '/like', {}) : window.api.del('/funds/' + d.id + '/like');
+      req.then(() => { busy = false; })
+        .catch((e) => { // 롤백
+          busy = false; liked = !next; likeN = Math.max(0, likeN + (next ? -1 : 1));
+          likeBtn.classList.toggle('is-on', liked); likeLbl.textContent = likeText(likeN);
+          if (e && (e.status === 401 || /auth|login/i.test(e.message || ''))) location.href = '/login.html';
+        });
     });
     const cmtBtn = W.el('button', { class: 'dt-drop__act', type: 'button', 'aria-label': '댓글' });
     cmtBtn.append(W.el('span', { html: SVG.comment }), W.el('span', {}, String(d.comment || 0)));
-    const mark = W.el('button', { class: 'dt-drop__bookmark', type: 'button', 'aria-label': '저장', html: SVG.bookmark });
+    cmtBtn.addEventListener('click', () => goDetail('#comments'));
+    const mark = W.el('button', { class: 'dt-drop__bookmark', type: 'button', 'aria-label': '자세히', html: SVG.bookmark });
+    mark.addEventListener('click', () => goDetail());
     acts.append(likeBtn, cmtBtn, mark);
     card.appendChild(acts);
 
@@ -140,6 +157,7 @@
       live: p.status === 'active' || p.status === 'open',
       price: p.price || p.minPrice || 0,
       like: Number(p.likeCount) || 0,
+      liked: !!p.isLiked,
       comment: Number(p.commentCount) || 0,
       caption: p.title || '',
       image: p.coverImageUrl || '',

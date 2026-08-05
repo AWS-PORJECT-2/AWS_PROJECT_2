@@ -18,6 +18,7 @@ body.dt-dark {
   --c-text-faint:#6B6B6B;
   --c-border:    #262626;
   --c-divider:   #1E1E1E;
+  --c-bg-subtle: #141414;  /* 연회색 서브 배경(#f9fafb 폴백) → 다크 서피스 */
 
   /* primary tint 계열 → 어두운 서피스로 (연회색 배경이 다크에서 검게) */
   --c-primary-50:  #1C1C1C;
@@ -317,3 +318,106 @@ body.dt-dark .wz-cat__ic img, body.dt-dark .wz-cat__ic svg,
 body.dt-dark .wz-cats__ic img, body.dt-dark .wz-cats__ic svg {
   filter: grayscale(1) brightness(1.15) contrast(1.02) !important;
 }
+
+/* =====================================================================
+ * 대비 버그 수정: --c-primary-500 이 다크에선 흰색 → '활성/체크/선택' 요소가
+ * 흰 배경 위 흰 콘텐츠가 되어 안 보이던 문제. 흰 배경엔 검은 콘텐츠로 반전.
+ * ===================================================================== */
+/* 완료 체크(작성현황), 체크박스, 선택 표식 — 흰 원 + 검은 체크 */
+body.dt-dark .wc-card.is-done .wc-card__check,
+body.dt-dark .wc-card__check.is-on,
+body.dt-dark .wzc-check.is-on, body.dt-dark .wzc-check.is-checked,
+body.dt-dark .wz-check.is-on,
+body.dt-dark input[type="checkbox"]:checked,
+body.dt-dark input[type="radio"]:checked {
+  background: #fff !important; border-color: #fff !important; color: #0A0A0A !important;
+  accent-color: #fff;
+}
+body.dt-dark .wc-card__check svg, body.dt-dark .wc-card__check::after,
+body.dt-dark .wzc-check svg, body.dt-dark .wz-check svg { color: #0A0A0A !important; stroke: #0A0A0A !important; fill: #0A0A0A !important; }
+/* 체크박스: 네이티브 대신 accent 지정으로 흰바탕+검은체크 */
+body.dt-dark input[type="checkbox"], body.dt-dark input[type="radio"] { accent-color: #fff; }
+
+/* 토글 스위치 ON: 트랙 흰색 + 노브(knob)는 검게(안 보이던 흰 노브 반전) */
+body.dt-dark .wc-toggle.is-on, body.dt-dark .wz-toggle.is-on, body.dt-dark [class*="toggle"].is-on {
+  background: #fff !important; border-color: #fff !important;
+}
+body.dt-dark .wc-toggle.is-on .wc-toggle__knob,
+body.dt-dark .wz-toggle.is-on .wz-toggle__knob,
+body.dt-dark [class*="toggle"].is-on [class*="knob"] { background: #0A0A0A !important; }
+/* 토글 OFF: 어두운 트랙 + 밝은 노브 */
+body.dt-dark [class*="toggle"] [class*="knob"] { background: #6B6B6B; }
+body.dt-dark .wc-toggle, body.dt-dark .wz-toggle { background: #333 !important; }
+
+/* 선택된 카드/옵션(is-on/is-selected) 강조 테두리 — 흰 배경화 방지, 테두리만 */
+body.dt-dark .wc-catcard.is-on, body.dt-dark .wz-tier.is-on, body.dt-dark [class*="card"].is-selected {
+  background: #1C1C1C !important; border-color: #fff !important;
+}
+
+/* =====================================================================
+ * 전 페이지 대비 감사(0805) — 흰 배경 잔존 + 반전CTA 흰텍스트 일괄 수정.
+ * ===================================================================== */
+/* maker 프로필 히어로: 통짜 흰 배경 → 무광 블랙 (creator 이름/뱃지가 흰 위 흰이던 문제) */
+body.dt-dark .wz-mk-hero { background: #0A0A0A !important; }
+body.dt-dark .wz-mk-badge, body.dt-dark .wz-mk-badges { color: #EDEDED; }
+
+/* support 고객센터 채팅: 흰 카드/버블 → 다크 */
+body.dt-dark .sup-card { background: #0A0A0A !important; border-color: #262626 !important; }
+body.dt-dark .sup-sys { background: #141414 !important; border-color: #262626 !important; color: #B5B5B5 !important; }
+body.dt-dark .sup-sys--error { background: #2A1515 !important; border-color: #5A2A2A !important; color: #F87171 !important; }
+body.dt-dark .sup-bubble, body.dt-dark .sup-msg--them .sup-bubble { background: #1F1F1F !important; color: #EDEDED !important; }
+body.dt-dark .sup-msg--me .sup-bubble, body.dt-dark .sup-me .sup-bubble { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .sup-input, body.dt-dark .sup-input__text { background: #141414 !important; border-color: #262626 !important; color: #FAFAFA; }
+
+/* addresses 기본 뱃지: primary-500(흰)+흰텍스트 → 흰 칩/검은 텍스트(반전) */
+body.dt-dark .adr-badge { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .adr-card { background: #141414 !important; border-color: #262626 !important; }
+body.dt-dark .adr-card.is-default { border-color: #fff !important; box-shadow: 0 0 0 1px #fff inset !important; }
+
+/* analytics 상태 버튼: primary-500(흰)+흰텍스트 → 검은 텍스트(반전 CTA) */
+body.dt-dark .wz-an__state-btn { color: #0A0A0A !important; }
+
+/* detail 관리자 패널(삭제요청/하단 관리바): 흰 배경 → 다크 */
+body.dt-dark .wz-d-delreq { background: #141414 !important; border-color: #262626 !important; }
+body.dt-dark .wz-d-delreq__btn { background: #141414 !important; color: #F87171 !important; border-color: #7F1D1D !important; }
+body.dt-dark .wz-d-delreq__btn:hover { background: #ef4444 !important; color: #fff !important; }
+body.dt-dark .wz-d-mbar { background: #0A0A0A !important; border-color: #262626 !important; }
+body.dt-dark .wz-d-mbar__like { background: #141414 !important; border-color: #262626 !important; color: #B5B5B5 !important; }
+
+/* studio 로고: 검정(#1A1A1A) → 흰색 (검은 위 검정이던 문제) */
+body.dt-dark .dt-mp__logo { color: #fff !important; }
+/* studio 제품 캔버스는 흰색 유지(실물 목업) → 빈 힌트는 어두운 회색으로 */
+body.dt-dark .dt-mp__emptyhint { color: #9A9A9A !important; }
+body.dt-dark .dt-mp__buy, body.dt-dark .dt-mp__buy-sum { color: #FAFAFA !important; }
+
+/* 안전망: primary-500 배경(다크에서 흰색) CTA는 텍스트를 검게 — 흰버튼+흰글자 방지 */
+body.dt-dark .adr-mini--ghost { color: #fff !important; border-color: #fff !important; }
+
+/* ── 감사 2차(0805): 인스턴스별 검정 텍스트 + 흰 배경 잔존 ── */
+/* 클릭 가능한 stat 숫자(팔로워/프로젝트)가 링크 상속으로 검정 → 강제 흰색 */
+body.dt-dark .wz-mk-stat__num { color: #FAFAFA !important; }
+body.dt-dark .wz-mk-stat--btn:hover .wz-mk-stat__num { color: #fff !important; }
+/* 홈 스토리 링 이름: 어떤 규칙이 검정으로 덮음 → 밝은 회색 강제 */
+body.dt-dark .dt-story-ring__name { color: #C9C9C9 !important; }
+/* maker 탭바(흰 배경) + 뱃지 리스트(흰 카드) 다크화 */
+body.dt-dark .wz-mk-tabs { background: #0A0A0A !important; border-color: #262626 !important; }
+body.dt-dark .wz-mk-tab { color: #8A8A8A !important; }
+body.dt-dark .wz-mk-tab.is-active { color: #fff !important; }
+body.dt-dark .wz-mk-tab.is-active .wz-mk-tab__count { background: #262626 !important; color: #fff !important; }
+body.dt-dark .wz-mk-badgelist__item { background: #141414 !important; border-color: #262626 !important; }
+body.dt-dark .wz-mk-body, body.dt-dark .wz-mk-comments { background: transparent !important; }
+/* studio 하단 구매바(흰 sticky) 다크화 — 제품 캔버스(흰색)는 실물 목업이라 유지 */
+body.dt-dark .dt-mp__buy { background: #0A0A0A !important; border-color: #262626 !important; }
+body.dt-dark .dt-mp__buy-sum span { color: #B5B5B5 !important; }
+
+/* ── 감사 3차(0805): 클릭 버튼이 자식 텍스트에 검정 강제하는 케이스 마무리 ── */
+/* 스토리 링 버튼 자체 색(자식 span은 이미 처리, 버튼 textContent 검정 방지) */
+body.dt-dark .dt-story-ring { color: #C9C9C9 !important; }
+/* maker 클릭 stat: 버튼 자체 + 라벨까지 밝게 (숫자는 2차에서 처리됨) */
+body.dt-dark .wz-mk-stat, body.dt-dark .wz-mk-stat--btn { color: #FAFAFA !important; }
+body.dt-dark .wz-mk-stat__label { color: #8A8A8A !important; }
+/* studio 제품 캔버스는 흰색 유지 → 그 위 텍스트/힌트는 어두운 색 강제(흰 위 흰 방지) */
+body.dt-dark .dt-mp__canvas { color: #333 !important; }
+/* studio 평점(4.9 · 리뷰) 다크 위에서 밝게 */
+body.dt-dark .dt-mp__prev { color: #B5B5B5 !important; }
+body.dt-dark .dt-mp__prev b { color: #fff !important; }
