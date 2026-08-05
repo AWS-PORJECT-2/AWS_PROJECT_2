@@ -79,6 +79,11 @@ export function createFollowHandler(followRepo: FollowRepository, notificationRe
       }
       res.json({ following: true, followerCount: await followRepo.countFollowers(targetId) });
     } catch (err) {
+      // 대상 유저가 없으면 follows FK(23503) 위반 → 500 대신 404.
+      if ((err as { code?: string })?.code === '23503') {
+        res.status(404).json({ error: 'USER_NOT_FOUND', message: '존재하지 않는 사용자입니다' });
+        return;
+      }
       logger.error({ err, targetId }, '팔로우 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
     }
@@ -178,6 +183,11 @@ export function createFriendRequestHandler(followRepo: FollowRepository, notific
       if (notificationRepo) await notify(notificationRepo, { userId: targetId, type: 'new_follower', title: '친구 요청', body: `${req.userName ?? '회원'}님이 친구 요청을 보냈어요` });
       res.json({ state: 'requested' });
     } catch (err) {
+      // 대상 유저가 없으면 follows FK(23503) 위반 → 500 대신 404(존재하지 않는 사용자).
+      if ((err as { code?: string })?.code === '23503') {
+        res.status(404).json({ error: 'USER_NOT_FOUND', message: '존재하지 않는 사용자입니다' });
+        return;
+      }
       logger.error({ err, targetId }, '친구 요청 실패');
       res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
     }
