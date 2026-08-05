@@ -78,12 +78,12 @@
   function mapFund(p) {
     return { id: p.id, status: p.status, title: (p.title || '무제').toUpperCase(),
       sub: (p.backerCount != null ? p.backerCount + '명 탑승' : ''),
-      image: p.coverImageUrl || '' };
+      image: p.imageUrl || p.coverImageUrl || '' };
   }
   function mapBacking(o) {
     return { id: o.fundId || o.groupBuyId || o.id, status: o.fundStatus || 'ended',
       title: (o.fundTitle || o.title || '무제').toUpperCase(), sub: '탑승',
-      image: o.coverImageUrl || o.fundCoverImageUrl || '' };
+      image: o.fundImageUrl || o.coverImageUrl || o.fundCoverImageUrl || '' };
   }
 
   function run() {

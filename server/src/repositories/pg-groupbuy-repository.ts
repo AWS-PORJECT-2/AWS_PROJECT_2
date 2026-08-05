@@ -380,7 +380,7 @@ export class PgGroupBuyRepository implements GroupBuyRepository {
              g.deadline, g.status, g.hidden, g.category,
              g.delegated, g.mode, g.reward_tiers,
              g.created_at, g.updated_at,
-             COALESCE(g.tryon_image_url, g.design_image_url) AS image_url,
+             COALESCE(g.cover_image_url, g.tryon_image_url, g.design_image_url) AS image_url,
              u.name AS author_name, u.school_domain AS author_department
         FROM groupbuys g
         LEFT JOIN "user" u ON u.id = g.creator_id
