@@ -202,6 +202,10 @@ body.dt-dark .wc-cc--proxy .wc-cc__fee,
 body.dt-dark .wc-proxy__steplabel { color: #EDEDED !important; }
 body.dt-dark .wc-cc--proxy .wc-cc__cta,
 body.dt-dark .wc-cc--proxy:hover .wc-cc__cta { background: #fff !important; color: #0A0A0A !important; }
+/* ⚠️ 직접 개설(--normal) CTA: primary-500(다크에서 흰색) 배경 + 흰 글자 → 안 보임. 검은 글자로 반전. */
+body.dt-dark .wc-cc__cta { color: #0A0A0A !important; }
+body.dt-dark .wc-cc--normal .wc-cc__cta { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .wc-cc--normal:hover .wc-cc__cta { background: #E5E5E5 !important; }
 body.dt-dark .wc-cc__ic { background: #1F1F1F; color: #EDEDED; }
 body.dt-dark .wc-studio, body.dt-dark .wc-main, body.dt-dark .wc-choose,
 body.dt-dark .wc-pick, body.dt-dark .wc-aside { background: transparent; }
@@ -335,6 +339,12 @@ body.dt-dark input[type="radio"]:checked {
 }
 body.dt-dark .wc-card__check svg, body.dt-dark .wc-card__check::after,
 body.dt-dark .wzc-check svg, body.dt-dark .wz-check svg { color: #0A0A0A !important; stroke: #0A0A0A !important; fill: #0A0A0A !important; }
+/* ⚠️ 동의 체크박스(wzc-check)는 체크마크가 ::after border(#fff 하드코딩)라 위 svg 규칙이 안 먹음.
+   미체크=다크 박스, 체크=흰 박스 + 검은 체크(::after border 반전)로 명시 수정. */
+body.dt-dark .wzc-check { background: #1C1C1C !important; border-color: #4D4D4D !important; }
+body.dt-dark .wzc-check:hover { border-color: #808080 !important; }
+body.dt-dark .wzc-check:checked { background: #fff !important; border-color: #fff !important; }
+body.dt-dark .wzc-check:checked::after { border-color: #0A0A0A !important; }
 /* 체크박스: 네이티브 대신 accent 지정으로 흰바탕+검은체크 */
 body.dt-dark input[type="checkbox"], body.dt-dark input[type="radio"] { accent-color: #fff; }
 
@@ -421,3 +431,27 @@ body.dt-dark .dt-mp__canvas { color: #333 !important; }
 /* studio 평점(4.9 · 리뷰) 다크 위에서 밝게 */
 body.dt-dark .dt-mp__prev { color: #B5B5B5 !important; }
 body.dt-dark .dt-mp__prev b { color: #fff !important; }
+
+/* ── admin KPI 카드: 흰 배경(#fff) + primary-700(흰) 숫자 → 흰 위 흰. 카드 다크화 ── */
+body.dt-dark .wza-kpi { background: #141414 !important; border-color: #262626 !important; box-shadow: none !important; }
+body.dt-dark .wza-kpi__sub b { color: #FAFAFA !important; }
+
+/* ── admin 콘솔: 남은 흰 배경 카드/버튼/모달 전부 다크화 ── */
+body.dt-dark .wza-guard, body.dt-dark .wza-chart, body.dt-dark .wza-tablewrap,
+body.dt-dark .wza-modal, body.dt-dark .wza-proxy, body.dt-dark .wza-tier,
+body.dt-dark .wza-panel, body.dt-dark .wza-detail, body.dt-dark .wza-form {
+  background: #141414 !important; border-color: #262626 !important; box-shadow: none !important; color: var(--c-text);
+}
+body.dt-dark .wza-subtab { background: #141414 !important; border-color: #262626 !important; color: #B5B5B5 !important; }
+body.dt-dark .wza-subtab.is-active { background: #fff !important; color: #0A0A0A !important; }
+body.dt-dark .wza-btn--outline, body.dt-dark .wza-btn--warn { background: #141414 !important; border-color: #2E2E2E !important; color: #EDEDED !important; }
+body.dt-dark .wza-btn--danger { background: #2A1515 !important; border-color: #5A2A2A !important; color: #F87171 !important; }
+body.dt-dark .wza-btn--danger:hover { background: #3A1A1A !important; }
+body.dt-dark .wza-libimg { background: #1C1C1C !important; }
+body.dt-dark .wza-tab__badge, body.dt-dark .wza-tab.is-active .wza-tab__badge { background: #fff !important; color: #0A0A0A !important; }
+/* 상태 틴트(경고/에러): 밝은 톤 → 어두운 톤 유지하되 텍스트 대비 확보 */
+body.dt-dark .wza-item--warn { background: #2A2410 !important; border-color: #5A4A1A !important; }
+body.dt-dark .wza-lvl--error, body.dt-dark .wza-badge--report { background: #2A1515 !important; color: #F87171 !important; }
+body.dt-dark .wza-lvl--warn { background: #2A2410 !important; color: #FBBF24 !important; }
+body.dt-dark .wza-table tr.is-error td { background: #1F1414 !important; }
+body.dt-dark .wza-table tr.is-ack td { background: #141414 !important; }

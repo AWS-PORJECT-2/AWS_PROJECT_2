@@ -1,0 +1,86 @@
+/* =====================================================================
+ * DOOTHING — 체크아웃(펀딩 참여) 모달 dt-co. wz-checkout.js 전용 스타일.
+ * 모바일 바텀시트 + 데스크톱 센터. 무광 다크/스트릿 스킨. 이모지 금지.
+ * ===================================================================== */
+
+/* 오버레이 — 전체화면 고정 + 반투명 백드롭 */
+.dt-co {
+  position: fixed; inset: 0; z-index: 1000;
+  display: flex; align-items: flex-end; justify-content: center;
+  background: rgba(0, 0, 0, .72);
+  -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px);
+  padding: 0;
+  animation: dt-co-fade .18s ease;
+}
+@keyframes dt-co-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* 박스 — 바텀시트 */
+.dt-co__box {
+  width: 100%; max-width: 460px;
+  background: #141414; color: #FAFAFA;
+  border: 1px solid #262626; border-bottom: 0;
+  border-radius: 20px 20px 0 0;
+  max-height: 88vh; display: flex; flex-direction: column;
+  box-shadow: 0 -16px 48px rgba(0, 0, 0, .6);
+  animation: dt-co-up .24s cubic-bezier(.16, 1, .3, 1);
+}
+@keyframes dt-co-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+/* 헤더 */
+.dt-co__head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 20px 14px; border-bottom: 1px solid #1E1E1E; flex-shrink: 0;
+}
+.dt-co__head strong { font-size: 17px; font-weight: 800; letter-spacing: -.3px; color: #fff; }
+.dt-co__close {
+  width: 32px; height: 32px; flex-shrink: 0; border: 0; border-radius: 50%;
+  background: #1F1F1F; color: #B5B5B5; font-size: 20px; line-height: 1; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; transition: background .15s, color .15s;
+}
+.dt-co__close:hover { background: #2A2A2A; color: #fff; }
+
+/* 바디 — 스크롤 */
+.dt-co__body {
+  padding: 16px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+  overflow-y: auto; display: flex; flex-direction: column; gap: 12px;
+}
+
+/* 리워드 티어 선택 행 */
+.dt-co__tier {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px;
+  width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  background: #1A1A1A; border: 1.5px solid #2A2A2A; border-radius: 14px;
+  padding: 16px 16px; transition: border-color .14s, background .14s, transform .1s;
+}
+.dt-co__tier:hover { border-color: #fff; background: #1F1F1F; }
+.dt-co__tier:active { transform: scale(.99); }
+.dt-co__tier-name { font-size: 15px; font-weight: 800; color: #fff; flex: 1 1 auto; }
+.dt-co__tier-price { font-size: 15px; font-weight: 800; color: #fff; letter-spacing: -.3px; }
+.dt-co__tier-desc { flex-basis: 100%; font-size: 13px; color: #8A8A8A; line-height: 1.5; margin-top: 2px; }
+
+/* 완료 모달 — 커버/제목/정보/노트/CTA */
+.dt-co__cover { width: 100%; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden; background: #1C1C1C; }
+.dt-co__cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.dt-co__ttl { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -.4px; margin: 2px 0; }
+.dt-co__info { display: flex; flex-direction: column; gap: 2px; background: #1A1A1A; border: 1px solid #262626; border-radius: 12px; padding: 6px 14px; }
+.dt-co__inforow { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #1E1E1E; }
+.dt-co__inforow:last-child { border-bottom: 0; }
+.dt-co__inforow span { font-size: 13px; color: #8A8A8A; flex-shrink: 0; }
+.dt-co__inforow b { font-size: 14px; color: #EDEDED; font-weight: 700; text-align: right; }
+.dt-co__note { font-size: 12.5px; line-height: 1.6; color: #8A8A8A; background: #171717; border-radius: 10px; padding: 12px 14px; }
+
+/* CTA — 반전(흰 바탕/검은 글자) */
+.dt-co__cta {
+  width: 100%; height: 52px; margin-top: 4px; border: 0; border-radius: 14px;
+  background: #fff; color: #0A0A0A; font-family: inherit; font-size: 15px; font-weight: 800;
+  cursor: pointer; transition: background .15s, transform .1s;
+}
+.dt-co__cta:hover { background: #E5E5E5; }
+.dt-co__cta:active { transform: scale(.99); }
+
+@media (min-width: 600px) {
+  .dt-co { align-items: center; padding: 24px; }
+  .dt-co__box { border-radius: 20px; border-bottom: 1px solid #262626; }
+  @keyframes dt-co-up { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+}
+@media (prefers-reduced-motion: reduce) { .dt-co, .dt-co__box { animation: none; } }
