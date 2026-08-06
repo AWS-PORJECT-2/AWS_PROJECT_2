@@ -213,23 +213,6 @@ export function createFollowingFeedHandler(followRepo: FollowRepository, groupBu
  * → { viewCount, backerCount, confirmedCount, totalAmount, achievementRate,
  *     subscriberCount, daily:[{date, backers}] } (최근 14일 reward_orders 기준)
  */
-export function createMeFundAnalyticsHandler(groupBuyRepo: GroupBuyRepository) {
-  return async (req: Request, res: Response): Promise<void> => {
-    const userId = req.userId;
-    if (!userId) { res.status(401).json(createErrorResponse(new AppError('NOT_AUTHENTICATED'))); return; }
-    const id = req.params.id;
-    try {
-      const analytics = await groupBuyRepo.getAnalytics(id, userId);
-      // 본인 펀드가 아니거나 존재하지 않으면 동일하게 404 — 타인 펀드 분석 노출 방지.
-      if (!analytics) { res.status(404).json({ error: 'NOT_FOUND', message: '본인이 개설한 펀드만 조회할 수 있습니다' }); return; }
-      res.json(analytics);
-    } catch (err) {
-      logger.error({ err, id, userId }, '본인 펀드 분석 조회 실패');
-      res.status(500).json(createErrorResponse(new AppError('INTERNAL_ERROR')));
-    }
-  };
-}
-
 /** POST /api/me/funds/:id/delete-request — 작성자가 본인 펀드 삭제 요청 (관리자가 처리). */
 export function createFundDeleteRequestHandler(groupBuyRepo: GroupBuyRepository) {
   return async (req: Request, res: Response): Promise<void> => {

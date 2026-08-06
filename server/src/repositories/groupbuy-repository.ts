@@ -169,8 +169,6 @@ export interface GroupBuyRepository {
   subscriberUserIds(groupbuyId: string): Promise<string[]>;
   // 찜(좋아요)한 사용자 목록 — 마감임박(deadline_soon) 알림을 후원자뿐 아니라 관심 사용자에게도 보내기 위함.
   likerUserIds(groupbuyId: string): Promise<string[]>;
-  // 본인 펀드 분석 — 본인 소유가 아니면 null. reward_orders 실제 컬럼 집계.
-  getAnalytics(id: string, ownerId: string): Promise<GroupBuyAnalytics | null>;
 }
 
 // 본인 펀드 분석(GET /api/me/funds/:id/analytics) — 023_plan_features + 요금제 게이팅

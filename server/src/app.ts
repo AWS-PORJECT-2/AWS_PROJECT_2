@@ -29,7 +29,7 @@ import { createAdminMeHandler, createAdminStatsHandler, createAdminLogsHandler, 
 import { PgReportRepository } from './repositories/pg-report-repository.js';
 import { createReportCreateHandler, createAdminReportsListHandler, createAdminReportResolveHandler } from './routes/reports-routes.js';
 import { PgRewardOrderRepository } from './repositories/pg-reward-order-repository.js';
-import { createMeFundsHandler, createMeFundUpdateHandler, createFollowingFeedHandler, createMeFundAnalyticsHandler } from './routes/me-funds.js';
+import { createMeFundsHandler, createMeFundUpdateHandler, createFollowingFeedHandler } from './routes/me-funds.js';
 import {
   createUpdateMeHandler, createDeleteMeHandler,
   createUpdateNotificationsHandler, createConsentHandler,
@@ -438,8 +438,6 @@ export function createApp(
   app.get('/api/me/funds', authRequired, createMeFundsHandler(groupBuyRepository));
   // 창작자 본인 펀드 수정 — 기본정보·스토리만(화이트리스트). creatorId/가격/상태/일정 등은 변경 불가.
   app.patch('/api/me/funds/:id', authRequired, writeRateLimit, createMeFundUpdateHandler(groupBuyRepository));
-  // 본인 펀드 분석(요금제 분석 기능) — 본인 소유 아니면 404.
-  app.get('/api/me/funds/:id/analytics', authRequired, createMeFundAnalyticsHandler(groupBuyRepository));
   app.get('/api/me/backings', authRequired, createMyBackingsHandler(rewardOrderRepository));
   // 내 주문 목록(취소 신청 화면용) + 본인 주문 취소 신청(#4).
   app.get('/api/me/orders', authRequired, createMyOrdersHandler(rewardOrderRepository));
