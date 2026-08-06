@@ -13,7 +13,7 @@
 @media (max-width: 900px) { .dz-grid { grid-template-columns: 1fr; } }
 
 /* 캔버스 영역 */
-.dz-stage { background: #f6f6f8; border: 1px solid #ececf1; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; align-items: center; }
+.dz-stage { background: #f6f6f8; border: 1px solid #ececf1; border-radius: 16px; padding: 18px; display: flex; flex-direction: column; align-items: center; max-width: 100%; overflow-x: auto; }
 .dz-views { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; justify-content: center; }
 .dz-view { border: 1.5px solid #e5e5ea; background: #fff; color: #555; border-radius: 999px; padding: 7px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
 .dz-view.is-on { border-color: #8B5CF6; color: #8B5CF6; background: #f5f0ff; }
