@@ -207,12 +207,6 @@ export function createFollowingFeedHandler(followRepo: FollowRepository, groupBu
   };
 }
 
-/**
- * GET /api/me/funds/:id/analytics — 본인 펀드 분석(요금제 분석 기능, 023).
- * 본인 소유가 아니거나 없으면 404(존재 노출 방지).
- * → { viewCount, backerCount, confirmedCount, totalAmount, achievementRate,
- *     subscriberCount, daily:[{date, backers}] } (최근 14일 reward_orders 기준)
- */
 /** POST /api/me/funds/:id/delete-request — 작성자가 본인 펀드 삭제 요청 (관리자가 처리). */
 export function createFundDeleteRequestHandler(groupBuyRepo: GroupBuyRepository) {
   return async (req: Request, res: Response): Promise<void> => {
